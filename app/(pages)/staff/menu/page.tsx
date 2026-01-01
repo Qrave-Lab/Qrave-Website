@@ -1,0 +1,1041 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Search,
+  Plus,
+  X,
+  Pencil,
+  Image as ImageIcon,
+  Trash2,
+  Archive,
+  ArchiveRestore,
+  CheckSquare,
+  Square,
+  UtensilsCrossed,
+  Box,
+  UploadCloud,
+  Info,
+  Calendar,
+} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import StaffSidebar from "@/app/components/StaffSidebar";
+import { api } from "@/app/lib/api";
+import { toast, Toaster} from "react-hot-toast";
+
+
+type Category = "all" | "food" | "beverage" | "alcohol";
+type Allergen =
+  | "Dairy"
+  | "Gluten"
+  | "Peanuts"
+  | "Tree Nuts"
+  | "Eggs"
+  | "Soy"
+  | "Fish"
+  | "Shellfish";
+type AllergenConfidence = "contains" | "may_contain" | "trace";
+type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+const ALLERGEN_LIST: Allergen[] = [
+  "Dairy",
+  "Gluten",
+  "Peanuts",
+  "Tree Nuts",
+  "Eggs",
+  "Soy",
+  "Fish",
+  "Shellfish",
+];
+const DAYS: DayOfWeek[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+type Variant = {
+  id: string;
+  label: string;
+  price: number;
+  stockCount: number | null;
+};
+
+type StructuredIngredient = {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: "g" | "ml" | "pcs" | "oz";
+};
+
+type MenuItem = {
+  id: string;
+  name: string;
+  categoryId: string;
+  category: "food" | "beverage" | "alcohol";
+  price: number;
+  isAvailable: boolean;
+  isArchived: boolean;
+  stockCount: number | null;
+  variants: Variant[];
+  imageUrl: string;
+  modelGlb: string;
+  description: string;
+  ingredientsStructured: StructuredIngredient[];
+  allergens: { type: Allergen; confidence: AllergenConfidence }[];
+  availableDays: DayOfWeek[];
+  updatedBy: string;
+};
+
+export const authFetch = async (url: string, options: RequestInit = {}) => {
+  const token = localStorage.getItem("access_token");
+  return await api(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
+};
+
+export default function MenuPage() {
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [activeTab, setActiveTab] = useState<Category>("all");
+  const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [modalMode, setModalMode] = useState<"add" | "edit" | null>(null);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [activeModalTab, setActiveModalTab] = useState<
+    "general" | "variants" | "assets" | "ingredients" | "availability"
+  >("general");
+  const [loading, setLoading] = useState(true);
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const modelInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    refreshMenu();
+  }, []);
+
+  const refreshMenu = async () => {
+    try {
+      setLoading(true);
+      const data = await authFetch("/api/admin/menu");
+      const menuData = Array.isArray(data) ? data : [];
+      const normalized = menuData.map((item: any) => ({
+        ...item,
+        name:
+          typeof item.name === "object"
+            ? item.name?.String ?? ""
+            : item.name ?? "",
+        description: item.description?.String ?? item.description ?? "",
+        imageUrl: item.imageUrl?.String ?? item.imageUrl ?? "",
+        modelGlb: item.modelGlb?.String ?? item.modelGlb ?? "",
+        variants: item.variants || [],
+        allergens: item.allergens || [],
+        availableDays: item.availableDays || [],
+        ingredientsStructured: item.ingredientsStructured || [],
+      }));
+      setItems(normalized);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "image" | "model"
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingItem) return;
+    const fakeUrl = URL.createObjectURL(file);
+    if (type === "image") setEditingItem({ ...editingItem, imageUrl: fakeUrl });
+    else setEditingItem({ ...editingItem, modelGlb: fakeUrl });
+  };
+
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedItems);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedItems(newSet);
+  };
+
+  const handleBulkAction = async (action: "archive" | "unarchive") => {
+    for (const id of selectedItems) {
+      const item = items.find((i) => i.id === id);
+      if (!item) continue;
+      await authFetch(`/api/admin/menu/item?item_id=${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ ...item, is_archived: action === "archive" }),
+      });
+    }
+    setSelectedItems(new Set());
+    refreshMenu();
+  };
+
+  const handleSave = async () => {
+    if (!editingItem) return;
+    try {
+      let itemId = editingItem.id;
+      if (modalMode === "add") {
+        const res: any = await authFetch("/api/admin/menu/item", {
+          method: "POST",
+          body: JSON.stringify({
+            category_id: "a27b329e-ba0c-4afe-a516-8b06eb34a30c",
+            name: editingItem.name,
+            price: editingItem.price,
+          }),
+        });
+        itemId = res.id;
+      }
+      await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...editingItem,
+          image_url: editingItem.imageUrl,
+          model_glb: editingItem.modelGlb,
+          available_days: editingItem.availableDays,
+          is_archived: editingItem.isArchived,
+        }),
+      });
+      setModalMode(null);
+      toast.success("Edits Saved Successfully")
+      refreshMenu();
+    } catch (err) {
+      alert("Save failed");
+    }
+  };
+
+  const filteredItems = items.filter((item) => {
+    const matchesTab = activeTab === "all" || item.category === activeTab;
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    const matchesArchive = showArchived ? item.isArchived : !item.isArchived;
+    return matchesTab && matchesSearch && matchesArchive;
+  });
+
+  return (
+    <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
+      <Toaster/>
+      <StaffSidebar />
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-20 sticky top-0">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+              Menu Engineering
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                <Box className="w-3 h-3" /> {items.length} Products
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setShowArchived(!showArchived);
+                setSelectedItems(new Set());
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                showArchived
+                  ? "bg-amber-50 border-amber-200 text-amber-700"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {showArchived ? (
+                <ArchiveRestore className="w-4 h-4" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+              {showArchived ? "Exit Archive" : "Archive"}
+            </button>
+            <button
+              onClick={() => {
+                setEditingItem({
+                  id: "",
+                  name: "",
+                  category: "food",
+                  categoryId: "a27b329e-ba0c-4afe-a516-8b06eb34a30c",
+                  price: 0,
+                  isAvailable: true,
+                  isArchived: false,
+                  stockCount: null,
+                  variants: [],
+                  imageUrl: "",
+                  modelGlb: "",
+                  description: "",
+                  ingredientsStructured: [],
+                  allergens: [],
+                  availableDays: [...DAYS],
+                  updatedBy: "Staff",
+                });
+                setModalMode("add");
+                setActiveModalTab("general");
+              }}
+              className="bg-indigo-600 text-white px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-indigo-200 hover:bg-indigo-700 transition-all"
+            >
+              <Plus className="w-4 h-4" /> New Product
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-8 bg-[#F8F9FB]">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">
+                  {["all", "food", "beverage", "alcohol"].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveTab(cat as any)}
+                      className={`px-5 py-2 rounded-lg text-xs font-bold capitalize transition-all ${
+                        activeTab === cat
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-500 hover:text-slate-900"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                {filteredItems.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (selectedItems.size === filteredItems.length)
+                        setSelectedItems(new Set());
+                      else
+                        setSelectedItems(
+                          new Set(filteredItems.map((i) => i.id))
+                        );
+                    }}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-2 transition-colors"
+                  >
+                    {selectedItems.size === filteredItems.length ? (
+                      <CheckSquare className="w-4 h-4 text-indigo-600" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                    Select All
+                  </button>
+                )}
+              </div>
+              <div className="relative min-w-[300px] group">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search menu..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 outline-none transition-all shadow-sm"
+                />
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {selectedItems.size > 0 && (
+                <motion.div
+                  initial={{ y: -20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -20, opacity: 0 }}
+                  className="mb-6 bg-slate-900 text-white p-3 rounded-2xl flex items-center justify-between shadow-xl"
+                >
+                  <span className="text-xs font-bold ml-3 tracking-wide">
+                    {selectedItems.size} products selected
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        handleBulkAction(showArchived ? "unarchive" : "archive")
+                      }
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-white/10"
+                    >
+                      {showArchived ? (
+                        <ArchiveRestore className="w-4 h-4" />
+                      ) : (
+                        <Archive className="w-4 h-4" />
+                      )}
+                      {showArchived ? "Restore Items" : "Archive Items"}
+                    </button>
+                    <button
+                      onClick={() => setSelectedItems(new Set())}
+                      className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${
+                    selectedItems.has(item.id)
+                      ? "border-indigo-600 ring-4 ring-indigo-600/10"
+                      : "border-slate-200 hover:shadow-xl hover:shadow-slate-200/50"
+                  }`}
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                    <button
+                      onClick={() => toggleSelection(item.id)}
+                      className="absolute top-3 left-3 z-10 p-1 rounded-md bg-white/90 backdrop-blur shadow-sm transition-transform active:scale-90"
+                    >
+                      {selectedItems.has(item.id) ? (
+                        <CheckSquare className="w-5 h-5 text-indigo-600" />
+                      ) : (
+                        <Square className="w-5 h-5 text-slate-300" />
+                      )}
+                    </button>
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <ImageIcon className="w-10 h-10" />
+                      </div>
+                    )}
+                    <div className="absolute top-3 right-3 flex gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingItem(item);
+                          setModalMode("edit");
+                        }}
+                        className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {item.modelGlb && (
+                      <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
+                        <Box className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col">
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="font-bold text-slate-900 truncate pr-2">
+                        {item.name}
+                      </h3>
+                      <span className="text-sm font-black whitespace-nowrap text-slate-900">
+                        ₹{item.price}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-4">
+                      {item.description || "No description provided."}
+                    </p>
+                    <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        {item.category}
+                      </span>
+                      <div className="flex -space-x-1">
+                        {item.allergens.slice(0, 3).map((a) => (
+                          <div
+                            key={a.type}
+                            className="w-5 h-5 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-amber-700"
+                            title={a.type}
+                          >
+                            {a.type[0]}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <AnimatePresence>
+        {modalMode && editingItem && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              onClick={() => setModalMode(null)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden"
+            >
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    {modalMode === "add" ? "Create Product" : "Edit Product"}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Configure details, pricing, and assets.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setModalMode(null)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                >
+                  <X />
+                </button>
+              </div>
+
+              <div className="flex bg-slate-50/50 px-8 border-b border-slate-100">
+                {[
+                  { id: "general", label: "General Info" },
+                  { id: "variants", label: "Variants & Price" },
+                  { id: "assets", label: "Media & 3D" },
+                  { id: "ingredients", label: "Ingredients" },
+                  { id: "availability", label: "Availability" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveModalTab(tab.id as any)}
+                    className={`px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${
+                      activeModalTab === tab.id
+                        ? "border-indigo-600 text-indigo-600"
+                        : "border-transparent text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-10 bg-white">
+                {activeModalTab === "general" && (
+                  <div className="grid grid-cols-12 gap-10">
+                    <div className="col-span-8 space-y-8">
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          Product Name
+                        </label>
+                        <input
+                          value={editingItem.name}
+                          onChange={(e) =>
+                            setEditingItem({
+                              ...editingItem,
+                              name: e.target.value,
+                            })
+                          }
+                          className="w-full text-lg font-bold border-b-2 border-slate-100 focus:border-indigo-600 outline-none pb-2 transition-all"
+                          placeholder="e.g. Signature Truffle Burger"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          Description
+                        </label>
+                        <textarea
+                          value={editingItem.description}
+                          onChange={(e) =>
+                            setEditingItem({
+                              ...editingItem,
+                              description: e.target.value,
+                            })
+                          }
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm min-h-[120px] outline-none focus:ring-4 focus:ring-indigo-50 transition-all"
+                          placeholder="Describe taste, texture, and presentation..."
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Base Price (₹)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={editingItem.price || ""}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  price:
+                                    e.target.value === ""
+                                      ? 0
+                                      : parseFloat(e.target.value),
+                                })
+                              }
+                              className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all pl-8"
+                            />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                              ₹
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Category
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={editingItem.category}
+                              onChange={(e) =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  category: e.target.value as any,
+                                })
+                              }
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none cursor-pointer"
+                            >
+                              <option value="food">Food</option>
+                              <option value="beverage">Beverage</option>
+                              <option value="alcohol">Alcohol</option>
+                            </select>
+                            {/* Custom arrow icon for the select to match the premium feel */}
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-span-4">
+                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                          <Info className="w-3.5 h-3.5" /> Allergen Matrix
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {ALLERGEN_LIST.map((alg) => {
+                            const active = editingItem.allergens.some(
+                              (a) => a.type === alg
+                            );
+                            return (
+                              <button
+                                key={alg}
+                                onClick={() => {
+                                  const next = active
+                                    ? editingItem.allergens.filter(
+                                        (a) => a.type !== alg
+                                      )
+                                    : [
+                                        ...editingItem.allergens,
+                                        {
+                                          type: alg,
+                                          confidence: "contains" as const,
+                                        },
+                                      ];
+                                  setEditingItem({
+                                    ...editingItem,
+                                    allergens: next,
+                                  });
+                                }}
+                                className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold transition-all ${
+                                  active
+                                    ? "bg-indigo-600 border-indigo-600 text-white"
+                                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                                }`}
+                              >
+                                <div
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    active ? "bg-white" : "bg-slate-200"
+                                  }`}
+                                />
+                                {alg}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeModalTab === "assets" && (
+                  <div className="grid grid-cols-2 gap-10">
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                        Display Image
+                      </label>
+                      <input
+                        type="file"
+                        hidden
+                        ref={imageInputRef}
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, "image")}
+                      />
+                      <div
+                        onClick={() => imageInputRef.current?.click()}
+                        className="group relative aspect-video bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all hover:bg-slate-100"
+                      >
+                        {editingItem.imageUrl ? (
+                          <img
+                            src={editingItem.imageUrl}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-center">
+                            <UploadCloud className="mx-auto text-slate-300 mb-2" />
+                            <span className="text-sm font-bold text-slate-900">
+                              Upload JPG/PNG
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                        3D Asset (.GLB)
+                      </label>
+                      <input
+                        type="file"
+                        hidden
+                        ref={modelInputRef}
+                        accept=".glb"
+                        onChange={(e) => handleFileUpload(e, "model")}
+                      />
+                      <div
+                        onClick={() => modelInputRef.current?.click()}
+                        className="group relative aspect-video bg-indigo-50/30 border-2 border-dashed border-indigo-100 rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-indigo-50"
+                      >
+                        {editingItem.modelGlb ? (
+                          <div className="text-center p-6 bg-white rounded-2xl shadow-sm border border-indigo-100">
+                            <Box className="mx-auto text-indigo-600 mb-2" />
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                              Model Ready
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <Box className="mx-auto text-indigo-200 mb-2" />
+                            <span className="text-sm font-bold text-indigo-300">
+                              Upload GLB for AR
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeModalTab === "ingredients" && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                      <div>
+                        <h4 className="text-sm font-bold text-indigo-900">
+                          Structured Ingredients
+                        </h4>
+                        <p className="text-[11px] text-indigo-600 font-medium">
+                          Define components for accurate tracking and costing.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setEditingItem({
+                            ...editingItem,
+                            ingredientsStructured: [
+                              ...editingItem.ingredientsStructured,
+                              {
+                                id: Date.now().toString(),
+                                name: "",
+                                quantity: 0,
+                                unit: "g",
+                              },
+                            ],
+                          })
+                        }
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" /> Add Ingredient
+                      </button>
+                    </div>
+
+                    {editingItem.ingredientsStructured.length === 0 ? (
+                      <div className="text-center py-20 border-2 border-dashed border-slate-100 rounded-3xl">
+                        <div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <UtensilsCrossed className="w-6 h-6 text-slate-300" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-400">
+                          No ingredients listed yet.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3">
+                        {editingItem.ingredientsStructured.map((ing, idx) => (
+                          <div
+                            key={ing.id}
+                            className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-2xl group hover:border-indigo-200 transition-all"
+                          >
+                            <div className="flex-1 grid grid-cols-12 gap-4">
+                              <div className="col-span-6 space-y-1">
+                                <span className="text-[10px] font-black uppercase text-slate-400">
+                                  Ingredient Name
+                                </span>
+                                <input
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-indigo-600 pb-1"
+                                  value={ing.name}
+                                  onChange={(e) => {
+                                    const list = [
+                                      ...editingItem.ingredientsStructured,
+                                    ];
+                                    list[idx].name = e.target.value;
+                                    setEditingItem({
+                                      ...editingItem,
+                                      ingredientsStructured: list,
+                                    });
+                                  }}
+                                  placeholder="e.g. Extra Virgin Olive Oil"
+                                />
+                              </div>
+                              <div className="col-span-3 space-y-1">
+                                <span className="text-[10px] font-black uppercase text-slate-400">
+                                  Qty
+                                </span>
+                                <input
+                                  type="number"
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-indigo-600 pb-1"
+                                  value={ing.quantity || ""}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => {
+                                    const list = [
+                                      ...editingItem.ingredientsStructured,
+                                    ];
+                                    list[idx].quantity =
+                                      e.target.value === ""
+                                        ? 0
+                                        : parseFloat(e.target.value);
+                                    setEditingItem({
+                                      ...editingItem,
+                                      ingredientsStructured: list,
+                                    });
+                                  }}
+                                />
+                              </div>
+                              <div className="col-span-3 space-y-1">
+                                <span className="text-[10px] font-black uppercase text-slate-400">
+                                  Unit
+                                </span>
+                                <select
+                                  value={ing.unit}
+                                  onChange={(e) => {
+                                    const list = [
+                                      ...editingItem.ingredientsStructured,
+                                    ];
+                                    list[idx].unit = e.target.value as any;
+                                    setEditingItem({
+                                      ...editingItem,
+                                      ingredientsStructured: list,
+                                    });
+                                  }}
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-indigo-600 pb-1"
+                                >
+                                  <option value="g">Grams (g)</option>
+                                  <option value="ml">Milliliters (ml)</option>
+                                  <option value="pcs">Pieces (pcs)</option>
+                                  <option value="oz">Ounces (oz)</option>
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  ingredientsStructured:
+                                    editingItem.ingredientsStructured.filter(
+                                      (i) => i.id !== ing.id
+                                    ),
+                                })
+                              }
+                              className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeModalTab === "variants" && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center px-2">
+                      <h4 className="font-bold text-slate-900">
+                        Serving Tiers
+                      </h4>
+                      <button
+                        onClick={() =>
+                          setEditingItem({
+                            ...editingItem,
+                            variants: [
+                              ...editingItem.variants,
+                              {
+                                id: Date.now().toString(),
+                                label: "New Size",
+                                price: editingItem.price,
+                                stockCount: 0,
+                              },
+                            ],
+                          })
+                        }
+                        className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
+                      >
+                        + Add Variant
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {editingItem.variants.map((v, i) => (
+                        <div
+                          key={v.id}
+                          className="flex gap-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl items-center group"
+                        >
+                          <div className="flex-1 grid grid-cols-2 gap-8">
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-black uppercase text-slate-400">
+                                Size Label
+                              </span>
+                              <input
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                value={v.label}
+                                onChange={(e) => {
+                                  const l = [...editingItem.variants];
+                                  l[i].label = e.target.value;
+                                  setEditingItem({
+                                    ...editingItem,
+                                    variants: l,
+                                  });
+                                }}
+                                placeholder="Large, 500ml, etc."
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-black uppercase text-slate-400">
+                                Price (₹)
+                              </span>
+                              <input
+                                type="number"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                value={v.price || ""}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const l = [...editingItem.variants];
+                                  l[i].price =
+                                    e.target.value === ""
+                                      ? 0
+                                      : parseFloat(e.target.value);
+                                  setEditingItem({
+                                    ...editingItem,
+                                    variants: l,
+                                  });
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <button
+                            onClick={() =>
+                              setEditingItem({
+                                ...editingItem,
+                                variants: editingItem.variants.filter(
+                                  (v_) => v_.id !== v.id
+                                ),
+                              })
+                            }
+                            className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeModalTab === "availability" && (
+                  <div className="space-y-8">
+                    <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
+                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" /> Weekly Availability
+                      </h4>
+                      <div className="flex flex-wrap gap-3">
+                        {DAYS.map((day) => {
+                          const active =
+                            editingItem.availableDays.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              onClick={() => {
+                                const next = active
+                                  ? editingItem.availableDays.filter(
+                                      (d) => d !== day
+                                    )
+                                  : [...editingItem.availableDays, day];
+                                setEditingItem({
+                                  ...editingItem,
+                                  availableDays: next,
+                                });
+                              }}
+                              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-black uppercase transition-all border-2 ${
+                                active
+                                  ? "bg-indigo-600 border-indigo-600 text-white shadow-lg"
+                                  : "bg-white border-slate-100 text-slate-300 hover:border-slate-200"
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <button
+                  onClick={() =>
+                    setEditingItem({
+                      ...editingItem,
+                      isArchived: !editingItem.isArchived,
+                    })
+                  }
+                  className="text-xs font-bold text-slate-400 hover:text-rose-500 flex items-center gap-2 transition-colors"
+                >
+                  {editingItem.isArchived ? (
+                    <ArchiveRestore className="w-4 h-4" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  {editingItem.isArchived
+                    ? "Restore to Menu"
+                    : "Archive Product"}
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setModalMode(null)}
+                    className="px-6 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-all"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="px-10 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-black shadow-lg transition-all"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
