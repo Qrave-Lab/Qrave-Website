@@ -17,12 +17,13 @@ import {
   UploadCloud,
   Info,
   Calendar,
+  ChefHat,
+  Loader2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
-import { toast, Toaster} from "react-hot-toast";
-
+import { toast, Toaster } from "react-hot-toast";
 
 type Category = "all" | "food" | "beverage" | "alcohol";
 type Allergen =
@@ -179,7 +180,7 @@ export default function MenuPage() {
         const res: any = await authFetch("/api/admin/menu/item", {
           method: "POST",
           body: JSON.stringify({
-            category_id: "a27b329e-ba0c-4afe-a516-8b06eb34a30c",
+            category_id: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
             name: editingItem.name,
             price: editingItem.price,
           }),
@@ -197,7 +198,7 @@ export default function MenuPage() {
         }),
       });
       setModalMode(null);
-      toast.success("Edits Saved Successfully")
+      toast.success("Edits Saved Successfully");
       refreshMenu();
     } catch (err) {
       alert("Save failed");
@@ -215,7 +216,7 @@ export default function MenuPage() {
 
   return (
     <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
-      <Toaster/>
+      <Toaster />
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -255,7 +256,7 @@ export default function MenuPage() {
                   id: "",
                   name: "",
                   category: "food",
-                  categoryId: "a27b329e-ba0c-4afe-a516-8b06eb34a30c",
+                  categoryId: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
                   price: 0,
                   isAvailable: true,
                   isArchived: false,
@@ -367,86 +368,142 @@ export default function MenuPage() {
               )}
             </AnimatePresence>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${
-                    selectedItems.has(item.id)
-                      ? "border-indigo-600 ring-4 ring-indigo-600/10"
-                      : "border-slate-200 hover:shadow-xl hover:shadow-slate-200/50"
-                  }`}
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
-                    <button
-                      onClick={() => toggleSelection(item.id)}
-                      className="absolute top-3 left-3 z-10 p-1 rounded-md bg-white/90 backdrop-blur shadow-sm transition-transform active:scale-90"
-                    >
-                      {selectedItems.has(item.id) ? (
-                        <CheckSquare className="w-5 h-5 text-indigo-600" />
-                      ) : (
-                        <Square className="w-5 h-5 text-slate-300" />
-                      )}
-                    </button>
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <ImageIcon className="w-10 h-10" />
-                      </div>
-                    )}
-                    <div className="absolute top-3 right-3 flex gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingItem(item);
-                          setModalMode("edit");
-                        }}
-                        className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm transition-colors"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </div>
-                    {item.modelGlb && (
-                      <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
-                        <Box className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-5 flex-1 flex flex-col">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-bold text-slate-900 truncate pr-2">
-                        {item.name}
-                      </h3>
-                      <span className="text-sm font-black whitespace-nowrap text-slate-900">
-                        ₹{item.price}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-4">
-                      {item.description || "No description provided."}
-                    </p>
-                    <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        {item.category}
-                      </span>
-                      <div className="flex -space-x-1">
-                        {item.allergens.slice(0, 3).map((a) => (
-                          <div
-                            key={a.type}
-                            className="w-5 h-5 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-amber-700"
-                            title={a.type}
-                          >
-                            {a.type[0]}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-32">
+                <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                <p className="text-slate-500 font-medium animate-pulse">
+                  Synchronizing menu data...
+                </p>
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border border-dashed border-slate-200 shadow-sm"
+              >
+                <div className="bg-slate-50 p-6 rounded-full mb-6">
+                  <ChefHat className="w-16 h-16 text-slate-300" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  {search ? "No matches found" : "Your menu is currently empty"}
+                </h3>
+                <p className="text-slate-500 text-sm mt-2 max-w-sm text-center px-6">
+                  {search 
+                    ? `We couldn't find any items matching "${search}". Try a different keyword.` 
+                    : "Kickstart your digital menu by adding your first signature dish or beverage."}
+                </p>
+                {!search && (
+                  <button
+                    onClick={() => {
+                      setEditingItem({
+                        id: "",
+                        name: "",
+                        category: "food",
+                        categoryId: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
+                        price: 0,
+                        isAvailable: true,
+                        isArchived: false,
+                        stockCount: null,
+                        variants: [],
+                        imageUrl: "",
+                        modelGlb: "",
+                        description: "",
+                        ingredientsStructured: [],
+                        allergens: [],
+                        availableDays: [...DAYS],
+                        updatedBy: "Staff",
+                      });
+                      setModalMode("add");
+                      setActiveModalTab("general");
+                    }}
+                    className="mt-8 bg-indigo-600 text-white px-8 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                  >
+                    <Plus className="w-5 h-5" /> Add First Product
+                  </button>
+                )}
+              </motion.div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${
+                      selectedItems.has(item.id)
+                        ? "border-indigo-600 ring-4 ring-indigo-600/10"
+                        : "border-slate-200 hover:shadow-xl hover:shadow-slate-200/50"
+                    }`}
+                  >
+                    <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                      <button
+                        onClick={() => toggleSelection(item.id)}
+                        className="absolute top-3 left-3 z-10 p-1 rounded-md bg-white/90 backdrop-blur shadow-sm transition-transform active:scale-90"
+                      >
+                        {selectedItems.has(item.id) ? (
+                          <CheckSquare className="w-5 h-5 text-indigo-600" />
+                        ) : (
+                          <Square className="w-5 h-5 text-slate-300" />
+                        )}
+                      </button>
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <ImageIcon className="w-10 h-10" />
+                        </div>
+                      )}
+                      <div className="absolute top-3 right-3 flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingItem(item);
+                            setModalMode("edit");
+                          }}
+                          className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {item.modelGlb && (
+                        <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
+                          <Box className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-bold text-slate-900 truncate pr-2">
+                          {item.name}
+                        </h3>
+                        <span className="text-sm font-black whitespace-nowrap text-slate-900">
+                          ₹{item.price}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-4">
+                        {item.description || "No description provided."}
+                      </p>
+                      <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                          {item.category}
+                        </span>
+                        <div className="flex -space-x-1">
+                          {item.allergens.slice(0, 3).map((a) => (
+                            <div
+                              key={a.type}
+                              className="w-5 h-5 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-amber-700"
+                              title={a.type}
+                            >
+                              {a.type[0]}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -588,7 +645,6 @@ export default function MenuPage() {
                               <option value="beverage">Beverage</option>
                               <option value="alcohol">Alcohol</option>
                             </select>
-                            {/* Custom arrow icon for the select to match the premium feel */}
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"

@@ -60,7 +60,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       const status = err.status;
-      alert(err.message);
+
       if (status === 401 || status === 403) {
         setError("Invalid email or password");
       } else if (status === 404) {
