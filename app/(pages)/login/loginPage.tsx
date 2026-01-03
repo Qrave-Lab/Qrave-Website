@@ -56,7 +56,7 @@ export default function LoginPage() {
         localStorage.setItem("access_token", res.access_token);
         localStorage.setItem("refresh_token", res.refresh_token);
         toast.success("Welcome back");
-        router.push("/staff/settings");
+        router.push("/staff");
       }
     } catch (err: any) {
       const status = err.status;

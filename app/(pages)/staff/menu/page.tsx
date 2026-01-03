@@ -172,38 +172,91 @@ export default function MenuPage() {
     refreshMenu();
   };
 
-  const handleSave = async () => {
-    if (!editingItem) return;
-    try {
-      let itemId = editingItem.id;
-      if (modalMode === "add") {
-        const res: any = await authFetch("/api/admin/menu/item", {
-          method: "POST",
-          body: JSON.stringify({
-            category_id: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
-            name: editingItem.name,
-            price: editingItem.price,
-          }),
-        });
-        itemId = res.id;
-      }
-      await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
-        method: "PUT",
+ const handleSave = async () => {
+  if (!editingItem) return;
+
+  try {
+    let itemId = editingItem.id;
+
+    if (modalMode === "add") {
+      const res: any = await authFetch("/api/admin/menu/item", {
+        method: "POST",
         body: JSON.stringify({
-          ...editingItem,
-          image_url: editingItem.imageUrl,
-          model_glb: editingItem.modelGlb,
-          available_days: editingItem.availableDays,
-          is_archived: editingItem.isArchived,
+          category_id: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
+          name: editingItem.name,
+          price: editingItem.price,
         }),
       });
-      setModalMode(null);
-      toast.success("Edits Saved Successfully");
-      refreshMenu();
-    } catch (err) {
-      alert("Save failed");
+      itemId = res.id;
     }
-  };
+
+    await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: editingItem.name,
+        price: editingItem.price,
+        description: editingItem.description,
+        image_url: editingItem.imageUrl,
+        model_glb: editingItem.modelGlb,
+        available_days: editingItem.availableDays,
+        is_archived: editingItem.isArchived,
+      }),
+    });
+
+    await authFetch(
+      `/api/admin/menu/item/ingredients?item_id=${itemId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(
+          editingItem.ingredientsStructured.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            unit: i.unit,
+          }))
+        ),
+      }
+    );
+
+    const existing = items.find((i) => i.id === itemId)?.variants ?? [];
+
+    const existingIds = new Set(existing.map((v) => v.id));
+    const currentIds = new Set(editingItem.variants.map((v) => v.id));
+
+    for (const v of editingItem.variants) {
+      if (!existingIds.has(v.id)) {
+       await authFetch(
+  `/api/admin/menu/item/variant?item_id=${itemId}`,
+  {
+    method: "POST",
+    body: JSON.stringify({
+      label: v.label,
+      price: v.price,
+      ...(v.stockCount != null ? { stock: v.stockCount } : {}),
+    }),
+  }
+);
+
+      }
+    }
+
+    for (const v of existing) {
+      if (!currentIds.has(v.id)) {
+        await authFetch(
+          `/api/admin/menu/item/variant?variant_id=${v.id}`,
+          { method: "DELETE" }
+        );
+      }
+    }
+
+    setModalMode(null);
+    toast.success("Edits Saved Successfully");
+    refreshMenu();
+  } catch (err) {
+    console.error(err);
+    toast.error("Save failed");
+  }
+};
+
 
   const filteredItems = items.filter((item) => {
     const matchesTab = activeTab === "all" || item.category === activeTab;
@@ -921,98 +974,100 @@ export default function MenuPage() {
                   </div>
                 )}
 
-                {activeModalTab === "variants" && (
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center px-2">
-                      <h4 className="font-bold text-slate-900">
-                        Serving Tiers
-                      </h4>
-                      <button
-                        onClick={() =>
-                          setEditingItem({
-                            ...editingItem,
-                            variants: [
-                              ...editingItem.variants,
-                              {
-                                id: Date.now().toString(),
-                                label: "New Size",
-                                price: editingItem.price,
-                                stockCount: 0,
-                              },
-                            ],
-                          })
-                        }
-                        className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
-                      >
-                        + Add Variant
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {editingItem.variants.map((v, i) => (
-                        <div
-                          key={v.id}
-                          className="flex gap-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl items-center group"
-                        >
-                          <div className="flex-1 grid grid-cols-2 gap-8">
-                            <div className="space-y-1">
-                              <span className="text-[10px] font-black uppercase text-slate-400">
-                                Size Label
-                              </span>
-                              <input
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
-                                value={v.label}
-                                onChange={(e) => {
-                                  const l = [...editingItem.variants];
-                                  l[i].label = e.target.value;
-                                  setEditingItem({
-                                    ...editingItem,
-                                    variants: l,
-                                  });
-                                }}
-                                placeholder="Large, 500ml, etc."
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <span className="text-[10px] font-black uppercase text-slate-400">
-                                Price (₹)
-                              </span>
-                              <input
-                                type="number"
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
-                                value={v.price || ""}
-                                onFocus={(e) => e.target.select()}
-                                onChange={(e) => {
-                                  const l = [...editingItem.variants];
-                                  l[i].price =
-                                    e.target.value === ""
-                                      ? 0
-                                      : parseFloat(e.target.value);
-                                  setEditingItem({
-                                    ...editingItem,
-                                    variants: l,
-                                  });
-                                }}
-                              />
-                            </div>
-                          </div>
-                          <button
-                            onClick={() =>
-                              setEditingItem({
-                                ...editingItem,
-                                variants: editingItem.variants.filter(
-                                  (v_) => v_.id !== v.id
-                                ),
-                              })
-                            }
-                            className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              {activeModalTab === "variants" && (
+  <div className="space-y-6">
+    <div className="flex justify-between items-center px-2">
+      <h4 className="font-bold text-slate-900">Serving Tiers</h4>
+      <button
+        onClick={() =>
+          setEditingItem({
+            ...editingItem,
+            variants: [
+              ...editingItem.variants,
+              {
+                id: crypto.randomUUID(),
+                label: "",
+                price: editingItem.price,
+                stockCount: null,
+              },
+            ],
+          })
+        }
+        className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
+      >
+        + Add Variant
+      </button>
+    </div>
+    <div className="space-y-3">
+      {editingItem.variants.map((v, i) => (
+        <div
+          key={v.id}
+          className="flex gap-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl items-center group"
+        >
+          <div className="flex-1 grid grid-cols-12 gap-6">
+            <div className="col-span-5 space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400">
+                Size / Variant Label
+              </span>
+              <input
+                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                value={v.label}
+                onChange={(e) => {
+                  const newList = [...editingItem.variants];
+                  newList[i].label = e.target.value;
+                  setEditingItem({ ...editingItem, variants: newList });
+                }}
+                placeholder="e.g. Regular, Large, 500ml"
+              />
+            </div>
+            <div className="col-span-3 space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400">
+                Price (₹)
+              </span>
+              <input
+                type="number"
+                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                value={v.price || ""}
+                onChange={(e) => {
+                  const newList = [...editingItem.variants];
+                  newList[i].price = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                  setEditingItem({ ...editingItem, variants: newList });
+                }}
+              />
+            </div>
+            <div className="col-span-4 space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400">
+                Stock (Optional)
+              </span>
+              <input
+                type="number"
+                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                value={v.stockCount ?? ""}
+                placeholder="Unlimited"
+                onChange={(e) => {
+                  const newList = [...editingItem.variants];
+                  newList[i].stockCount = e.target.value === "" ? null : parseInt(e.target.value);
+                  setEditingItem({ ...editingItem, variants: newList });
+                }}
+              />
+            </div>
+          </div>
+          <button
+            onClick={() =>
+              setEditingItem({
+                ...editingItem,
+                variants: editingItem.variants.filter((item) => item.id !== v.id),
+              })
+            }
+            className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
                 {activeModalTab === "availability" && (
                   <div className="space-y-8">
