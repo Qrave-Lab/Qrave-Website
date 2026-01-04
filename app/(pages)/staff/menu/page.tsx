@@ -147,9 +147,34 @@ export default function MenuPage() {
   ) => {
     const file = e.target.files?.[0];
     if (!file || !editingItem) return;
-    const fakeUrl = URL.createObjectURL(file);
-    if (type === "image") setEditingItem({ ...editingItem, imageUrl: fakeUrl });
-    else setEditingItem({ ...editingItem, modelGlb: fakeUrl });
+
+    try {
+      if (type === "image") {
+  const res: any = await authFetch(
+    `/api/admin/menu/item/image/upload-url?item_id=${editingItem.id}`,
+    { method: "POST" }
+  );
+
+  await fetch(res.upload_url, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
+
+  setEditingItem({
+    ...editingItem,
+    imageUrl: res.public_url,
+  });
+
+  toast.success("Image uploaded");
+}
+else {
+        const fakeUrl = URL.createObjectURL(file);
+        setEditingItem({ ...editingItem, modelGlb: fakeUrl });
+      }
+    } catch (err) {
+      toast.error("Upload failed");
+    }
   };
 
   const toggleSelection = (id: string) => {
@@ -172,40 +197,38 @@ export default function MenuPage() {
     refreshMenu();
   };
 
- const handleSave = async () => {
-  if (!editingItem) return;
+  const handleSave = async () => {
+    if (!editingItem) return;
 
-  try {
-    let itemId = editingItem.id;
+    try {
+      let itemId = editingItem.id;
 
-    if (modalMode === "add") {
-      const res: any = await authFetch("/api/admin/menu/item", {
-        method: "POST",
+      if (modalMode === "add") {
+        const res: any = await authFetch("/api/admin/menu/item", {
+          method: "POST",
+          body: JSON.stringify({
+            category_id: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
+            name: editingItem.name,
+            price: editingItem.price,
+          }),
+        });
+        itemId = res.id;
+      }
+
+      await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
+        method: "PUT",
         body: JSON.stringify({
-          category_id: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
           name: editingItem.name,
           price: editingItem.price,
+          description: editingItem.description,
+          image_url: editingItem.imageUrl,
+          model_glb: editingItem.modelGlb,
+          available_days: editingItem.availableDays,
+          is_archived: editingItem.isArchived,
         }),
       });
-      itemId = res.id;
-    }
 
-    await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        name: editingItem.name,
-        price: editingItem.price,
-        description: editingItem.description,
-        image_url: editingItem.imageUrl,
-        model_glb: editingItem.modelGlb,
-        available_days: editingItem.availableDays,
-        is_archived: editingItem.isArchived,
-      }),
-    });
-
-    await authFetch(
-      `/api/admin/menu/item/ingredients?item_id=${itemId}`,
-      {
+      await authFetch(`/api/admin/menu/item/ingredients?item_id=${itemId}`, {
         method: "PUT",
         body: JSON.stringify(
           editingItem.ingredientsStructured.map((i) => ({
@@ -214,55 +237,45 @@ export default function MenuPage() {
             unit: i.unit,
           }))
         ),
+      });
+
+      const existing = items.find((i) => i.id === itemId)?.variants ?? [];
+      const existingIds = new Set(existing.map((v) => v.id));
+      const currentIds = new Set(editingItem.variants.map((v) => v.id));
+
+      for (const v of editingItem.variants) {
+        if (!existingIds.has(v.id)) {
+          await authFetch(`/api/admin/menu/item/variant?item_id=${itemId}`, {
+            method: "POST",
+            body: JSON.stringify({
+              label: v.label,
+              price: v.price,
+              ...(v.stockCount != null ? { stock: v.stockCount } : {}),
+            }),
+          });
+        }
       }
-    );
 
-    const existing = items.find((i) => i.id === itemId)?.variants ?? [];
-
-    const existingIds = new Set(existing.map((v) => v.id));
-    const currentIds = new Set(editingItem.variants.map((v) => v.id));
-
-    for (const v of editingItem.variants) {
-      if (!existingIds.has(v.id)) {
-       await authFetch(
-  `/api/admin/menu/item/variant?item_id=${itemId}`,
-  {
-    method: "POST",
-    body: JSON.stringify({
-      label: v.label,
-      price: v.price,
-      ...(v.stockCount != null ? { stock: v.stockCount } : {}),
-    }),
-  }
-);
-
+      for (const v of existing) {
+        if (!currentIds.has(v.id)) {
+          await authFetch(`/api/admin/menu/item/variant?variant_id=${v.id}`, {
+            method: "DELETE",
+          });
+        }
       }
+
+      setModalMode(null);
+      toast.success("Edits Saved Successfully");
+      refreshMenu();
+    } catch (err) {
+      console.error(err);
+      toast.error("Save failed");
     }
-
-    for (const v of existing) {
-      if (!currentIds.has(v.id)) {
-        await authFetch(
-          `/api/admin/menu/item/variant?variant_id=${v.id}`,
-          { method: "DELETE" }
-        );
-      }
-    }
-
-    setModalMode(null);
-    toast.success("Edits Saved Successfully");
-    refreshMenu();
-  } catch (err) {
-    console.error(err);
-    toast.error("Save failed");
-  }
-};
-
+  };
 
   const filteredItems = items.filter((item) => {
     const matchesTab = activeTab === "all" || item.category === activeTab;
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(search.toLowerCase());
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchesArchive = showArchived ? item.isArchived : !item.isArchived;
     return matchesTab && matchesSearch && matchesArchive;
   });
@@ -429,7 +442,7 @@ export default function MenuPage() {
                 </p>
               </div>
             ) : filteredItems.length === 0 ? (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border border-dashed border-slate-200 shadow-sm"
@@ -441,8 +454,8 @@ export default function MenuPage() {
                   {search ? "No matches found" : "Your menu is currently empty"}
                 </h3>
                 <p className="text-slate-500 text-sm mt-2 max-w-sm text-center px-6">
-                  {search 
-                    ? `We couldn't find any items matching "${search}". Try a different keyword.` 
+                  {search
+                    ? `We couldn't find any items matching "${search}". Try a different keyword.`
                     : "Kickstart your digital menu by adding your first signature dish or beverage."}
                 </p>
                 {!search && (
@@ -974,100 +987,100 @@ export default function MenuPage() {
                   </div>
                 )}
 
-              {activeModalTab === "variants" && (
-  <div className="space-y-6">
-    <div className="flex justify-between items-center px-2">
-      <h4 className="font-bold text-slate-900">Serving Tiers</h4>
-      <button
-        onClick={() =>
-          setEditingItem({
-            ...editingItem,
-            variants: [
-              ...editingItem.variants,
-              {
-                id: crypto.randomUUID(),
-                label: "",
-                price: editingItem.price,
-                stockCount: null,
-              },
-            ],
-          })
-        }
-        className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
-      >
-        + Add Variant
-      </button>
-    </div>
-    <div className="space-y-3">
-      {editingItem.variants.map((v, i) => (
-        <div
-          key={v.id}
-          className="flex gap-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl items-center group"
-        >
-          <div className="flex-1 grid grid-cols-12 gap-6">
-            <div className="col-span-5 space-y-1">
-              <span className="text-[10px] font-black uppercase text-slate-400">
-                Size / Variant Label
-              </span>
-              <input
-                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
-                value={v.label}
-                onChange={(e) => {
-                  const newList = [...editingItem.variants];
-                  newList[i].label = e.target.value;
-                  setEditingItem({ ...editingItem, variants: newList });
-                }}
-                placeholder="e.g. Regular, Large, 500ml"
-              />
-            </div>
-            <div className="col-span-3 space-y-1">
-              <span className="text-[10px] font-black uppercase text-slate-400">
-                Price (₹)
-              </span>
-              <input
-                type="number"
-                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
-                value={v.price || ""}
-                onChange={(e) => {
-                  const newList = [...editingItem.variants];
-                  newList[i].price = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                  setEditingItem({ ...editingItem, variants: newList });
-                }}
-              />
-            </div>
-            <div className="col-span-4 space-y-1">
-              <span className="text-[10px] font-black uppercase text-slate-400">
-                Stock (Optional)
-              </span>
-              <input
-                type="number"
-                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
-                value={v.stockCount ?? ""}
-                placeholder="Unlimited"
-                onChange={(e) => {
-                  const newList = [...editingItem.variants];
-                  newList[i].stockCount = e.target.value === "" ? null : parseInt(e.target.value);
-                  setEditingItem({ ...editingItem, variants: newList });
-                }}
-              />
-            </div>
-          </div>
-          <button
-            onClick={() =>
-              setEditingItem({
-                ...editingItem,
-                variants: editingItem.variants.filter((item) => item.id !== v.id),
-              })
-            }
-            className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+                {activeModalTab === "variants" && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center px-2">
+                      <h4 className="font-bold text-slate-900">Serving Tiers</h4>
+                      <button
+                        onClick={() =>
+                          setEditingItem({
+                            ...editingItem,
+                            variants: [
+                              ...editingItem.variants,
+                              {
+                                id: crypto.randomUUID(),
+                                label: "",
+                                price: editingItem.price,
+                                stockCount: null,
+                              },
+                            ],
+                          })
+                        }
+                        className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
+                      >
+                        + Add Variant
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {editingItem.variants.map((v, i) => (
+                        <div
+                          key={v.id}
+                          className="flex gap-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl items-center group"
+                        >
+                          <div className="flex-1 grid grid-cols-12 gap-6">
+                            <div className="col-span-5 space-y-1">
+                              <span className="text-[10px] font-black uppercase text-slate-400">
+                                Size / Variant Label
+                              </span>
+                              <input
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                value={v.label}
+                                onChange={(e) => {
+                                  const newList = [...editingItem.variants];
+                                  newList[i].label = e.target.value;
+                                  setEditingItem({ ...editingItem, variants: newList });
+                                }}
+                                placeholder="e.g. Regular, Large, 500ml"
+                              />
+                            </div>
+                            <div className="col-span-3 space-y-1">
+                              <span className="text-[10px] font-black uppercase text-slate-400">
+                                Price (₹)
+                              </span>
+                              <input
+                                type="number"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                value={v.price || ""}
+                                onChange={(e) => {
+                                  const newList = [...editingItem.variants];
+                                  newList[i].price = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                                  setEditingItem({ ...editingItem, variants: newList });
+                                }}
+                              />
+                            </div>
+                            <div className="col-span-4 space-y-1">
+                              <span className="text-[10px] font-black uppercase text-slate-400">
+                                Stock (Optional)
+                              </span>
+                              <input
+                                type="number"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                value={v.stockCount ?? ""}
+                                placeholder="Unlimited"
+                                onChange={(e) => {
+                                  const newList = [...editingItem.variants];
+                                  newList[i].stockCount = e.target.value === "" ? null : parseInt(e.target.value);
+                                  setEditingItem({ ...editingItem, variants: newList });
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <button
+                            onClick={() =>
+                              setEditingItem({
+                                ...editingItem,
+                                variants: editingItem.variants.filter((item) => item.id !== v.id),
+                              })
+                            }
+                            className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {activeModalTab === "availability" && (
                   <div className="space-y-8">
@@ -1077,16 +1090,13 @@ export default function MenuPage() {
                       </h4>
                       <div className="flex flex-wrap gap-3">
                         {DAYS.map((day) => {
-                          const active =
-                            editingItem.availableDays.includes(day);
+                          const active = editingItem.availableDays.includes(day);
                           return (
                             <button
                               key={day}
                               onClick={() => {
                                 const next = active
-                                  ? editingItem.availableDays.filter(
-                                      (d) => d !== day
-                                    )
+                                  ? editingItem.availableDays.filter((d) => d !== day)
                                   : [...editingItem.availableDays, day];
                                 setEditingItem({
                                   ...editingItem,
@@ -1124,9 +1134,7 @@ export default function MenuPage() {
                   ) : (
                     <Trash2 className="w-4 h-4" />
                   )}
-                  {editingItem.isArchived
-                    ? "Restore to Menu"
-                    : "Archive Product"}
+                  {editingItem.isArchived ? "Restore to Menu" : "Archive Product"}
                 </button>
                 <div className="flex gap-3">
                   <button
