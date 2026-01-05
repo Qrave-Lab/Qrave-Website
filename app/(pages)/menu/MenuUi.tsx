@@ -20,6 +20,8 @@ import {
 import { useCartStore, getCartKey } from "@/stores/cartStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "react-hot-toast";
+import { api } from "@/app/lib/api";
+
 
 
 const getRatingStyles = (rating: number) => {
@@ -61,7 +63,7 @@ type MenuItem = {
   price: number;
   description: string;
   image: string;
-  isVeg: boolean;
+  isVeg?: boolean;
   rating: number;
   arModelGlb: string | null;
   arModelUsdz?: string | null;
@@ -264,6 +266,15 @@ const ModernFoodUI: React.FC = () => {
       isAvailable: true,
     },
   ];
+
+
+  const MenuItems: MenuItem[]= async ()=>{
+    const data = await api('/api/menu',
+      {method:'GET'}
+    );
+
+
+  }
 
   const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 

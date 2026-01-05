@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -18,18 +18,26 @@ import {
   RefreshCw,
   Smartphone
 } from "lucide-react";
+import { api } from "@/app/lib/api";
 
-// --- Types & Constants ---
 
-type Table = { id: string; label: string; zone: string; url: string };
 
-const tables: Table[] = [
-  { id: "t1", label: "01", zone: "Main Hall", url: "https://noir.menu/t/1" },
-  { id: "t2", label: "02", zone: "Main Hall", url: "http://localhost:3000/menu?table=2" },
-  { id: "t3", label: "03", zone: "Patio", url: "https://noir.menu/t/3" },
-  { id: "t4", label: "04", zone: "Patio", url: "https://noir.menu/t/4" },
-  { id: "t5", label: "05", zone: "Bar", url: "https://noir.menu/t/5" },
-];
+type Table = {
+  id: string;
+  table_number: number;
+  is_enabled: boolean;
+};
+
+const getTableLabel = (table: Table) =>
+  table.table_number.toString().padStart(2, "0");
+
+
+const getTableUrl = (table: Table | null) => {
+  if (!table) return "";
+  return `${window.location.origin}/t/${table.table_number}`;
+};
+
+
 
 const templates = [
   { id: "modern", name: "Clean Minimal", class: "bg-white text-gray-900" },
@@ -46,13 +54,30 @@ const fonts = [
 const brandColors = ["#000000", "#10B981", "#6366F1", "#F43F5E", "#F59E0B"];
 
 export default function QrFlyerGenerator() {
+  useEffect(() => {
+  getTable();
+}, []);
+
+  
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // --- State ---
-  const [selectedTable, setSelectedTable] = useState(tables[0]);
-  const [activeSection, setActiveSection] = useState<string | null>("design"); // 'target', 'design', 'content'
+  const [activeSection, setActiveSection] = useState<string | null>("design"); 
+
+   const [tables, setTables] = useState<Table[]>([]);
+const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+
+const getTable = async()=>{
+    const data =await api("/api/admin/tables",{
+    method:"GET"
+  });
+  setTables(data);
+  if (data.length > 0) {
+    setSelectedTable(data[0]);
+  }
+}
 
   // Design State
   const [template, setTemplate] = useState("modern");
@@ -62,13 +87,11 @@ export default function QrFlyerGenerator() {
   const [logoImage, setLogoImage] = useState<string | null>(null);
   const [overlayOpacity, setOverlayOpacity] = useState(50); // % opacity for readability
 
-  // Content State
   const [headline, setHeadline] = useState("Scan to Order");
   const [subheadline, setSubheadline] = useState("View menu, order & pay from your phone.");
   const [wifiSsid, setWifiSsid] = useState("");
   const [wifiPass, setWifiPass] = useState("");
 
-  // --- Handlers ---
   const handlePrint = () => window.print();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string | null) => void) => {
@@ -84,10 +107,18 @@ export default function QrFlyerGenerator() {
     setActiveSection(activeSection === section ? null : section);
   };
 
+  if (!selectedTable) {
+  return (
+    <div className="flex h-screen items-center justify-center text-gray-500">
+      Loading tables…
+    </div>
+  );
+}
+
+
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
       
-      {/* --- Print Styles (Hidden in UI) --- */}
       <style jsx global>{`
         @media print {
           @page { size: A5 portrait; margin: 0; }
@@ -156,7 +187,7 @@ export default function QrFlyerGenerator() {
                           : "border-gray-200 hover:border-gray-300 text-gray-600 bg-white"
                       }`}
                     >
-                      <span>{t.label}</span>
+                      <span>{getTableLabel(t)}</span>
                       <span className="text-[9px] font-normal opacity-70 truncate w-full text-center">{t.zone}</span>
                     </button>
                   ))}
@@ -448,13 +479,16 @@ export default function QrFlyerGenerator() {
                      boxShadow: template === 'modern' ? `0 20px 40px -10px ${brandColor}40` : ''
                   }}
                 >
-                  <QRCodeSVG 
-                     value={selectedTable.url} 
-                     size={220} 
-                     level="H"
-                     fgColor={template === 'dark' ? '#ffffff' : '#000000'}
-                     bgColor="transparent"
-                  />
+                 {selectedTable && (
+  <QRCodeSVG
+    value={getTableUrl(selectedTable)}
+    size={220}
+    level="H"
+    fgColor={template === "dark" ? "#ffffff" : "#000000"}
+    bgColor="transparent"
+  />
+)}
+
                   
                   {/* Scan Me Badge */}
                   <div 
@@ -495,7 +529,8 @@ export default function QrFlyerGenerator() {
                    <div className="pt-6 border-t border-current border-opacity-10 flex justify-between items-end opacity-60">
                       <div className="text-left">
                          <div className="text-[10px] uppercase tracking-widest mb-1">Table Number</div>
-                         <div className="text-3xl font-black">{selectedTable.label}</div>
+                         <div className="text-3xl font-black">  {getTableLabel(selectedTable)}
+</div>
                       </div>
                       <div className="text-right">
                          <div className="text-[10px] uppercase tracking-widest mb-1">Zone</div>
