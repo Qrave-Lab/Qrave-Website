@@ -1,5 +1,6 @@
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:9090";
+  // process.env.NEXT_PUBLIC_API_URL || 
+  "http://localhost:9090";
 
 
 const PUBLIC_ROUTES = [

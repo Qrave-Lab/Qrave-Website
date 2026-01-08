@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import ModernFoodUI from "./MenuUi";
+import ModernFoodUI from "../../MenuUi";
 
 type MenuPageProps = {
   searchParams: Promise<{

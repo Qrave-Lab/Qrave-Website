@@ -18,7 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useCartStore, getCartKey } from "@/stores/cartStore";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Toaster, toast } from "react-hot-toast";
 import { api } from "@/app/lib/api";
 
@@ -85,8 +85,8 @@ const getItemPrice = (item: MenuItem, variantId?: string) => {
 const ModernFoodUI: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isVegOnly, setIsVegOnly] = useState(false);
-  const searchParams = useSearchParams();
-  const tableNumber = searchParams.get("table");
+  const searchParams = useParams();
+  const tableNumber = searchParams.tableno;
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     starters: true,

@@ -1,6 +1,8 @@
 import React from "react";
 import { Store, Camera, Loader2, Image as ImageIcon } from "lucide-react";
 import { Restaurant } from "../page";
+import toast from "react-hot-toast";
+
 
 type Props = {
   data: Restaurant;
@@ -11,8 +13,21 @@ type Props = {
 
 export default function RestaurantProfile({ data, onChange, onLogoChange, isUploading }: Props) {
   const handleChange = (key: keyof Restaurant, value: any) => {
-    onChange({ ...data, [key]: value });
-  };
+  if (key === "phone") {
+    const cleaned = value.replace(/\D/g, "");
+
+    if (cleaned.length > 10) {
+      toast.error("Phone number cannot exceed 10 digits.");
+      return;
+    }
+
+    onChange({ ...data, [key]: cleaned });
+    return;
+  }
+
+  onChange({ ...data, [key]: value });
+};
+
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -85,11 +100,15 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
               Phone Number
             </label>
             <input
-              value={data.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
-              placeholder="+91 00000-00000"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
-            />
+  value={data.phone}
+  onChange={(e) => handleChange("phone", e.target.value)}
+  placeholder="0000000000"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  maxLength={10}
+  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+/>
+
           </div>
         </div>
 
