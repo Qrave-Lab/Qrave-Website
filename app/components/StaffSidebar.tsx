@@ -67,7 +67,7 @@ export default function StaffSidebar() {
     >
       <div className={`h-16 flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center" : "px-6"}`}>
         <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center text-white shrink-0 transition-all duration-300">
-          <span className="font-bold text-xs">N.</span>
+          <span className="font-bold text-xs"></span>
         </div>
         {!isCollapsed && (
           <motion.div 
