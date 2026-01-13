@@ -45,7 +45,7 @@ export default function StaffManager({ restaurantId, onRefresh }: Props) {
     if (!deletingId) return;
     setIsDeleting(true);
     try {
-      await api(`/api/admin/restaurants/${restaurantId}/staff/${deletingId}`, {
+      await api(`/api/admin/delete/${deletingId}`, {
         method: "DELETE",
       });
       toast.success("Staff member removed");
