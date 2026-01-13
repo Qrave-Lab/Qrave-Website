@@ -63,7 +63,6 @@ export default function QrFlyerGenerator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // --- State ---
   const [activeSection, setActiveSection] = useState<string | null>("design"); 
 
    const [tables, setTables] = useState<Table[]>([]);

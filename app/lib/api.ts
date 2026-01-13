@@ -9,6 +9,10 @@ const PUBLIC_ROUTES = [
   "/public/otp/request",
   "/public/otp/verify",
   "/public/otp/resend",
+  "/api/customer/menu",
+  "/api/customer/orders",
+  "/api/customer/orders/items",
+  "/api/customer/orders/bill",
 ];
 
 
@@ -63,6 +67,7 @@ export async function api<T>(
   if (res.status === 204) {
     return {} as T;
   }
+  
 
   return res.json();
 }
