@@ -39,6 +39,7 @@ type CartState = {
   addItem: (id: number, variantId?: string) => void;
   removeItem: (id: number, variantId?: string) => void;
   clearCart: () => void;
+  syncCart: (items: Cart) => void;
   orders: Record<string, Order>;
   activeOrderId?: string;
   addOrder: (order: Order) => void;
@@ -76,6 +77,7 @@ export const useCartStore = create<CartState>()(
           };
         }),
       clearCart: () => set({ cart: {} }),
+      syncCart: (items: Cart) => set({ cart: items || {} }),
       orders: {},
       activeOrderId: undefined,
       addOrder: (order: Order) =>
