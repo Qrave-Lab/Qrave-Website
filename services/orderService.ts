@@ -70,6 +70,7 @@ export const orderService = {
       body: JSON.stringify({
         order_id: orderId,
         menu_item_id: itemId,
+        variant_id: variantId || null,
       }),
     });
   },
@@ -81,6 +82,7 @@ export const orderService = {
       body: JSON.stringify({
         order_id: orderId,
         menu_item_id: itemId,
+        variant_id: variantId || null,
       }),
     });
   },
