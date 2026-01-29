@@ -10,7 +10,7 @@ type Variant = {
 };
 
 type MenuItem = {
-  id: number;
+  id: string;
   name: string;
   category: string;
   price: number;
@@ -29,8 +29,8 @@ interface FoodCardProps {
   item: MenuItem;
   ratingStyles: { container: string; icon: string };
   currentQty: number;
-  onAdd: (itemId: number, variantId?: string) => void;
-  onRemove: (itemId: number, variantId?: string) => void;
+  onAdd: (itemId: string, variantId?: string, price?: number) => void;
+  onRemove: (itemId: string, variantId?: string) => void;
   onArClick: (item: MenuItem) => void;
   showArTour?: boolean;
   selectedVariantId?: string;
@@ -50,7 +50,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const isAvailable = item.isAvailable !== false;
-  
+
   const activeVariantId = selectedVariantId || (item.variants?.[0]?.id);
   const displayPrice = item.price + (item.variants?.find(v => v.id === activeVariantId)?.priceDelta || 0);
 

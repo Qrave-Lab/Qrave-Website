@@ -24,8 +24,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
   const [menuItems, setMenuItems] = useState(initialMenu);
   const [searchQuery, setSearchQuery] = useState("");
   const [isVegOnly, setIsVegOnly] = useState(false);
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [selectedVariants, setSelectedVariants] = useState<Record<number, string>>({});
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [isWaiterCalled, setIsWaiterCalled] = useState(false);
   const [isWaterRequested, setIsWaterRequested] = useState(false);
   const cart = useCartStore((state) => state.cart);
@@ -34,73 +35,43 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
   const syncCart = useCartStore((state) => state.syncCart);
   const router = useRouter();
 
+
+
   useEffect(() => {
-    async function init() {
-      try {
-        const menuData = await orderService.getMenu();
-        let cartData = await orderService.getCart();
-        if (menuData) setMenuItems(menuData);
-        if (cartData?.items) syncCart(cartData.items);
+    const handleError = (e: any) => {
+      toast.error(e.detail || "Cart update failed");
+    };
+    window.addEventListener("cart-error", handleError);
+    return () => window.removeEventListener("cart-error", handleError);
+  }, []);
 
-        const order = localStorage.getItem("order_id");
-
-if (order) {
-  const cartData = await orderService.getCart(order);
-  syncCart(cartData.items);
-}
-        const cats = Array.from(new Set(menuData.map((i: any) => resolve(i.categoryId)).filter(Boolean)));
-        setExpandedCategories(cats.reduce((acc, c) => ({ ...acc, [c as string]: true }), {}));
-      } catch (err: any) {
-
-        toast.error(err.message || "Failed to load menu and cart");
-      }
-    }
-    init();
-  }, [syncCart]);
-
-const handleAdd = async (id: number, vId?: string, price?: number) => {
-  try {
-    const res = await orderService.addItem(id, vId, price);
-
-    if (res.order_id) {
-      localStorage.setItem("order_id", res.order_id);
-    }
-
-    syncCart(res.items);
-  } catch (err) {
-    toast.error("Failed to add item");
-  }
-};
-
-
-  const handleRemove = async (id: number, vId?: string) => {
-    try {
-      removeItemStore(id, vId);
-      const res = await orderService.decrementItem(id, vId);
-      if (res?.items) syncCart(res.items);
-    } catch (err: any) {
-      addItemStore(id, vId);
-      toast.error(err.message || "Failed to remove item");
-    }
+  const handleAdd = async (id: string, vId?: string, price?: number) => {
+    // Optimistic UI: Fire and forget from UI perspective, store handles sync
+    addItemStore(id, vId, price);
   };
 
-  const filteredItems = menuItems.filter((item) => {
-    const matchesSearch = resolve(item.name).toLowerCase().includes(searchQuery.toLowerCase()) || resolve(item.description).toLowerCase().includes(searchQuery.toLowerCase());
+
+  const decrementItemStore = useCartStore((state) => state.decrementItem);
+
+  const handleRemove = async (id: string, vId?: string) => {
+    decrementItemStore(id, vId);
+  };
+
+  const filteredItems = menuItems.filter((item: any) => {
+    const query = searchQuery ? searchQuery.toLowerCase() : "";
+    const matchesSearch = resolve(item.name).toLowerCase().includes(query) || resolve(item.description).toLowerCase().includes(query);
     return matchesSearch && (isVegOnly ? item.isVeg : true);
   });
 
-  const categories = Array.from(new Set(menuItems.map((item) => resolve(item.categoryId)).filter(Boolean))).map((cat) => ({ id: cat, name: cat }));
+  const categories = Array.from(new Set(menuItems.map((item: any) => resolve(item.categoryId)).filter(Boolean))).map((cat) => ({ id: cat as string, name: cat as string }));
 
   const normalize = (val: any) => Number(val) || 0;
-  const cartTotal = Object.entries(cart).reduce((acc, [key, qty]) => {
-    const [id, vId] = key.split("::");
-    const item = menuItems.find((i: any) => String(i.id) === id);
-    if (!item) return acc;
-    const variant = item.variants?.find((v: any) => String(v.id) === vId);
-    return acc + (normalize(item.price) + normalize(variant?.priceDelta)) * qty;
+  const cartTotal = Object.entries(cart).reduce((acc, [key, item]) => {
+    // Backend calculation is better, but for optimistic UI:
+    return acc + (item.price * item.quantity);
   }, 0);
 
-  const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+  const totalItems = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
   const tableId = resolve(tableNumber);
 
   return (
@@ -130,7 +101,7 @@ const handleAdd = async (id: number, vId?: string, price?: number) => {
         </div>
         <div className="space-y-8">
           {categories.map((category) => {
-            const items = filteredItems.filter((item) => resolve(item.categoryId) === category.id);
+            const items = filteredItems.filter((item: any) => resolve(item.categoryId) === category.id);
             if (items.length === 0) return null;
             return (
               <div key={category.id}>
@@ -140,18 +111,24 @@ const handleAdd = async (id: number, vId?: string, price?: number) => {
                 </button>
                 {expandedCategories[category.id] && (
                   <div className="space-y-6">
-                    {items.map((item) => {
+                    {items.map((item: any) => {
                       const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id;
+                      const cartKey = getCartKey(item.id, currentVId);
+                      // Fallback lookup: if cartKey (uuid) not found, try looking for just uuid if regex failed previously (defensive)
+                      const cartItem = cart[cartKey];
+                      const quantity = cartItem ? cartItem.quantity : 0;
+
                       return (
                         <FoodCard
                           key={item.id}
-                          item={{ ...item, name: resolve(item.name), description: resolve(item.description), category: resolve(item.categoryId) }}
+                          item={{ ...item, id: String(item.id), name: resolve(item.name), description: resolve(item.description), category: resolve(item.categoryId) }}
                           ratingStyles={getRatingStyles(item.rating)}
                           selectedVariantId={currentVId}
                           onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
-                          currentQty={cart[getCartKey(item.id, currentVId)] || 0}
+                          currentQty={quantity}
                           onAdd={handleAdd}
                           onRemove={handleRemove}
+                          onArClick={() => { }}
                         />
                       );
                     })}

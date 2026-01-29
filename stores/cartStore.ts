@@ -1,97 +1,108 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { orderService } from "@/services/orderService";
 
-export const getCartKey = (id: number, variantId?: string) =>
-  `${id}::${variantId || "default"}`;
+export const getCartKey = (id: string, variantId: string) =>
+  `${id}::${variantId}`;
 
-type Cart = Record<string, number>;
-
-export type OrderItem = {
-  itemId: number;
-  name: string;
-  variantId?: string;
-  variantName?: string;
+type CartItemDTO = {
   quantity: number;
-  unitPrice: number;
-  lineTotal: number;
+  price: number;
 };
 
-export type OrderStatus = "preparing" | "completed" | "served";
+type Cart = Record<string, CartItemDTO>;
 
 export type Order = {
   id: string;
-  tableNumber: string;
-  note: string;
-  paymentMethod: string;
-  subtotal: number;
-  cgst: number;
-  sgst: number;
-  tax: number;
-  serviceCharge: number;
+  items: CartItemDTO[];
+  status: string;
   total: number;
-  items: OrderItem[];
   createdAt: string;
-  status: OrderStatus;
 };
 
 type CartState = {
+  menuCache: any[];
+  setMenuCache: (menu: any[]) => void;
+  orders: Order[];
+  addOrder: (order: Order) => void;
   cart: Cart;
-  addItem: (id: number, variantId?: string) => void;
-  removeItem: (id: number, variantId?: string) => void;
+  addItem: (id: string, variantId: string, price: number) => Promise<void>;
+  removeItem: (id: string, variantId: string) => Promise<void>;
+  decrementItem: (id: string, variantId: string) => Promise<void>;
   clearCart: () => void;
   syncCart: (items: Cart) => void;
-  orders: Record<string, Order>;
-  activeOrderId?: string;
-  addOrder: (order: Order) => void;
-  setActiveOrder: (orderId?: string) => void;
 };
 
 export const useCartStore = create<CartState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      menuCache: [],
+      setMenuCache: (menu) => set({ menuCache: menu }),
+      orders: [],
+      addOrder: (order) => set((state) => ({ orders: [...state.orders, order] })),
       cart: {},
-      addItem: (id: number, variantId?: string) =>
-        set((state) => {
-          const key = getCartKey(id, variantId);
-          const prev = state.cart[key] || 0;
-          return {
-            cart: {
-              ...state.cart,
-              [key]: prev + 1,
-            },
-          };
-        }),
-      removeItem: (id: number, variantId?: string) =>
-        set((state) => {
-          const key = getCartKey(id, variantId);
-          const prev = state.cart[key] || 0;
-          if (prev <= 1) {
-            const { [key]: _, ...rest } = state.cart;
-            return { cart: rest };
-          }
-          return {
-            cart: {
-              ...state.cart,
-              [key]: prev - 1,
-            },
-          };
-        }),
-      clearCart: () => set({ cart: {} }),
-      syncCart: (items: Cart) => set({ cart: items || {} }),
-      orders: {},
-      activeOrderId: undefined,
-      addOrder: (order: Order) =>
-        set((state) => ({
-          orders: {
-            ...state.orders,
-            [order.id]: order,
-          },
-          activeOrderId: order.id,
-        })),
-      setActiveOrder: (orderId?: string) =>
+
+      addItem: async (id, variantId, price) => {
+        const key = getCartKey(id, variantId);
+        const snapshot = get().cart;
+
         set({
-          activeOrderId: orderId,
-        }),
+          cart: {
+            ...snapshot,
+            [key]: {
+              quantity: (snapshot[key]?.quantity || 0) + 1,
+              price,
+            },
+          },
+        });
+
+        try {
+          const res = await orderService.addItem(id, variantId, price);
+          if (res?.items) set({ cart: res.items });
+        } catch {
+          set({ cart: snapshot });
+        }
+      },
+
+      removeItem: async (id, variantId) => {
+        const key = getCartKey(id, variantId);
+        const snapshot = get().cart;
+
+        const next = { ...snapshot };
+        delete next[key];
+        set({ cart: next });
+
+        try {
+          await orderService.removeItem(id, variantId);
+        } catch {
+          set({ cart: snapshot });
+        }
+      },
+
+      decrementItem: async (id, variantId) => {
+        const key = getCartKey(id, variantId);
+        const snapshot = get().cart;
+        const item = snapshot[key];
+        if (!item) return;
+
+        const next = { ...snapshot };
+        if (item.quantity > 1) {
+          next[key] = { ...item, quantity: item.quantity - 1 };
+        } else {
+          delete next[key];
+        }
+        set({ cart: next });
+
+        try {
+          await orderService.decrementItem(id, variantId);
+        } catch {
+          set({ cart: snapshot });
+        }
+      },
+
+      clearCart: () => set({ cart: {} }),
+
+      syncCart: (items) => set({ cart: items }),
     }),
     {
       name: "cart-storage",
