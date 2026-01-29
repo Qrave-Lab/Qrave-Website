@@ -9,6 +9,7 @@ import {
   UtensilsCrossed,
   Trash2,
   ReceiptText,
+  Loader2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCartStore } from "@/stores/cartStore";
@@ -20,12 +21,8 @@ const BASE_VARIANT = "__base__";
 type MenuItem = {
   id: string;
   name: string;
-  category: string;
   price: number;
-  description: string;
   image: string;
-  isVeg: boolean;
-  rating: number;
   variants?: { id: string; name: string; priceDelta: number }[];
 };
 
@@ -43,6 +40,11 @@ const CheckoutPage: React.FC = () => {
   const searchParams = useSearchParams();
   const tableNumber = searchParams.get("table") || "7";
 
+  const [isMounted, setIsMounted] = useState(false);
+  const [isCartReady, setIsCartReady] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
+
   const {
     cart,
     addItem,
@@ -54,39 +56,56 @@ const CheckoutPage: React.FC = () => {
   } = useCartStore();
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>(menuCache || []);
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   useEffect(() => {
-    orderService.getMenu().then((data) => {
-      const mapped =
-        data?.map((i: any) => ({
-          ...i,
-          id: String(i.id),
-          image: i.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
-        })) || [];
-      setMenuItems(mapped);
-      setMenuCache(mapped);
-    });
+    setIsMounted(true);
 
-    orderService.getCart().then((res) => {
-      if (res?.items) syncCart(res.items);
-    });
+    Promise.all([
+      orderService.getMenu(),
+      orderService.getCart(),
+    ])
+      .then(([menu, cartRes]) => {
+        const mapped =
+          menu?.map((i: any) => ({
+            ...i,
+            id: String(i.id),
+            image:
+              i.image ||
+              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
+          })) || [];
+
+        setMenuItems(mapped);
+        setMenuCache(mapped);
+
+        if (cartRes?.items) {
+          syncCart(cartRes.items);
+        }
+      })
+      .finally(() => {
+        setIsCartReady(true);
+      });
   }, [syncCart, setMenuCache]);
 
   const lines: CartLine[] = useMemo(() => {
+    if (!isMounted || !isCartReady) return [];
+
     return Object.entries(cart)
       .map(([key, cartItem]) => {
         if (cartItem.quantity <= 0) return null;
+
         const [itemId, rawVariantId] = key.split("::");
         const variantId = rawVariantId || BASE_VARIANT;
+
         const item = menuItems.find((i) => i.id === itemId);
         if (!item) return null;
 
-        const variant = variantId !== BASE_VARIANT
-          ? item.variants?.find((v) => v.id === variantId)
-          : undefined;
+        const variant =
+          variantId !== BASE_VARIANT
+            ? item.variants?.find((v) => v.id === variantId)
+            : undefined;
 
-        const unitPrice = cartItem.price || item.price + (variant?.priceDelta || 0);
+        const unitPrice =
+          cartItem.price || item.price + (variant?.priceDelta || 0);
 
         return {
           key,
@@ -98,7 +117,20 @@ const CheckoutPage: React.FC = () => {
         };
       })
       .filter(Boolean) as CartLine[];
-  }, [cart, menuItems]);
+  }, [cart, menuItems, isMounted, isCartReady]);
+
+  if (!isMounted || !isCartReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-slate-300 mx-auto mb-4" />
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+            Loading cart…
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const subtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
   const tax = Math.round(subtotal * 0.05);
@@ -114,19 +146,15 @@ const CheckoutPage: React.FC = () => {
         toast.error("Session expired");
         return;
       }
-
       await orderService.finalizeOrder(orderId);
-      toast.success("Order placed successfully");
-      clearCart();
-      localStorage.removeItem("order_id");
-      router.push(`/status?order_id=${orderId}`);
+      setIsWaitingConfirmation(true);
+      toast.success("Order request sent!");
     } catch {
       toast.error("Failed to place order");
     } finally {
       setIsPlacingOrder(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-36">
       <header className="sticky top-0 z-50 w-full bg-white/70 backdrop-blur-md">
@@ -175,13 +203,15 @@ const CheckoutPage: React.FC = () => {
                   <h2 className="text-xl font-bold text-slate-900">Your Selection</h2>
                   <p className="text-xs font-medium text-slate-400">{lines.length} items added</p>
                 </div>
-                <button
-                  onClick={clearCart}
-                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>RESET</span>
-                </button>
+                {!isWaitingConfirmation && (
+                  <button
+                    onClick={clearCart}
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>RESET</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -213,23 +243,25 @@ const CheckoutPage: React.FC = () => {
                           ₹{line.unitPrice} / unit
                         </span>
 
-                        <div className="flex items-center gap-3 rounded-full bg-slate-50 p-1 ring-1 ring-slate-200/50">
-                          <button
-                            onClick={() => decrementItem(line.item.id, line.variantId)}
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition-transform active:scale-75"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-4 text-center text-xs font-bold text-slate-900">
-                            {line.quantity}
-                          </span>
-                          <button
-                            onClick={() => addItem(line.item.id, line.variantId)}
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white shadow-md transition-transform active:scale-75"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
+                        {!isWaitingConfirmation && (
+                          <div className="flex items-center gap-3 rounded-full bg-slate-50 p-1 ring-1 ring-slate-200/50">
+                            <button
+                              onClick={() => decrementItem(line.item.id, line.variantId)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition-transform active:scale-75"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-4 text-center text-xs font-bold text-slate-900">
+                              {line.quantity}
+                            </span>
+                            <button
+                              onClick={() => addItem(line.item.id, line.variantId)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white shadow-md transition-transform active:scale-75"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -275,12 +307,18 @@ const CheckoutPage: React.FC = () => {
 
             <button
               onClick={handlePlaceOrder}
-              disabled={isPlacingOrder}
-              className="relative flex h-14 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 font-bold text-white transition-all active:scale-[0.98] disabled:opacity-80"
+              disabled={isPlacingOrder || isWaitingConfirmation}
+              className={`relative flex h-14 flex-1 items-center justify-center overflow-hidden rounded-2xl font-bold text-white transition-all active:scale-[0.98] ${isWaitingConfirmation ? "bg-amber-500 shadow-amber-200 shadow-lg" : "bg-slate-900 disabled:opacity-80 shadow-2xl"
+                }`}
             >
-              {isPlacingOrder ? (
+              {isWaitingConfirmation ? (
                 <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Waiting for confirmation...</span>
+                </div>
+              ) : isPlacingOrder ? (
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Processing...</span>
                 </div>
               ) : (
