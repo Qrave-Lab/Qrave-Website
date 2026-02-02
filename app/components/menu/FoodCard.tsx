@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Star, Scan, Minus, Plus } from "lucide-react";
+import { useLanguageStore } from "@/stores/languageStore";
 
 type Variant = {
   id: string;
@@ -49,6 +50,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
   onVariantChange,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const { t } = useLanguageStore();
   const isAvailable = item.isAvailable !== false;
 
   const normalizeVariantName = (name: string) => name.trim().toLowerCase();
@@ -86,7 +88,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
           </div>
           {!isAvailable && (
             <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide">
-              Sold out
+              {t('soldOut')}
             </div>
           )}
           {item.arModelGlb ? (
@@ -111,12 +113,12 @@ const FoodCard: React.FC<FoodCardProps> = ({
                 <div className="flex flex-wrap gap-2">
                   {item.isBestseller && (
                     <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                      Bestseller
+                      {t('bestseller')}
                     </span>
                   )}
                   {item.isSpicy && (
                     <span className="text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      🌶 Spicy
+                      🌶 {t('spicy')}
                     </span>
                   )}
                 </div>
@@ -151,9 +153,9 @@ const FoodCard: React.FC<FoodCardProps> = ({
                   <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="w-8 h-full flex items-center justify-center hover:bg-white/10"><Plus className="w-3.5 h-3.5" /></button>
                 </div>
               ) : (
-                <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="h-8 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg transition-colors">Add</button>
+                <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="h-8 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg transition-colors">{t('add')}</button>
               )
-            ) : <span className="text-xs font-semibold text-red-500">Unavailable</span>}
+            ) : <span className="text-xs font-semibold text-red-500">{t('unavailable')}</span>}
           </div>
         </div>
       </div>

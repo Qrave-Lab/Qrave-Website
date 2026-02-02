@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Restaurant Admin",
-    template: "%s | Admin",
+    default: "Qrave",
+    template: "%s | Qrave",
   },
   description: "Modern restaurant ordering experience",
 };
@@ -30,8 +30,8 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
-        <Toaster 
-          position="top-center" 
+        <Toaster
+          position="top-center"
           toastOptions={{
             className: 'font-sans text-sm font-medium',
             success: {

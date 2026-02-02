@@ -1,34 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Search, ChevronDown, ChevronRight, UtensilsCrossed, Bell, Droplets, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Search, ChevronDown, ChevronRight, UtensilsCrossed, Bell, Droplets, Loader2, Smartphone } from "lucide-react";
 import { useCartStore, getCartKey } from "@/stores/cartStore";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "react-hot-toast";
 import FoodCard from "@/app/components/menu/FoodCard";
-import { orderService } from "@/services/orderService";
+import ImmersiveMenu from "@/app/components/menu/ImmersiveMenu";
 import { api } from "@/app/lib/api";
+import { useLanguageStore } from "@/stores/languageStore";
 
-  const resolve = (val: any): string => {
-    if (!val) return "";
-    if (typeof val === "object" && "String" in val) return val.String;
-    return String(val);
-  };
+const resolve = (val: any): string => {
+  if (!val) return "";
+  if (typeof val === "object" && "String" in val) return val.String;
+  return String(val);
+};
 
-  const getParentName = (item: any): string => {
-    const parent = resolve(item.parentCategoryName);
-    if (parent) return parent;
-    const category = resolve(item.categoryName);
-    return category || "Other";
-  };
+const getParentName = (item: any): string => {
+  const parent = resolve(item.parentCategoryName);
+  if (parent) return parent;
+  const category = resolve(item.categoryName);
+  return category || "Other";
+};
 
-  const getSubcategoryName = (item: any): string => {
-    const parent = resolve(item.parentCategoryName);
-    const category = resolve(item.categoryName);
-    if (parent && category) return category;
-    if (category) return "General";
-    return "General";
-  };
+const getSubcategoryName = (item: any): string => {
+  const parent = resolve(item.parentCategoryName);
+  const category = resolve(item.categoryName);
+  if (parent && category) return category;
+  if (category) return "General";
+  return "General";
+};
 
 const getRatingStyles = (rating: number) => {
   if (rating > 4) return { container: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/50", icon: "text-emerald-500 fill-emerald-500" };
@@ -46,6 +47,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
   const [isWaterRequested, setIsWaterRequested] = useState(false);
   const [showArTour, setShowArTour] = useState(false);
   const [hasArItems, setHasArItems] = useState(false);
+  const [isImmersive, setIsImmersive] = useState(false);
+
+  const { t, tContent, language, setLanguage } = useLanguageStore();
 
   const cart = useCartStore((state) => state.cart);
   const addItemStore = useCartStore((state) => state.addItem);
@@ -60,32 +64,81 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
     return () => window.removeEventListener("cart-error", handleError);
   }, []);
 
-  // Initialize all categories as expanded
+  const normalizeItem = (item: any) => {
+    const basePrice = Number(item.price || 0);
+    const variants = Array.isArray(item.variants)
+      ? item.variants.map((v: any) => {
+        const variantPrice = Number(v.price ?? 0);
+        return {
+          id: String(v.id),
+          name: resolve(v.name ?? v.label),
+          priceDelta:
+            typeof v.priceDelta === "number"
+              ? v.priceDelta
+              : variantPrice - basePrice,
+        };
+      })
+      : [];
+
+    return {
+      ...item,
+      id: String(item.id),
+      name: resolve(item.name),
+      description: resolve(item.description),
+      categoryName: resolve(item.categoryName),
+      parentCategoryName: resolve(item.parentCategoryName),
+      price: basePrice,
+      image: item.imageUrl || item.image,
+      arModelGlb: item.modelGlb || item.arModelGlb,
+      variants,
+    };
+  };
+
+  useEffect(() => {
+    const normalized = Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : [];
+    setMenuItems(normalized);
+    setHasArItems(normalized.some((i: any) => Boolean(i.arModelGlb)));
+  }, [initialMenu]);
+
+  const translatedItems = useMemo(() => {
+    return menuItems.map((item: any) => ({
+      ...item,
+      name: tContent(item.name),
+      description: tContent(item.description),
+      categoryName: tContent(item.categoryName),
+      parentCategoryName: tContent(item.parentCategoryName),
+      variants: (item.variants || []).map((v: any) => ({
+        ...v,
+        name: tContent(v.name)
+      }))
+    }));
+  }, [menuItems, language, tContent]);
+
   useEffect(() => {
     const cats = Array.from(
-      new Set(menuItems.map((item: any) => getParentName(item)).filter(Boolean))
+      new Set(translatedItems.map((item: any) => getParentName(item)).filter(Boolean))
     );
     const initial: Record<string, boolean> = {};
     cats.forEach(c => initial[c as string] = true);
     setExpandedCategories(initial);
-  }, [menuItems]);
+  }, [translatedItems]);
 
   const handleAdd = async (id: string, vId?: string, price?: number) => {
-    addItemStore(id, vId, price);
+    addItemStore(id, vId || "", price || 0);
   };
 
   const handleRemove = async (id: string, vId?: string) => {
-    decrementItemStore(id, vId);
+    decrementItemStore(id, vId || "");
   };
 
-  const filteredItems = menuItems.filter((item: any) => {
+  const filteredItems = translatedItems.filter((item: any) => {
     const query = searchQuery ? searchQuery.toLowerCase() : "";
-    const matchesSearch = resolve(item.name).toLowerCase().includes(query) || resolve(item.description).toLowerCase().includes(query);
+    const matchesSearch = item.name.toLowerCase().includes(query) || item.description.toLowerCase().includes(query);
     return matchesSearch && (isVegOnly ? item.isVeg : true);
   });
 
   const categories = Array.from(
-    new Set(menuItems.map((item: any) => getParentName(item)).filter(Boolean))
+    new Set(translatedItems.map((item: any) => getParentName(item)).filter(Boolean))
   ).map((cat) => ({ id: cat as string, name: cat as string }));
 
   const cartTotal = Object.entries(cart).reduce((acc, [_, item]) => acc + (item.price * item.quantity), 0);
@@ -105,38 +158,6 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
     }
   }, [tableId]);
 
-  const normalizeItem = (item: any) => {
-    const basePrice = Number(item.price || 0);
-    const variants = Array.isArray(item.variants)
-      ? item.variants.map((v: any) => {
-          const variantPrice = Number(v.price ?? 0);
-          return {
-            id: String(v.id),
-            name: v.name ?? v.label ?? "",
-            priceDelta:
-              typeof v.priceDelta === "number"
-                ? v.priceDelta
-                : variantPrice - basePrice,
-          };
-        })
-      : [];
-
-    return {
-      ...item,
-      id: String(item.id),
-      price: basePrice,
-      image: item.imageUrl || item.image,
-      arModelGlb: item.modelGlb || item.arModelGlb,
-      variants,
-    };
-  };
-
-  useEffect(() => {
-    const normalized = Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : [];
-    setMenuItems(normalized);
-    setHasArItems(normalized.some((i: any) => Boolean(i.arModelGlb)));
-  }, [initialMenu]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     const seen = localStorage.getItem("ar_tour_seen") === "true";
@@ -145,9 +166,34 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
     }
   }, [hasArItems]);
 
+  useEffect(() => {
+    if (tableId) {
+      document.title = `NOIR | ${t('table')} ${tableId}`;
+    }
+  }, [tableId, t]);
+
+  const toggleLanguage = () => {
+    const langs = ['en', 'hi', 'ml'] as const;
+    const currentIdx = langs.indexOf(language as any);
+    const nextIdx = (currentIdx + 1) % langs.length;
+    setLanguage(langs[nextIdx]);
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] antialiased">
       <Toaster position="top-center" />
+
+      {isImmersive && (
+        <ImmersiveMenu
+          items={filteredItems}
+          categories={categories}
+          cart={cart}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onClose={() => setIsImmersive(false)}
+          tableNumber={tableId}
+        />
+      )}
 
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200/50">
         <div className="max-w-md mx-auto px-6 py-4 flex items-center justify-between">
@@ -157,20 +203,34 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
             </div>
             <div>
               <h1 className="font-serif text-lg font-bold leading-none">NOIR.</h1>
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Table {tableId || "7"}</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">{t('table')} {tableId || "7"}</p>
             </div>
           </div>
 
-          <button
-            onClick={() => setIsVegOnly(!isVegOnly)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 active:scale-95 ${isVegOnly
-              ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-100"
-              : "bg-white border-slate-200 text-slate-600"
-              }`}
-          >
-            <div className={`w-2 h-2 rounded-full ${isVegOnly ? "bg-white animate-pulse" : "bg-slate-300"}`} />
-            <span className="text-[11px] font-bold">VEG</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleLanguage}
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 font-bold text-xs uppercase hover:bg-slate-200 transition-colors"
+            >
+              {language}
+            </button>
+            <button
+              onClick={() => setIsImmersive(!isImmersive)}
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-200 transition-transform active:scale-95"
+            >
+              <Smartphone size={16} />
+            </button>
+            <button
+              onClick={() => setIsVegOnly(!isVegOnly)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 active:scale-95 ${isVegOnly
+                ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-100"
+                : "bg-white border-slate-200 text-slate-600"
+                }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${isVegOnly ? "bg-white animate-pulse" : "bg-slate-300"}`} />
+              <span className="text-[10px] font-bold">{t('veg')}</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -179,9 +239,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
             <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden">
               <div className="px-6 pt-6 pb-4">
-                <h2 className="text-lg font-black text-slate-900">AR Menu Walkthrough</h2>
+                <h2 className="text-lg font-black text-slate-900">{t('arTour')}</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  See dishes on your table before you order. Here's how it works.
+                  {t('arTourDesc')}
                 </p>
               </div>
               <div className="px-6 pb-6 space-y-4 text-sm text-slate-600">
@@ -206,7 +266,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
                   }}
                   className="w-full rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white shadow-xl transition-all active:scale-95"
                 >
-                  Got it
+                  {t('gotIt')}
                 </button>
               </div>
             </div>
@@ -217,7 +277,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
           <input
             type="text"
             className="w-full pl-11 pr-4 py-4 bg-white border border-slate-200/60 rounded-2xl text-sm shadow-sm focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all"
-            placeholder="Search for delicacies..."
+            placeholder={t('search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -273,9 +333,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
                                   item={{
                                     ...item,
                                     id: String(item.id),
-                                    name: resolve(item.name),
-                                    description: resolve(item.description),
-                                    category: resolve(item.categoryName) || "General"
+                                    name: item.name,
+                                    description: item.description,
+                                    category: item.categoryName || "General"
                                   }}
                                   ratingStyles={getRatingStyles(item.rating)}
                                   selectedVariantId={currentVId}
@@ -299,7 +359,6 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
         </div>
       </main>
 
-      {/* Floating Service Actions */}
       <div className="fixed bottom-32 right-6 z-40 flex flex-col gap-4">
         <button
           onClick={async () => {
@@ -309,9 +368,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
                 body: JSON.stringify({ type: "waiter" }),
               });
               setIsWaiterCalled(true);
-              toast.success("Waiter notified");
+              toast.success(t('waiterCalled'));
             } catch {
-              toast.error("Failed to call waiter");
+              toast.error(t('waiterCalled') + " failed");
             }
           }}
           className="w-14 h-14 rounded-2xl shadow-2xl bg-white border border-slate-100 flex items-center justify-center transition-all active:scale-90"
@@ -326,9 +385,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
                 body: JSON.stringify({ type: "water" }),
               });
               setIsWaterRequested(true);
-              toast.success("Water requested");
+              toast.success(t('waterRequested'));
             } catch {
-              toast.error("Failed to request water");
+              toast.error(t('waterRequested') + " failed");
             }
           }}
           className="w-14 h-14 rounded-2xl shadow-2xl bg-slate-900 text-white flex items-center justify-center transition-all active:scale-90"
@@ -337,7 +396,6 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
         </button>
       </div>
 
-      {/* Cart Bar matched to Checkout button */}
       {totalItems > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-white via-white/90 to-transparent p-6 pb-8">
           <div className="max-w-md mx-auto">
@@ -355,13 +413,13 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
                   </div>
                 </div>
                 <div className="flex flex-col items-start">
-                  <span className="text-[10px] uppercase font-bold text-white/50 leading-none mb-1">View Cart</span>
+                  <span className="text-[10px] uppercase font-bold text-white/50 leading-none mb-1">{t('viewCart')}</span>
                   <span className="font-black text-lg">₹{cartTotal}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 bg-white text-slate-900 px-4 py-2 rounded-xl font-bold text-sm">
-                <span>Checkout</span>
+                <span>{t('checkout')}</span>
                 <ChevronRight size={16} className="transition-transform group-hover:translate-x-1" />
               </div>
             </button>
