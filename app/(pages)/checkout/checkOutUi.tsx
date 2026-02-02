@@ -23,7 +23,7 @@ type MenuItem = {
   name: string;
   price: number;
   image: string;
-  variants?: { id: string; name: string; priceDelta: number }[];
+  variants?: { id: string; name: string; priceDelta: number; price?: number; label?: string }[];
 };
 
 type CartLine = {
@@ -38,12 +38,28 @@ type CartLine = {
 const CheckoutPage: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tableNumber = searchParams.get("table") || "7";
+  const rawTable = searchParams.get("table");
+  const tableNumber =
+    rawTable && rawTable !== "N/A"
+      ? rawTable
+      : typeof window !== "undefined"
+        ? localStorage.getItem("table_number") ||
+          localStorage.getItem("table") ||
+          "7"
+        : "7";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (tableNumber && tableNumber !== "N/A") {
+      localStorage.setItem("table_number", tableNumber);
+    }
+  }, [tableNumber]);
 
   const [isMounted, setIsMounted] = useState(false);
   const [isCartReady, setIsCartReady] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
 
   const {
     cart,
@@ -53,26 +69,54 @@ const CheckoutPage: React.FC = () => {
     syncCart,
     menuCache,
     setMenuCache,
+    orders,
+    setOrders,
   } = useCartStore();
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>(menuCache || []);
 
   useEffect(() => {
     setIsMounted(true);
+    if (typeof window !== "undefined") {
+      setCurrentOrderId(localStorage.getItem("order_id"));
+    }
 
     Promise.all([
       orderService.getMenu(),
       orderService.getCart(),
+      orderService.getOrders(),
     ])
-      .then(([menu, cartRes]) => {
+      .then(([menu, cartRes, ordersRes]) => {
         const mapped =
-          menu?.map((i: any) => ({
-            ...i,
-            id: String(i.id),
-            image:
-              i.image ||
-              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
-          })) || [];
+          menu?.map((i: any) => {
+            const basePrice = Number(i.price || 0);
+            const variants = Array.isArray(i.variants)
+              ? i.variants.map((v: any) => {
+                  const variantPrice = Number(v.price ?? 0);
+                  return {
+                    id: String(v.id),
+                    name: v.name ?? v.label ?? "",
+                    label: v.label,
+                    price: variantPrice,
+                    priceDelta:
+                      typeof v.priceDelta === "number"
+                        ? v.priceDelta
+                        : variantPrice - basePrice,
+                  };
+                })
+              : [];
+
+            return {
+              ...i,
+              id: String(i.id),
+              price: basePrice,
+              variants,
+              image:
+                i.image ||
+                i.imageUrl ||
+                "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
+            };
+          }) || [];
 
         setMenuItems(mapped);
         setMenuCache(mapped);
@@ -80,11 +124,21 @@ const CheckoutPage: React.FC = () => {
         if (cartRes?.items) {
           syncCart(cartRes.items);
         }
+        if (ordersRes?.orders) {
+          setOrders(ordersRes.orders);
+        }
       })
       .finally(() => {
         setIsCartReady(true);
       });
-  }, [syncCart, setMenuCache]);
+  }, [syncCart, setMenuCache, setOrders]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const id = localStorage.getItem("order_id");
+      setCurrentOrderId(id);
+    }
+  }, [cart]);
 
   const lines: CartLine[] = useMemo(() => {
     if (!isMounted || !isCartReady) return [];
@@ -94,23 +148,27 @@ const CheckoutPage: React.FC = () => {
         if (cartItem.quantity <= 0) return null;
 
         const [itemId, rawVariantId] = key.split("::");
-        const variantId = rawVariantId || BASE_VARIANT;
+        const normalizedVariantId =
+          rawVariantId && rawVariantId !== "00000000-0000-0000-0000-000000000000"
+            ? rawVariantId
+            : BASE_VARIANT;
 
         const item = menuItems.find((i) => i.id === itemId);
         if (!item) return null;
 
         const variant =
-          variantId !== BASE_VARIANT
-            ? item.variants?.find((v) => v.id === variantId)
+          normalizedVariantId !== BASE_VARIANT
+            ? item.variants?.find((v) => v.id === normalizedVariantId)
             : undefined;
 
         const unitPrice =
-          cartItem.price || item.price + (variant?.priceDelta || 0);
+          cartItem.price ||
+          (variant?.price ?? item.price + (variant?.priceDelta || 0));
 
         return {
           key,
           item,
-          variantId,
+          variantId: rawVariantId || "",
           quantity: cartItem.quantity,
           unitPrice,
           lineTotal: unitPrice * cartItem.quantity,
@@ -132,7 +190,21 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
-  const subtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
+  const placedOrders = orders.filter(
+    (o) =>
+      o.id !== currentOrderId &&
+      o.status !== "cart" &&
+      Array.isArray(o.items) &&
+      o.items.length > 0
+  );
+
+  const cartSubtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
+
+  const previousOrdersTotal = placedOrders.reduce((acc, order) => {
+    return acc + order.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+  }, 0);
+
+  const subtotal = cartSubtotal + previousOrdersTotal;
   const tax = Math.round(subtotal * 0.05);
   const grandTotal = subtotal + tax;
 
@@ -147,14 +219,24 @@ const CheckoutPage: React.FC = () => {
         return;
       }
       await orderService.finalizeOrder(orderId);
-      setIsWaitingConfirmation(true);
-      toast.success("Order request sent!");
+      toast.success("Order placed!");
+
+      localStorage.removeItem("order_id");
+      clearCart();
+      setCurrentOrderId(null);
+
+      const res = await orderService.getOrders();
+      if (res?.orders) setOrders(res.orders);
     } catch {
       toast.error("Failed to place order");
     } finally {
       setIsPlacingOrder(false);
     }
   };
+
+  const currentCartHasItems = lines.length > 0;
+  const hasPlacedOrders = placedOrders.length > 0;
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-36">
       <header className="sticky top-0 z-50 w-full bg-white/70 backdrop-blur-md">
@@ -176,7 +258,7 @@ const CheckoutPage: React.FC = () => {
       </header>
 
       <main className="mx-auto max-w-lg px-6 pt-4">
-        {lines.length === 0 ? (
+        {!currentCartHasItems && !hasPlacedOrders ? (
           <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
             <div className="relative mb-6">
               <div className="absolute inset-0 animate-ping rounded-full bg-slate-100 opacity-75"></div>
@@ -197,77 +279,122 @@ const CheckoutPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            <section>
-              <div className="mb-4 flex items-end justify-between px-1">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Your Selection</h2>
-                  <p className="text-xs font-medium text-slate-400">{lines.length} items added</p>
+            {hasPlacedOrders && (
+              <section>
+                <div className="mb-4 flex items-end justify-between px-1">
+                  <h2 className="text-xl font-bold text-slate-900">Previous Orders</h2>
                 </div>
-                {!isWaitingConfirmation && (
-                  <button
-                    onClick={clearCart}
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>RESET</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                {lines.map((line) => (
-                  <div
-                    key={line.key}
-                    className="flex gap-4 rounded-3xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md"
-                  >
-                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-                      <img
-                        src={line.item.image}
-                        alt={line.item.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-
-                    <div className="flex flex-1 flex-col justify-between py-0.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="line-clamp-1 text-sm font-bold text-slate-800">
-                          {line.item.name}
-                        </h3>
-                        <span className="text-sm font-black text-slate-900">
-                          ₹{line.lineTotal}
+                <div className="space-y-3">
+                  {placedOrders.map((order) => (
+                    <div key={order.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                      <div className="mb-3 flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                          Order #{order.id.slice(0, 4)}
+                        </span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${order.status === 'accepted' ? 'text-green-500' : 'text-slate-500'}`}>
+                          {order.status}
                         </span>
                       </div>
+                      <div className="space-y-2">
+                        {order.items.map((item, idx) => {
+                          const menuItem = menuItems.find((m) => m.id === item.menu_item_id);
+                          const variant = menuItem?.variants?.find((v) => v.id === item.variant_id);
+                          const variantLabel = variant?.name || variant?.label;
+                          const name = menuItem
+                            ? variantLabel
+                              ? `${menuItem.name} (${variantLabel})`
+                              : menuItem.name
+                            : "Unknown Item";
 
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">
-                          ₹{line.unitPrice} / unit
-                        </span>
-
-                        {!isWaitingConfirmation && (
-                          <div className="flex items-center gap-3 rounded-full bg-slate-50 p-1 ring-1 ring-slate-200/50">
-                            <button
-                              onClick={() => decrementItem(line.item.id, line.variantId)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition-transform active:scale-75"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-4 text-center text-xs font-bold text-slate-900">
-                              {line.quantity}
-                            </span>
-                            <button
-                              onClick={() => addItem(line.item.id, line.variantId)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white shadow-md transition-transform active:scale-75"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </div>
-                        )}
+                          return (
+                            <div key={`${order.id}-${idx}`} className="flex justify-between text-sm">
+                              <span className="text-slate-600">
+                                <span className="font-bold text-slate-900">{item.quantity}x</span> {name}
+                              </span>
+                              <span className="font-bold text-slate-900">₹{item.price * item.quantity}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {currentCartHasItems && (
+              <section>
+                <div className="mb-4 flex items-end justify-between px-1">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Your Selection</h2>
+                    <p className="text-xs font-medium text-slate-400">{lines.length} items added</p>
                   </div>
-                ))}
-              </div>
-            </section>
+                  {!isWaitingConfirmation && (
+                    <button
+                      onClick={clearCart}
+                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>RESET</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  {lines.map((line) => (
+                    <div
+                      key={line.key}
+                      className="flex gap-4 rounded-3xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md"
+                    >
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+                        <img
+                          src={line.item.image}
+                          alt={line.item.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+
+                      <div className="flex flex-1 flex-col justify-between py-0.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="line-clamp-1 text-sm font-bold text-slate-800">
+                            {line.item.name}
+                          </h3>
+                          <span className="text-sm font-black text-slate-900">
+                            ₹{line.lineTotal}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">
+                            ₹{line.unitPrice} / unit
+                          </span>
+
+                          {!isWaitingConfirmation && (
+                            <div className="flex items-center gap-3 rounded-full bg-slate-50 p-1 ring-1 ring-slate-200/50">
+                              <button
+                                onClick={() => decrementItem(line.item.id, line.variantId)}
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition-transform active:scale-75"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="w-4 text-center text-xs font-bold text-slate-900">
+                                {line.quantity}
+                              </span>
+                              <button
+                                onClick={() => addItem(line.item.id, line.variantId, line.unitPrice)}
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white shadow-md transition-transform active:scale-75"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="overflow-hidden rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
               <div className="mb-4 flex items-center gap-2">
@@ -297,7 +424,7 @@ const CheckoutPage: React.FC = () => {
         )}
       </main>
 
-      {lines.length > 0 && (
+      {(currentCartHasItems || hasPlacedOrders) && (
         <div className="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-white via-white/90 to-transparent p-6 pb-8">
           <div className="mx-auto flex max-w-md items-center gap-4">
             <div className="hidden flex-col sm:flex">
@@ -305,33 +432,50 @@ const CheckoutPage: React.FC = () => {
               <span className="text-lg font-black text-slate-900">₹{grandTotal}</span>
             </div>
 
-            <button
-              onClick={handlePlaceOrder}
-              disabled={isPlacingOrder || isWaitingConfirmation}
-              className={`relative flex h-14 flex-1 items-center justify-center overflow-hidden rounded-2xl font-bold text-white transition-all active:scale-[0.98] ${isWaitingConfirmation ? "bg-amber-500 shadow-amber-200 shadow-lg" : "bg-slate-900 disabled:opacity-80 shadow-2xl"
-                }`}
-            >
-              {isWaitingConfirmation ? (
-                <div className="flex items-center gap-3">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Waiting for confirmation...</span>
-                </div>
-              ) : isPlacingOrder ? (
-                <div className="flex items-center gap-3">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Processing...</span>
-                </div>
-              ) : (
-                <div className="flex w-full items-center justify-between px-6">
-                  <div className="flex flex-col items-start sm:hidden">
-                    <span className="text-[8px] uppercase text-white/50">Total</span>
-                    <span className="text-sm">₹{grandTotal}</span>
+            {!currentCartHasItems && hasPlacedOrders ? (
+              <div className="flex flex-1 gap-3">
+                <button
+                  onClick={() => router.push("/menu")}
+                  className="flex-1 rounded-2xl bg-white py-4 text-sm font-bold text-slate-900 shadow-xl ring-1 ring-slate-200 transition-all active:scale-95"
+                >
+                  Add More Items
+                </button>
+                <button
+                  onClick={() => toast.success("Bill Requested!")}
+                  className="flex-1 rounded-2xl bg-slate-900 py-4 text-sm font-bold text-white shadow-xl transition-all active:scale-95"
+                >
+                  Get Bill
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handlePlaceOrder}
+                disabled={isPlacingOrder || isWaitingConfirmation}
+                className={`relative flex h-14 flex-1 items-center justify-center overflow-hidden rounded-2xl font-bold text-white transition-all active:scale-[0.98] ${isWaitingConfirmation ? "bg-amber-500 shadow-amber-200 shadow-lg" : "bg-slate-900 disabled:opacity-80 shadow-2xl"
+                  }`}
+              >
+                {isWaitingConfirmation ? (
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Waiting for confirmation...</span>
                   </div>
-                  <span className="flex-1 text-center">Place Order</span>
-                  <ChevronRight className="h-5 w-5 opacity-50" />
-                </div>
-              )}
-            </button>
+                ) : isPlacingOrder ? (
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  <div className="flex w-full items-center justify-between px-6">
+                    <div className="flex flex-col items-start sm:hidden">
+                      <span className="text-[8px] uppercase text-white/50">Total</span>
+                      <span className="text-sm">₹{grandTotal}</span>
+                    </div>
+                    <span className="flex-1 text-center">Place Order</span>
+                    <ChevronRight className="h-5 w-5 opacity-50" />
+                  </div>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}

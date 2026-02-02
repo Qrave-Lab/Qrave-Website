@@ -1,6 +1,8 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:9090";
+  (typeof window !== "undefined"
+    ? `http://${window.location.hostname}:9090`
+    : "http://localhost:9090");
 
 const PUBLIC_ROUTES = [
   "/auth/login",
@@ -8,10 +10,12 @@ const PUBLIC_ROUTES = [
   "/public/otp/request",
   "/public/otp/verify",
   "/public/otp/resend",
+  "/public/session/start",
   "/api/customer/menu",
   "/api/customer/orders",
   "/api/customer/orders/items",
   "/api/customer/orders/bill",
+  "/api/customer/service-calls",
 ];
 
 function getAccessToken(): string | null {
@@ -75,7 +79,16 @@ export async function api<T>(
       if (json?.message) message = json.message;
     } catch { }
 
-    console.error("API Error:", path, res.status, message);
+    const isKnownError =
+      res.status === 400 &&
+      (message.includes("order not found") ||
+        message.includes("violates foreign key constraint"));
+
+    if (!isKnownError) {
+      console.error("API Error:", path, res.status, message);
+    } else {
+      console.warn("API Note:", path, res.status, message.trim());
+    }
 
     throw {
       status: res.status,

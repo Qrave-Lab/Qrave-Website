@@ -14,9 +14,13 @@ type Cart = Record<string, CartItemDTO>;
 
 export type Order = {
   id: string;
-  items: CartItemDTO[];
+  items: {
+    menu_item_id: string;
+    variant_id: string;
+    quantity: number;
+    price: number;
+  }[];
   status: string;
-  total: number;
   createdAt: string;
 };
 
@@ -25,6 +29,7 @@ type CartState = {
   setMenuCache: (menu: any[]) => void;
   orders: Order[];
   addOrder: (order: Order) => void;
+  setOrders: (orders: Order[]) => void;
   cart: Cart;
   addItem: (id: string, variantId: string, price: number) => Promise<void>;
   removeItem: (id: string, variantId: string) => Promise<void>;
@@ -40,6 +45,7 @@ export const useCartStore = create<CartState>()(
       setMenuCache: (menu) => set({ menuCache: menu }),
       orders: [],
       addOrder: (order) => set((state) => ({ orders: [...state.orders, order] })),
+      setOrders: (orders) => set({ orders }),
       cart: {},
 
       addItem: async (id, variantId, price) => {
@@ -74,8 +80,13 @@ export const useCartStore = create<CartState>()(
 
         try {
           await orderService.removeItem(id, variantId);
-        } catch {
-          set({ cart: snapshot });
+        } catch (error: any) {
+          if (error?.message?.includes("order not found")) {
+            set({ cart: {} });
+            localStorage.removeItem("order_id");
+          } else {
+            set({ cart: snapshot });
+          }
         }
       },
 
@@ -95,8 +106,13 @@ export const useCartStore = create<CartState>()(
 
         try {
           await orderService.decrementItem(id, variantId);
-        } catch {
-          set({ cart: snapshot });
+        } catch (error: any) {
+          if (error?.message?.includes("order not found")) {
+            set({ cart: {} });
+            localStorage.removeItem("order_id");
+          } else {
+            set({ cart: snapshot });
+          }
         }
       },
 

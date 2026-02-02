@@ -51,8 +51,24 @@ const FoodCard: React.FC<FoodCardProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const isAvailable = item.isAvailable !== false;
 
-  const activeVariantId = selectedVariantId || (item.variants?.[0]?.id);
-  const displayPrice = item.price + (item.variants?.find(v => v.id === activeVariantId)?.priceDelta || 0);
+  const normalizeVariantName = (name: string) => name.trim().toLowerCase();
+  const isDefaultVariant = (v: Variant) => {
+    const label = normalizeVariantName(v.name || "");
+    const isDefaultLabel =
+      label === "" ||
+      label === "default" ||
+      label === "regular" ||
+      label === "standard";
+    return isDefaultLabel && (v.priceDelta || 0) === 0;
+  };
+
+  const visibleVariants = (item.variants || []).filter((v) => !isDefaultVariant(v));
+  const activeVariantId =
+    selectedVariantId ||
+    visibleVariants[0]?.id ||
+    item.variants?.[0]?.id;
+  const displayPrice =
+    item.price + (item.variants?.find((v) => v.id === activeVariantId)?.priceDelta || 0);
 
   return (
     <div className={`w-full ${!isAvailable ? "opacity-60" : ""}`}>
@@ -111,9 +127,9 @@ const FoodCard: React.FC<FoodCardProps> = ({
               </div>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 mb-3">{item.description}</p>
-            {item.variants && item.variants.length > 0 && (
+            {visibleVariants.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
-                {item.variants.map((v) => (
+                {visibleVariants.map((v) => (
                   <button
                     key={v.id}
                     onClick={() => onVariantChange?.(v.id)}

@@ -14,6 +14,7 @@ import {
   ChevronRight,
   FileSpreadsheet
 } from "lucide-react";
+import { api } from "@/app/lib/api";
 
 const sidebarItems = [
   {
@@ -41,6 +42,8 @@ export default function StaffSidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [restaurantName, setRestaurantName] = useState("Restaurant");
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     const savedState = localStorage.getItem("sidebarCollapsed");
@@ -49,6 +52,55 @@ export default function StaffSidebar() {
     }
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchMe = async () => {
+      try {
+        const me = await api<{
+          restaurant?: string;
+        }>("/api/admin/me");
+        if (!isActive) return;
+        setRestaurantName(me?.restaurant || "Restaurant");
+      } catch {
+        if (!isActive) return;
+        setRestaurantName("Restaurant");
+      }
+    };
+
+    fetchMe();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    const refreshToken =
+      typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
+
+    try {
+      if (refreshToken) {
+        await api("/auth/logout", {
+          method: "POST",
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      }
+    } catch {
+      // Even if logout fails, proceed to clear local tokens.
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("session_id");
+        localStorage.removeItem("order_id");
+        localStorage.removeItem("table_number");
+        window.location.href = "/login";
+      }
+    }
+  };
 
   const toggleSidebar = () => {
     const newState = !isCollapsed;
@@ -75,7 +127,7 @@ export default function StaffSidebar() {
             animate={{ opacity: 1 }} 
             className="ml-3 overflow-hidden whitespace-nowrap"
           >
-            <h1 className="text-sm font-bold text-gray-900">NOIR.</h1>
+            <h1 className="text-sm font-bold text-gray-900">{restaurantName}</h1>
             <p className="text-[10px] text-gray-500 font-medium">Manager View</p>
           </motion.div>
         )}
@@ -141,12 +193,18 @@ export default function StaffSidebar() {
         )}
 
         <button 
+          onClick={handleSignOut}
+          disabled={isSigningOut}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors w-full
             ${isCollapsed ? "justify-center" : ""}
           `}
         >
           <LogOut className="w-5 h-5 shrink-0" />
-          {!isCollapsed && <span className="text-sm font-medium whitespace-nowrap">Sign Out</span>}
+          {!isCollapsed && (
+            <span className="text-sm font-medium whitespace-nowrap">
+              {isSigningOut ? "Signing Out..." : "Sign Out"}
+            </span>
+          )}
         </button>
       </div>
 

@@ -25,6 +25,7 @@ import {
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import StaffSidebar from "../../components/StaffSidebar";
+import { api } from "@/app/lib/api";
 
 type BillStatus = "open" | "bill_requested" | "bill_printed" | "paid";
 
@@ -45,6 +46,7 @@ type OrderStatus = "pending" | "cooking";
 
 type PendingOrder = {
   id: string;
+  orderId: string;
   tableCode: string;
   itemName: string;
   quantity: number;
@@ -72,133 +74,45 @@ type TableFilter =
 
 type TableSort = "table" | "total" | "seated";
 
-const initialTablesData: StaffTable[] = [
-  {
-    id: "1",
-    tableCode: "T1",
-    restaurantName: "NOIR.",
-    isOccupied: true,
-    activeSessionId: "sess_123",
-    currentTotal: 1420,
-    itemsCount: 5,
-    guests: 4,
-    billStatus: "open",
-    seatedAt: new Date(Date.now() - 1000 * 60 * 35),
-  },
-  {
-    id: "2",
-    tableCode: "T2",
-    restaurantName: "NOIR.",
-    isOccupied: false,
-  },
-  {
-    id: "3",
-    tableCode: "T3",
-    restaurantName: "NOIR.",
-    isOccupied: true,
-    activeSessionId: "sess_456",
-    currentTotal: 760,
-    itemsCount: 3,
-    guests: 2,
-    billStatus: "bill_requested",
-    seatedAt: new Date(Date.now() - 1000 * 60 * 80),
-  },
-  {
-    id: "4",
-    tableCode: "T4",
-    restaurantName: "NOIR.",
-    isOccupied: true,
-    activeSessionId: "sess_789",
-    currentTotal: 2100,
-    itemsCount: 8,
-    guests: 6,
-    billStatus: "open",
-    seatedAt: new Date(Date.now() - 1000 * 60 * 120),
-  },
-  {
-    id: "5",
-    tableCode: "T5",
-    restaurantName: "NOIR.",
-    isOccupied: false,
-  },
-  {
-    id: "6",
-    tableCode: "T6",
-    restaurantName: "NOIR.",
-    isOccupied: false,
-  },
-  {
-    id: "7",
-    tableCode: "T7",
-    restaurantName: "NOIR.",
-    isOccupied: false,
-  },
-  {
-    id: "8",
-    tableCode: "T8",
-    restaurantName: "NOIR.",
-    isOccupied: false,
-  },
-];
+type TableAPI = {
+  id: string;
+  table_number: number;
+  is_enabled: boolean;
+};
 
-const mockPendingOrdersData: PendingOrder[] = [
-  {
-    id: "p1",
-    tableCode: "T1",
-    itemName: "Smash Burger",
-    quantity: 2,
-    orderedAt: new Date(Date.now() - 1000 * 60 * 5),
-    status: "pending",
-  },
-  {
-    id: "p2",
-    tableCode: "T3",
-    itemName: "Mojito",
-    quantity: 1,
-    orderedAt: new Date(Date.now() - 1000 * 60 * 12),
-    status: "pending",
-  },
-  {
-    id: "p3",
-    tableCode: "T4",
-    itemName: "Pasta Alfredo",
-    quantity: 3,
-    orderedAt: new Date(Date.now() - 1000 * 60 * 2),
-    status: "pending",
-  },
-  {
-    id: "p4",
-    tableCode: "T1",
-    itemName: "Fries",
-    quantity: 1,
-    orderedAt: new Date(Date.now() - 1000 * 60 * 18),
-    status: "pending",
-  },
-];
+type ActiveOrderItem = {
+  menu_item_id: string;
+  variant_id: string;
+  quantity: number;
+  price: number;
+  menu_item_name: string;
+  variant_label?: string | null;
+};
 
-const mockServiceCalls: ServiceCall[] = [
-  {
-    id: "s1",
-    tableCode: "T1",
-    type: "waiter",
-    createdAt: new Date(Date.now() - 1000 * 60 * 3),
-    status: "open",
-  },
-  {
-    id: "s2",
-    tableCode: "T4",
-    type: "water",
-    createdAt: new Date(Date.now() - 1000 * 60 * 1),
-    status: "open",
-  },
-  {
-    id: "s3",
-    tableCode: "T3",
-    type: "help",
-    createdAt: new Date(Date.now() - 1000 * 60 * 9),
-    status: "attending",
-  },
-];
+type ActiveOrder = {
+  id?: string;
+  order_id?: string;
+  status: string;
+  created_at: string;
+  session_id: string;
+  table_id: string;
+  table_number: number;
+  items: ActiveOrderItem[];
+};
+
+type ActiveOrdersResponse = {
+  orders: ActiveOrder[];
+};
+
+type ServiceCallAPI = {
+  id: string;
+  table_id: string;
+  table_number: number;
+  session_id: string;
+  type: ServiceCallType;
+  status: ServiceCallStatus;
+  created_at: string;
+};
 
 const getTimeAgo = (date: Date) => {
   const diff = Math.floor((new Date().getTime() - date.getTime()) / 60000);
@@ -217,11 +131,11 @@ const getMinutesDiff = (date?: Date) => {
 
 export default function StaffDashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [tables, setTables] = useState<StaffTable[]>(initialTablesData);
-  const [orders, setOrders] = useState<PendingOrder[]>(mockPendingOrdersData);
-  const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>(
-    mockServiceCalls
-  );
+  const [tables, setTables] = useState<StaffTable[]>([]);
+  const [orders, setOrders] = useState<PendingOrder[]>([]);
+  const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
+  const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>([]);
+  const [todaySales, setTodaySales] = useState<number>(0);
 
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -250,12 +164,175 @@ export default function StaffDashboardPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  const buildPendingOrders = (ordersList: ActiveOrder[]) => {
+    const next: PendingOrder[] = [];
+    for (const order of ordersList) {
+      const mappedStatus: OrderStatus =
+        order.status === "pending" ? "pending" : "cooking";
+      for (const item of order.items || []) {
+        const variantSuffix = item.variant_label ? ` (${item.variant_label})` : "";
+        next.push({
+          id: `${order.id}-${item.menu_item_id}-${item.variant_id}`,
+          orderId: order.id,
+          tableCode: `T${order.table_number}`,
+          itemName: `${item.menu_item_name}${variantSuffix}`,
+          quantity: item.quantity,
+          orderedAt: new Date(order.created_at),
+          status: mappedStatus,
+        });
+      }
+    }
+    return next;
+  };
+
+  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[]) => {
+    const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string }>();
+    for (const order of ordersList) {
+      const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0 };
+      const orderTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      totalsByTable.set(order.table_number, {
+        total: existing.total + orderTotal,
+        count: existing.count + order.items.reduce((sum, i) => sum + i.quantity, 0),
+        sessionId: order.session_id,
+      });
+    }
+
+    return tablesApi.map((t) => {
+      const meta = totalsByTable.get(t.table_number);
+      return {
+        id: t.id,
+        tableCode: `T${t.table_number}`,
+        restaurantName: "",
+        isOccupied: Boolean(meta),
+        activeSessionId: meta?.sessionId,
+        currentTotal: meta?.total,
+        itemsCount: meta?.count,
+      } as StaffTable;
+    });
+  };
+
+  const refreshLiveData = async () => {
+    const [tablesRes, ordersRes] = await Promise.all([
+      api<TableAPI[]>("/api/admin/tables"),
+      api<ActiveOrdersResponse>("/api/admin/orders/active"),
+    ]);
+
+    const ordersList = ordersRes?.orders || [];
+    setActiveOrders(ordersList);
+    setOrders(buildPendingOrders(ordersList));
+    setTables(buildTables(tablesRes || [], ordersList));
+  };
+
+  useEffect(() => {
+    let isActive = true;
+    const load = async () => {
+      try {
+        await refreshLiveData();
+        const [serviceRes, salesRes] = await Promise.all([
+          api<ServiceCallAPI[]>("/api/admin/service-calls"),
+          api<{ total: number }>("/api/admin/sales/today"),
+        ]);
+        if (!isActive) return;
+        setServiceCalls(
+          (serviceRes || []).map((c) => ({
+            id: c.id,
+            tableCode: `T${c.table_number}`,
+            type: c.type,
+            status: c.status,
+            createdAt: new Date(c.created_at),
+          }))
+        );
+        setTodaySales(salesRes?.total || 0);
+      } catch {
+        if (!isActive) return;
+        setActiveOrders([]);
+        setOrders([]);
+        setTables([]);
+        setServiceCalls([]);
+        setTodaySales(0);
+      }
+    };
+    load();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    const base =
+      process.env.NEXT_PUBLIC_EVENT_SERVICE_URL ||
+      (typeof window !== "undefined"
+        ? `ws://${window.location.hostname}:9091`
+        : "ws://localhost:9091");
+    const ws = new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`);
+    ws.onerror = () => {
+      // no-op
+    };
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg?.type === "order.created" || msg?.type === "order.updated") {
+          const data = msg?.data as ActiveOrder;
+          const orderId = data?.id || data?.order_id;
+          if (!data || !orderId) return;
+          const normalized: ActiveOrder = { ...data, id: orderId };
+          setActiveOrders((prev) => {
+            const next = [normalized, ...prev.filter((o) => (o.id || o.order_id) !== orderId)];
+            setOrders(buildPendingOrders(next));
+            setTables((prevTables) =>
+              buildTables(
+                prevTables.map((t) => ({
+                  id: t.id,
+                  table_number: parseInt(t.tableCode.replace("T", ""), 10),
+                  is_enabled: true,
+                })),
+                next
+              )
+            );
+            return next;
+          });
+          return;
+        }
+
+        if (msg?.type === "service.call.created" || msg?.type === "service.call.updated") {
+          const data = msg?.data as ServiceCallAPI & { table_number: number };
+          if (!data || !data.id) return;
+          setServiceCalls((prev) => {
+            const next = [
+              {
+                id: data.id,
+                tableCode: `T${data.table_number}`,
+                type: data.type,
+                status: data.status,
+                createdAt: new Date(data.created_at),
+              },
+              ...prev.filter((c) => c.id !== data.id),
+            ].filter((c) => c.status !== "done");
+            return next;
+          });
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    ws.onclose = () => {
+      // no-op
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
+
   const occupiedCount = tables.filter((t) => t.isOccupied).length;
   const totalTables = tables.length;
-  const totalSales = tables.reduce(
-    (acc, curr) => acc + (curr.currentTotal || 0),
-    0
-  );
+  const totalSales = todaySales;
 
   const pendingOrdersCount = orders.filter((o) => o.status === "pending").length;
   const cookingOrdersCount = orders.filter((o) => o.status === "cooking").length;
@@ -302,16 +379,28 @@ export default function StaffDashboardPage() {
       return 0;
     });
 
-  const handleAccept = (id: string) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === id ? { ...order, status: "cooking" } : order
-      )
-    );
+  const handleAccept = async (orderId: string) => {
+    await api(`/api/admin/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "accepted" }),
+    });
+    await refreshLiveData();
   };
 
-  const handleServe = (id: string) => {
-    setOrders((prev) => prev.filter((order) => order.id !== id));
+  const handleServe = async (orderId: string) => {
+    await api(`/api/admin/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "served" }),
+    });
+    await refreshLiveData();
+  };
+
+  const handleReject = async (orderId: string) => {
+    await api(`/api/admin/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "cancelled" }),
+    });
+    await refreshLiveData();
   };
 
   const handleFreeTable = (tableId: string) => {
@@ -334,58 +423,24 @@ export default function StaffDashboardPage() {
     setOpenMenuId(null);
   };
 
-  const handleMoveTable = (targetTableId: string) => {
+  const handleMoveTable = async (targetTableId: string) => {
     if (!activeTableId) return;
 
     const sourceTable = tables.find((t) => t.id === activeTableId);
     const targetTable = tables.find((t) => t.id === targetTableId);
     if (!sourceTable || !targetTable) return;
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id === activeTableId) {
-          return {
-            ...t,
-            isOccupied: false,
-            activeSessionId: undefined,
-            currentTotal: 0,
-            itemsCount: 0,
-            guests: 0,
-            billStatus: undefined,
-            seatedAt: undefined,
-          };
-        }
-        if (t.id === targetTableId) {
-          return {
-            ...t,
-            isOccupied: true,
-            activeSessionId: sourceTable.activeSessionId,
-            currentTotal: sourceTable.currentTotal,
-            itemsCount: sourceTable.itemsCount,
-            guests: sourceTable.guests,
-            billStatus: sourceTable.billStatus,
-            seatedAt: sourceTable.seatedAt || new Date(),
-          };
-        }
-        return t;
-      })
-    );
+    if (!sourceTable.activeSessionId) return;
 
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.tableCode === sourceTable.tableCode
-          ? { ...o, tableCode: targetTable.tableCode }
-          : o
-      )
-    );
+    await api("/api/admin/tables/move", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sourceTable.activeSessionId,
+        target_table_id: targetTableId,
+      }),
+    });
 
-    setServiceCalls((prev) =>
-      prev.map((c) =>
-        c.tableCode === sourceTable.tableCode
-          ? { ...c, tableCode: targetTable.tableCode }
-          : c
-      )
-    );
+    await refreshLiveData();
 
     setShowMoveModal(false);
     setActiveTableId(null);
@@ -447,9 +502,20 @@ export default function StaffDashboardPage() {
     setOpenMenuId(null);
   };
 
-  const handleServiceCallStatus = (id: string, status: ServiceCallStatus) => {
-    setServiceCalls((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status } : c))
+  const handleServiceCallStatus = async (id: string, status: ServiceCallStatus) => {
+    await api(`/api/admin/service-calls/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    const serviceRes = await api<ServiceCallAPI[]>("/api/admin/service-calls");
+    setServiceCalls(
+      (serviceRes || []).map((c) => ({
+        id: c.id,
+        tableCode: `T${c.table_number}`,
+        type: c.type,
+        status: c.status,
+        createdAt: new Date(c.created_at),
+      }))
     );
   };
 
@@ -880,11 +946,11 @@ export default function StaffDashboardPage() {
                                         <div className="flex gap-2">
                                             {order.status === 'pending' ? (
                                                 <>
-                                                    <button onClick={() => handleAccept(order.id)} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100">Accept</button>
-                                                    <button onClick={() => handleServe(order.id)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100">Reject</button>
+                                                    <button onClick={() => handleAccept(order.orderId)} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100">Accept</button>
+                                                    <button onClick={() => handleReject(order.orderId)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100">Reject</button>
                                                 </>
                                             ) : (
-                                                <button onClick={() => handleServe(order.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors">Mark Served</button>
+                                                <button onClick={() => handleServe(order.orderId)} className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors">Mark Served</button>
                                             )}
                                         </div>
                                     </motion.div>

@@ -25,7 +25,7 @@ import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import { toast, Toaster } from "react-hot-toast";
 
-type Category = "all" | "food" | "beverage" | "alcohol";
+type CategoryTab = "all" | string;
 type Allergen =
   | "Dairy"
   | "Gluten"
@@ -68,7 +68,8 @@ type MenuItem = {
   id: string;
   name: string;
   categoryId: string;
-  category: "food" | "beverage" | "alcohol";
+  categoryName?: string;
+  parentCategoryName?: string;
   price: number;
   isAvailable: boolean;
   isArchived: boolean;
@@ -81,6 +82,13 @@ type MenuItem = {
   allergens: { type: Allergen; confidence: AllergenConfidence }[];
   availableDays: DayOfWeek[];
   updatedBy: string;
+};
+
+type CategoryOption = {
+  id: string;
+  name: string;
+  parent_id?: string | null;
+  parent_name?: string | null;
 };
 
 export const authFetch = async (url: string, options: RequestInit = {}) => {
@@ -96,12 +104,14 @@ export const authFetch = async (url: string, options: RequestInit = {}) => {
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [activeTab, setActiveTab] = useState<Category>("all");
+  const [activeTab, setActiveTab] = useState<CategoryTab>("all");
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [modalMode, setModalMode] = useState<"add" | "edit" | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [editingParentId, setEditingParentId] = useState<string>("");
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [activeModalTab, setActiveModalTab] = useState<
     "general" | "variants" | "assets" | "ingredients" | "availability"
   >("general");
@@ -112,6 +122,7 @@ export default function MenuPage() {
 
   useEffect(() => {
     refreshMenu();
+    refreshCategories();
   }, []);
 
   const refreshMenu = async () => {
@@ -125,6 +136,14 @@ export default function MenuPage() {
           typeof item.name === "object"
             ? item.name?.String ?? ""
             : item.name ?? "",
+        categoryName:
+          typeof item.categoryName === "object"
+            ? item.categoryName?.String ?? ""
+            : item.categoryName ?? "",
+        parentCategoryName:
+          typeof item.parentCategoryName === "object"
+            ? item.parentCategoryName?.String ?? ""
+            : item.parentCategoryName ?? "",
         description: item.description?.String ?? item.description ?? "",
         imageUrl: item.imageUrl?.String ?? item.imageUrl ?? "",
         modelGlb: item.modelGlb?.String ?? item.modelGlb ?? "",
@@ -139,6 +158,29 @@ export default function MenuPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshCategories = async () => {
+    try {
+      const data = await authFetch("/api/admin/menu/categories");
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const parentCategories = categories.filter((c) => !c.parent_id);
+  const getSubcategories = (parentId: string) =>
+    categories.filter((c) => c.parent_id === parentId);
+
+  const resolveParentName = (item: MenuItem) =>
+    item.parentCategoryName || item.categoryName || "Uncategorized";
+
+  const getDefaultCategoryId = () => {
+    const parent = parentCategories[0];
+    if (!parent) return "";
+    const subs = getSubcategories(parent.id);
+    return subs[0]?.id || parent.id;
   };
 
   const handleFileUpload = async (
@@ -207,7 +249,7 @@ else {
         const res: any = await authFetch("/api/admin/menu/item", {
           method: "POST",
           body: JSON.stringify({
-            category_id: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
+            category_id: editingItem.categoryId || getDefaultCategoryId(),
             name: editingItem.name,
             price: editingItem.price,
           }),
@@ -218,6 +260,7 @@ else {
       await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
         method: "PUT",
         body: JSON.stringify({
+          category_id: editingItem.categoryId || undefined,
           name: editingItem.name,
           price: editingItem.price,
           description: editingItem.description,
@@ -274,11 +317,23 @@ else {
   };
 
   const filteredItems = items.filter((item) => {
-    const matchesTab = activeTab === "all" || item.category === activeTab;
+    const matchesTab =
+      activeTab === "all" || resolveParentName(item) === activeTab;
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchesArchive = showArchived ? item.isArchived : !item.isArchived;
     return matchesTab && matchesSearch && matchesArchive;
   });
+
+  const selectedParentId =
+    editingParentId ||
+    categories.find((c) => c.id === editingItem?.categoryId)?.parent_id ||
+    categories.find((c) => c.id === editingItem?.categoryId)?.id ||
+    parentCategories[0]?.id ||
+    "";
+
+  const subcategoryOptions = selectedParentId
+    ? getSubcategories(selectedParentId)
+    : [];
 
   return (
     <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
@@ -318,11 +373,15 @@ else {
             </button>
             <button
               onClick={() => {
+                const defaultCategoryId = getDefaultCategoryId();
+                const defaultParentId =
+                  categories.find((c) => c.id === defaultCategoryId)?.parent_id ||
+                  categories.find((c) => c.id === defaultCategoryId)?.id ||
+                  "";
                 setEditingItem({
                   id: "",
                   name: "",
-                  category: "food",
-                  categoryId: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
+                  categoryId: defaultCategoryId,
                   price: 0,
                   isAvailable: true,
                   isArchived: false,
@@ -336,6 +395,7 @@ else {
                   availableDays: [...DAYS],
                   updatedBy: "Staff",
                 });
+                setEditingParentId(defaultParentId);
                 setModalMode("add");
                 setActiveModalTab("general");
               }}
@@ -351,7 +411,7 @@ else {
             <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">
-                  {["all", "food", "beverage", "alcohol"].map((cat) => (
+                  {["all", ...parentCategories.map((c) => c.name)].map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setActiveTab(cat as any)}
@@ -461,11 +521,15 @@ else {
                 {!search && (
                   <button
                     onClick={() => {
+                      const defaultCategoryId = getDefaultCategoryId();
+                      const defaultParentId =
+                        categories.find((c) => c.id === defaultCategoryId)?.parent_id ||
+                        categories.find((c) => c.id === defaultCategoryId)?.id ||
+                        "";
                       setEditingItem({
                         id: "",
                         name: "",
-                        category: "food",
-                        categoryId: "9e7b3a66-4271-46bd-b166-7fc3f72d284c",
+                        categoryId: defaultCategoryId,
                         price: 0,
                         isAvailable: true,
                         isArchived: false,
@@ -479,6 +543,7 @@ else {
                         availableDays: [...DAYS],
                         updatedBy: "Staff",
                       });
+                      setEditingParentId(defaultParentId);
                       setModalMode("add");
                       setActiveModalTab("general");
                     }}
@@ -524,6 +589,9 @@ else {
                         <button
                           onClick={() => {
                             setEditingItem(item);
+                            const category = categories.find((c) => c.id === item.categoryId);
+                            const parentId = category?.parent_id || category?.id || "";
+                            setEditingParentId(parentId);
                             setModalMode("edit");
                           }}
                           className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm transition-colors"
@@ -551,7 +619,9 @@ else {
                       </p>
                       <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                          {item.category}
+                          {item.parentCategoryName
+                            ? `${item.parentCategoryName} • ${item.categoryName || "General"}`
+                            : item.categoryName || "Uncategorized"}
                         </span>
                         <div className="flex -space-x-1">
                           {item.allergens.slice(0, 3).map((a) => (
@@ -694,22 +764,74 @@ else {
 
                         <div className="space-y-2">
                           <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Category
+                            Category Group
                           </label>
                           <div className="relative">
                             <select
-                              value={editingItem.category}
+                              value={selectedParentId}
+                              onChange={(e) => {
+                                const nextParentId = e.target.value;
+                                const subs = getSubcategories(nextParentId);
+                                const nextCategoryId = subs[0]?.id || nextParentId;
+                                setEditingParentId(nextParentId);
+                                setEditingItem({
+                                  ...editingItem,
+                                  categoryId: nextCategoryId,
+                                });
+                              }}
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none cursor-pointer"
+                            >
+                              {parentCategories.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Subcategory
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={editingItem.categoryId || ""}
                               onChange={(e) =>
                                 setEditingItem({
                                   ...editingItem,
-                                  category: e.target.value as any,
+                                  categoryId: e.target.value,
                                 })
                               }
                               className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none cursor-pointer"
                             >
-                              <option value="food">Food</option>
-                              <option value="beverage">Beverage</option>
-                              <option value="alcohol">Alcohol</option>
+                              {subcategoryOptions.length > 0 ? (
+                                subcategoryOptions.map((cat) => (
+                                  <option key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                  </option>
+                                ))
+                              ) : (
+                                <option value={selectedParentId}>
+                                  {parentCategories.find((c) => c.id === selectedParentId)?.name ||
+                                    "General"}
+                                </option>
+                              )}
                             </select>
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                               <svg

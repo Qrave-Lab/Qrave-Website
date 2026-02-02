@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -20,6 +20,7 @@ import {
   Receipt
 } from "lucide-react";
 import { PrintButton } from "./PrintButton"; 
+import { api } from "@/app/lib/api";
 
 type ItemStatus = "pending" | "accepted" | "served" | "rejected";
 type PaymentMethod = "cash" | "card" | "upi" | null;
@@ -40,30 +41,34 @@ type BillData = {
   createdAt: Date;
   items: BillItem[];
 };
+type ActiveOrderItem = {
+  menu_item_id: string;
+  variant_id: string;
+  quantity: number;
+  price: number;
+  menu_item_name: string;
+  variant_label?: string | null;
+};
 
-function getMockBill(): BillData {
-  const items: BillItem[] = [
-    { id: "1", name: "Smash Burger Double Patty", quantity: 2, rate: 349, status: "pending" },
-    { id: "2", name: "Truffle Parmesan Fries", quantity: 1, rate: 249, status: "accepted" },
-    { id: "3", name: "Classic Tiramisu", quantity: 1, rate: 299, status: "served" },
-  ];
+type ActiveOrder = {
+  id: string;
+  status: string;
+  created_at: string;
+  session_id: string;
+  table_id: string;
+  table_number: number;
+  items: ActiveOrderItem[];
+};
 
-  return {
-    restaurantName: "NOIR.",
-    restaurantAddress: "MG Road, Kochi, Kerala",
-    tableCode: "T3",
-    billNumber: "BILL-000123",
-    createdAt: new Date(),
-    items,
-  };
-}
+type OrdersBySessionResponse = {
+  orders: ActiveOrder[];
+};
 
-export default function TableBillPage({ params }: { params: { sessionId: string } }) {
+export default function TableBillPage({ params }: { params: Promise<{ sessionid: string }> }) {
   const router = useRouter();
-  const initialBill = getMockBill();
-  
-  // State
-  const [items, setItems] = useState<BillItem[]>(initialBill.items);
+  const { sessionid } = use(params);
+  const [bill, setBill] = useState<BillData | null>(null);
+  const [items, setItems] = useState<BillItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
   const [isPaid, setIsPaid] = useState(false);
@@ -79,6 +84,59 @@ export default function TableBillPage({ params }: { params: { sessionId: string 
     const taxAmount = Math.round(sub * 0.05);
     return { subtotal: sub, tax: taxAmount, total: sub + taxAmount };
   }, [items]);
+
+  useEffect(() => {
+    let isActive = true;
+    const load = async () => {
+      try {
+        const [ordersRes, me] = await Promise.all([
+          api<OrdersBySessionResponse>(`/api/admin/orders/session/${sessionid}`),
+          api<{ restaurant?: string; address?: string | null }>("/api/admin/me"),
+        ]);
+
+        if (!isActive) return;
+        const orders = ordersRes?.orders || [];
+        const tableNumber = orders[0]?.table_number;
+        const createdAt = orders[0]?.created_at ? new Date(orders[0].created_at) : new Date();
+
+        const mappedItems: BillItem[] = [];
+        for (const order of orders) {
+          const status: ItemStatus =
+            order.status === "accepted" || order.status === "served"
+              ? (order.status as ItemStatus)
+              : "pending";
+          for (const item of order.items || []) {
+            const suffix = item.variant_label ? ` (${item.variant_label})` : "";
+            mappedItems.push({
+              id: `${order.id}-${item.menu_item_id}-${item.variant_id}`,
+              name: `${item.menu_item_name}${suffix}`,
+              quantity: item.quantity,
+              rate: item.price,
+              status,
+            });
+          }
+        }
+
+        setItems(mappedItems);
+        setBill({
+          restaurantName: me?.restaurant || "Restaurant",
+          restaurantAddress: me?.address || undefined,
+          tableCode: tableNumber ? `T${tableNumber}` : "T-",
+          billNumber: `BILL-${sessionid.slice(0, 6).toUpperCase()}`,
+          createdAt,
+          items: mappedItems,
+        });
+      } catch {
+        if (!isActive) return;
+        setBill(null);
+        setItems([]);
+      }
+    };
+    load();
+    return () => {
+      isActive = false;
+    };
+  }, [sessionid]);
 
   // Actions
   const updateStatus = (id: string, status: ItemStatus) => {
@@ -109,7 +167,7 @@ export default function TableBillPage({ params }: { params: { sessionId: string 
         
         {/* === PAYMENT SUCCESS BANNER (Print Only) === */}
         <div className="hidden print:block text-center border-b border-gray-200 py-2">
-            <h1 className="text-xl font-bold uppercase tracking-widest">{initialBill.restaurantName}</h1>
+            <h1 className="text-xl font-bold uppercase tracking-widest">{bill?.restaurantName || "Restaurant"}</h1>
             <p className="text-xs">Original Tax Invoice</p>
         </div>
 
@@ -124,7 +182,7 @@ export default function TableBillPage({ params }: { params: { sessionId: string 
                 {isPaid ? <CheckCircle2 className="w-5 h-5" /> : <UtensilsCrossed className="w-5 h-5" />}
               </div>
               <div>
-                <h2 className="text-sm font-bold text-gray-900">Table {initialBill.tableCode}</h2>
+                <h2 className="text-sm font-bold text-gray-900">Table {bill?.tableCode || "T-"}</h2>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                   {isPaid ? "PAID" : "Payment Pending"}
                 </span>
@@ -185,17 +243,17 @@ export default function TableBillPage({ params }: { params: { sessionId: string 
           {/* Header Section */}
           <header className="flex flex-col sm:flex-row items-start justify-between gap-6 mb-8">
             <div className="print:hidden"> 
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">{initialBill.restaurantName}</h1>
-              <p className="text-sm text-gray-500 mt-1 font-medium">{initialBill.restaurantAddress}</p>
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900">{bill?.restaurantName || "Restaurant"}</h1>
+              <p className="text-sm text-gray-500 mt-1 font-medium">{bill?.restaurantAddress}</p>
             </div>
             
             <div className="w-full sm:w-auto flex justify-between sm:block text-right space-y-1">
               <div className="inline-flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 print:border-none print:px-0">
                 <Receipt className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-mono font-semibold text-gray-700">{initialBill.billNumber}</span>
+                <span className="text-sm font-mono font-semibold text-gray-700">{bill?.billNumber || "BILL-"}</span>
               </div>
               <p className="text-xs text-gray-500 font-medium">
-                {initialBill.createdAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                {(bill?.createdAt || new Date()).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
               </p>
               {isPaid && (
                   <div className="print:block hidden mt-2 border-2 border-gray-900 px-2 py-1 inline-block">
@@ -288,7 +346,7 @@ export default function TableBillPage({ params }: { params: { sessionId: string 
           </section>
 
           <footer className="mt-12 text-center text-xs text-gray-400 print:mt-8">
-            <p>Thank you for dining at {initialBill.restaurantName}</p>
+            <p>Thank you for dining at {bill?.restaurantName || "Restaurant"}</p>
             {isPaid && <p className="mt-1 font-mono uppercase">** PAID VIA {paymentMethod?.toUpperCase()} **</p>}
           </footer>
         </div>

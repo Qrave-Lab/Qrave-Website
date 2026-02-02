@@ -20,6 +20,8 @@ export const orderService = {
     return api<CartRes>(`/api/customer/orders/cart${orderId ? `?order_id=${orderId}` : ""}`);
   },
 
+  getOrders: () => api<{ orders: any[] }>("/api/customer/orders"),
+
   async addItem(id: string, variantId: string | null, price: number): Promise<any> {
     let orderId = localStorage.getItem("order_id");
     const sessionId = localStorage.getItem("session_id");
@@ -30,7 +32,6 @@ export const orderService = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: sessionId,
-          restaurant_id: "d7e5553a-bf08-463b-a19c-114391930dc7"
         }),
         credentials: "include"
       });
@@ -46,7 +47,6 @@ export const orderService = {
         body: JSON.stringify({
           order_id: orderId,
           menu_item_id: id,
-          restaurant_id: "d7e5553a-bf08-463b-a19c-114391930dc7",
           variant_id: variantId || null,
           quantity: 1,
           price
