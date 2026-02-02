@@ -45,14 +45,20 @@ export default function MenuClient({ table }: { table: string | null }) {
     const ensureSessionAndLoad = async () => {
       let session = localStorage.getItem("session_id");
 
+      const isUUID = (value: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
       if (!session && resolvedTable) {
-        if (!resolvedRestaurant) {
-          console.error("No restaurant found for session start");
-          setItems([]);
-          return;
-        }
-        const tableNumber = Number.parseInt(resolvedTable, 10);
+        const normalizedTable = resolvedTable.trim().toLowerCase().startsWith("t")
+          ? resolvedTable.trim().slice(1)
+          : resolvedTable.trim();
+        const tableNumber = Number.parseInt(normalizedTable, 10);
         if (!Number.isNaN(tableNumber)) {
+          if (!resolvedRestaurant) {
+            console.error("No restaurant found for session start");
+            setItems([]);
+            return;
+          }
           try {
             const res = await api<{ session_id: string }>("/public/session/start", {
               method: "POST",
@@ -70,6 +76,29 @@ export default function MenuClient({ table }: { table: string | null }) {
             }
           } catch (err) {
             console.error("Failed to start session", err);
+            localStorage.removeItem("session_id");
+          }
+        } else if (isUUID(resolvedTable)) {
+          try {
+            const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number }>("/public/session/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                table_id: resolvedTable,
+              }),
+              credentials: "include",
+            });
+            session = res.session_id;
+            localStorage.setItem("session_id", res.session_id);
+            if (res.restaurant_id) {
+              localStorage.setItem("restaurant_id", res.restaurant_id);
+            }
+            if (res.table_number) {
+              localStorage.setItem("table_number", String(res.table_number));
+            }
+          } catch (err) {
+            console.error("Failed to start session", err);
+            localStorage.removeItem("session_id");
           }
         }
       }
@@ -79,12 +108,51 @@ export default function MenuClient({ table }: { table: string | null }) {
         return;
       }
 
-      api<any[]>(`/api/customer/menu`, { credentials: "include" })
-        .then(setItems)
-        .catch((err) => {
+      const loadMenu = async (sessionId?: string) => {
+        const menuPath = sessionId
+          ? `/api/customer/menu?session_id=${sessionId}`
+          : "/api/customer/menu";
+        return api<any[]>(menuPath, { credentials: "include" });
+      };
+
+      try {
+        const menu = await loadMenu(session || undefined);
+        setItems(menu);
+      } catch (err: any) {
+        if (err?.status === 401 || String(err?.message || "").includes("session expired")) {
+          localStorage.removeItem("session_id");
+          session = null;
+          if (resolvedTable && resolvedRestaurant) {
+            const tableNumber = Number.parseInt(resolvedTable, 10);
+            if (!Number.isNaN(tableNumber)) {
+              try {
+                const res = await api<{ session_id: string }>("/public/session/start", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    restaurant_id: resolvedRestaurant,
+                    table_number: tableNumber,
+                  }),
+                  credentials: "include",
+                });
+                session = res.session_id;
+                localStorage.setItem("session_id", res.session_id);
+                if (resolvedRestaurant) {
+                  localStorage.setItem("restaurant_id", resolvedRestaurant);
+                }
+                const menu = await loadMenu(session);
+                setItems(menu);
+                return;
+              } catch (e) {
+                console.error("Menu fetch failed after session refresh", e);
+              }
+            }
+          }
+        } else {
           console.error("Menu fetch failed", err);
-          setItems([]);
-        });
+        }
+        setItems([]);
+      }
     };
 
     ensureSessionAndLoad();

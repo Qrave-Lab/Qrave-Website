@@ -10,7 +10,12 @@ export type CartRes = {
 };
 
 export const orderService = {
-  getMenu: () => api<any[]>("/api/customer/menu"),
+  getMenu: () => {
+    const sessionId =
+      typeof window !== "undefined" ? localStorage.getItem("session_id") : null;
+    const suffix = sessionId ? `?session_id=${sessionId}` : "";
+    return api<any[]>(`/api/customer/menu${suffix}`);
+  },
 
   getCart: async (orderIdOverride?: string) => {
     let orderId = orderIdOverride;
