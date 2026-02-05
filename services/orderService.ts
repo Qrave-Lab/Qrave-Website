@@ -10,6 +10,68 @@ export type CartRes = {
 };
 
 export const orderService = {
+  ensureSession: async () => {
+    if (typeof window === "undefined") return null;
+    let sessionId = localStorage.getItem("session_id");
+    if (sessionId) return sessionId;
+
+    const restaurantId = localStorage.getItem("restaurant_id");
+    const rawTable =
+      localStorage.getItem("table_number") ||
+      localStorage.getItem("table") ||
+      null;
+
+    if (!rawTable) return null;
+
+    const isUUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTable);
+    const normalizedTable = rawTable.trim().toLowerCase().startsWith("t")
+      ? rawTable.trim().slice(1)
+      : rawTable.trim();
+    const tableNumber = Number.parseInt(normalizedTable, 10);
+
+    try {
+      if (!Number.isNaN(tableNumber)) {
+        if (!restaurantId) return null;
+        const res = await api<{ session_id: string }>(`/public/session/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            restaurant_id: restaurantId,
+            table_number: tableNumber,
+          }),
+          credentials: "include",
+        });
+        sessionId = res.session_id;
+        localStorage.setItem("session_id", sessionId);
+        return sessionId;
+      }
+
+      if (isUUID) {
+        const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number }>(`/public/session/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            table_id: rawTable,
+          }),
+          credentials: "include",
+        });
+        sessionId = res.session_id;
+        localStorage.setItem("session_id", sessionId);
+        if (res.restaurant_id) {
+          localStorage.setItem("restaurant_id", res.restaurant_id);
+        }
+        if (res.table_number) {
+          localStorage.setItem("table_number", String(res.table_number));
+        }
+        return sessionId;
+      }
+    } catch {
+      localStorage.removeItem("session_id");
+    }
+
+    return null;
+  },
   getMenu: () => {
     const sessionId =
       typeof window !== "undefined" ? localStorage.getItem("session_id") : null;
@@ -36,10 +98,13 @@ export const orderService = {
   },
 
   async addItem(id: string, variantId: string | null, price: number): Promise<any> {
+    let sessionId = await orderService.ensureSession();
     let orderId = localStorage.getItem("order_id");
-    const sessionId = localStorage.getItem("session_id");
 
     if (!orderId) {
+      if (!sessionId) {
+        sessionId = await orderService.ensureSession();
+      }
       const created = await api<{ order_id: string }>("/api/customer/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,6 +133,10 @@ export const orderService = {
       });
       return res;
     } catch (e: any) {
+      if (e.message && (e.message.includes("session_id is required") || e.message.includes("session expired"))) {
+        localStorage.removeItem("session_id");
+        return this.addItem(id, variantId, price);
+      }
       if (e.message && (e.message.includes("order not found") || e.message.includes("violates foreign key constraint"))) {
         localStorage.removeItem("order_id");
         return this.addItem(id, variantId, price);
