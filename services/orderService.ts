@@ -25,7 +25,12 @@ export const orderService = {
     return api<CartRes>(`/api/customer/orders/cart${orderId ? `?order_id=${orderId}` : ""}`);
   },
 
-  getOrders: () => api<{ orders: any[] }>("/api/customer/orders"),
+  getOrders: () => {
+    const sessionId =
+      typeof window !== "undefined" ? localStorage.getItem("session_id") : null;
+    const suffix = sessionId ? `?session_id=${sessionId}` : "";
+    return api<{ orders: any[] }>(`/api/customer/orders${suffix}`);
+  },
 
   async addItem(id: string, variantId: string | null, price: number): Promise<any> {
     let orderId = localStorage.getItem("order_id");
