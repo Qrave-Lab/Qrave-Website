@@ -9,29 +9,7 @@ import TableManager from "@/app/components/settings/TableManager";
 import StaffManager from "@/app/components/settings/StaffManager";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
-
-export type Table = {
-  id: string;
-  table_number: number;
-  is_enabled: boolean;
-};
-
-export type Staff = {
-  id: string;
-  name: string;
-  role: "owner" | "manager" | "staff";
-  email: string;
-};
-
-export type Restaurant = {
-  name: string;
-  address: string;
-  currency: string;
-  taxPercent: number;
-  serviceCharge: number;
-  phone: string;
-  logo_url?: string;
-};
+import type { Restaurant, Staff, Table } from "@/app/components/settings/types";
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
@@ -194,9 +172,6 @@ export default function SettingsPage() {
     }
   };
 
-  const addStaff = () => setStaff((prev) => [...prev, { id: Date.now().toString(), name: "New Member", role: "staff", email: "" }]);
-  const updateStaff = (id: string, key: keyof Staff, value: any) => setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, [key]: value } : s)));
-  const removeStaff = (id: string) => setStaff((prev) => prev.filter((s) => s.id !== id));
 
   if (isLoading) {
     return (
@@ -248,12 +223,7 @@ export default function SettingsPage() {
                 onToggle={toggleTable} 
                 onRemove={removeTable} 
               />
-              <StaffManager 
-                staff={staff} 
-                onAdd={addStaff} 
-                onUpdate={updateStaff} 
-                onRemove={removeStaff} 
-              />
+              <StaffManager />
             </div>
           </div>
         </main>

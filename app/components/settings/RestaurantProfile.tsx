@@ -1,6 +1,6 @@
 import React from "react";
 import { Store, Camera, Loader2, Image as ImageIcon } from "lucide-react";
-import { Restaurant } from "../page";
+import type { Restaurant } from "./types";
 import toast from "react-hot-toast";
 
 

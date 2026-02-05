@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Receipt, Plus, Trash2 } from "lucide-react";
-import { Table } from "@/app/(pages)/staff/settings/page";
+import type { Table } from "@/app/components/settings/types";
 
 type Props = {
   tables: Table[];

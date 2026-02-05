@@ -167,13 +167,15 @@ export default function StaffDashboardPage() {
   const buildPendingOrders = (ordersList: ActiveOrder[]) => {
     const next: PendingOrder[] = [];
     for (const order of ordersList) {
+      const orderId = order.id || order.order_id;
+      if (!orderId) continue;
       const mappedStatus: OrderStatus =
         order.status === "pending" ? "pending" : "cooking";
       for (const item of order.items || []) {
         const variantSuffix = item.variant_label ? ` (${item.variant_label})` : "";
         next.push({
-          id: `${order.id}-${item.menu_item_id}-${item.variant_id}`,
-          orderId: order.id,
+          id: `${orderId}-${item.menu_item_id}-${item.variant_id}`,
+          orderId,
           tableCode: `T${order.table_number}`,
           itemName: `${item.menu_item_name}${variantSuffix}`,
           quantity: item.quantity,

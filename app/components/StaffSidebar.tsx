@@ -16,7 +16,19 @@ import {
 } from "lucide-react";
 import { api } from "@/app/lib/api";
 
-const sidebarItems = [
+type SidebarItem = {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description?: string;
+};
+
+type SidebarSection = {
+  category: string;
+  items: SidebarItem[];
+};
+
+const sidebarItems: SidebarSection[] = [
   {
     category: "Overview",
     items: [

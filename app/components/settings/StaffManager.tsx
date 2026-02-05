@@ -13,11 +13,10 @@ type StaffMember = {
 };
 
 type Props = {
-  restaurantId: string;
   onRefresh?: () => void;
 };
 
-export default function StaffManager({ restaurantId, onRefresh }: Props) {
+export default function StaffManager({ onRefresh }: Props) {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);

@@ -26,6 +26,7 @@ type Table = {
   id: string;
   table_number: number;
   is_enabled: boolean;
+  zone?: string | null;
 };
 
 const getTableLabel = (table: Table) =>
@@ -33,7 +34,7 @@ const getTableLabel = (table: Table) =>
 
 
 const getTableUrl = (table: Table | null) => {
-  if (!table) return "";
+  if (!table || typeof window === "undefined") return "";
   return `${window.location.origin}/t/${table.table_number}`;
 };
 
@@ -68,15 +69,16 @@ export default function QrFlyerGenerator() {
    const [tables, setTables] = useState<Table[]>([]);
 const [selectedTable, setSelectedTable] = useState<Table | null>(null);
 
-const getTable = async()=>{
-    const data =await api("/api/admin/tables",{
-    method:"GET"
-  });
-  setTables(data);
-  if (data.length > 0) {
-    setSelectedTable(data[0]);
-  }
-}
+  const getTable = async () => {
+    const data = await api<Table[]>("/api/admin/tables", {
+      method: "GET",
+    });
+    const next = Array.isArray(data) ? data : [];
+    setTables(next);
+    if (next.length > 0) {
+      setSelectedTable(next[0]);
+    }
+  };
 
   // Design State
   const [template, setTemplate] = useState("modern");
@@ -187,7 +189,9 @@ const getTable = async()=>{
                       }`}
                     >
                       <span>{getTableLabel(t)}</span>
-                      <span className="text-[9px] font-normal opacity-70 truncate w-full text-center">{t.zone}</span>
+                      <span className="text-[9px] font-normal opacity-70 truncate w-full text-center">
+                        {t.zone || "Main"}
+                      </span>
                     </button>
                   ))}
                 </div>

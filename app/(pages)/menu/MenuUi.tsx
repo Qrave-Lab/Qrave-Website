@@ -88,8 +88,8 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
       categoryName: resolve(item.categoryName),
       parentCategoryName: resolve(item.parentCategoryName),
       price: basePrice,
-      image: item.imageUrl || item.image,
-      arModelGlb: item.modelGlb || item.arModelGlb,
+      image: resolve(item.imageUrl) || item.image,
+      arModelGlb: item.modelGlb || item.arModelGlb || "/models/pizza.glb",
       variants,
     };
   };
@@ -288,9 +288,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
             const items = filteredItems.filter((item: any) => getParentName(item) === category.id);
             if (items.length === 0) return null;
 
-            const subcategories = Array.from(
-              new Set(items.map((item: any) => getSubcategoryName(item)))
-            );
+    const subcategories = Array.from(
+      new Set(items.map((item: any) => getSubcategoryName(item)).filter(Boolean))
+    ) as string[];
             return (
               <div key={category.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <button
@@ -308,7 +308,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
 
                 {expandedCategories[category.id] && (
                   <div className="space-y-8">
-                    {subcategories.map((subcat) => {
+                    {subcategories.map((subcat: string) => {
                       const subItems = items.filter((item: any) => getSubcategoryName(item) === subcat);
                       if (subItems.length === 0) return null;
 
