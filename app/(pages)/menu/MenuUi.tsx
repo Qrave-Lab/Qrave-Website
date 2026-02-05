@@ -432,7 +432,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
                           </div>
                           <div className="grid gap-6">
                             {subItems.map((item: any) => {
-                              const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id;
+                              const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                               const cartKey = getCartKey(item.id, currentVId);
                               const cartItem = cart[cartKey];
                               const quantity = cartItem ? cartItem.quantity : 0;

@@ -265,11 +265,8 @@ export default function StaffDashboardPage() {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-    const base =
-      process.env.NEXT_PUBLIC_EVENT_SERVICE_URL ||
-      (typeof window !== "undefined"
-        ? `ws://${window.location.hostname}:9091`
-        : "ws://localhost:9091");
+    const base = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL;
+    if (!base) return;
     const ws = new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`);
     ws.onerror = () => {
       // no-op

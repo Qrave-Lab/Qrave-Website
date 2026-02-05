@@ -71,7 +71,8 @@ const FoodCard: React.FC<FoodCardProps> = ({
   const activeVariantId =
     selectedVariantId ||
     visibleVariants[0]?.id ||
-    item.variants?.[0]?.id;
+    item.variants?.[0]?.id ||
+    "";
   const displayPrice =
     item.price + (item.variants?.find((v) => v.id === activeVariantId)?.priceDelta || 0);
 
