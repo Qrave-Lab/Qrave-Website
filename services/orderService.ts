@@ -15,11 +15,33 @@ export const orderService = {
     let sessionId = localStorage.getItem("session_id");
     if (sessionId) return sessionId;
 
-    const restaurantId = localStorage.getItem("restaurant_id");
+    const searchParams = new URLSearchParams(window.location.search);
+    const restaurantFromUrl = searchParams.get("restaurant") || searchParams.get("r");
+    const tableFromQuery = searchParams.get("table");
+    const tableFromPath = (() => {
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      const idx = parts.indexOf("t");
+      if (idx !== -1 && parts[idx + 1]) return parts[idx + 1];
+      const menuIdx = parts.indexOf("menu");
+      if (menuIdx !== -1 && parts[menuIdx + 1] === "t" && parts[menuIdx + 2]) return parts[menuIdx + 2];
+      return null;
+    })();
+
+    const restaurantId =
+      localStorage.getItem("restaurant_id") || restaurantFromUrl || null;
     const rawTable =
       localStorage.getItem("table_number") ||
       localStorage.getItem("table") ||
+      tableFromQuery ||
+      tableFromPath ||
       null;
+
+    if (restaurantFromUrl) {
+      localStorage.setItem("restaurant_id", restaurantFromUrl);
+    }
+    if (rawTable) {
+      localStorage.setItem("table_number", rawTable);
+    }
 
     if (!rawTable) return null;
 
