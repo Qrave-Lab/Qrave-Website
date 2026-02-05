@@ -14,6 +14,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCartStore } from "@/stores/cartStore";
 import { orderService } from "@/services/orderService";
+import { api } from "@/app/lib/api";
 import { toast } from "react-hot-toast";
 
 const BASE_VARIANT = "__base__";
@@ -77,16 +78,79 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     setIsMounted(true);
-    if (typeof window !== "undefined") {
-      setCurrentOrderId(localStorage.getItem("order_id"));
-    }
 
-    Promise.all([
-      orderService.getMenu(),
-      orderService.getCart(),
-      orderService.getOrders(),
-    ])
-      .then(([menu, cartRes, ordersRes]) => {
+    const ensureSession = async () => {
+      if (typeof window === "undefined") return null;
+      let session = localStorage.getItem("session_id");
+      if (session) return session;
+
+      const restaurantId = localStorage.getItem("restaurant_id");
+      const rawTable =
+        tableNumber && tableNumber !== "N/A"
+          ? tableNumber
+          : localStorage.getItem("table_number") || localStorage.getItem("table");
+
+      if (!rawTable) return null;
+
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTable);
+      const normalizedTable = rawTable.trim().toLowerCase().startsWith("t") ? rawTable.trim().slice(1) : rawTable.trim();
+      const tableNumberParsed = Number.parseInt(normalizedTable, 10);
+
+      try {
+        if (!Number.isNaN(tableNumberParsed)) {
+          if (!restaurantId) return null;
+          const res = await api<{ session_id: string }>("/public/session/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              restaurant_id: restaurantId,
+              table_number: tableNumberParsed,
+            }),
+            credentials: "include",
+          });
+          localStorage.setItem("session_id", res.session_id);
+          return res.session_id;
+        }
+
+        if (isUUID) {
+          const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number }>("/public/session/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              table_id: rawTable,
+            }),
+            credentials: "include",
+          });
+          localStorage.setItem("session_id", res.session_id);
+          if (res.restaurant_id) {
+            localStorage.setItem("restaurant_id", res.restaurant_id);
+          }
+          if (res.table_number) {
+            localStorage.setItem("table_number", String(res.table_number));
+          }
+          return res.session_id;
+        }
+      } catch (e) {
+        localStorage.removeItem("session_id");
+      }
+
+      return null;
+    };
+
+    const load = async () => {
+      if (typeof window !== "undefined") {
+        setCurrentOrderId(localStorage.getItem("order_id"));
+      }
+
+      await ensureSession();
+
+      Promise.all([
+        orderService.getMenu(),
+        orderService.getCart(),
+        orderService.getOrders(),
+      ])
+        .then(([menu, cartRes, ordersRes]) => {
         const mapped =
           menu?.map((i: any) => {
             const basePrice = Number(i.price || 0);
@@ -127,10 +191,13 @@ const CheckoutPage: React.FC = () => {
         if (ordersRes?.orders) {
           setOrders(ordersRes.orders);
         }
-      })
-      .finally(() => {
-        setIsCartReady(true);
-      });
+        })
+        .finally(() => {
+          setIsCartReady(true);
+        });
+    };
+
+    load();
   }, [syncCart, setMenuCache, setOrders]);
 
   useEffect(() => {

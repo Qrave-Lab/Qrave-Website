@@ -28,6 +28,9 @@ export const orderService = {
   getOrders: () => {
     const sessionId =
       typeof window !== "undefined" ? localStorage.getItem("session_id") : null;
+    if (!sessionId) {
+      return Promise.resolve({ orders: [] });
+    }
     const suffix = sessionId ? `?session_id=${sessionId}` : "";
     return api<{ orders: any[] }>(`/api/customer/orders${suffix}`);
   },
