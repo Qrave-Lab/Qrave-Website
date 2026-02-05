@@ -42,6 +42,16 @@ export default function MenuClient({ table }: { table: string | null }) {
   }, [router, tableFromUrl, resolvedTable, resolvedRestaurant]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (resolvedTable) {
+      localStorage.setItem("table_number", resolvedTable);
+    }
+    if (resolvedRestaurant) {
+      localStorage.setItem("restaurant_id", resolvedRestaurant);
+    }
+  }, [resolvedTable, resolvedRestaurant]);
+
+  useEffect(() => {
     const ensureSessionAndLoad = async () => {
       let session = localStorage.getItem("session_id");
 

@@ -105,6 +105,9 @@ export const orderService = {
       if (!sessionId) {
         sessionId = await orderService.ensureSession();
       }
+      if (!sessionId) {
+        throw new Error("session_id is required");
+      }
       const created = await api<{ order_id: string }>("/api/customer/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
