@@ -20,6 +20,9 @@ type MenuItem = {
   isVeg?: boolean;
   rating: number;
   arModelGlb: string | null;
+  arModelUsdz?: string | null;
+  ingredients?: string[] | string;
+  calories?: number | string;
   isAvailable?: boolean;
   isBestseller?: boolean;
   isSpicy?: boolean;

@@ -12,6 +12,7 @@ interface ImmersiveMenuProps {
     cart: any;
     onAdd: (id: string, vId?: string, price?: number) => void;
     onRemove: (id: string, vId?: string) => void;
+    onArClick: (item: any) => void;
     onClose: () => void;
     tableNumber: string;
 }
@@ -22,6 +23,7 @@ export default function ImmersiveMenu({
     cart,
     onAdd,
     onRemove,
+    onArClick,
     onClose,
     tableNumber,
 }: ImmersiveMenuProps) {
@@ -254,6 +256,15 @@ export default function ImmersiveMenu({
                                             </button>
                                         ))}
                                     </div>
+                                )}
+
+                                {currentItem.arModelGlb && (
+                                    <button
+                                        onClick={() => onArClick(currentItem)}
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-bold uppercase tracking-wider"
+                                    >
+                                        View 3D
+                                    </button>
                                 )}
                             </div>
 

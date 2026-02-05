@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Search, ChevronDown, ChevronRight, UtensilsCrossed, Bell, Droplets, Loader2, Smartphone } from "lucide-react";
 import { useCartStore, getCartKey } from "@/stores/cartStore";
 import { useRouter } from "next/navigation";
@@ -48,6 +49,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
   const [showArTour, setShowArTour] = useState(false);
   const [hasArItems, setHasArItems] = useState(false);
   const [isImmersive, setIsImmersive] = useState(false);
+  const [arItem, setArItem] = useState<any | null>(null);
+  const modelViewerRef = React.useRef<any>(null);
+  const [isBrowser, setIsBrowser] = useState(false);
 
   const { t, tContent, language, setLanguage } = useLanguageStore();
 
@@ -80,6 +84,11 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
       })
       : [];
 
+    const itemName = resolve(item.name).toLowerCase();
+    const fallbackGlb = itemName.includes("burger") ? "/models/pizza.glb" : "/models/pizza.glb";
+    const resolvedGlb = resolve(item.modelGlb || item.arModelGlb) || fallbackGlb;
+    const resolvedUsdz = resolve(item.modelUsdz || item.arModelUsdz);
+
     return {
       ...item,
       id: String(item.id),
@@ -89,7 +98,10 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
       parentCategoryName: resolve(item.parentCategoryName),
       price: basePrice,
       image: resolve(item.imageUrl) || item.image,
-      arModelGlb: item.modelGlb || item.arModelGlb || "/models/pizza.glb",
+      arModelGlb: resolvedGlb,
+      arModelUsdz: resolvedUsdz || null,
+      ingredients: item.ingredients || item.ingredient_list || item.ingredientList || [],
+      calories: item.calories || item.kcal || item.nutrition?.calories,
       variants,
     };
   };
@@ -167,6 +179,20 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
   }, [hasArItems]);
 
   useEffect(() => {
+    setIsBrowser(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (document.querySelector("script[data-model-viewer]")) return;
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js";
+    script.setAttribute("data-model-viewer", "true");
+    document.head.appendChild(script);
+  }, []);
+
+  useEffect(() => {
     if (tableId) {
       document.title = `NOIR | ${t('table')} ${tableId}`;
     }
@@ -177,6 +203,30 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
     const currentIdx = langs.indexOf(language as any);
     const nextIdx = (currentIdx + 1) % langs.length;
     setLanguage(langs[nextIdx]);
+  };
+
+  const handleArOpen = (item: any) => {
+    setArItem(item);
+  };
+
+  const handleArClose = () => {
+    setArItem(null);
+  };
+
+  const activateAr = () => {
+    const viewer = modelViewerRef.current;
+    if (viewer && typeof viewer.activateAR === "function") {
+      viewer.activateAR();
+    }
+  };
+
+  const getIngredients = (item: any): string[] => {
+    if (!item) return [];
+    if (Array.isArray(item.ingredients)) return item.ingredients;
+    if (typeof item.ingredients === "string") {
+      return item.ingredients.split(",").map((s: string) => s.trim()).filter(Boolean);
+    }
+    return [];
   };
 
   return (
@@ -192,8 +242,68 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
           onRemove={handleRemove}
           onClose={() => setIsImmersive(false)}
           tableNumber={tableId}
+          onArClick={handleArOpen}
         />
       )}
+
+      {arItem && isBrowser &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-6">
+            <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden relative">
+              <div className="p-5 border-b border-slate-100 flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">{arItem.name}</h2>
+                  <p className="text-xs text-slate-500 mt-1">{arItem.description}</p>
+                </div>
+                <button
+                  onClick={handleArClose}
+                  className="h-8 w-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200"
+                >
+                  <span className="text-lg leading-none">×</span>
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">
+                  <model-viewer
+                    ref={modelViewerRef}
+                    src={arItem.arModelGlb}
+                    ios-src={arItem.arModelUsdz || undefined}
+                    alt={arItem.name}
+                    camera-controls
+                    auto-rotate
+                    ar
+                    ar-modes="scene-viewer webxr quick-look"
+                    style={{ width: "100%", height: "280px", background: "#f1f5f9" }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Calories</p>
+                    <p className="mt-1 text-lg font-black text-slate-900">
+                      {arItem.calories ? `${arItem.calories} kcal` : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ingredients</p>
+                    <p className="mt-1 text-xs text-slate-600 line-clamp-2">
+                      {getIngredients(arItem).length > 0 ? getIngredients(arItem).join(", ") : "Not listed"}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={activateAr}
+                  className="w-full rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white shadow-xl transition-all active:scale-95"
+                >
+                  View In AR
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200/50">
         <div className="max-w-md mx-auto px-6 py-4 flex items-center justify-between">
@@ -288,9 +398,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
             const items = filteredItems.filter((item: any) => getParentName(item) === category.id);
             if (items.length === 0) return null;
 
-    const subcategories = Array.from(
-      new Set(items.map((item: any) => getSubcategoryName(item)).filter(Boolean))
-    ) as string[];
+            const subcategories = Array.from(
+              new Set(items.map((item: any) => getSubcategoryName(item)).filter(Boolean))
+            ) as string[];
             return (
               <div key={category.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <button
@@ -343,7 +453,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
                                   currentQty={quantity}
                                   onAdd={handleAdd}
                                   onRemove={handleRemove}
-                                  onArClick={() => { }}
+                                  onArClick={handleArOpen}
                                 />
                               );
                             })}
