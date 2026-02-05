@@ -33,9 +33,11 @@ const getTableLabel = (table: Table) =>
   table.table_number.toString().padStart(2, "0");
 
 
-const getTableUrl = (table: Table | null) => {
+const getTableUrl = (table: Table | null, restaurantId?: string) => {
   if (!table || typeof window === "undefined") return "";
-  return `${window.location.origin}/t/${table.table_number}`;
+  const origin = window.location.origin;
+  const base = `${origin}/menu/t/${table.table_number}`;
+  return restaurantId ? `${base}?restaurant=${restaurantId}` : base;
 };
 
 
@@ -66,18 +68,21 @@ export default function QrFlyerGenerator() {
 
   const [activeSection, setActiveSection] = useState<string | null>("design"); 
 
-   const [tables, setTables] = useState<Table[]>([]);
-const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [restaurantId, setRestaurantId] = useState<string>("");
 
   const getTable = async () => {
-    const data = await api<Table[]>("/api/admin/tables", {
-      method: "GET",
-    });
-    const next = Array.isArray(data) ? data : [];
+    const [tablesRes, me] = await Promise.all([
+      api<Table[]>("/api/admin/tables", { method: "GET" }),
+      api<{ restaurant_id?: string; restaurantId?: string }>("/api/admin/me", { method: "GET" }),
+    ]);
+    const next = Array.isArray(tablesRes) ? tablesRes : [];
     setTables(next);
     if (next.length > 0) {
       setSelectedTable(next[0]);
     }
+    setRestaurantId(me?.restaurant_id || me?.restaurantId || "");
   };
 
   // Design State
@@ -484,7 +489,7 @@ const [selectedTable, setSelectedTable] = useState<Table | null>(null);
                 >
                  {selectedTable && (
   <QRCodeSVG
-    value={getTableUrl(selectedTable)}
+    value={getTableUrl(selectedTable, restaurantId)}
     size={220}
     level="H"
     fgColor={template === "dark" ? "#ffffff" : "#000000"}
