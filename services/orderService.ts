@@ -121,11 +121,17 @@ export const orderService = {
 
   async addItem(id: string, variantId: string | null, price: number): Promise<any> {
     let sessionId = await orderService.ensureSession();
+    if (!sessionId && typeof window !== "undefined") {
+      sessionId = localStorage.getItem("session_id");
+    }
     let orderId = localStorage.getItem("order_id");
 
     if (!orderId) {
       if (!sessionId) {
         sessionId = await orderService.ensureSession();
+      }
+      if (!sessionId && typeof window !== "undefined") {
+        sessionId = localStorage.getItem("session_id");
       }
       if (!sessionId) {
         throw new Error("session_id is required");

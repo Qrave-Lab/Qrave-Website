@@ -34,8 +34,20 @@ export async function api<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  let resolvedPath = path;
+  if (
+    typeof window !== "undefined" &&
+    resolvedPath.startsWith("/api/customer") &&
+    !resolvedPath.includes("session_id=")
+  ) {
+    const sid = localStorage.getItem("session_id");
+    if (sid) {
+      resolvedPath += resolvedPath.includes("?") ? `&session_id=${sid}` : `?session_id=${sid}`;
+    }
+  }
+
   const isPublic = PUBLIC_ROUTES.some((route) =>
-    path.startsWith(route)
+    resolvedPath.startsWith(route)
   );
 
   const token = !isPublic ? getAccessToken() : null;
@@ -55,7 +67,7 @@ export async function api<T>(
   let res: Response;
 
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${API_BASE}${resolvedPath}`, {
       ...options,
       headers: new Headers(headerInit),
       credentials: "include",
@@ -87,9 +99,9 @@ export async function api<T>(
         message.includes("violates foreign key constraint"));
 
     if (!isKnownError) {
-      console.error("API Error:", path, res.status, message);
+      console.error("API Error:", resolvedPath, res.status, message);
     } else {
-      console.warn("API Note:", path, res.status, message.trim());
+      console.warn("API Note:", resolvedPath, res.status, message.trim());
     }
 
     throw {
