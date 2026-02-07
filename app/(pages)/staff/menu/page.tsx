@@ -73,6 +73,7 @@ type MenuItem = {
   price: number;
   isAvailable: boolean;
   isArchived: boolean;
+  isOutOfStock: boolean;
   stockCount: number | null;
   variants: Variant[];
   imageUrl: string;
@@ -92,11 +93,9 @@ type CategoryOption = {
 };
 
 export const authFetch = async (url: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem("access_token");
   return await api(url, {
     ...options,
     headers: {
-      Authorization: `Bearer ${token}`,
       ...(options.headers || {}),
     },
   });
@@ -104,6 +103,7 @@ export const authFetch = async (url: string, options: RequestInit = {}) => {
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [role, setRole] = useState<string>("");
   const [activeTab, setActiveTab] = useState<CategoryTab>("all");
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -112,6 +112,9 @@ export default function MenuPage() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editingParentId, setEditingParentId] = useState<string>("");
   const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [newSubcategoryName, setNewSubcategoryName] = useState("");
+  const [newSubcategoryParentId, setNewSubcategoryParentId] = useState("");
+  const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState<
     "general" | "variants" | "assets" | "ingredients" | "availability"
   >("general");
@@ -123,11 +126,23 @@ export default function MenuPage() {
   useEffect(() => {
     refreshMenu();
     refreshCategories();
+    refreshMe();
   }, []);
 
-  const refreshMenu = async () => {
+  const refreshMe = async () => {
     try {
-      setLoading(true);
+      const me = await authFetch("/api/admin/me");
+      setRole((me as any)?.role || "");
+    } catch {
+      // ignore
+    }
+  };
+
+  const canManageCategories = role === "owner" || role === "manager";
+
+  const refreshMenu = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
       const data = await authFetch("/api/admin/menu");
       const menuData = Array.isArray(data) ? data : [];
       const normalized = menuData.map((item: any) => ({
@@ -150,13 +165,14 @@ export default function MenuPage() {
         variants: item.variants || [],
         allergens: item.allergens || [],
         availableDays: item.availableDays || [],
+        isOutOfStock: item.isOutOfStock ?? item.is_out_of_stock ?? false,
         ingredientsStructured: item.ingredientsStructured || [],
       }));
       setItems(normalized);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -236,7 +252,110 @@ else {
       });
     }
     setSelectedItems(new Set());
-    refreshMenu();
+    refreshMenu(true);
+  };
+
+  const createSubcategory = async (name: string, parentId: string) => {
+    if (!canManageCategories) {
+      toast.error("Insufficient permissions");
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!parentId) {
+      toast.error("Select a parent category");
+      return;
+    }
+    const exists = categories.some(
+      (c) =>
+        c.name.toLowerCase() === trimmed.toLowerCase() &&
+        c.parent_id === parentId
+    );
+    if (exists) {
+      toast.error("Subcategory already exists");
+      return;
+    }
+    setIsCreatingSubcategory(true);
+    try {
+      await authFetch("/api/admin/menu/category", {
+        method: "POST",
+        body: JSON.stringify({ name: trimmed, parent_id: parentId }),
+      });
+      setNewSubcategoryName("");
+      toast.success("Subcategory added");
+      refreshCategories();
+    } catch (e: any) {
+      if (e?.status === 403) {
+        toast.error("Only owners/managers can add categories");
+        return;
+      }
+      toast.error("Failed to add subcategory");
+    } finally {
+      setIsCreatingSubcategory(false);
+    }
+  };
+
+  const updateOutOfStock = async (item: MenuItem, isOutOfStock: boolean) => {
+    const snapshot = items;
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, isOutOfStock } : i))
+    );
+
+    try {
+      await authFetch(`/api/admin/menu/item?item_id=${item.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          category_id: item.categoryId || undefined,
+          name: item.name,
+          price: item.price,
+          description: item.description || "",
+          image_url: item.imageUrl || "",
+          model_glb: item.modelGlb || "",
+          available_days: item.availableDays || [],
+          is_archived: item.isArchived,
+          is_out_of_stock: isOutOfStock,
+        }),
+      });
+    } catch (err) {
+      setItems(snapshot);
+      toast.error("Update failed");
+    }
+  };
+
+  const handleBulkStock = async (isOutOfStock: boolean) => {
+    const snapshot = items;
+    const selected = new Set(selectedItems);
+    setItems((prev) =>
+      prev.map((i) => (selected.has(i.id) ? { ...i, isOutOfStock } : i))
+    );
+
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) => {
+          const item = snapshot.find((i) => i.id === id);
+          if (!item) return Promise.resolve();
+          return authFetch(`/api/admin/menu/item?item_id=${id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              category_id: item.categoryId || undefined,
+              name: item.name,
+              price: item.price,
+              description: item.description || "",
+              image_url: item.imageUrl || "",
+              model_glb: item.modelGlb || "",
+              available_days: item.availableDays || [],
+              is_archived: item.isArchived,
+              is_out_of_stock: isOutOfStock,
+            }),
+          });
+        })
+      );
+      setSelectedItems(new Set());
+      refreshMenu(true);
+    } catch (err) {
+      setItems(snapshot);
+      toast.error("Bulk update failed");
+    }
   };
 
   const handleSave = async () => {
@@ -268,6 +387,7 @@ else {
           model_glb: editingItem.modelGlb,
           available_days: editingItem.availableDays,
           is_archived: editingItem.isArchived,
+          is_out_of_stock: editingItem.isOutOfStock,
         }),
       });
 
@@ -309,7 +429,7 @@ else {
 
       setModalMode(null);
       toast.success("Edits Saved Successfully");
-      refreshMenu();
+      refreshMenu(true);
     } catch (err) {
       console.error(err);
       toast.error("Save failed");
@@ -385,6 +505,7 @@ else {
                   price: 0,
                   isAvailable: true,
                   isArchived: false,
+                  isOutOfStock: false,
                   stockCount: null,
                   variants: [],
                   imageUrl: "",
@@ -408,6 +529,46 @@ else {
 
         <main className="flex-1 overflow-y-auto p-8 bg-[#F8F9FB]">
           <div className="max-w-7xl mx-auto">
+            {canManageCategories && (
+              <div className="mb-6 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center gap-4">
+                <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    Add Subcategory
+                  </span>
+                  <div className="flex-1 flex flex-col sm:flex-row items-stretch gap-2">
+                    <select
+                      value={newSubcategoryParentId || parentCategories[0]?.id || ""}
+                      onChange={(e) => setNewSubcategoryParentId(e.target.value)}
+                      className="h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all"
+                    >
+                      {parentCategories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={newSubcategoryName}
+                      onChange={(e) => setNewSubcategoryName(e.target.value)}
+                      placeholder="e.g. Pizzas, Burgers, Chinese"
+                      className="flex-1 h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all"
+                    />
+                    <button
+                      onClick={() =>
+                        createSubcategory(
+                          newSubcategoryName,
+                          newSubcategoryParentId || parentCategories[0]?.id || ""
+                        )
+                      }
+                      disabled={isCreatingSubcategory}
+                      className="h-10 px-4 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-black transition-all disabled:opacity-60"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">
@@ -471,6 +632,18 @@ else {
                   </span>
                   <div className="flex gap-2">
                     <button
+                      onClick={() => handleBulkStock(true)}
+                      className="px-4 py-2 bg-rose-600/90 hover:bg-rose-600 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-rose-500/40"
+                    >
+                      Mark Out of Stock
+                    </button>
+                    <button
+                      onClick={() => handleBulkStock(false)}
+                      className="px-4 py-2 bg-emerald-500/90 hover:bg-emerald-500 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-emerald-400/40"
+                    >
+                      Mark In Stock
+                    </button>
+                    <button
                       onClick={() =>
                         handleBulkAction(showArchived ? "unarchive" : "archive")
                       }
@@ -533,6 +706,7 @@ else {
                         price: 0,
                         isAvailable: true,
                         isArchived: false,
+                        isOutOfStock: false,
                         stockCount: null,
                         variants: [],
                         imageUrl: "",
@@ -599,10 +773,10 @@ else {
                           <Pencil className="w-4 h-4" />
                         </button>
                       </div>
-                      {item.modelGlb && (
-                        <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
-                          <Box className="w-3.5 h-3.5" />
-                        </div>
+                    {item.modelGlb && (
+                      <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
+                        <Box className="w-3.5 h-3.5" />
+                      </div>
                       )}
                     </div>
                     <div className="p-5 flex-1 flex flex-col">
@@ -623,7 +797,18 @@ else {
                             ? `${item.parentCategoryName} • ${item.categoryName || "General"}`
                             : item.categoryName || "Uncategorized"}
                         </span>
-                        <div className="flex -space-x-1">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => updateOutOfStock(item, !item.isOutOfStock)}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                              item.isOutOfStock
+                                ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                            }`}
+                          >
+                            {item.isOutOfStock ? "Out of Stock" : "In Stock"}
+                          </button>
+                          <div className="flex -space-x-1">
                           {item.allergens.slice(0, 3).map((a) => (
                             <div
                               key={a.type}
@@ -633,6 +818,7 @@ else {
                               {a.type[0]}
                             </div>
                           ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1206,6 +1392,36 @@ else {
 
                 {activeModalTab === "availability" && (
                   <div className="space-y-8">
+                    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                        <Box className="w-4 h-4" /> Stock Status
+                      </h4>
+                      <div className="flex items-center justify-between gap-6">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">
+                            {editingItem.isOutOfStock ? "Marked Out of Stock" : "Available to Order"}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Disable ordering without archiving the item.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() =>
+                            setEditingItem({
+                              ...editingItem,
+                              isOutOfStock: !editingItem.isOutOfStock,
+                            })
+                          }
+                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            editingItem.isOutOfStock
+                              ? "bg-rose-600 text-white border-rose-600"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          {editingItem.isOutOfStock ? "Mark In Stock" : "Mark Out of Stock"}
+                        </button>
+                      </div>
+                    </div>
                     <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
                       <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
                         <Calendar className="w-4 h-4" /> Weekly Availability

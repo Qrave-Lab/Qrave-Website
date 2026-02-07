@@ -24,6 +24,7 @@ type MenuItem = {
   ingredients?: string[] | string;
   calories?: number | string;
   isAvailable?: boolean;
+  isOutOfStock?: boolean;
   isBestseller?: boolean;
   isSpicy?: boolean;
   variants?: Variant[];
@@ -54,7 +55,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const { t } = useLanguageStore();
-  const isAvailable = item.isAvailable !== false;
+  const isAvailable = item.isAvailable !== false && !item.isOutOfStock;
 
   const normalizeVariantName = (name: string) => name.trim().toLowerCase();
   const isDefaultVariant = (v: Variant) => {

@@ -67,7 +67,7 @@ const AddStaffPage = () => {
       });
 
       toast.success("Staff member created successfully");
-      router.push("/settings");
+      router.push("/staff/settings");
       router.refresh();
     } catch (err) {
       toast.error("Failed to create staff member");
@@ -83,7 +83,7 @@ const AddStaffPage = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-slate-200 px-8 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
-            <Link href="/settings" className="p-2 hover:bg-slate-50 rounded-lg border border-slate-200">
+            <Link href="/staff/settings" className="p-2 hover:bg-slate-50 rounded-lg border border-slate-200">
               <ChevronLeft className="w-5 h-5 text-slate-600" />
             </Link>
             <h1 className="text-lg font-bold">Add Team Member</h1>

@@ -9,6 +9,9 @@ const API_BASE =
 const PUBLIC_ROUTES = [
   "/auth/login",
   "/auth/signup",
+  "/auth/refresh",
+  "/auth/logout",
+  "/auth/email_available",
   "/public/otp/request",
   "/public/otp/verify",
   "/public/otp/resend",
@@ -20,19 +23,36 @@ const PUBLIC_ROUTES = [
   "/api/customer/service-calls",
 ];
 
-function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-
-  const token = localStorage.getItem("access_token");
-  if (!token || token === "undefined" || token === "null") {
-    return null;
+async function tryRefresh(): Promise<boolean> {
+  try {
+    const csrf =
+      typeof document !== "undefined"
+        ? document.cookie.match(/(?:^|; )csrf_token=([^;]+)/)?.[1]
+        : null;
+    await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {}),
+      },
+      credentials: "include",
+    });
+    return true;
+  } catch {
+    return false;
   }
-  return token;
+}
+
+function getCsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 export async function api<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  didRetry = false
 ): Promise<T> {
   let resolvedPath = path;
   if (
@@ -50,18 +70,14 @@ export async function api<T>(
     resolvedPath.startsWith(route)
   );
 
-  const token = !isPublic ? getAccessToken() : null;
-
   const headerInit: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-
-  if (token) {
-    const cleanToken = token.trim();
-    if (/^[a-zA-Z0-9\-_.]+$/.test(cleanToken)) {
-      headerInit["Authorization"] = `Bearer ${cleanToken}`;
-    }
+  const method = (options.method || "GET").toUpperCase();
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const csrf = getCsrfToken();
+    if (csrf) headerInit["X-CSRF-Token"] = csrf;
   }
 
   let res: Response;
@@ -78,8 +94,12 @@ export async function api<T>(
   }
 
   if (res.status === 401 && !isPublic && typeof window !== "undefined") {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    if (!didRetry) {
+      const refreshed = await tryRefresh();
+      if (refreshed) {
+        return api<T>(path, options, true);
+      }
+    }
     window.location.href = "/login";
     throw new Error("Session expired. Please login again.");
   }

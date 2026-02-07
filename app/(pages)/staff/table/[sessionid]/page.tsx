@@ -22,15 +22,23 @@ import {
 import { PrintButton } from "./PrintButton"; 
 import { api } from "@/app/lib/api";
 
-type ItemStatus = "pending" | "accepted" | "served" | "rejected";
+type OrderStatus =
+  | "pending"
+  | "accepted"
+  | "preparing"
+  | "ready"
+  | "served"
+  | "completed"
+  | "cancelled";
 type PaymentMethod = "cash" | "card" | "upi" | null;
 
 type BillItem = {
   id: string;
+  orderId: string;
   name: string;
   quantity: number;
   rate: number;
-  status: ItemStatus;
+  status: OrderStatus;
 };
 
 type BillData = {
@@ -52,7 +60,7 @@ type ActiveOrderItem = {
 
 type ActiveOrder = {
   id: string;
-  status: string;
+  status: OrderStatus;
   created_at: string;
   session_id: string;
   table_id: string;
@@ -64,64 +72,105 @@ type OrdersBySessionResponse = {
   orders: ActiveOrder[];
 };
 
+type AdminBillResponse = {
+  group_id?: string | null;
+  sessions: { session_id: string; table_id: string; table_number: number }[];
+  orders: ActiveOrder[];
+};
+
 export default function TableBillPage({ params }: { params: Promise<{ sessionid: string }> }) {
   const router = useRouter();
   const { sessionid } = use(params);
   const [bill, setBill] = useState<BillData | null>(null);
+  const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [items, setItems] = useState<BillItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
-  const [isPaid, setIsPaid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const [restaurantId, setRestaurantId] = useState<string>("");
+  const [taxPercent, setTaxPercent] = useState<number>(5);
+  const [serviceCalls, setServiceCalls] = useState<any[]>([]);
+
+  const [showRelocate, setShowRelocate] = useState(false);
+  const [tables, setTables] = useState<{ id: string; table_number: number; is_enabled: boolean }[]>([]);
+  const [targetTableId, setTargetTableId] = useState<string>("");
+  const [showMerge, setShowMerge] = useState(false);
+  const [activeSessions, setActiveSessions] = useState<{ session_id: string; table_number: number }[]>([]);
+  const [targetSessionId, setTargetSessionId] = useState<string>("");
+  const [billSessionIds, setBillSessionIds] = useState<string[]>([]);
+
   // Menu State
   const [showMenu, setShowMenu] = useState(false);
 
-  // Calculations
-  const { subtotal, tax, total } = useMemo(() => {
-    const billable = items.filter((i) => i.status === "accepted" || i.status === "served");
-    const sub = billable.reduce((sum, item) => sum + item.quantity * item.rate, 0);
-    const taxAmount = Math.round(sub * 0.05);
-    return { subtotal: sub, tax: taxAmount, total: sub + taxAmount };
+  const firstRowByOrder = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const it of items) {
+      if (!map[it.orderId]) map[it.orderId] = it.id;
+    }
+    return map;
   }, [items]);
+
+  const isServedOrCompleted = (s: OrderStatus) => s === "served" || s === "completed";
+  const isBillable = (s: OrderStatus) => s === "accepted" || s === "preparing" || s === "ready" || isServedOrCompleted(s);
+  const allOrdersServed = orders.length > 0 && orders.every((o) => isServedOrCompleted(o.status));
+  const isPaid = orders.length > 0 && orders.every((o) => o.status === "completed");
+
+  const { subtotal, tax, total } = useMemo(() => {
+    const billable = items.filter((i) => isBillable(i.status));
+    const sub = billable.reduce((sum, item) => sum + item.quantity * item.rate, 0);
+    const taxAmount = Math.round(sub * (taxPercent / 100));
+    return { subtotal: sub, tax: taxAmount, total: sub + taxAmount };
+  }, [items, taxPercent]);
 
   useEffect(() => {
     let isActive = true;
     const load = async () => {
       try {
-        const [ordersRes, me] = await Promise.all([
-          api<OrdersBySessionResponse>(`/api/admin/orders/session/${sessionid}`),
-          api<{ restaurant?: string; address?: string | null }>("/api/admin/me"),
+        const [billRes, me, calls] = await Promise.all([
+          api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`),
+          api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number }>("/api/admin/me"),
+          api<any[]>(`/api/admin/service-calls`),
         ]);
 
         if (!isActive) return;
-        const orders = ordersRes?.orders || [];
-        const tableNumber = orders[0]?.table_number;
-        const createdAt = orders[0]?.created_at ? new Date(orders[0].created_at) : new Date();
+        const nextOrders = (billRes?.orders || []) as ActiveOrder[];
+        setOrders(nextOrders);
+        const tableNumber = nextOrders[0]?.table_number;
+        const createdAt = nextOrders[0]?.created_at ? new Date(nextOrders[0].created_at) : new Date();
+        setRestaurantId(me?.restaurant_id || "");
+        setTaxPercent(typeof me?.tax_percent === "number" ? me.tax_percent : 5);
+        const mergedSessionIds = (billRes?.sessions || []).map((s) => String(s.session_id));
+        setBillSessionIds(mergedSessionIds.length > 0 ? mergedSessionIds : [String(sessionid)]);
+        setServiceCalls((calls || []).filter((c: any) => mergedSessionIds.includes(String(c.session_id))));
 
         const mappedItems: BillItem[] = [];
-        for (const order of orders) {
-          const status: ItemStatus =
-            order.status === "accepted" || order.status === "served"
-              ? (order.status as ItemStatus)
-              : "pending";
+        for (const order of nextOrders) {
           for (const item of order.items || []) {
             const suffix = item.variant_label ? ` (${item.variant_label})` : "";
             mappedItems.push({
               id: `${order.id}-${item.menu_item_id}-${item.variant_id}`,
+              orderId: order.id,
               name: `${item.menu_item_name}${suffix}`,
               quantity: item.quantity,
               rate: item.price,
-              status,
+              status: order.status || "pending",
             });
           }
         }
 
         setItems(mappedItems);
+        const tableCodeLabel =
+          (billRes?.sessions || []).length > 0
+            ? (billRes.sessions || [])
+                .map((s) => `T${s.table_number}`)
+                .join(" + ")
+            : tableNumber
+              ? `T${tableNumber}`
+              : "T-";
         setBill({
           restaurantName: me?.restaurant || "Restaurant",
           restaurantAddress: me?.address || undefined,
-          tableCode: tableNumber ? `T${tableNumber}` : "T-",
+          tableCode: tableCodeLabel,
           billNumber: `BILL-${sessionid.slice(0, 6).toUpperCase()}`,
           createdAt,
           items: mappedItems,
@@ -129,6 +178,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       } catch {
         if (!isActive) return;
         setBill(null);
+        setOrders([]);
         setItems([]);
       }
     };
@@ -139,25 +189,133 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   }, [sessionid]);
 
   // Actions
-  const updateStatus = (id: string, status: ItemStatus) => {
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
+  const refreshOrders = async () => {
+    const billRes = await api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`);
+    const nextOrders = (billRes?.orders || []) as ActiveOrder[];
+    setOrders(nextOrders);
+    setItems((prev) =>
+      prev.map((it) => {
+        const o = nextOrders.find((x) => x.id === it.orderId);
+        return o ? { ...it, status: o.status } : it;
+      })
+    );
   };
 
-  const handleCheckout = () => {
+  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    await api(`/api/admin/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    await refreshOrders();
+  };
+
+  const getBreakdown = (orderId: string) => api<any>(`/api/admin/orders/${orderId}/breakdown`);
+
+  const handleCheckout = async () => {
+    if (!paymentMethod) return;
+    if (!allOrdersServed) return;
+    if (!restaurantId) return;
+
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsPaid(true);
+    try {
+      for (const o of orders) {
+        if (o.status === "completed") continue;
+        if (o.status !== "served") {
+          throw new Error("All orders must be served before closing.");
+        }
+        const bd = await getBreakdown(o.id);
+        await api("/api/payments/pay", {
+          method: "POST",
+          body: JSON.stringify({
+            order_id: o.id,
+            restaurant_id: restaurantId,
+            amount: bd?.Total,
+            mode: paymentMethod,
+          }),
+        });
+      }
+      await refreshOrders();
       setIsCheckoutOpen(false);
-    }, 1500);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const statusConfig = (status: ItemStatus) => {
+  const openRelocate = async () => {
+    setShowMenu(false);
+    setShowRelocate(true);
+    try {
+      const t = await api<{ id: string; table_number: number; is_enabled: boolean }[]>(`/api/admin/tables`);
+      setTables(Array.isArray(t) ? t : []);
+    } catch {
+      setTables([]);
+    }
+  };
+
+  const submitRelocate = async () => {
+    if (!targetTableId) return;
+    await api(`/api/admin/tables/move`, {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionid, target_table_id: targetTableId }),
+    });
+    setShowRelocate(false);
+    setTargetTableId("");
+    await refreshOrders();
+  };
+
+  const closeServiceCall = async (id: string) => {
+    await api(`/api/admin/service-calls/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "done" }),
+    });
+    const calls = await api<any[]>(`/api/admin/service-calls`);
+    setServiceCalls((calls || []).filter((c: any) => billSessionIds.includes(String(c.session_id))));
+  };
+
+  const openMerge = async () => {
+    setShowMenu(false);
+    setShowMerge(true);
+    setTargetSessionId("");
+    try {
+      const res = await api<{ orders: any[] }>(`/api/admin/orders/active`);
+      const unique = new Map<string, number>();
+      for (const o of res?.orders || []) {
+        if (o?.session_id && typeof o?.table_number === "number") {
+          unique.set(String(o.session_id), o.table_number);
+        }
+      }
+      unique.delete(String(sessionid));
+      setActiveSessions(
+        Array.from(unique.entries())
+          .map(([sid, tn]) => ({ session_id: sid, table_number: tn }))
+          .sort((a, b) => a.table_number - b.table_number)
+      );
+    } catch {
+      setActiveSessions([]);
+    }
+  };
+
+  const submitMerge = async () => {
+    if (!targetSessionId) return;
+    await api(`/api/admin/bills/merge`, {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionid, target_session_id: targetSessionId }),
+    });
+    setShowMerge(false);
+    await refreshOrders();
+  };
+
+  const statusConfig = (status: OrderStatus) => {
     switch (status) {
       case "pending": return { label: "Pending", className: "bg-amber-100 text-amber-800 border-amber-200", icon: <Clock className="w-3.5 h-3.5" /> };
-      case "accepted": return { label: "Cooking", className: "bg-blue-100 text-blue-800 border-blue-200", icon: <ChefHat className="w-3.5 h-3.5" /> };
+      case "accepted":
+      case "preparing":
+      case "ready":
+        return { label: "Cooking", className: "bg-blue-100 text-blue-800 border-blue-200", icon: <ChefHat className="w-3.5 h-3.5" /> };
       case "served": return { label: "Served", className: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: <CheckCircle2 className="w-3.5 h-3.5" /> };
-      case "rejected": return { label: "Rejected", className: "bg-rose-100 text-rose-800 border-rose-200", icon: <XCircle className="w-3.5 h-3.5" /> };
+      case "completed": return { label: "Closed", className: "bg-slate-100 text-slate-700 border-slate-200", icon: <CheckCircle2 className="w-3.5 h-3.5" /> };
+      case "cancelled": return { label: "Cancelled", className: "bg-rose-100 text-rose-800 border-rose-200", icon: <XCircle className="w-3.5 h-3.5" /> };
+      default: return { label: status, className: "bg-gray-100 text-gray-700 border-gray-200", icon: <Clock className="w-3.5 h-3.5" /> };
     }
   };
 
@@ -217,14 +375,14 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                         <div className="py-1">
                           <button 
                             className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                            onClick={() => alert("Feature available on Floor Dashboard")}
+                            onClick={openRelocate}
                           >
                             <ArrowRightLeft className="w-4 h-4 text-gray-400" />
                             Relocate Table
                           </button>
                           <button 
                             className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                            onClick={() => alert("Feature available on Floor Dashboard")}
+                            onClick={openMerge}
                           >
                             <Merge className="w-4 h-4 text-gray-400" />
                             Merge Bill
@@ -237,6 +395,35 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
             )}
           </div>
         </div>
+
+        {/* === SERVICE CALLS (if any) === */}
+        {serviceCalls.length > 0 && (
+          <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between gap-4 print:hidden">
+            <div className="text-xs font-bold text-gray-700">
+              Service Requests:{" "}
+              <span className="ml-1 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5">
+                {serviceCalls.length}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              {serviceCalls.slice(0, 4).map((c: any) => (
+                <button
+                  key={c.id}
+                  onClick={() => closeServiceCall(c.id)}
+                  className="px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-[11px] font-semibold hover:bg-amber-100 transition-colors"
+                  title="Mark done"
+                >
+                  {String(c.type).toUpperCase()} • T{c.table_number}
+                </button>
+              ))}
+              {serviceCalls.length > 4 && (
+                <span className="text-[11px] text-gray-400 self-center">
+                  +{serviceCalls.length - 4} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* === BILL CONTENT === */}
         <div className="p-8">
@@ -284,13 +471,14 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   {items.map((item, index) => {
                     const amount = item.quantity * item.rate;
                     const config = statusConfig(item.status);
-                    const isRejected = item.status === 'rejected';
+                    const isCancelled = item.status === 'cancelled';
+                    const isFirstRow = firstRowByOrder[item.orderId] === item.id;
 
                     return (
-                      <tr key={item.id} className={`group hover:bg-gray-50/50 transition-colors ${isRejected ? 'opacity-50 print:hidden' : ''}`}>
+                      <tr key={item.id} className={`group hover:bg-gray-50/50 transition-colors ${isCancelled ? 'opacity-50 print:hidden' : ''}`}>
                         <td className="py-4 px-4 text-gray-400 font-medium">{index + 1}</td>
                         <td className="py-4 px-4">
-                          <span className={`font-semibold text-gray-900 block ${isRejected ? 'line-through' : ''}`}>{item.name}</span>
+                          <span className={`font-semibold text-gray-900 block ${isCancelled ? 'line-through' : ''}`}>{item.name}</span>
                         </td>
                         <td className="py-4 px-4 text-center text-gray-600 font-medium">{item.quantity}</td>
                         <td className="py-4 px-4 text-right text-gray-600">₹{item.rate}</td>
@@ -303,18 +491,37 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                         </td>
 
                         <td className="py-4 px-4 text-right print:hidden">
-                          {!isPaid && (
-                              <div className="flex justify-end items-center gap-2">
-                                {item.status === "pending" && (
-                                  <>
-                                    <button onClick={() => updateStatus(item.id, "accepted")} className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-semibold transition-all"><CheckCircle2 className="w-3.5 h-3.5" />Accept</button>
-                                    <button onClick={() => updateStatus(item.id, "rejected")} className="p-1.5 rounded-md text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"><XCircle className="w-4 h-4" /></button>
-                                  </>
-                                )}
-                                {item.status === "accepted" && (
-                                  <button onClick={() => updateStatus(item.id, "served")} className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700 shadow-sm transition-colors">Mark Served</button>
-                                )}
-                              </div>
+                          {!isPaid && isFirstRow && (
+                            <div className="flex justify-end items-center gap-2">
+                              {item.status === "pending" && (
+                                <>
+                                  <button
+                                    onClick={() => updateOrderStatus(item.orderId, "accepted")}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-semibold transition-all"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    Accept Order
+                                  </button>
+                                  <button
+                                    onClick={() => updateOrderStatus(item.orderId, "cancelled")}
+                                    className="p-1.5 rounded-md text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"
+                                    title="Cancel order"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                              {(item.status === "accepted" ||
+                                item.status === "preparing" ||
+                                item.status === "ready") && (
+                                <button
+                                  onClick={() => updateOrderStatus(item.orderId, "served")}
+                                  className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700 shadow-sm transition-colors"
+                                >
+                                  Mark Served
+                                </button>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -401,7 +608,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
                  <div className="p-6 pt-0">
                     <button 
-                        disabled={!paymentMethod || isProcessing}
+                        disabled={!paymentMethod || isProcessing || !allOrdersServed}
                         onClick={handleCheckout}
                         className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
@@ -415,10 +622,107 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                             </>
                         )}
                     </button>
+                    {!allOrdersServed && (
+                      <p className="mt-3 text-xs text-rose-600 font-semibold">
+                        All orders must be marked Served before you can close the bill.
+                      </p>
+                    )}
                  </div>
 
               </div>
            </div>
+        )}
+
+        {/* === RELOCATE TABLE MODAL === */}
+        {showRelocate && (
+          <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 transition-all print:hidden">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden ring-1 ring-black/5 animate-in fade-in slide-in-from-bottom-10">
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-gray-900">Relocate Table</h3>
+                  <p className="text-xs text-gray-500">Move this session to a different table.</p>
+                </div>
+                <button onClick={() => setShowRelocate(false)} className="p-1 rounded-full hover:bg-gray-200 text-gray-500">
+                  <X className="w-5 h-5"/>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Target Table</label>
+                  <select
+                    value={targetTableId}
+                    onChange={(e) => setTargetTableId(e.target.value)}
+                    className="w-full h-11 px-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200/60"
+                  >
+                    <option value="">Select a table…</option>
+                    {tables
+                      .filter((t) => t.is_enabled)
+                      .sort((a, b) => a.table_number - b.table_number)
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          T{t.table_number}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <button
+                  disabled={!targetTableId}
+                  onClick={submitRelocate}
+                  className="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Transfer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* === MERGE BILL MODAL === */}
+        {showMerge && (
+          <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 transition-all print:hidden">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden ring-1 ring-black/5 animate-in fade-in slide-in-from-bottom-10">
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-gray-900">Merge Bills</h3>
+                  <p className="text-xs text-gray-500">Combine two tables into one bill (tables remain active).</p>
+                </div>
+                <button onClick={() => setShowMerge(false)} className="p-1 rounded-full hover:bg-gray-200 text-gray-500">
+                  <X className="w-5 h-5"/>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Merge With</label>
+                  <select
+                    value={targetSessionId}
+                    onChange={(e) => setTargetSessionId(e.target.value)}
+                    className="w-full h-11 px-3 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold outline-none focus:ring-4 focus:ring-gray-200/60"
+                  >
+                    <option value="">Select a table…</option>
+                    {activeSessions.map((s) => (
+                      <option key={s.session_id} value={s.session_id}>
+                        T{s.table_number}
+                      </option>
+                    ))}
+                  </select>
+                  {activeSessions.length === 0 && (
+                    <p className="text-xs text-gray-400 mt-2">No other active tables found.</p>
+                  )}
+                </div>
+
+                <button
+                  disabled={!targetSessionId}
+                  onClick={submitMerge}
+                  className="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Merge
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
       </div>

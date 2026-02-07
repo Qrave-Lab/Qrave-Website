@@ -65,8 +65,15 @@ export const useCartStore = create<CartState>()(
         try {
           const res = await orderService.addItem(id, variantId, price);
           if (res?.items) set({ cart: res.items });
-        } catch {
+        } catch (error: any) {
           set({ cart: snapshot });
+          if (typeof window !== "undefined") {
+            const message =
+              error?.message?.includes("item unavailable")
+                ? "Item is out of stock"
+                : "Update failed";
+            window.dispatchEvent(new CustomEvent("cart-error", { detail: message }));
+          }
         }
       },
 

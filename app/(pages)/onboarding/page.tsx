@@ -129,10 +129,7 @@ export default function OnboardingPage() {
   }),
 });
 
-localStorage.setItem("access_token", res.access_token);
-localStorage.setItem("refresh_token", res.refresh_token);
-
-console.log("ACCESS TOKEN STORED:", localStorage.getItem("access_token"));
+// Tokens are now stored in secure cookies by the backend.
 
 setStep(6);
 

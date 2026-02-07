@@ -192,12 +192,6 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
     document.head.appendChild(script);
   }, []);
 
-  useEffect(() => {
-    if (tableId) {
-      document.title = `NOIR | ${t('table')} ${tableId}`;
-    }
-  }, [tableId, t]);
-
   const toggleLanguage = () => {
     const langs = ['en', 'hi', 'ml'] as const;
     const currentIdx = langs.indexOf(language as any);

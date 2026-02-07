@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import TitleManager from "./TitleManager";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -15,5 +16,10 @@ export default function PagesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      <TitleManager />
+      {children}
+    </>
+  );
 }

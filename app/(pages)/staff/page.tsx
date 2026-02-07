@@ -169,6 +169,10 @@ export default function StaffDashboardPage() {
     for (const order of ordersList) {
       const orderId = order.id || order.order_id;
       if (!orderId) continue;
+      // Kitchen list should only show active work; hide served/completed/cancelled.
+      if (order.status === "served" || order.status === "completed" || order.status === "cancelled") {
+        continue;
+      }
       const mappedStatus: OrderStatus =
         order.status === "pending" ? "pending" : "cooking";
       for (const item of order.items || []) {
@@ -260,72 +264,109 @@ export default function StaffDashboardPage() {
     };
   }, []);
 
+  // Keep the floor view in-sync when navigating back from table/bill pages.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
+    const onFocus = () => refreshLiveData().catch(() => {});
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        refreshLiveData().catch(() => {});
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     const base = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL;
     if (!base) return;
-    const ws = new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`);
-    ws.onerror = () => {
-      // no-op
-    };
-    ws.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data);
-        if (msg?.type === "order.created" || msg?.type === "order.updated") {
-          const data = msg?.data as ActiveOrder;
-          const orderId = data?.id || data?.order_id;
-          if (!data || !orderId) return;
-          const normalized: ActiveOrder = { ...data, id: orderId };
-          setActiveOrders((prev) => {
-            const next = [normalized, ...prev.filter((o) => (o.id || o.order_id) !== orderId)];
-            setOrders(buildPendingOrders(next));
-            setTables((prevTables) =>
-              buildTables(
-                prevTables.map((t) => ({
-                  id: t.id,
-                  table_number: parseInt(t.tableCode.replace("T", ""), 10),
-                  is_enabled: true,
-                })),
-                next
-              )
-            );
-            return next;
-          });
-          return;
-        }
 
-        if (msg?.type === "service.call.created" || msg?.type === "service.call.updated") {
-          const data = msg?.data as ServiceCallAPI & { table_number: number };
-          if (!data || !data.id) return;
-          setServiceCalls((prev) => {
-            const next = [
-              {
-                id: data.id,
-                tableCode: `T${data.table_number}`,
-                type: data.type,
-                status: data.status,
-                createdAt: new Date(data.created_at),
-              },
-              ...prev.filter((c) => c.id !== data.id),
-            ].filter((c) => c.status !== "done");
-            return next;
-          });
-          return;
-        }
+    let cancelled = false;
+
+    const connect = async (): Promise<(() => void) | undefined> => {
+      try {
+        const res = await api<{ access_token?: string }>("/auth/refresh", {
+          method: "POST",
+        });
+        if (cancelled) return;
+        const token = res?.access_token;
+        if (!token) return;
+        const ws = new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`);
+        ws.onerror = () => {
+          // no-op
+        };
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            if (msg?.type === "order.created" || msg?.type === "order.updated") {
+              const data = msg?.data as ActiveOrder;
+              const orderId = data?.id || data?.order_id;
+              if (!data || !orderId) return;
+              const normalized: ActiveOrder = { ...data, id: orderId };
+              setActiveOrders((prev) => {
+                const next = [normalized, ...prev.filter((o) => (o.id || o.order_id) !== orderId)];
+                setOrders(buildPendingOrders(next));
+                setTables((prevTables) =>
+                  buildTables(
+                    prevTables.map((t) => ({
+                      id: t.id,
+                      table_number: parseInt(t.tableCode.replace("T", ""), 10),
+                      is_enabled: true,
+                    })),
+                    next
+                  )
+                );
+                return next;
+              });
+              return;
+            }
+
+            if (msg?.type === "service.call.created" || msg?.type === "service.call.updated") {
+              const data = msg?.data as ServiceCallAPI & { table_number: number };
+              if (!data || !data.id) return;
+              setServiceCalls((prev) => {
+                const next = [
+                  {
+                    id: data.id,
+                    tableCode: `T${data.table_number}`,
+                    type: data.type,
+                    status: data.status,
+                    createdAt: new Date(data.created_at),
+                  },
+                  ...prev.filter((c) => c.id !== data.id),
+                ].filter((c) => c.status !== "done");
+                return next;
+              });
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        };
+        ws.onclose = () => {
+          // no-op
+        };
+
+        return () => ws.close();
       } catch {
         // ignore
       }
+      return undefined;
     };
 
-    ws.onclose = () => {
-      // no-op
-    };
+    let cleanup: (() => void) | undefined;
+    connect().then((fn) => {
+      cleanup = fn;
+    });
 
     return () => {
-      ws.close();
+      cancelled = true;
+      if (cleanup) cleanup();
     };
   }, []);
 
@@ -446,55 +487,22 @@ export default function StaffDashboardPage() {
     setOpenMenuId(null);
   };
 
-  const handleMergeTable = (targetTableId: string) => {
+  const handleMergeTable = async (targetTableId: string) => {
     if (!activeTableId) return;
 
     const sourceTable = tables.find((t) => t.id === activeTableId);
     const targetTable = tables.find((t) => t.id === targetTableId);
     if (!sourceTable || !targetTable) return;
 
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id === targetTableId) {
-          return {
-            ...t,
-            currentTotal: (t.currentTotal || 0) + (sourceTable.currentTotal || 0),
-            itemsCount: (t.itemsCount || 0) + (sourceTable.itemsCount || 0),
-            guests: (t.guests || 0) + (sourceTable.guests || 0),
-            seatedAt: t.seatedAt || sourceTable.seatedAt || new Date(),
-          };
-        }
-        if (t.id === activeTableId) {
-          return {
-            ...t,
-            isOccupied: false,
-            activeSessionId: undefined,
-            currentTotal: 0,
-            itemsCount: 0,
-            guests: 0,
-            billStatus: undefined,
-            seatedAt: undefined,
-          };
-        }
-        return t;
-      })
-    );
-
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.tableCode === sourceTable.tableCode
-          ? { ...o, tableCode: targetTable.tableCode }
-          : o
-      )
-    );
-
-    setServiceCalls((prev) =>
-      prev.map((c) =>
-        c.tableCode === sourceTable.tableCode
-          ? { ...c, tableCode: targetTable.tableCode }
-          : c
-      )
-    );
+    if (!sourceTable.activeSessionId || !targetTable.activeSessionId) return;
+    await api("/api/admin/bills/merge", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sourceTable.activeSessionId,
+        target_session_id: targetTable.activeSessionId,
+      }),
+    });
+    await refreshLiveData();
 
     setShowMergeModal(false);
     setActiveTableId(null);

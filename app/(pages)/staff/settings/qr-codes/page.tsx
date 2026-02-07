@@ -156,7 +156,7 @@ export default function QrFlyerGenerator() {
         
         {/* Header */}
         <div className="h-16 border-b border-gray-100 flex items-center px-6 justify-between shrink-0">
-          <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-900 transition-colors">
+          <button onClick={() => router.push("/staff/settings")} className="text-gray-500 hover:text-gray-900 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="font-bold text-gray-900">QR Flyer Builder</h1>

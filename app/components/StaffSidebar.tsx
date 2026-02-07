@@ -55,6 +55,7 @@ export default function StaffSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
+  const [logoUrl, setLogoUrl] = useState<string>("");
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
@@ -72,12 +73,15 @@ export default function StaffSidebar() {
       try {
         const me = await api<{
           restaurant?: string;
+          logo_url?: string | null;
         }>("/api/admin/me");
         if (!isActive) return;
         setRestaurantName(me?.restaurant || "Restaurant");
+        setLogoUrl(me?.logo_url || "");
       } catch {
         if (!isActive) return;
         setRestaurantName("Restaurant");
+        setLogoUrl("");
       }
     };
 
@@ -90,22 +94,15 @@ export default function StaffSidebar() {
   const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
-    const refreshToken =
-      typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
 
     try {
-      if (refreshToken) {
-        await api("/auth/logout", {
-          method: "POST",
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-      }
+      await api("/auth/logout", {
+        method: "POST",
+      });
     } catch {
       // Even if logout fails, proceed to clear local tokens.
     } finally {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
         localStorage.removeItem("session_id");
         localStorage.removeItem("order_id");
         localStorage.removeItem("table_number");
@@ -130,8 +127,17 @@ export default function StaffSidebar() {
       className="h-screen bg-white border-r border-gray-200 flex flex-col relative z-20 shrink-0"
     >
       <div className={`h-16 flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center" : "px-6"}`}>
-        <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center text-white shrink-0 transition-all duration-300">
-          <span className="font-bold text-xs"></span>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 bg-white transition-all duration-300">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt={`${restaurantName} logo`} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gray-900 text-white flex items-center justify-center">
+              <span className="font-bold text-xs">
+                {(restaurantName || "R").trim().slice(0, 1).toUpperCase()}
+              </span>
+            </div>
+          )}
         </div>
         {!isCollapsed && (
           <motion.div 

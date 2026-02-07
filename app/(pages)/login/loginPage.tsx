@@ -52,9 +52,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      if (res?.access_token) {
-        localStorage.setItem("access_token", res.access_token);
-        localStorage.setItem("refresh_token", res.refresh_token);
+      if (res) {
         toast.success("Welcome back");
         router.push("/staff");
       }
