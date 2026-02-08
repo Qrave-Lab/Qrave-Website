@@ -78,6 +78,7 @@ type MenuItem = {
   variants: Variant[];
   imageUrl: string;
   modelGlb: string;
+  modelUsdz: string;
   description: string;
   ingredientsStructured: StructuredIngredient[];
   allergens: { type: Allergen; confidence: AllergenConfidence }[];
@@ -162,6 +163,7 @@ export default function MenuPage() {
         description: item.description?.String ?? item.description ?? "",
         imageUrl: item.imageUrl?.String ?? item.imageUrl ?? "",
         modelGlb: item.modelGlb?.String ?? item.modelGlb ?? "",
+        modelUsdz: item.modelUsdz?.String ?? item.modelUsdz ?? "",
         variants: item.variants || [],
         allergens: item.allergens || [],
         availableDays: item.availableDays || [],
@@ -225,10 +227,23 @@ export default function MenuPage() {
   });
 
   toast.success("Image uploaded");
-}
-else {
-        const fakeUrl = URL.createObjectURL(file);
-        setEditingItem({ ...editingItem, modelGlb: fakeUrl });
+} else {
+        if (!editingItem.id) {
+          toast.error("Save item first before uploading 3D model");
+          return;
+        }
+        const form = new FormData();
+        form.append("file", file);
+        const res: any = await authFetch(
+          `/api/admin/menu/item/model?item_id=${editingItem.id}`,
+          { method: "POST", body: form }
+        );
+        setEditingItem({
+          ...editingItem,
+          modelGlb: res.model_glb || "",
+          modelUsdz: res.model_usdz || "",
+        });
+        toast.success("3D model uploaded and converted");
       }
     } catch (err) {
       toast.error("Upload failed");
@@ -311,6 +326,7 @@ else {
           description: item.description || "",
           image_url: item.imageUrl || "",
           model_glb: item.modelGlb || "",
+          model_usdz: item.modelUsdz || "",
           available_days: item.availableDays || [],
           is_archived: item.isArchived,
           is_out_of_stock: isOutOfStock,
@@ -343,6 +359,7 @@ else {
               description: item.description || "",
               image_url: item.imageUrl || "",
               model_glb: item.modelGlb || "",
+              model_usdz: item.modelUsdz || "",
               available_days: item.availableDays || [],
               is_archived: item.isArchived,
               is_out_of_stock: isOutOfStock,
@@ -385,6 +402,7 @@ else {
           description: editingItem.description,
           image_url: editingItem.imageUrl,
           model_glb: editingItem.modelGlb,
+          model_usdz: editingItem.modelUsdz,
           available_days: editingItem.availableDays,
           is_archived: editingItem.isArchived,
           is_out_of_stock: editingItem.isOutOfStock,
@@ -510,6 +528,7 @@ else {
                   variants: [],
                   imageUrl: "",
                   modelGlb: "",
+                  modelUsdz: "",
                   description: "",
                   ingredientsStructured: [],
                   allergens: [],
@@ -711,6 +730,7 @@ else {
                         variants: [],
                         imageUrl: "",
                         modelGlb: "",
+                        modelUsdz: "",
                         description: "",
                         ingredientsStructured: [],
                         allergens: [],
@@ -1129,7 +1149,7 @@ else {
                         type="file"
                         hidden
                         ref={modelInputRef}
-                        accept=".glb"
+                        accept=".glb,.usdz"
                         onChange={(e) => handleFileUpload(e, "model")}
                       />
                       <div
@@ -1147,7 +1167,7 @@ else {
                           <div className="text-center">
                             <Box className="mx-auto text-indigo-200 mb-2" />
                             <span className="text-sm font-bold text-indigo-300">
-                              Upload GLB for AR
+                              Upload GLB/USDZ for AR
                             </span>
                           </div>
                         )}

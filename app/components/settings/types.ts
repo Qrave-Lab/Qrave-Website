@@ -20,4 +20,6 @@ export type Restaurant = {
   serviceCharge: number;
   phone: string;
   logo_url?: string;
+  openTime?: string;
+  closeTime?: string;
 };

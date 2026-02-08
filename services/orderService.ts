@@ -36,6 +36,16 @@ export const orderService = {
       tableFromPath ||
       null;
 
+    const nextContextKey = `${restaurantId || "na"}::${rawTable || "na"}`;
+    const prevContextKey = localStorage.getItem("session_context_key");
+    if (prevContextKey && prevContextKey !== nextContextKey) {
+      localStorage.removeItem("session_id");
+      localStorage.removeItem("order_id");
+      localStorage.removeItem("cart-storage");
+      sessionId = null;
+    }
+    localStorage.setItem("session_context_key", nextContextKey);
+
     if (restaurantFromUrl) {
       localStorage.setItem("restaurant_id", restaurantFromUrl);
     }

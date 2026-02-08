@@ -38,7 +38,7 @@ const getRatingStyles = (rating: number) => {
   return { container: "bg-red-50 text-red-700 ring-1 ring-red-200/50", icon: "text-red-500 fill-red-500" };
 };
 
-const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber }) => {
+const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber, isTableOccupied = false }) => {
   const [menuItems, setMenuItems] = useState(initialMenu);
   const [searchQuery, setSearchQuery] = useState("");
   const [isVegOnly, setIsVegOnly] = useState(false);
@@ -156,16 +156,11 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
   const cartTotal = Object.entries(cart).reduce((acc, [_, item]) => acc + (item.price * item.quantity), 0);
   const totalItems = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
   const rawTableId = resolve(tableNumber);
-  const storedTableId =
-    typeof window !== "undefined"
-      ? localStorage.getItem("table_number") || localStorage.getItem("table")
-      : null;
-  const tableId =
-    rawTableId && rawTableId !== "N/A" ? rawTableId : storedTableId || "7";
+  const tableId = rawTableId && rawTableId !== "N/A" ? rawTableId : "N/A";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (tableId && tableId !== "N/A") {
+    if (tableId !== "N/A") {
       localStorage.setItem("table_number", tableId);
     }
   }, [tableId]);
@@ -339,6 +334,11 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber 
       </header>
 
       <main className="max-w-md mx-auto px-6 pt-6 pb-44">
+        {isTableOccupied && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+            This table already has an active session. You are viewing the active table.
+          </div>
+        )}
         {showArTour && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
             <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden">

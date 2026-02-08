@@ -26,6 +26,8 @@ export default function SettingsPage() {
     serviceCharge: 10,
     phone: "",
     logo_url: "",
+    openTime: "",
+    closeTime: "",
   });
 
   const [initialData, setInitialData] = useState<{
@@ -53,6 +55,8 @@ export default function SettingsPage() {
         taxPercent: adminData.tax_percent || 0,
         serviceCharge: adminData.service_charge || 0,
         logo_url: adminData.logo_url || "",
+        openTime: adminData.open_time || "",
+        closeTime: adminData.close_time || "",
       };
 
       const fetchedTables = tablesData || [];
@@ -117,6 +121,8 @@ export default function SettingsPage() {
           phone: restaurant.phone,
           tax_percent: restaurant.taxPercent,
           service_charge: restaurant.serviceCharge,
+          open_time: restaurant.openTime || "",
+          close_time: restaurant.closeTime || "",
         }),
       });
       setInitialData({ restaurant, tables, staff });

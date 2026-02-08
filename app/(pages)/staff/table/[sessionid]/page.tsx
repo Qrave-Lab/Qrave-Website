@@ -98,6 +98,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [activeSessions, setActiveSessions] = useState<{ session_id: string; table_number: number }[]>([]);
   const [targetSessionId, setTargetSessionId] = useState<string>("");
   const [billSessionIds, setBillSessionIds] = useState<string[]>([]);
+  const [confirmRelocate, setConfirmRelocate] = useState(false);
 
   // Menu State
   const [showMenu, setShowMenu] = useState(false);
@@ -234,6 +235,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           }),
         });
       }
+      await api(`/api/admin/sessions/${sessionid}/end`, { method: "POST" });
       await refreshOrders();
       setIsCheckoutOpen(false);
     } finally {
@@ -254,13 +256,18 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
   const submitRelocate = async () => {
     if (!targetTableId) return;
-    await api(`/api/admin/tables/move`, {
-      method: "POST",
-      body: JSON.stringify({ session_id: sessionid, target_table_id: targetTableId }),
-    });
-    setShowRelocate(false);
-    setTargetTableId("");
-    await refreshOrders();
+    try {
+      await api(`/api/admin/table-move`, {
+        method: "POST",
+        body: JSON.stringify({ session_id: sessionid, target_table_id: targetTableId }),
+      });
+      setShowRelocate(false);
+      setTargetTableId("");
+      await refreshOrders();
+    } catch (err: any) {
+      const msg = err?.message || "Failed to move table";
+      alert(msg);
+    }
   };
 
   const closeServiceCall = async (id: string) => {
@@ -350,7 +357,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           
           <div className="flex items-center gap-3">
             {isPaid ? (
-               <PrintButton />
+               <PrintButton sessionId={sessionid} />
             ) : (
                <>
                  <button 
@@ -669,10 +676,44 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
                 <button
                   disabled={!targetTableId}
-                  onClick={submitRelocate}
+                  onClick={() => setConfirmRelocate(true)}
                   className="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   Transfer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmRelocate && (
+          <div className="absolute inset-0 z-[55] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
+            <div className="bg-white w-full max-w-sm rounded-2xl border border-gray-200 shadow-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h3 className="font-bold text-gray-900">Confirm Relocation</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Move this session to{" "}
+                  <span className="font-bold">
+                    T{tables.find((t) => t.id === targetTableId)?.table_number}
+                  </span>
+                  ?
+                </p>
+              </div>
+              <div className="px-5 py-4 flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirmRelocate(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setConfirmRelocate(false);
+                    await submitRelocate();
+                  }}
+                  className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-black"
+                >
+                  Confirm
                 </button>
               </div>
             </div>

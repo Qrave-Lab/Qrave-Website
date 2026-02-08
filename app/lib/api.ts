@@ -12,11 +12,14 @@ const PUBLIC_ROUTES = [
   "/auth/refresh",
   "/auth/logout",
   "/auth/email_available",
+  "/auth/forgot-password/request",
+  "/auth/forgot-password/reset",
   "/public/otp/request",
   "/public/otp/verify",
   "/public/otp/resend",
   "/public/session/start",
   "/api/customer/menu",
+  "/api/customer/session",
   "/api/customer/orders",
   "/api/customer/orders/items",
   "/api/customer/orders/bill",
@@ -71,9 +74,11 @@ export async function api<T>(
   );
 
   const headerInit: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
+  if (!(options.body instanceof FormData) && !headerInit["Content-Type"]) {
+    headerInit["Content-Type"] = "application/json";
+  }
   const method = (options.method || "GET").toUpperCase();
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrf = getCsrfToken();
@@ -124,10 +129,9 @@ export async function api<T>(
       console.warn("API Note:", resolvedPath, res.status, message.trim());
     }
 
-    throw {
-      status: res.status,
-      message: message || "Backend error",
-    };
+    const err = new Error(message || "Backend error") as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   if (res.status === 204) {

@@ -1,10 +1,18 @@
 "use client";
 
 import { Printer } from "lucide-react";
+import { api } from "@/app/lib/api";
 
-export function PrintButton() {
-  const handlePrint = () => {
+export function PrintButton({ sessionId }: { sessionId?: string }) {
+  const handlePrint = async () => {
     if (typeof window !== "undefined") {
+      if (sessionId) {
+        try {
+          await api(`/api/admin/sessions/${sessionId}/end`, { method: "POST" });
+        } catch {
+          // best effort
+        }
+      }
       window.print();
     }
   };

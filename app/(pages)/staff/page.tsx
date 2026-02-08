@@ -141,6 +141,11 @@ export default function StaffDashboardPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<null | {
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void>;
+  }>(null);
 
   const [tableFilter, setTableFilter] = useState<TableFilter>("all");
   const [tableSort, setTableSort] = useState<TableSort>("table");
@@ -443,27 +448,42 @@ export default function StaffDashboardPage() {
     await refreshLiveData();
   };
 
-  const handleFreeTable = (tableId: string) => {
+  const handleFreeTable = async (tableId: string) => {
     const tableToFree = tables.find(t => t.id === tableId);
     if(!tableToFree) return;
+    if (!tableToFree.activeSessionId) return;
 
-    setTables(prev => prev.map(t => t.id === tableId ? {
-        ...t,
-        isOccupied: false,
-        activeSessionId: undefined,
-        currentTotal: 0,
-        itemsCount: 0,
-        guests: 0,
-        billStatus: undefined,
-        seatedAt: undefined
-    } : t));
+    await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
+      method: "POST",
+    });
 
-    setOrders(prev => prev.filter(o => o.tableCode !== tableToFree.tableCode));
-    setServiceCalls(prev => prev.filter(s => s.tableCode !== tableToFree.tableCode));
+    await refreshLiveData();
     setOpenMenuId(null);
   };
 
-  const handleMoveTable = async (targetTableId: string) => {
+  const requestFreeTable = (tableId: string) => {
+    const tableToFree = tables.find(t => t.id === tableId);
+    if (!tableToFree) return;
+    setConfirmAction({
+      title: `Free ${tableToFree.tableCode}?`,
+      message: "This will end the active session immediately.",
+      onConfirm: async () => handleFreeTable(tableId),
+    });
+  };
+
+  const markBillPrinted = async (tableId: string) => {
+    const table = tables.find((t) => t.id === tableId);
+    if (!table?.activeSessionId) return;
+
+    await api(`/api/admin/sessions/${table.activeSessionId}/end`, {
+      method: "POST",
+    });
+
+    await refreshLiveData();
+    setOpenMenuId(null);
+  };
+
+  const executeMoveTable = async (targetTableId: string) => {
     if (!activeTableId) return;
 
     const sourceTable = tables.find((t) => t.id === activeTableId);
@@ -472,19 +492,36 @@ export default function StaffDashboardPage() {
 
     if (!sourceTable.activeSessionId) return;
 
-    await api("/api/admin/tables/move", {
-      method: "POST",
-      body: JSON.stringify({
-        session_id: sourceTable.activeSessionId,
-        target_table_id: targetTableId,
-      }),
+    try {
+      await api("/api/admin/table-move", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sourceTable.activeSessionId,
+          target_table_id: targetTableId,
+        }),
+      });
+
+      await refreshLiveData();
+
+      setShowMoveModal(false);
+      setActiveTableId(null);
+      setOpenMenuId(null);
+    } catch (err: any) {
+      alert(err?.message || "Failed to move table");
+    }
+  };
+
+  const handleMoveTable = async (targetTableId: string) => {
+    if (!activeTableId) return;
+    const sourceTable = tables.find((t) => t.id === activeTableId);
+    const targetTable = tables.find((t) => t.id === targetTableId);
+    if (!sourceTable || !targetTable) return;
+
+    setConfirmAction({
+      title: `Move ${sourceTable.tableCode} to ${targetTable.tableCode}?`,
+      message: "Guests and active orders will be relocated to the selected table.",
+      onConfirm: async () => executeMoveTable(targetTableId),
     });
-
-    await refreshLiveData();
-
-    setShowMoveModal(false);
-    setActiveTableId(null);
-    setOpenMenuId(null);
   };
 
   const handleMergeTable = async (targetTableId: string) => {
@@ -746,13 +783,17 @@ export default function StaffDashboardPage() {
                                       </button>
                                   </div>
                                   <div className="border-t border-gray-100 py-1">
-                                      <button onClick={() => setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "bill_printed" } : t))} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                      <button onClick={() => setConfirmAction({
+                                        title: `Print and close ${table.tableCode}?`,
+                                        message: "This will mark bill action and end the active session.",
+                                        onConfirm: async () => markBillPrinted(table.id),
+                                      })} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                         <Receipt className="w-3.5 h-3.5" /> Print Bill
                                       </button>
                                       <button onClick={() => setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "paid" } : t))} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
                                         <CheckCircle2 className="w-3.5 h-3.5" /> Mark Paid
                                       </button>
-                                      <button onClick={() => handleFreeTable(table.id)} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">
+                                      <button onClick={() => requestFreeTable(table.id)} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">
                                         <LogOut className="w-3.5 h-3.5" /> Free Table
                                       </button>
                                   </div>
@@ -897,6 +938,35 @@ export default function StaffDashboardPage() {
           </div>
         )}
       </div>
+
+      {confirmAction && (
+        <div className="absolute inset-0 z-[80] bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900">{confirmAction.title}</h3>
+              <p className="text-sm text-gray-500 mt-1">{confirmAction.message}</p>
+            </div>
+            <div className="px-6 py-4 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const action = confirmAction.onConfirm;
+                  setConfirmAction(null);
+                  await action();
+                }}
+                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {sidebarVisible && (

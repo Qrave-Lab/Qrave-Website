@@ -136,6 +136,31 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
             />
           </div>
         </div>
+
+        <div className="grid grid-cols-2 gap-4 pt-2">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Opens At
+            </label>
+            <input
+              type="time"
+              value={data.openTime || ""}
+              onChange={(e) => handleChange("openTime", e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Closes At
+            </label>
+            <input
+              type="time"
+              value={data.closeTime || ""}
+              onChange={(e) => handleChange("closeTime", e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+            />
+          </div>
+        </div>
       </div>
     </section>
   );

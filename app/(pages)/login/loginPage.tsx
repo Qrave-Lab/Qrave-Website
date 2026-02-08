@@ -24,6 +24,12 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [showForgot, setShowForgot] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -70,6 +76,53 @@ export default function LoginPage() {
       e.preventDefault();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const requestResetOtp = async () => {
+    if (!resetEmail) {
+      setError("Enter your email to reset password");
+      return;
+    }
+    setIsRequestingOtp(true);
+    try {
+      await api("/auth/forgot-password/request", {
+        method: "POST",
+        body: JSON.stringify({ email: resetEmail }),
+      });
+      toast.success("OTP sent to your email");
+    } catch {
+      setError("Failed to send OTP");
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  };
+
+  const resetPasswordWithOtp = async () => {
+    if (!resetEmail || !resetCode || !newPassword) {
+      setError("Enter email, OTP and new password");
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      await api("/auth/forgot-password/reset", {
+        method: "POST",
+        body: JSON.stringify({
+          email: resetEmail,
+          code: resetCode,
+          new_password: newPassword,
+        }),
+      });
+      toast.success("Password reset successful. Please login.");
+      setShowForgot(false);
+      setResetCode("");
+      setNewPassword("");
+      setPassword("");
+      setError(null);
+    } catch {
+      setError("Invalid OTP or reset failed");
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -171,7 +224,17 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
                     <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Password</label>
-                    <button type="button" className="text-[11px] font-bold text-indigo-600 hover:underline uppercase tracking-widest">Forgot?</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgot(!showForgot);
+                        setResetEmail(email || resetEmail);
+                        setError(null);
+                      }}
+                      className="text-[11px] font-bold text-indigo-600 hover:underline uppercase tracking-widest"
+                    >
+                      Forgot?
+                    </button>
                   </div>
                   <div className="relative group">
                     <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
@@ -219,6 +282,53 @@ export default function LoginPage() {
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Login"}
               </button>
             </form>
+
+            {showForgot && (
+              <div className="mt-6 p-4 rounded-2xl border border-indigo-100 bg-indigo-50/40 space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+                  Reset Password With OTP
+                </p>
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="Email"
+                  className="w-full px-4 py-3 rounded-xl border border-indigo-100 bg-white text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value)}
+                    placeholder="OTP"
+                    className="flex-1 px-4 py-3 rounded-xl border border-indigo-100 bg-white text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={requestResetOtp}
+                    disabled={isRequestingOtp}
+                    className="px-4 py-3 rounded-xl bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest disabled:opacity-60"
+                  >
+                    {isRequestingOtp ? "Sending..." : "Send OTP"}
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password"
+                  className="w-full px-4 py-3 rounded-xl border border-indigo-100 bg-white text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                />
+                <button
+                  type="button"
+                  onClick={resetPasswordWithOtp}
+                  disabled={isResettingPassword}
+                  className="w-full py-3 rounded-xl bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest disabled:opacity-60"
+                >
+                  {isResettingPassword ? "Resetting..." : "Reset Password"}
+                </button>
+              </div>
+            )}
 
             <footer className="pt-4 text-center">
               <span className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em]">New here?</span>
