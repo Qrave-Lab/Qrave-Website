@@ -128,7 +128,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             return;
           }
           try {
-            const res = await api<{ session_id: string }>("/public/session/start", {
+            const res = await api<{ session_id: string; is_occupied?: boolean }>("/public/session/start", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -139,7 +139,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             });
             session = res.session_id;
             localStorage.setItem("session_id", res.session_id);
-            const occupied = (res as any)?.is_occupied;
+            const occupied = Boolean(res?.is_occupied);
             if (occupied) localStorage.setItem("table_occupied", "1");
             else localStorage.removeItem("table_occupied");
             if (resolvedRestaurant) {
@@ -157,7 +157,7 @@ export default function MenuClient({ table }: { table: string | null }) {
           }
         } else if (isUUID(resolvedTable)) {
           try {
-            const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number }>("/public/session/start", {
+            const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number; is_occupied?: boolean }>("/public/session/start", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -167,7 +167,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             });
             session = res.session_id;
             localStorage.setItem("session_id", res.session_id);
-            if ((res as any)?.is_occupied) localStorage.setItem("table_occupied", "1");
+            if (res?.is_occupied) localStorage.setItem("table_occupied", "1");
             else localStorage.removeItem("table_occupied");
             if (res.restaurant_id) {
               localStorage.setItem("restaurant_id", res.restaurant_id);
@@ -213,7 +213,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             const tableNumber = Number.parseInt(resolvedTable, 10);
             if (!Number.isNaN(tableNumber)) {
               try {
-                const res = await api<{ session_id: string }>("/public/session/start", {
+                const res = await api<{ session_id: string; is_occupied?: boolean }>("/public/session/start", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -224,7 +224,7 @@ export default function MenuClient({ table }: { table: string | null }) {
                 });
                 session = res.session_id;
                 localStorage.setItem("session_id", res.session_id);
-                const occupied = (res as any)?.is_occupied;
+                const occupied = Boolean(res?.is_occupied);
                 if (occupied) localStorage.setItem("table_occupied", "1");
                 else localStorage.removeItem("table_occupied");
                 if (resolvedRestaurant) {

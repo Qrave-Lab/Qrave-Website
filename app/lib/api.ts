@@ -32,7 +32,7 @@ async function tryRefresh(): Promise<boolean> {
       typeof document !== "undefined"
         ? document.cookie.match(/(?:^|; )csrf_token=([^;]+)/)?.[1]
         : null;
-    await fetch(`${API_BASE}/auth/refresh`, {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -40,7 +40,7 @@ async function tryRefresh(): Promise<boolean> {
       },
       credentials: "include",
     });
-    return true;
+    return res.ok;
   } catch {
     return false;
   }

@@ -104,6 +104,18 @@ type ActiveOrdersResponse = {
   orders: ActiveOrder[];
 };
 
+type ActiveSessionAPI = {
+  session_id: string;
+  table_id: string;
+  table_number: number;
+  started_at: string;
+  last_active_at: string;
+};
+
+type ActiveSessionsResponse = {
+  sessions: ActiveSessionAPI[];
+};
+
 type ServiceCallAPI = {
   id: string;
   table_id: string;
@@ -196,42 +208,53 @@ export default function StaffDashboardPage() {
     return next;
   };
 
-  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[]) => {
-    const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string }>();
+  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[]) => {
+    const occupancyByTable = new Map<number, { sessionId: string; seatedAt?: Date }>();
+    for (const s of sessionsList) {
+      occupancyByTable.set(s.table_number, {
+        sessionId: s.session_id,
+        seatedAt: s.started_at ? new Date(s.started_at) : undefined,
+      });
+    }
+
+    const totalsByTable = new Map<number, { total: number; count: number }>();
     for (const order of ordersList) {
       const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0 };
       const orderTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       totalsByTable.set(order.table_number, {
         total: existing.total + orderTotal,
         count: existing.count + order.items.reduce((sum, i) => sum + i.quantity, 0),
-        sessionId: order.session_id,
       });
     }
 
     return tablesApi.map((t) => {
+      const occ = occupancyByTable.get(t.table_number);
       const meta = totalsByTable.get(t.table_number);
       return {
         id: t.id,
         tableCode: `T${t.table_number}`,
         restaurantName: "",
-        isOccupied: Boolean(meta),
-        activeSessionId: meta?.sessionId,
+        isOccupied: Boolean(occ),
+        activeSessionId: occ?.sessionId,
         currentTotal: meta?.total,
         itemsCount: meta?.count,
+        seatedAt: occ?.seatedAt,
       } as StaffTable;
     });
   };
 
   const refreshLiveData = async () => {
-    const [tablesRes, ordersRes] = await Promise.all([
+    const [tablesRes, ordersRes, sessionsRes] = await Promise.all([
       api<TableAPI[]>("/api/admin/tables"),
       api<ActiveOrdersResponse>("/api/admin/orders/active"),
+      api<ActiveSessionsResponse>("/api/admin/sessions/active"),
     ]);
 
     const ordersList = ordersRes?.orders || [];
+    const sessionsList = sessionsRes?.sessions || [];
     setActiveOrders(ordersList);
     setOrders(buildPendingOrders(ordersList));
-    setTables(buildTables(tablesRes || [], ordersList));
+    setTables(buildTables(tablesRes || [], ordersList, sessionsList));
   };
 
   useEffect(() => {
@@ -323,7 +346,16 @@ export default function StaffDashboardPage() {
                       table_number: parseInt(t.tableCode.replace("T", ""), 10),
                       is_enabled: true,
                     })),
-                    next
+                    next,
+                    prevTables
+                      .filter((t) => Boolean(t.activeSessionId))
+                      .map((t) => ({
+                        session_id: t.activeSessionId as string,
+                        table_id: t.id,
+                        table_number: parseInt(t.tableCode.replace("T", ""), 10),
+                        started_at: t.seatedAt ? t.seatedAt.toISOString() : new Date().toISOString(),
+                        last_active_at: new Date().toISOString(),
+                      }))
                   )
                 );
                 return next;
