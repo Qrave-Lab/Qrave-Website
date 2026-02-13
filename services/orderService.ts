@@ -8,7 +8,6 @@ export type CartItemDTO = {
 export type CartRes = {
   items: Record<string, CartItemDTO>;
 };
-
 export const orderService = {
   ensureSession: async () => {
     if (typeof window === "undefined") return null;
@@ -218,6 +217,25 @@ export const orderService = {
     return api("/api/customer/orders/finalize", {
       method: "POST",
       body: JSON.stringify({ order_id: orderId }),
+    });
+  },
+
+  cancelOrder: (orderId: string) => {
+    return api("/api/customer/orders/cancel", {
+      method: "POST",
+      body: JSON.stringify({ order_id: orderId }),
+    });
+  },
+
+  cancelOrderItem: (orderId: string, itemId: string, variantId?: string | null, quantity?: number) => {
+    return api("/api/customer/orders/cancel-item", {
+      method: "POST",
+      body: JSON.stringify({
+        order_id: orderId,
+        menu_item_id: itemId,
+        variant_id: variantId || null,
+        quantity: quantity || 1,
+      }),
     });
   }
 };

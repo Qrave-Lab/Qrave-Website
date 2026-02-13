@@ -74,10 +74,12 @@ export default function StaffSidebar() {
         const me = await api<{
           restaurant?: string;
           logo_url?: string | null;
+          logo_version?: number | null;
         }>("/api/admin/me");
         if (!isActive) return;
         setRestaurantName(me?.restaurant || "Restaurant");
-        setLogoUrl(me?.logo_url || "");
+        const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
+        setLogoUrl(me?.logo_url ? `${me.logo_url}${suffix}` : "");
       } catch {
         if (!isActive) return;
         setRestaurantName("Restaurant");

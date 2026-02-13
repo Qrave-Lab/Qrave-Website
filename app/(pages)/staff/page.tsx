@@ -153,6 +153,8 @@ export default function StaffDashboardPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+  const [selectedMergeTableIds, setSelectedMergeTableIds] = useState<string[]>([]);
   const [confirmAction, setConfirmAction] = useState<null | {
     title: string;
     message: string;
@@ -164,6 +166,7 @@ export default function StaffDashboardPage() {
   const [activeSidebarTab, setActiveSidebarTab] = useState<"kitchen" | "service">("kitchen");
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const refreshLockRef = useRef(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -257,26 +260,38 @@ export default function StaffDashboardPage() {
     setTables(buildTables(tablesRes || [], ordersList, sessionsList));
   };
 
+  const refreshDashboard = async () => {
+    if (refreshLockRef.current) return;
+    refreshLockRef.current = true;
+    try {
+      await refreshLiveData();
+      const [serviceRes, salesRes] = await Promise.all([
+        api<ServiceCallAPI[]>("/api/admin/service-calls"),
+        api<{ total: number }>("/api/admin/sales/today"),
+      ]);
+      setServiceCalls(
+        (serviceRes || []).map((c) => ({
+          id: c.id,
+          tableCode: `T${c.table_number}`,
+          type: c.type,
+          status: c.status,
+          createdAt: new Date(c.created_at),
+        }))
+      );
+      if (typeof salesRes?.total === "number") {
+        setTodaySales(salesRes.total);
+      }
+    } finally {
+      refreshLockRef.current = false;
+    }
+  };
+
   useEffect(() => {
     let isActive = true;
     const load = async () => {
       try {
-        await refreshLiveData();
-        const [serviceRes, salesRes] = await Promise.all([
-          api<ServiceCallAPI[]>("/api/admin/service-calls"),
-          api<{ total: number }>("/api/admin/sales/today"),
-        ]);
+        await refreshDashboard();
         if (!isActive) return;
-        setServiceCalls(
-          (serviceRes || []).map((c) => ({
-            id: c.id,
-            tableCode: `T${c.table_number}`,
-            type: c.type,
-            status: c.status,
-            createdAt: new Date(c.created_at),
-          }))
-        );
-        setTodaySales(salesRes?.total || 0);
       } catch {
         if (!isActive) return;
         setActiveOrders([]);
@@ -307,6 +322,13 @@ export default function StaffDashboardPage() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      refreshDashboard().catch(() => {});
+    }, 4000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -457,27 +479,60 @@ export default function StaffDashboardPage() {
     });
 
   const handleAccept = async (orderId: string) => {
-    await api(`/api/admin/orders/${orderId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "accepted" }),
-    });
-    await refreshLiveData();
+    const previous = activeOrders;
+    const next = activeOrders.map((o) =>
+      (o.id || o.order_id) === orderId ? { ...o, status: "accepted" } : o
+    );
+    setActiveOrders(next);
+    setOrders(buildPendingOrders(next));
+    try {
+      await api(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "accepted" }),
+      });
+      await refreshDashboard();
+    } catch {
+      setActiveOrders(previous);
+      setOrders(buildPendingOrders(previous));
+    }
   };
 
   const handleServe = async (orderId: string) => {
-    await api(`/api/admin/orders/${orderId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "served" }),
-    });
-    await refreshLiveData();
+    const previous = activeOrders;
+    const next = activeOrders.map((o) =>
+      (o.id || o.order_id) === orderId ? { ...o, status: "served" } : o
+    );
+    setActiveOrders(next);
+    setOrders(buildPendingOrders(next));
+    try {
+      await api(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "served" }),
+      });
+      await refreshDashboard();
+    } catch {
+      setActiveOrders(previous);
+      setOrders(buildPendingOrders(previous));
+    }
   };
 
   const handleReject = async (orderId: string) => {
-    await api(`/api/admin/orders/${orderId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "cancelled" }),
-    });
-    await refreshLiveData();
+    const previous = activeOrders;
+    const next = activeOrders.map((o) =>
+      (o.id || o.order_id) === orderId ? { ...o, status: "cancelled" } : o
+    );
+    setActiveOrders(next);
+    setOrders(buildPendingOrders(next));
+    try {
+      await api(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      await refreshDashboard();
+    } catch {
+      setActiveOrders(previous);
+      setOrders(buildPendingOrders(previous));
+    }
   };
 
   const handleFreeTable = async (tableId: string) => {
@@ -489,7 +544,7 @@ export default function StaffDashboardPage() {
       method: "POST",
     });
 
-    await refreshLiveData();
+    await refreshDashboard();
     setOpenMenuId(null);
   };
 
@@ -511,7 +566,7 @@ export default function StaffDashboardPage() {
       method: "POST",
     });
 
-    await refreshLiveData();
+    await refreshDashboard();
     setOpenMenuId(null);
   };
 
@@ -533,7 +588,7 @@ export default function StaffDashboardPage() {
         }),
       });
 
-      await refreshLiveData();
+      await refreshDashboard();
 
       setShowMoveModal(false);
       setActiveTableId(null);
@@ -556,26 +611,70 @@ export default function StaffDashboardPage() {
     });
   };
 
-  const handleMergeTable = async (targetTableId: string) => {
+  const mergeTableInto = async (targetTableId: string, closeAfter: boolean) => {
     if (!activeTableId) return;
 
     const sourceTable = tables.find((t) => t.id === activeTableId);
     const targetTable = tables.find((t) => t.id === targetTableId);
     if (!sourceTable || !targetTable) return;
 
-    if (!sourceTable.activeSessionId || !targetTable.activeSessionId) return;
-    await api("/api/admin/bills/merge", {
-      method: "POST",
-      body: JSON.stringify({
-        session_id: sourceTable.activeSessionId,
-        target_session_id: targetTable.activeSessionId,
-      }),
-    });
-    await refreshLiveData();
+    const sourceSessionId =
+      sourceTable.activeSessionId ||
+      activeOrders.find((o) => o.table_id === sourceTable.id)?.session_id;
+    const targetSessionId =
+      targetTable.activeSessionId ||
+      activeOrders.find((o) => o.table_id === targetTable.id)?.session_id;
 
-    setShowMergeModal(false);
-    setActiveTableId(null);
-    setOpenMenuId(null);
+    if (!sourceSessionId || !targetSessionId) {
+      alert("Could not resolve active sessions for selected tables. Please try again.");
+      await refreshDashboard().catch(() => {});
+      return;
+    }
+
+    try {
+      await api("/api/admin/bills/merge", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sourceSessionId,
+          target_session_id: targetSessionId,
+        }),
+      });
+      await refreshDashboard();
+      if (closeAfter) {
+        setShowMergeModal(false);
+        setActiveTableId(null);
+        setOpenMenuId(null);
+      }
+    } catch (err: any) {
+      alert(err?.message || "Failed to merge bills");
+    }
+  };
+
+  const handleMergeTable = async (targetTableId: string) => {
+    setIsMerging(true);
+    try {
+      await mergeTableInto(targetTableId, true);
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleMergeSelectedTables = async () => {
+    if (!activeTableId || selectedMergeTableIds.length === 0) return;
+    setIsMerging(true);
+    try {
+      for (const targetTableId of selectedMergeTableIds) {
+        // eslint-disable-next-line no-await-in-loop
+        await mergeTableInto(targetTableId, false);
+      }
+      await refreshDashboard();
+      setShowMergeModal(false);
+      setActiveTableId(null);
+      setOpenMenuId(null);
+      setSelectedMergeTableIds([]);
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   const handleServiceCallStatus = async (id: string, status: ServiceCallStatus) => {
@@ -810,7 +909,7 @@ export default function StaffDashboardPage() {
                                       <button onClick={() => { setActiveTableId(table.id); setShowMoveModal(true); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                         <ArrowRightLeft className="w-3.5 h-3.5" /> Move Table
                                       </button>
-                                      <button onClick={() => { setActiveTableId(table.id); setShowMergeModal(true); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                      <button onClick={() => { setActiveTableId(table.id); setSelectedMergeTableIds([]); setShowMergeModal(true); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                         <Merge className="w-3.5 h-3.5" /> Merge Bill
                                       </button>
                                   </div>
@@ -942,8 +1041,17 @@ export default function StaffDashboardPage() {
                   {tables.filter((t) => t.isOccupied && t.id !== activeTableId).map((t) => (
                       <button
                         key={t.id}
-                        onClick={() => handleMergeTable(t.id)}
-                        className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:border-amber-500 hover:bg-amber-50/50 transition-all group"
+                        disabled={isMerging}
+                        onClick={() =>
+                          setSelectedMergeTableIds((prev) =>
+                            prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id]
+                          )
+                        }
+                        className={`w-full flex items-center justify-between p-3 border rounded-xl transition-all group disabled:opacity-60 disabled:cursor-not-allowed ${
+                          selectedMergeTableIds.includes(t.id)
+                            ? "border-amber-500 bg-amber-50/60"
+                            : "border-gray-200 hover:border-amber-500 hover:bg-amber-50/50"
+                        }`}
                       >
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-lg text-gray-700 group-hover:bg-white group-hover:text-amber-600 shadow-sm">
@@ -956,7 +1064,11 @@ export default function StaffDashboardPage() {
                             </div>
                           </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-amber-500" />
+                        {selectedMergeTableIds.includes(t.id) ? (
+                          <span className="text-xs font-semibold text-amber-700">Selected</span>
+                        ) : (
+                          <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-amber-500" />
+                        )}
                       </button>
                     ))}
                   {tables.filter((t) => t.isOccupied && t.id !== activeTableId).length === 0 && (
@@ -965,6 +1077,13 @@ export default function StaffDashboardPage() {
                     </div>
                   )}
                 </div>
+                <button
+                  disabled={isMerging || selectedMergeTableIds.length === 0}
+                  onClick={handleMergeSelectedTables}
+                  className="mt-4 w-full rounded-xl bg-gray-900 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isMerging ? "Merging..." : `Merge Selected (${selectedMergeTableIds.length})`}
+                </button>
               </div>
             </div>
           </div>

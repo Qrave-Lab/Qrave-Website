@@ -301,6 +301,31 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
+  const reloadOrders = async () => {
+    const res = await orderService.getOrders();
+    if (res?.orders) setOrders(res.orders);
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      await orderService.cancelOrder(orderId);
+      toast.success("Order cancelled");
+      await reloadOrders();
+    } catch {
+      toast.error("Unable to cancel order");
+    }
+  };
+
+  const handleCancelOrderItem = async (orderId: string, itemId: string, variantId: string) => {
+    try {
+      await orderService.cancelOrderItem(orderId, itemId, variantId || null, 1);
+      toast.success("Item cancelled");
+      await reloadOrders();
+    } catch {
+      toast.error("Unable to cancel item");
+    }
+  };
+
   const currentCartHasItems = lines.length > 0;
   const hasPlacedOrders = placedOrders.length > 0;
 
@@ -355,12 +380,22 @@ const CheckoutPage: React.FC = () => {
                   {placedOrders.map((order) => (
                     <div key={order.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                          Order #{order.id.slice(0, 4)}
-                        </span>
-                        <span className={`text-[10px] font-bold uppercase tracking-widest ${order.status === 'accepted' ? 'text-green-500' : 'text-slate-500'}`}>
-                          {order.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                            Order #{order.id.slice(0, 4)}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${order.status === 'accepted' ? 'text-green-500' : 'text-slate-500'}`}>
+                            {order.status}
+                          </span>
+                        </div>
+                        {order.status === "pending" && (
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-rose-700"
+                          >
+                            Cancel Order
+                          </button>
+                        )}
                       </div>
                       <div className="space-y-2">
                         {order.items.map((item, idx) => {
@@ -377,6 +412,14 @@ const CheckoutPage: React.FC = () => {
                             <div key={`${order.id}-${idx}`} className="flex justify-between text-sm">
                               <span className="text-slate-600">
                                 <span className="font-bold text-slate-900">{item.quantity}x</span> {name}
+                                {order.status === "pending" && (
+                                  <button
+                                    onClick={() => handleCancelOrderItem(order.id, item.menu_item_id, item.variant_id)}
+                                    className="ml-2 text-[10px] font-bold uppercase tracking-widest text-rose-600 hover:underline"
+                                  >
+                                    Cancel 1
+                                  </button>
+                                )}
                               </span>
                               <span className="font-bold text-slate-900">₹{item.price * item.quantity}</span>
                             </div>

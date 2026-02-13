@@ -22,12 +22,11 @@ import StaffSidebar from "@/app/components/StaffSidebar";
 const EditStaffPage = () => {
   const router = useRouter();
   const params = useParams();
-  const userId = params?.userID;
+  const userId = params?.id as string;
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -47,12 +46,8 @@ const EditStaffPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const adminData = await api<any>("/api/admin/me", { method: "GET" });
-        const resId = adminData.restaurant_id || adminData.id;
-        setRestaurantId(resId);
-
         if (userId) {
-          const staffData = await api<any>(`/api/admin/staffDetails/${userId}`, { 
+          const staffData = await api<any>(`/api/admin/staffDetails/${userId}`, {
             method: "GET" 
           });
           
@@ -62,7 +57,7 @@ const EditStaffPage = () => {
             password: "", 
             role: staffData.role || "waiter",
           });
-        }
+        } 
       } catch (err) {
         toast.error("Error loading details");
       } finally {
@@ -75,13 +70,15 @@ const EditStaffPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!restaurantId) return;
-
     setIsSaving(true);
     try {
-      await api(`/api/admin/restaurants/${restaurantId}/staff/${userId}`, {
+      await api(`/api/admin/staffDetails/${userId}`, {
         method: "PUT",
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        }),
       });
 
       toast.success("Staff member updated successfully");
@@ -129,10 +126,10 @@ const EditStaffPage = () => {
             
             <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Name</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Display Name (UI only)</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input required className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
+                  <input className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
                   placeholder="John Doe" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                 </div>
               </div>

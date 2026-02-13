@@ -47,6 +47,7 @@ export default function SettingsPage() {
         api<Table[]>("/api/admin/tables", { method: "GET" })
       ]);
 
+      const logoVersionSuffix = adminData.logo_version ? `?v=${adminData.logo_version}` : "";
       const restObj: Restaurant = {
         name: adminData.restaurant || "",
         address: adminData.address || "",
@@ -54,7 +55,7 @@ export default function SettingsPage() {
         currency: adminData.currency || "INR",
         taxPercent: adminData.tax_percent || 0,
         serviceCharge: adminData.service_charge || 0,
-        logo_url: adminData.logo_url || "",
+        logo_url: adminData.logo_url ? `${adminData.logo_url}${logoVersionSuffix}` : "",
         openTime: adminData.open_time || "",
         closeTime: adminData.close_time || "",
       };
@@ -93,7 +94,7 @@ export default function SettingsPage() {
     if (!file) return;
     setIsUploading(true);
     try {
-      const { upload_url } = await api<{ upload_url: string }>("/api/admin/logo-pic/upload-url", {
+      const { upload_url, public_url } = await api<{ upload_url: string; public_url: string }>("/api/admin/logo-pic/upload-url", {
         method: "POST",
       });
       const uploadRes = await fetch(upload_url, {
@@ -102,6 +103,7 @@ export default function SettingsPage() {
         headers: { "Content-Type": file.type },
       });
       if (!uploadRes.ok) throw new Error();
+      setRestaurant((prev) => ({ ...prev, logo_url: `${public_url}?v=${Date.now()}` }));
       toast.success("Logo uploaded");
     } catch (err) {
       toast.error("Logo upload failed");

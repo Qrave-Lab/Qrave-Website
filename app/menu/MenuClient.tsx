@@ -49,16 +49,27 @@ export default function MenuClient({ table }: { table: string | null }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const sessionId = localStorage.getItem("session_id");
     const previousTable = localStorage.getItem("table_number");
     const previousRestaurant = localStorage.getItem("restaurant_id");
     const normalizedTable =
       resolvedTable && resolvedTable.trim().toLowerCase().startsWith("t")
         ? resolvedTable.trim().slice(1)
         : resolvedTable;
+    // If session is already active and URL is stale (e.g. table moved by staff),
+    // keep current session context and let server-sync update URL/table.
+    if (sessionId && previousTable && normalizedTable && previousTable !== normalizedTable) {
+      localStorage.setItem(
+        "session_context_key",
+        `${previousRestaurant || resolvedRestaurant || "na"}::${previousTable}`
+      );
+      return;
+    }
+
     const contextChanged =
       (!!normalizedTable && previousTable !== normalizedTable) ||
       (!!resolvedRestaurant && previousRestaurant !== resolvedRestaurant);
-    if (contextChanged) {
+    if (contextChanged && !sessionId) {
       localStorage.removeItem("session_id");
       localStorage.removeItem("order_id");
       localStorage.removeItem("cart-storage");
@@ -96,6 +107,10 @@ export default function MenuClient({ table }: { table: string | null }) {
           if (restaurant) {
             localStorage.setItem("restaurant_id", restaurant);
           }
+          localStorage.setItem(
+            "session_context_key",
+            `${restaurant || "na"}::${serverTable}`
+          );
           const currentUrlTable = tableFromUrl;
           if (currentUrlTable !== serverTable) {
             const base = `/menu?table=${encodeURIComponent(serverTable)}`;

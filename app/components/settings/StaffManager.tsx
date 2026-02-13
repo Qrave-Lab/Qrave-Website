@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Plus, Trash2, Edit2, AlertTriangle, Loader2 } from "lucide-react";
+import { Users, Plus, Trash2, Edit2, AlertTriangle, Loader2, Eye, EyeOff } from "lucide-react";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
 
@@ -10,6 +10,12 @@ type StaffMember = {
   ID: string;
   Email: string;
   Role: string;
+};
+
+type StaffDetail = {
+  id: string;
+  email: string;
+  role: string;
 };
 
 type Props = {
@@ -21,6 +27,15 @@ export default function StaffManager({ onRefresh }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [editForm, setEditForm] = useState({
+    email: "",
+    role: "waiter",
+    password: "",
+  });
 
   useEffect(() => {
     fetchStaff();
@@ -55,6 +70,53 @@ export default function StaffManager({ onRefresh }: Props) {
     } finally {
       setIsDeleting(false);
       setDeletingId(null);
+    }
+  };
+
+  const openEdit = async (staffId: string) => {
+    setEditingId(staffId);
+    setIsEditing(true);
+    setShowPassword(false);
+    try {
+      const detail = await api<StaffDetail>(`/api/admin/staffDetails/${staffId}`, {
+        method: "GET",
+      });
+      setEditForm({
+        email: detail?.email || "",
+        role: detail?.role || "waiter",
+        password: "",
+      });
+    } catch {
+      toast.error("Failed to load staff details");
+      setIsEditing(false);
+      setEditingId(null);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingId) return;
+    setIsSavingEdit(true);
+    try {
+      await api(`/api/admin/staffDetails/${editingId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          email: editForm.email,
+          role: editForm.role,
+          password: editForm.password,
+        }),
+      });
+      toast.success("Staff member updated");
+      setIsEditing(false);
+      setEditingId(null);
+      await fetchStaff();
+      if (onRefresh) onRefresh();
+    } catch (err: unknown) {
+      const message = err && typeof err === "object" && "message" in err
+        ? String((err as { message?: string }).message || "")
+        : "";
+      toast.error(message || "Failed to update staff");
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -104,12 +166,12 @@ export default function StaffManager({ onRefresh }: Props) {
               </span>
               
               <div className="flex items-center gap-1">
-                <Link 
-                  href={`/staff/settings/EditStaff/${s.ID}`}
+                <button
+                  onClick={() => openEdit(s.ID)}
                   className="p-2 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-900 transition-colors"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
-                </Link>
+                </button>
                 <button 
                   onClick={() => setDeletingId(s.ID)}
                   className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"
@@ -151,6 +213,89 @@ export default function StaffManager({ onRefresh }: Props) {
                 className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-all flex items-center justify-center gap-2"
               >
                 {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditing && editingId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-200">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Edit Staff Member</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Update the existing details and save changes.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Role
+                </label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                >
+                  <option value="owner">Owner</option>
+                  <option value="manager">Manager</option>
+                  <option value="kitchen">Chef</option>
+                  <option value="waiter">Waiter</option>
+                  <option value="cashier">Cashier</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  New Password (optional)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={editForm.password}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))}
+                    placeholder="Leave blank to keep current"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditingId(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdate}
+                disabled={isSavingEdit}
+                className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {isSavingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>
             </div>
           </div>

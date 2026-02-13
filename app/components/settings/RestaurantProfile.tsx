@@ -12,6 +12,17 @@ type Props = {
 };
 
 export default function RestaurantProfile({ data, onChange, onLogoChange, isUploading }: Props) {
+  const [taxInput, setTaxInput] = React.useState(String(data.taxPercent ?? 0));
+  const [serviceInput, setServiceInput] = React.useState(String(data.serviceCharge ?? 0));
+
+  React.useEffect(() => {
+    setTaxInput(String(data.taxPercent ?? 0));
+  }, [data.taxPercent]);
+
+  React.useEffect(() => {
+    setServiceInput(String(data.serviceCharge ?? 0));
+  }, [data.serviceCharge]);
+
   const handleChange = (key: keyof Restaurant, value: any) => {
   if (key === "phone") {
     const cleaned = value.replace(/\D/g, "");
@@ -119,8 +130,19 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
             </label>
             <input
               type="number"
-              value={data.taxPercent}
-              onChange={(e) => handleChange("taxPercent", Number(e.target.value))}
+              value={taxInput}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTaxInput(v);
+                if (v === "") return;
+                handleChange("taxPercent", Number(v));
+              }}
+              onBlur={() => {
+                if (taxInput === "") {
+                  handleChange("taxPercent", 0);
+                  setTaxInput("0");
+                }
+              }}
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
             />
           </div>
@@ -130,8 +152,19 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
             </label>
             <input
               type="number"
-              value={data.serviceCharge}
-              onChange={(e) => handleChange("serviceCharge", Number(e.target.value))}
+              value={serviceInput}
+              onChange={(e) => {
+                const v = e.target.value;
+                setServiceInput(v);
+                if (v === "") return;
+                handleChange("serviceCharge", Number(v));
+              }}
+              onBlur={() => {
+                if (serviceInput === "") {
+                  handleChange("serviceCharge", 0);
+                  setServiceInput("0");
+                }
+              }}
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
             />
           </div>

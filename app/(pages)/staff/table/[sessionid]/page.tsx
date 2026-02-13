@@ -35,6 +35,8 @@ type PaymentMethod = "cash" | "card" | "upi" | null;
 type BillItem = {
   id: string;
   orderId: string;
+  menuItemId: string;
+  variantId: string;
   name: string;
   quantity: number;
   rate: number;
@@ -78,6 +80,10 @@ type AdminBillResponse = {
   orders: ActiveOrder[];
 };
 
+type ActiveSessionsResponse = {
+  sessions: { session_id: string; table_id: string; table_number: number }[];
+};
+
 export default function TableBillPage({ params }: { params: Promise<{ sessionid: string }> }) {
   const router = useRouter();
   const { sessionid } = use(params);
@@ -89,6 +95,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [isProcessing, setIsProcessing] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [taxPercent, setTaxPercent] = useState<number>(5);
+  const [servicePercent, setServicePercent] = useState<number>(0);
   const [serviceCalls, setServiceCalls] = useState<any[]>([]);
 
   const [showRelocate, setShowRelocate] = useState(false);
@@ -97,6 +104,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [showMerge, setShowMerge] = useState(false);
   const [activeSessions, setActiveSessions] = useState<{ session_id: string; table_number: number }[]>([]);
   const [targetSessionId, setTargetSessionId] = useState<string>("");
+  const [isMerging, setIsMerging] = useState(false);
   const [billSessionIds, setBillSessionIds] = useState<string[]>([]);
   const [confirmRelocate, setConfirmRelocate] = useState(false);
 
@@ -116,66 +124,74 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const allOrdersServed = orders.length > 0 && orders.every((o) => isServedOrCompleted(o.status));
   const isPaid = orders.length > 0 && orders.every((o) => o.status === "completed");
 
-  const { subtotal, tax, total } = useMemo(() => {
+  const { subtotal, serviceCharge, tax, total } = useMemo(() => {
     const billable = items.filter((i) => isBillable(i.status));
     const sub = billable.reduce((sum, item) => sum + item.quantity * item.rate, 0);
-    const taxAmount = Math.round(sub * (taxPercent / 100));
-    return { subtotal: sub, tax: taxAmount, total: sub + taxAmount };
-  }, [items, taxPercent]);
+    const service = Math.round(sub * (servicePercent / 100));
+    const taxAmount = Math.round((sub + service) * (taxPercent / 100));
+    return { subtotal: sub, serviceCharge: service, tax: taxAmount, total: sub + service + taxAmount };
+  }, [items, taxPercent, servicePercent]);
+
+  const loadBillData = async () => {
+    const [billRes, me, calls] = await Promise.all([
+      api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`),
+      api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number; service_charge?: number }>("/api/admin/me"),
+      api<any[]>(`/api/admin/service-calls`),
+    ]);
+
+    const nextOrders = (billRes?.orders || []) as ActiveOrder[];
+    setOrders(nextOrders);
+    const tableNumber = nextOrders[0]?.table_number;
+    const createdAt = nextOrders[0]?.created_at ? new Date(nextOrders[0].created_at) : new Date();
+    setRestaurantId(me?.restaurant_id || "");
+    setTaxPercent(typeof me?.tax_percent === "number" ? me.tax_percent : 5);
+    setServicePercent(typeof me?.service_charge === "number" ? me.service_charge : 0);
+    const mergedSessionIds = (billRes?.sessions || []).map((s) => String(s.session_id));
+    setBillSessionIds(mergedSessionIds.length > 0 ? mergedSessionIds : [String(sessionid)]);
+    setServiceCalls((calls || []).filter((c: any) => mergedSessionIds.includes(String(c.session_id))));
+
+    const mappedItems: BillItem[] = [];
+    for (const order of nextOrders) {
+      for (const item of order.items || []) {
+        const suffix = item.variant_label ? ` (${item.variant_label})` : "";
+        mappedItems.push({
+          id: `${order.id}-${item.menu_item_id}-${item.variant_id}`,
+          orderId: order.id,
+          menuItemId: item.menu_item_id,
+          variantId: item.variant_id,
+          name: `${item.menu_item_name}${suffix}`,
+          quantity: item.quantity,
+          rate: item.price,
+          status: order.status || "pending",
+        });
+      }
+    }
+
+    setItems(mappedItems);
+    const tableCodeLabel =
+      (billRes?.sessions || []).length > 0
+        ? (billRes.sessions || [])
+            .map((s) => `T${s.table_number}`)
+            .join(" + ")
+        : tableNumber
+          ? `T${tableNumber}`
+          : "T-";
+    setBill({
+      restaurantName: me?.restaurant || "Restaurant",
+      restaurantAddress: me?.address || undefined,
+      tableCode: tableCodeLabel,
+      billNumber: `BILL-${sessionid.slice(0, 6).toUpperCase()}`,
+      createdAt,
+      items: mappedItems,
+    });
+  };
 
   useEffect(() => {
     let isActive = true;
     const load = async () => {
       try {
-        const [billRes, me, calls] = await Promise.all([
-          api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`),
-          api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number }>("/api/admin/me"),
-          api<any[]>(`/api/admin/service-calls`),
-        ]);
-
+        await loadBillData();
         if (!isActive) return;
-        const nextOrders = (billRes?.orders || []) as ActiveOrder[];
-        setOrders(nextOrders);
-        const tableNumber = nextOrders[0]?.table_number;
-        const createdAt = nextOrders[0]?.created_at ? new Date(nextOrders[0].created_at) : new Date();
-        setRestaurantId(me?.restaurant_id || "");
-        setTaxPercent(typeof me?.tax_percent === "number" ? me.tax_percent : 5);
-        const mergedSessionIds = (billRes?.sessions || []).map((s) => String(s.session_id));
-        setBillSessionIds(mergedSessionIds.length > 0 ? mergedSessionIds : [String(sessionid)]);
-        setServiceCalls((calls || []).filter((c: any) => mergedSessionIds.includes(String(c.session_id))));
-
-        const mappedItems: BillItem[] = [];
-        for (const order of nextOrders) {
-          for (const item of order.items || []) {
-            const suffix = item.variant_label ? ` (${item.variant_label})` : "";
-            mappedItems.push({
-              id: `${order.id}-${item.menu_item_id}-${item.variant_id}`,
-              orderId: order.id,
-              name: `${item.menu_item_name}${suffix}`,
-              quantity: item.quantity,
-              rate: item.price,
-              status: order.status || "pending",
-            });
-          }
-        }
-
-        setItems(mappedItems);
-        const tableCodeLabel =
-          (billRes?.sessions || []).length > 0
-            ? (billRes.sessions || [])
-                .map((s) => `T${s.table_number}`)
-                .join(" + ")
-            : tableNumber
-              ? `T${tableNumber}`
-              : "T-";
-        setBill({
-          restaurantName: me?.restaurant || "Restaurant",
-          restaurantAddress: me?.address || undefined,
-          tableCode: tableCodeLabel,
-          billNumber: `BILL-${sessionid.slice(0, 6).toUpperCase()}`,
-          createdAt,
-          items: mappedItems,
-        });
       } catch {
         if (!isActive) return;
         setBill(null);
@@ -189,28 +205,55 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     };
   }, [sessionid]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      loadBillData().catch(() => {});
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [sessionid]);
+
   // Actions
   const refreshOrders = async () => {
-    const billRes = await api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`);
-    const nextOrders = (billRes?.orders || []) as ActiveOrder[];
-    setOrders(nextOrders);
-    setItems((prev) =>
-      prev.map((it) => {
-        const o = nextOrders.find((x) => x.id === it.orderId);
-        return o ? { ...it, status: o.status } : it;
-      })
-    );
+    await loadBillData();
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    await api(`/api/admin/orders/${orderId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
+    const prevOrders = orders;
+    const prevItems = items;
+    setOrders((curr) => curr.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    setItems((curr) => curr.map((it) => (it.orderId === orderId ? { ...it, status } : it)));
+    try {
+      await api(`/api/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      await refreshOrders();
+    } catch {
+      setOrders(prevOrders);
+      setItems(prevItems);
+    }
+  };
+
+  const getBreakdown = (orderId: string) => api<any>(`/api/admin/orders/${orderId}/breakdown`);
+
+  const cancelOrder = async (orderId: string) => {
+    await api(`/api/admin/orders/${orderId}/cancel`, {
+      method: "POST",
     });
     await refreshOrders();
   };
 
-  const getBreakdown = (orderId: string) => api<any>(`/api/admin/orders/${orderId}/breakdown`);
+  const cancelOrderItem = async (item: BillItem) => {
+    await api(`/api/admin/orders/${item.orderId}/cancel-item`, {
+      method: "POST",
+      body: JSON.stringify({
+        menu_item_id: item.menuItemId,
+        variant_id: item.variantId || null,
+        quantity: 1,
+      }),
+    });
+    await refreshOrders();
+  };
 
   const handleCheckout = async () => {
     if (!paymentMethod) return;
@@ -284,14 +327,16 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     setShowMerge(true);
     setTargetSessionId("");
     try {
-      const res = await api<{ orders: any[] }>(`/api/admin/orders/active`);
+      const res = await api<ActiveSessionsResponse>(`/api/admin/sessions/active`);
       const unique = new Map<string, number>();
-      for (const o of res?.orders || []) {
-        if (o?.session_id && typeof o?.table_number === "number") {
-          unique.set(String(o.session_id), o.table_number);
+      for (const s of res?.sessions || []) {
+        if (s?.session_id && typeof s?.table_number === "number") {
+          unique.set(String(s.session_id), s.table_number);
         }
       }
-      unique.delete(String(sessionid));
+      for (const sid of billSessionIds) {
+        unique.delete(String(sid));
+      }
       setActiveSessions(
         Array.from(unique.entries())
           .map(([sid, tn]) => ({ session_id: sid, table_number: tn }))
@@ -304,12 +349,19 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
   const submitMerge = async () => {
     if (!targetSessionId) return;
-    await api(`/api/admin/bills/merge`, {
-      method: "POST",
-      body: JSON.stringify({ session_id: sessionid, target_session_id: targetSessionId }),
-    });
-    setShowMerge(false);
-    await refreshOrders();
+    setIsMerging(true);
+    try {
+      await api(`/api/admin/bills/merge`, {
+        method: "POST",
+        body: JSON.stringify({ session_id: sessionid, target_session_id: targetSessionId }),
+      });
+      setShowMerge(false);
+      await refreshOrders();
+    } catch (err: any) {
+      alert(err?.message || "Failed to merge bills");
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   const statusConfig = (status: OrderStatus) => {
@@ -500,8 +552,12 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                         <td className="py-4 px-4 text-right print:hidden">
                           {!isPaid && isFirstRow && (
                             <div className="flex justify-end items-center gap-2">
-                              {item.status === "pending" && (
-                                <>
+                              {(item.status === "pending" ||
+                                item.status === "accepted" ||
+                                item.status === "preparing" ||
+                                item.status === "ready") && (
+                                <> 
+                                  {item.status === "pending" && (
                                   <button
                                     onClick={() => updateOrderStatus(item.orderId, "accepted")}
                                     className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-semibold transition-all"
@@ -509,8 +565,9 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     Accept Order
                                   </button>
+                                  )}
                                   <button
-                                    onClick={() => updateOrderStatus(item.orderId, "cancelled")}
+                                    onClick={() => cancelOrder(item.orderId)}
                                     className="p-1.5 rounded-md text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"
                                     title="Cancel order"
                                   >
@@ -530,6 +587,19 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                               )}
                             </div>
                           )}
+                          {!isPaid &&
+                            (item.status === "pending" ||
+                              item.status === "accepted" ||
+                              item.status === "preparing" ||
+                              item.status === "ready") && (
+                              <button
+                                onClick={() => cancelOrderItem(item)}
+                                className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-rose-700"
+                                title="Cancel this item"
+                              >
+                                Cancel 1
+                              </button>
+                            )}
                         </td>
                       </tr>
                     );
@@ -548,7 +618,11 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   <span className="font-medium">₹{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
-                  <span>Tax (5%)</span>
+                  <span>Service Charge ({servicePercent}%)</span>
+                  <span className="font-medium">₹{serviceCharge.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Tax ({taxPercent}%)</span>
                   <span className="font-medium">₹{tax.toFixed(2)}</span>
                 </div>
                 <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
@@ -755,11 +829,11 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                 </div>
 
                 <button
-                  disabled={!targetSessionId}
+                  disabled={!targetSessionId || isMerging}
                   onClick={submitMerge}
                   className="w-full bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  Merge
+                  {isMerging ? "Merging..." : "Merge"}
                 </button>
               </div>
             </div>
