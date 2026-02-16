@@ -34,6 +34,12 @@ import { api } from "@/app/lib/api";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
 const slideVariants = {
   initial: { opacity: 0, y: 10, filter: "blur(10px)" },
   animate: { opacity: 1, y: 0, filter: "blur(0px)" },
@@ -49,6 +55,12 @@ export default function OnboardingPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleIdToken, setGoogleIdToken] = useState("");
+  const [googleEmail, setGoogleEmail] = useState("");
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
   
   const [emailStatus, setEmailStatus] = useState<'idle' | 'taken'>('idle');
   
@@ -67,6 +79,19 @@ export default function OnboardingPage() {
     currency: "INR",
     tableCount: 8,
   });
+
+  const decodeJwtPayload = (token: string): Record<string, any> | null => {
+    try {
+      const parts = token.split(".");
+      if (parts.length < 2) return null;
+      const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64.padEnd(Math.ceil(b64.length / 4) * 4, "=");
+      const decoded = atob(padded);
+      return JSON.parse(decoded);
+    } catch {
+      return null;
+    }
+  };
 
   const validateEmail = (email: string) => {
     return String(email)
@@ -114,27 +139,48 @@ export default function OnboardingPage() {
     } else if (step === 5) {
       setIsLoading(true);
       try {
-       const res = await api<{
-  user_id: string;
-  restaurant_id: string;
-  access_token: string;
-  refresh_token: string;
-}>("/auth/signup", {
-  method: "POST",
-  body: JSON.stringify({
-    email: data.email,
-    password: data.password,
-    restaurant_name: data.name,
-    currency: data.currency,
-  }),
-});
+        if (googleIdToken) {
+          await api<{
+            user_id: string;
+            restaurant_id: string;
+            access_token: string;
+            refresh_token: string;
+          }>("/auth/google/signup", {
+            method: "POST",
+            body: JSON.stringify({
+              id_token: googleIdToken,
+              restaurant_name: data.name,
+              currency: data.currency,
+            }),
+          });
+        } else {
+          await api<{
+            user_id: string;
+            restaurant_id: string;
+            access_token: string;
+            refresh_token: string;
+          }>("/auth/signup", {
+            method: "POST",
+            body: JSON.stringify({
+              email: data.email,
+              password: data.password,
+              restaurant_name: data.name,
+              currency: data.currency,
+            }),
+          });
+        }
 
-// Tokens are now stored in secure cookies by the backend.
-
-setStep(6);
+        // Tokens are now stored in secure cookies by the backend.
+        setStep(6);
 
       } catch (e: any) {
-        toast.error(e.message || "Signup failed");
+        if (e?.status === 409) {
+          toast.error("An account already exists with this Google email. Please login.");
+        } else if (e?.status === 503) {
+          toast.error("Google signup is not configured yet.");
+        } else {
+          toast.error(e.message || "Signup failed");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -201,6 +247,73 @@ setStep(6);
     }
   };
 
+  const handleGoogleCredential = useCallback((credential: string) => {
+    if (!credential || isGoogleLoading) return;
+    setIsGoogleLoading(true);
+    try {
+      const payload = decodeJwtPayload(credential);
+      const email = String(payload?.email || "").trim().toLowerCase();
+      if (!email) throw new Error("Invalid Google credential");
+
+      setGoogleIdToken(credential);
+      setGoogleEmail(email);
+      setData((prev) => ({ ...prev, email }));
+      toast.success("Google verified. Complete your setup.");
+      setStep(5);
+    } catch {
+      toast.error("Google sign up failed. Try again.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  }, [isGoogleLoading]);
+
+  useEffect(() => {
+    if (!googleClientId || step !== 2) return;
+
+    let cancelled = false;
+    const scriptId = "google-identity-services";
+
+    const initGoogle = () => {
+      if (cancelled || !window.google || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (resp: any) => {
+          handleGoogleCredential(resp?.credential || "");
+        },
+      });
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        width: "360",
+        text: "continue_with",
+      });
+      setGoogleReady(true);
+    };
+
+    const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (existing) {
+      if (window.google) initGoogle();
+      else existing.addEventListener("load", initGoogle, { once: true });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = initGoogle;
+    document.head.appendChild(script);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, step, handleGoogleCredential]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter" && step !== 3 && step < 6 && !isLoading) nextStep();
@@ -262,6 +375,21 @@ setStep(6);
                     <h1 className="text-4xl font-bold tracking-tight text-slate-900">Admin contact</h1>
                     <p className="text-slate-500 font-medium">We'll use this for your secure dashboard login.</p>
                   </div>
+                  {googleClientId && (
+                    <div className="space-y-3">
+                      <div ref={googleButtonRef} className="min-h-[44px] flex justify-center" />
+                      {!googleReady && (
+                        <div className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
+                          Loading Google sign-up...
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-slate-100" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">or email + otp</span>
+                        <div className="h-px flex-1 bg-slate-100" />
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-4">
                     <div className="relative group">
                       <Mail className={`absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 transition-colors ${emailStatus === 'taken' ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-600'}`} />
@@ -334,6 +462,12 @@ setStep(6);
                     <h1 className="text-4xl font-bold tracking-tight text-slate-900">Seating layout</h1>
                     <p className="text-slate-500 font-medium">How many tables should we generate QR codes for?</p>
                   </div>
+                  {googleEmail && (
+                    <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Google account</div>
+                      <div className="text-sm font-bold text-indigo-700 mt-1">{googleEmail}</div>
+                    </div>
+                  )}
                   <div className="bg-slate-50 p-10 rounded-[32px] border border-slate-100 text-center space-y-8">
                     <div className="relative inline-block">
                       <div className="text-8xl font-black text-slate-900 tabular-nums">{data.tableCount}</div>
@@ -370,8 +504,8 @@ setStep(6);
             </button>
           ) : <div />}
           {step < 6 && step !== 3 && (
-            <button onClick={nextStep} disabled={isLoading} className={`flex items-center gap-3 px-10 py-4 rounded-2xl text-white font-bold text-[11px] uppercase tracking-[0.15em] shadow-lg transition-all active:scale-95 group ${isLoading ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100 hover:shadow-indigo-200'}`}>
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
+            <button onClick={nextStep} disabled={isLoading || isGoogleLoading} className={`flex items-center gap-3 px-10 py-4 rounded-2xl text-white font-bold text-[11px] uppercase tracking-[0.15em] shadow-lg transition-all active:scale-95 group ${(isLoading || isGoogleLoading) ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100 hover:shadow-indigo-200'}`}>
+              {(isLoading || isGoogleLoading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
             </button>
           )}
         </div>

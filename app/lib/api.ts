@@ -9,6 +9,8 @@ const API_BASE =
 const PUBLIC_ROUTES = [
   "/auth/login",
   "/auth/signup",
+  "/auth/google/login",
+  "/auth/google/signup",
   "/auth/refresh",
   "/auth/logout",
   "/auth/email_available",

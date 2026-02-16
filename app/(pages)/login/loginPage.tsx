@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
@@ -16,14 +16,24 @@ import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { api } from "@/app/lib/api";
 
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -32,6 +42,80 @@ export default function LoginPage() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
+
+  const handleGoogleCredential = useCallback(
+    async (credential: string) => {
+      if (!credential || isGoogleLoading) return;
+      setError(null);
+      setIsGoogleLoading(true);
+      try {
+        await api<any>("/auth/google/login", {
+          method: "POST",
+          body: JSON.stringify({ id_token: credential }),
+        });
+        toast.success("Welcome back");
+        router.push("/staff");
+      } catch (err: any) {
+        if (err?.status === 404) {
+          setError("No account found for this Google email. Use Create Account first.");
+        } else if (err?.status === 503) {
+          setError("Google login is not configured yet.");
+        } else {
+          setError("Google login failed. Try again.");
+        }
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    },
+    [isGoogleLoading, router]
+  );
+
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    let cancelled = false;
+    const scriptId = "google-identity-services";
+
+    const initGoogle = () => {
+      if (cancelled || !window.google || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (resp: any) => {
+          void handleGoogleCredential(resp?.credential || "");
+        },
+      });
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        width: "360",
+        text: "continue_with",
+      });
+      setGoogleReady(true);
+    };
+
+    const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (existing) {
+      if (window.google) initGoogle();
+      else existing.addEventListener("load", initGoogle, { once: true });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = initGoogle;
+    document.head.appendChild(script);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, handleGoogleCredential]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +233,22 @@ export default function LoginPage() {
             </header>
 
             <form onSubmit={handleLogin} className="space-y-6">
+              {googleClientId && (
+                <div className="space-y-3">
+                  <div ref={googleButtonRef} className="min-h-[44px] flex justify-center" />
+                  {!googleReady && (
+                    <div className="text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Loading Google sign-in...
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-slate-100" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">or</span>
+                    <div className="h-px flex-1 bg-slate-100" />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-5">
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
@@ -219,7 +319,7 @@ export default function LoginPage() {
 
               <button 
                 type="submit" 
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 className="w-full py-6 rounded-[24px] bg-indigo-600 text-white font-bold text-xs uppercase tracking-[0.3em] shadow-lg hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Login"}
