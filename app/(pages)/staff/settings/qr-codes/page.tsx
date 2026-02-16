@@ -71,11 +71,19 @@ export default function QrFlyerGenerator() {
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [restaurantId, setRestaurantId] = useState<string>("");
+  const [restaurantName, setRestaurantName] = useState<string>("Restaurant");
+  const [restaurantLogoUrl, setRestaurantLogoUrl] = useState<string>("");
 
   const getTable = async () => {
     const [tablesRes, me] = await Promise.all([
       api<Table[]>("/api/admin/tables", { method: "GET" }),
-      api<{ restaurant_id?: string; restaurantId?: string }>("/api/admin/me", { method: "GET" }),
+      api<{
+        restaurant_id?: string;
+        restaurantId?: string;
+        restaurant?: string;
+        logo_url?: string | null;
+        logo_version?: number | null;
+      }>("/api/admin/me", { method: "GET" }),
     ]);
     const next = Array.isArray(tablesRes) ? tablesRes : [];
     setTables(next);
@@ -83,6 +91,9 @@ export default function QrFlyerGenerator() {
       setSelectedTable(next[0]);
     }
     setRestaurantId(me?.restaurant_id || me?.restaurantId || "");
+    setRestaurantName(me?.restaurant?.trim() || "Restaurant");
+    const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
+    setRestaurantLogoUrl(me?.logo_url ? `${me.logo_url}${suffix}` : "");
   };
 
   // Design State
@@ -471,10 +482,10 @@ export default function QrFlyerGenerator() {
                 
                 {/* Header / Logo */}
                 <div className="mb-8 mt-4 h-16 flex items-center justify-center">
-                   {logoImage ? (
-                      <img src={logoImage} className="h-full object-contain" />
+                   {logoImage || restaurantLogoUrl ? (
+                      <img src={logoImage || restaurantLogoUrl} className="h-full object-contain" />
                    ) : (
-                      <h1 className="text-3xl font-black tracking-widest uppercase">NOIR.</h1>
+                      <h1 className="text-3xl font-black tracking-widest uppercase">{restaurantName}</h1>
                    )}
                 </div>
 

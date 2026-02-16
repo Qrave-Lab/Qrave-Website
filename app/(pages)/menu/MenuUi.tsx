@@ -54,6 +54,8 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
   const [arItem, setArItem] = useState<any | null>(null);
   const modelViewerRef = React.useRef<any>(null);
   const [isBrowser, setIsBrowser] = useState(false);
+  const [restaurantName, setRestaurantName] = useState("Restaurant");
+  const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
 
   const { t, tContent, language, setLanguage } = useLanguageStore();
 
@@ -166,6 +168,62 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
       localStorage.setItem("table_number", tableId);
     }
   }, [tableId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedName = localStorage.getItem("restaurant_name");
+    if (storedName) {
+      setRestaurantName(storedName);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+
+    const applyLogo = (url?: string | null, version?: number | null) => {
+      if (!url) return;
+      const suffix = version ? `?v=${version}` : "";
+      setRestaurantLogoUrl(`${url}${suffix}`);
+    };
+
+    const loadBranding = async () => {
+      try {
+        const me = await api<{
+          restaurant?: string;
+          logo_url?: string | null;
+          logo_version?: number | null;
+        }>("/api/admin/me");
+        if (cancelled) return;
+        const name = me?.restaurant?.trim();
+        if (name) {
+          setRestaurantName(name);
+          localStorage.setItem("restaurant_name", name);
+        }
+        applyLogo(me?.logo_url, me?.logo_version ?? null);
+      } catch {
+        if (cancelled) return;
+      }
+
+      const rid = localStorage.getItem("restaurant_id");
+      if (!rid || cancelled) return;
+
+      try {
+        const logo = await api<{ logo_url?: string | null }>(`/public/restaurants/${rid}/logo`);
+        if (cancelled) return;
+        if (logo?.logo_url) {
+          setRestaurantLogoUrl(logo.logo_url);
+        }
+      } catch {
+        // keep header usable with text fallback
+      }
+    };
+
+    loadBranding();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -343,6 +401,8 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
           onRemove={handleRemove}
           onClose={() => setIsImmersive(false)}
           tableNumber={tableId}
+          restaurantName={restaurantName}
+          logoUrl={restaurantLogoUrl}
           onArClick={handleArOpen}
         />
       )}
@@ -409,11 +469,18 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200/50">
         <div className="max-w-md mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
-              <UtensilsCrossed className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200 overflow-hidden border border-slate-200 bg-white">
+              {restaurantLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={restaurantLogoUrl} alt={`${restaurantName} logo`} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-slate-900 text-white flex items-center justify-center">
+                  <UtensilsCrossed className="w-5 h-5" />
+                </div>
+              )}
             </div>
             <div>
-              <h1 className="font-serif text-lg font-bold leading-none">NOIR.</h1>
+              <h1 className="font-serif text-lg font-bold leading-none">{restaurantName}</h1>
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">{t('table')} {tableId || "7"}</p>
             </div>
           </div>

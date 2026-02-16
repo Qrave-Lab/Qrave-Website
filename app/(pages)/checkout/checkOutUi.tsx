@@ -64,6 +64,8 @@ const CheckoutPage: React.FC = () => {
   const [isSeparateBill, setIsSeparateBill] = useState(false);
   const [isTableOccupied, setIsTableOccupied] = useState(false);
   const [myOrderIds, setMyOrderIds] = useState<Set<string>>(new Set());
+  const [restaurantName, setRestaurantName] = useState("Restaurant");
+  const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
 
   const {
     cart,
@@ -216,6 +218,57 @@ const CheckoutPage: React.FC = () => {
     }
   }, [cart]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+
+    const storedName = localStorage.getItem("restaurant_name");
+    if (storedName) {
+      setRestaurantName(storedName);
+    }
+
+    const loadBranding = async () => {
+      try {
+        const me = await api<{
+          restaurant?: string;
+          logo_url?: string | null;
+          logo_version?: number | null;
+        }>("/api/admin/me");
+        if (cancelled) return;
+        const name = me?.restaurant?.trim();
+        if (name) {
+          setRestaurantName(name);
+          localStorage.setItem("restaurant_name", name);
+        }
+        if (me?.logo_url) {
+          const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
+          setRestaurantLogoUrl(`${me.logo_url}${suffix}`);
+          return;
+        }
+      } catch {
+        if (cancelled) return;
+      }
+
+      const rid = localStorage.getItem("restaurant_id");
+      if (!rid || cancelled) return;
+
+      try {
+        const logo = await api<{ logo_url?: string | null }>(`/public/restaurants/${rid}/logo`);
+        if (cancelled) return;
+        if (logo?.logo_url) {
+          setRestaurantLogoUrl(logo.logo_url);
+        }
+      } catch {
+        // keep checkout header usable with text fallback
+      }
+    };
+
+    loadBranding();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const lines: CartLine[] = useMemo(() => {
     if (!isMounted || !isCartReady) return [];
 
@@ -359,7 +412,19 @@ const CheckoutPage: React.FC = () => {
           </button>
           <div className="text-center">
             <h1 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Checkout</h1>
-            <p className="font-serif text-xl font-bold text-slate-900">NOIR.</p>
+            <div className="mt-1 flex items-center justify-center gap-2">
+              <div className="h-6 w-6 rounded-md overflow-hidden border border-slate-200 bg-white shrink-0">
+                {restaurantLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={restaurantLogoUrl} alt={`${restaurantName} logo`} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center">
+                    {(restaurantName || "R").trim().slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <p className="font-serif text-xl font-bold text-slate-900">{restaurantName}</p>
+            </div>
           </div>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white shadow-lg">
             T-{tableNumber}

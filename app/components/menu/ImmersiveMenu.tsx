@@ -15,6 +15,8 @@ interface ImmersiveMenuProps {
     onArClick: (item: any) => void;
     onClose: () => void;
     tableNumber: string;
+    restaurantName?: string;
+    logoUrl?: string;
 }
 
 export default function ImmersiveMenu({
@@ -26,6 +28,8 @@ export default function ImmersiveMenu({
     onArClick,
     onClose,
     tableNumber,
+    restaurantName = "Restaurant",
+    logoUrl = "",
 }: ImmersiveMenuProps) {
     const { t } = useLanguageStore();
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -150,11 +154,16 @@ export default function ImmersiveMenu({
             {/* Header */}
             <header className="relative z-10 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center text-white">
-                        <UtensilsCrossed size={16} />
+                    <div className="w-8 h-8 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center text-white overflow-hidden">
+                        {logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={logoUrl} alt={`${restaurantName} logo`} className="w-full h-full object-cover" />
+                        ) : (
+                            <UtensilsCrossed size={16} />
+                        )}
                     </div>
                     <div>
-                        <h1 className="text-white font-bold text-lg leading-none">NOIR.</h1>
+                        <h1 className="text-white font-bold text-lg leading-none">{restaurantName}</h1>
                         <p className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Table {tableNumber}</p>
                     </div>
                 </div>
