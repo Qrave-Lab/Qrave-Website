@@ -252,7 +252,18 @@ export default function MenuPage() {
         }
       }
     } catch (err: any) {
-      toast.error(err?.message || "Upload failed");
+      const msg = String(err?.message || "Upload failed");
+      const conversionSoftFail =
+        type === "model" &&
+        /conversion skipped|conversion service unavailable|http 502/i.test(msg);
+
+      if (conversionSoftFail) {
+        toast(`3D model uploaded. ${msg}`, { icon: "⚠️" });
+        refreshMenu(true);
+        return;
+      }
+
+      toast.error(msg);
     }
   };
 
