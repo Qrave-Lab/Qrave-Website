@@ -44,6 +44,7 @@ export default function AnalyticsPage() {
     end: "",
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [sales, setSales] = useState<SalesPoint[]>([]);
   const [mix, setMix] = useState<{ mode: string; amount: number; percent: number }[]>([]);
   const [topItems, setTopItems] = useState<{ name: string; quantity: number; revenue: number }[]>([]);
@@ -58,6 +59,7 @@ export default function AnalyticsPage() {
 
   const load = async () => {
     setLoading(true);
+    setError("");
     try {
       const qs =
         range.start && range.end ? `&start=${range.start}&end=${range.end}` : "";
@@ -73,6 +75,13 @@ export default function AnalyticsPage() {
       setTopItems(topRes?.items || []);
       setTx(txRes?.transactions || []);
       setInsights({ anomalies: insRes?.anomalies || [], forecast: insRes?.forecast || [] });
+    } catch (err: any) {
+      setError(err?.message || "Failed to load analytics");
+      setSales([]);
+      setMix([]);
+      setTopItems([]);
+      setTx([]);
+      setInsights(null);
     } finally {
       setLoading(false);
     }
@@ -167,6 +176,19 @@ export default function AnalyticsPage() {
           {loading ? (
             <div className="flex items-center justify-center py-32 text-slate-500 font-medium">
               <Loader2 className="w-8 h-8 animate-spin mr-3" /> Loading analytics…
+            </div>
+          ) : error ? (
+            <div className="max-w-4xl mx-auto">
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5">
+                <div className="text-sm font-black text-rose-900">Analytics unavailable</div>
+                <div className="text-sm text-rose-700 mt-1">{error}</div>
+                <button
+                  onClick={load}
+                  className="mt-4 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
           ) : (
             <div className="max-w-7xl mx-auto space-y-6">

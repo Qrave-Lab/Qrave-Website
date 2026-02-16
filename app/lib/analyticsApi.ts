@@ -1,8 +1,5 @@
 const ANALYTICS_BASE =
-  process.env.NEXT_PUBLIC_ANALYTICS_URL ||
-  (typeof window !== "undefined"
-    ? `http://${window.location.hostname}:9092`
-    : "http://localhost:9092");
+  process.env.NEXT_PUBLIC_ANALYTICS_URL?.trim() || "/api/analytics";
 
 export async function analyticsApi<T>(
   path: string,
@@ -23,7 +20,14 @@ export async function analyticsApi<T>(
   }
 
   if (!res.ok) {
-    const msg = await res.text();
+    const raw = await res.text();
+    let msg = raw;
+    try {
+      const parsed = JSON.parse(raw);
+      msg = parsed?.detail || parsed?.error || parsed?.message || raw;
+    } catch {
+      // ignore parse error
+    }
     throw new Error(msg || "Analytics error");
   }
 
@@ -31,4 +35,3 @@ export async function analyticsApi<T>(
   const text = await res.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
-

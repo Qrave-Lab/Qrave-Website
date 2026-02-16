@@ -243,10 +243,14 @@ export default function MenuPage() {
           modelGlb: res.model_glb || "",
           modelUsdz: res.model_usdz || "",
         });
-        toast.success("3D model uploaded and converted");
+        if (res?.conversion_warning) {
+          toast.error(res.conversion_warning);
+        } else {
+          toast.success("3D model uploaded and converted");
+        }
       }
-    } catch (err) {
-      toast.error("Upload failed");
+    } catch (err: any) {
+      toast.error(err?.message || "Upload failed");
     }
   };
 
