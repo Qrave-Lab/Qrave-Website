@@ -116,6 +116,7 @@ export default function MenuPage() {
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [newSubcategoryParentId, setNewSubcategoryParentId] = useState("");
   const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
+  const [showSubcategoryManager, setShowSubcategoryManager] = useState(false);
   const [editingSubcategoryId, setEditingSubcategoryId] = useState<string>("");
   const [editingSubcategoryName, setEditingSubcategoryName] = useState("");
   const [isRenamingSubcategory, setIsRenamingSubcategory] = useState(false);
@@ -725,9 +726,18 @@ export default function MenuPage() {
             {canManageCategories && (
               <div className="mb-6 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center gap-4">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                    Add Subcategory
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                      Add Subcategory
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSubcategoryManager(true)}
+                      className="h-7 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
+                    >
+                      Manage Names
+                    </button>
+                  </div>
                   <div className="flex-1 flex flex-col sm:flex-row items-stretch gap-2">
                     <select
                       value={newSubcategoryParentId || parentCategories[0]?.id || ""}
@@ -758,66 +768,6 @@ export default function MenuPage() {
                     >
                       Add
                     </button>
-                  </div>
-                </div>
-                <div className="w-full lg:w-auto lg:min-w-[380px] border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0 lg:pl-4">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                    Edit Subcategory Name
-                  </div>
-                  <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
-                    {getSubcategories(
-                      newSubcategoryParentId || parentCategories[0]?.id || ""
-                    ).map((cat) => (
-                      <div
-                        key={cat.id}
-                        className="flex items-center gap-2 p-2 rounded-xl border border-slate-100 bg-slate-50"
-                      >
-                        {editingSubcategoryId === cat.id ? (
-                          <>
-                            <input
-                              value={editingSubcategoryName}
-                              onChange={(e) => setEditingSubcategoryName(e.target.value)}
-                              className="flex-1 h-8 px-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-300"
-                            />
-                            <button
-                              type="button"
-                              onClick={renameSubcategory}
-                              disabled={isRenamingSubcategory}
-                              className="h-8 px-2 rounded-lg text-[10px] font-bold bg-slate-900 text-white disabled:opacity-60"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelRenameSubcategory}
-                              className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-500"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="flex-1 text-xs font-semibold text-slate-700">
-                              {cat.name}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => startRenameSubcategory(cat)}
-                              className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
-                            >
-                              Rename
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {getSubcategories(
-                      newSubcategoryParentId || parentCategories[0]?.id || ""
-                    ).length === 0 && (
-                      <div className="text-xs text-slate-400 py-2">
-                        No subcategories for selected parent
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -923,6 +873,114 @@ export default function MenuPage() {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {showSubcategoryManager && canManageCategories && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[1px] flex items-center justify-center p-4"
+                  onClick={() => setShowSubcategoryManager(false)}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                    transition={{ duration: 0.16 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-2xl"
+                  >
+                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Manage Subcategory Names
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowSubcategoryManager(false)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Parent Category
+                        </label>
+                        <select
+                          value={newSubcategoryParentId || parentCategories[0]?.id || ""}
+                          onChange={(e) => setNewSubcategoryParentId(e.target.value)}
+                          className="w-full h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all"
+                        >
+                          {parentCategories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                        {getSubcategories(
+                          newSubcategoryParentId || parentCategories[0]?.id || ""
+                        ).map((cat) => (
+                          <div
+                            key={cat.id}
+                            className="flex items-center gap-2 p-2 rounded-xl border border-slate-100 bg-slate-50"
+                          >
+                            {editingSubcategoryId === cat.id ? (
+                              <>
+                                <input
+                                  value={editingSubcategoryName}
+                                  onChange={(e) => setEditingSubcategoryName(e.target.value)}
+                                  className="flex-1 h-8 px-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-300"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={renameSubcategory}
+                                  disabled={isRenamingSubcategory}
+                                  className="h-8 px-2 rounded-lg text-[10px] font-bold bg-slate-900 text-white disabled:opacity-60"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelRenameSubcategory}
+                                  className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-500"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex-1 text-xs font-semibold text-slate-700">
+                                  {cat.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => startRenameSubcategory(cat)}
+                                  className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
+                                >
+                                  Rename
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                        {getSubcategories(
+                          newSubcategoryParentId || parentCategories[0]?.id || ""
+                        ).length === 0 && (
+                          <div className="text-xs text-slate-400 py-4 text-center">
+                            No subcategories for selected parent
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>
