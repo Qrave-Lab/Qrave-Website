@@ -244,13 +244,33 @@ export default function MenuPage() {
           modelUsdz: res.model_usdz || "",
         });
         if (res?.conversion_warning) {
-          toast.error(res.conversion_warning);
+          toast(`3D model uploaded. ${res.conversion_warning}`, {
+            icon: "⚠️",
+          });
         } else {
           toast.success("3D model uploaded and converted");
         }
       }
     } catch (err: any) {
       toast.error(err?.message || "Upload failed");
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    if (!editingItem?.id) return;
+    const ok = window.confirm(
+      `Delete "${editingItem.name}" permanently? This cannot be undone.`
+    );
+    if (!ok) return;
+    try {
+      await authFetch(`/api/admin/menu/item?item_id=${editingItem.id}`, {
+        method: "DELETE",
+      });
+      toast.success("Product deleted");
+      setModalMode(null);
+      refreshMenu(true);
+    } catch (err: any) {
+      toast.error(err?.message || "Delete failed");
     }
   };
 
@@ -272,6 +292,44 @@ export default function MenuPage() {
     }
     setSelectedItems(new Set());
     refreshMenu(true);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return;
+    const ok = window.confirm(
+      `Delete ${selectedItems.size} selected product(s) permanently? This cannot be undone.`
+    );
+    if (!ok) return;
+
+    try {
+      const ids = Array.from(selectedItems);
+      let failed = 0;
+
+      for (const id of ids) {
+        try {
+          await authFetch(`/api/admin/menu/item?item_id=${id}`, {
+            method: "DELETE",
+          });
+        } catch {
+          failed += 1;
+        }
+      }
+
+      setSelectedItems(new Set());
+      refreshMenu(true);
+
+      if (failed === 0) {
+        toast.success(`${ids.length} product(s) deleted`);
+      } else if (failed === ids.length) {
+        toast.error("Delete failed");
+      } else {
+        toast(`Deleted ${ids.length - failed}/${ids.length} products`, {
+          icon: "⚠️",
+        });
+      }
+    } catch {
+      toast.error("Delete failed");
+    }
   };
 
   const createSubcategory = async (name: string, parentId: string) => {
@@ -678,6 +736,13 @@ export default function MenuPage() {
                         <Archive className="w-4 h-4" />
                       )}
                       {showArchived ? "Restore Items" : "Archive Items"}
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-4 py-2 bg-rose-600/90 hover:bg-rose-600 rounded-xl text-xs font-bold flex items-center gap-2 transition-all border border-rose-500/40"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Selected
                     </button>
                     <button
                       onClick={() => setSelectedItems(new Set())}
@@ -1482,22 +1547,33 @@ export default function MenuPage() {
               </div>
 
               <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <button
-                  onClick={() =>
-                    setEditingItem({
-                      ...editingItem,
-                      isArchived: !editingItem.isArchived,
-                    })
-                  }
-                  className="text-xs font-bold text-slate-400 hover:text-rose-500 flex items-center gap-2 transition-colors"
-                >
-                  {editingItem.isArchived ? (
-                    <ArchiveRestore className="w-4 h-4" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() =>
+                      setEditingItem({
+                        ...editingItem,
+                        isArchived: !editingItem.isArchived,
+                      })
+                    }
+                    className="text-xs font-bold text-slate-400 hover:text-rose-500 flex items-center gap-2 transition-colors"
+                  >
+                    {editingItem.isArchived ? (
+                      <ArchiveRestore className="w-4 h-4" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    {editingItem.isArchived ? "Restore to Menu" : "Archive Product"}
+                  </button>
+                  {!!editingItem.id && (
+                    <button
+                      onClick={handleDeleteItem}
+                      className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-2 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Product
+                    </button>
                   )}
-                  {editingItem.isArchived ? "Restore to Menu" : "Archive Product"}
-                </button>
+                </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setModalMode(null)}
