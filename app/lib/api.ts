@@ -26,20 +26,26 @@ const PUBLIC_ROUTES = [
   "/api/customer/service-calls",
 ];
 
+function persistCsrfFromResponse(res: Response): void {
+  if (typeof window === "undefined") return;
+  const token = res.headers.get("X-CSRF-Token");
+  if (token) {
+    localStorage.setItem("csrf_token", token);
+  }
+}
+
 async function tryRefresh(): Promise<boolean> {
   try {
-    const csrf =
-      typeof document !== "undefined"
-        ? document.cookie.match(/(?:^|; )csrf_token=([^;]+)/)?.[1]
-        : null;
+    const csrf = getCsrfToken();
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {}),
+        ...(csrf ? { "X-CSRF-Token": csrf } : {}),
       },
       credentials: "include",
     });
+    persistCsrfFromResponse(res);
     return res.ok;
   } catch {
     return false;
@@ -47,7 +53,9 @@ async function tryRefresh(): Promise<boolean> {
 }
 
 function getCsrfToken(): string | null {
-  if (typeof document === "undefined") return null;
+  if (typeof window === "undefined") return null;
+  const local = localStorage.getItem("csrf_token");
+  if (local) return local;
   const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -93,6 +101,7 @@ export async function api<T>(
       headers: new Headers(headerInit),
       credentials: "include",
     });
+    persistCsrfFromResponse(res);
   } catch (err) {
     console.error("Network error:", err);
     throw new Error("Network error");
