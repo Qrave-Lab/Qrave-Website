@@ -120,6 +120,8 @@ export default function MenuPage() {
     "general" | "variants" | "assets" | "ingredients" | "availability"
   >("general");
   const [loading, setLoading] = useState(true);
+  const [modelViewerReady, setModelViewerReady] = useState(false);
+  const [modelPreviewError, setModelPreviewError] = useState<string>("");
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -131,13 +133,18 @@ export default function MenuPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (document.querySelector("script[data-model-viewer]")) return;
-    const script = document.createElement("script");
-    script.type = "module";
-    script.src = "https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js";
-    script.setAttribute("data-model-viewer", "true");
-    document.head.appendChild(script);
+    let cancelled = false;
+    (async () => {
+      try {
+        await import("@google/model-viewer");
+        if (!cancelled) setModelViewerReady(true);
+      } catch (e) {
+        console.error("Failed to initialize model-viewer", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const refreshMe = async () => {
@@ -253,6 +260,7 @@ export default function MenuPage() {
           modelGlb: res.model_glb || "",
           modelUsdz: res.model_usdz || "",
         });
+        setModelPreviewError("");
         if (res?.conversion_warning) {
           console.warn("Model conversion warning:", res.conversion_warning);
           toast("3D model uploaded. iOS/AR conversion is temporarily unavailable.", {
@@ -1268,22 +1276,49 @@ export default function MenuPage() {
                             >
                               Replace
                             </button>
-                            <model-viewer
-                              src={editingItem.modelGlb}
-                              ios-src={editingItem.modelUsdz || undefined}
-                              alt={editingItem.name || "3D model"}
-                              camera-controls
-                              auto-rotate
-                              ar
-                              ar-modes="scene-viewer webxr quick-look"
-                              style={{ width: "100%", height: "100%", background: "#eef2ff" }}
-                            />
+                            <a
+                              href={editingItem.modelGlb || editingItem.modelUsdz || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute top-3 left-3 z-20 rounded-lg bg-white/95 border border-indigo-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 shadow-sm"
+                            >
+                              Open File
+                            </a>
+                            {!modelViewerReady ? (
+                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">
+                                Loading 3D preview...
+                              </div>
+                            ) : (
+                              <model-viewer
+                                key={editingItem.modelGlb || editingItem.modelUsdz}
+                                src={editingItem.modelGlb || editingItem.modelUsdz}
+                                ios-src={editingItem.modelUsdz || undefined}
+                                alt={editingItem.name || "3D model"}
+                                camera-controls
+                                auto-rotate
+                                ar
+                                ar-modes="scene-viewer webxr quick-look"
+                                onLoad={() => setModelPreviewError("")}
+                                onError={() =>
+                                  setModelPreviewError(
+                                    "Unable to load model preview. File URL may be inaccessible."
+                                  )
+                                }
+                                style={{ width: "100%", height: "100%", background: "#eef2ff" }}
+                              />
+                            )}
                             <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
                               <div className="inline-flex items-center gap-2 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 border border-indigo-100">
                                 <Box className="w-3.5 h-3.5" />
                                 3D Preview
                               </div>
                             </div>
+                            {modelPreviewError && (
+                              <div className="absolute bottom-3 right-3 z-20 max-w-[70%] rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 text-[10px] font-semibold text-rose-700">
+                                {modelPreviewError}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="text-center">
