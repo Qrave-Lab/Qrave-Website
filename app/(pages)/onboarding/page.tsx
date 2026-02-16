@@ -390,6 +390,11 @@ export default function OnboardingPage() {
                       </div>
                     </div>
                   )}
+                  {!googleClientId && (
+                    <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-[0.18em] text-center">
+                      Google signup hidden: set NEXT_PUBLIC_GOOGLE_CLIENT_ID and restart frontend.
+                    </div>
+                  )}
                   <div className="space-y-4">
                     <div className="relative group">
                       <Mail className={`absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 transition-colors ${emailStatus === 'taken' ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-600'}`} />

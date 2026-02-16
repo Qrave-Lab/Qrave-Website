@@ -116,6 +116,9 @@ export default function MenuPage() {
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [newSubcategoryParentId, setNewSubcategoryParentId] = useState("");
   const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
+  const [editingSubcategoryId, setEditingSubcategoryId] = useState<string>("");
+  const [editingSubcategoryName, setEditingSubcategoryName] = useState("");
+  const [isRenamingSubcategory, setIsRenamingSubcategory] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState<
     "general" | "variants" | "assets" | "ingredients" | "availability"
   >("general");
@@ -289,6 +292,19 @@ export default function MenuPage() {
     }
   };
 
+  const removeMediaAsset = (type: "image" | "model") => {
+    if (!editingItem) return;
+    if (type === "image") {
+      setEditingItem({ ...editingItem, imageUrl: "" });
+      toast.success("Image removed. Click Save Changes to persist.");
+      return;
+    }
+
+    setEditingItem({ ...editingItem, modelGlb: "", modelUsdz: "" });
+    setModelPreviewError("");
+    toast.success("3D model removed. Click Save Changes to persist.");
+  };
+
   const handleDeleteItem = async () => {
     if (!editingItem?.id) return;
     const ok = window.confirm(
@@ -402,6 +418,69 @@ export default function MenuPage() {
       toast.error("Failed to add subcategory");
     } finally {
       setIsCreatingSubcategory(false);
+    }
+  };
+
+  const startRenameSubcategory = (category: CategoryOption) => {
+    setEditingSubcategoryId(category.id);
+    setEditingSubcategoryName(category.name);
+  };
+
+  const cancelRenameSubcategory = () => {
+    setEditingSubcategoryId("");
+    setEditingSubcategoryName("");
+  };
+
+  const renameSubcategory = async () => {
+    if (!canManageCategories) {
+      toast.error("Insufficient permissions");
+      return;
+    }
+    if (!editingSubcategoryId) return;
+    const trimmed = editingSubcategoryName.trim();
+    if (!trimmed) {
+      toast.error("Subcategory name required");
+      return;
+    }
+    if (trimmed.length > 60) {
+      toast.error("Subcategory name too long");
+      return;
+    }
+
+    const current = categories.find((c) => c.id === editingSubcategoryId);
+    if (!current) return;
+    if (current.name === trimmed) {
+      cancelRenameSubcategory();
+      return;
+    }
+
+    const duplicate = categories.some(
+      (c) =>
+        c.id !== editingSubcategoryId &&
+        (c.parent_id || "") === (current.parent_id || "") &&
+        c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (duplicate) {
+      toast.error("Subcategory already exists");
+      return;
+    }
+
+    setIsRenamingSubcategory(true);
+    try {
+      await authFetch("/api/admin/menu/category", {
+        method: "PUT",
+        body: JSON.stringify({
+          category_id: editingSubcategoryId,
+          name: trimmed,
+        }),
+      });
+      toast.success("Subcategory renamed");
+      cancelRenameSubcategory();
+      refreshCategories();
+    } catch {
+      toast.error("Failed to rename subcategory");
+    } finally {
+      setIsRenamingSubcategory(false);
     }
   };
 
@@ -679,6 +758,66 @@ export default function MenuPage() {
                     >
                       Add
                     </button>
+                  </div>
+                </div>
+                <div className="w-full lg:w-auto lg:min-w-[380px] border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0 lg:pl-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    Edit Subcategory Name
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
+                    {getSubcategories(
+                      newSubcategoryParentId || parentCategories[0]?.id || ""
+                    ).map((cat) => (
+                      <div
+                        key={cat.id}
+                        className="flex items-center gap-2 p-2 rounded-xl border border-slate-100 bg-slate-50"
+                      >
+                        {editingSubcategoryId === cat.id ? (
+                          <>
+                            <input
+                              value={editingSubcategoryName}
+                              onChange={(e) => setEditingSubcategoryName(e.target.value)}
+                              className="flex-1 h-8 px-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={renameSubcategory}
+                              disabled={isRenamingSubcategory}
+                              className="h-8 px-2 rounded-lg text-[10px] font-bold bg-slate-900 text-white disabled:opacity-60"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelRenameSubcategory}
+                              className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-500"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-xs font-semibold text-slate-700">
+                              {cat.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => startRenameSubcategory(cat)}
+                              className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
+                            >
+                              Rename
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {getSubcategories(
+                      newSubcategoryParentId || parentCategories[0]?.id || ""
+                    ).length === 0 && (
+                      <div className="text-xs text-slate-400 py-2">
+                        No subcategories for selected parent
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1229,10 +1368,22 @@ export default function MenuPage() {
                         className="group relative aspect-video bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all hover:bg-slate-100"
                       >
                         {editingItem.imageUrl ? (
-                          <img
-                            src={editingItem.imageUrl}
-                            className="w-full h-full object-cover"
-                          />
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeMediaAsset("image");
+                              }}
+                              className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
+                            >
+                              Remove
+                            </button>
+                            <img
+                              src={editingItem.imageUrl}
+                              className="w-full h-full object-cover"
+                            />
+                          </>
                         ) : (
                           <div className="text-center">
                             <UploadCloud className="mx-auto text-slate-300 mb-2" />
@@ -1256,15 +1407,16 @@ export default function MenuPage() {
                       />
                       <div
                         onClick={() => {
-                          if (!editingItem.modelGlb) modelInputRef.current?.click();
+                          if (!editingItem.modelGlb && !editingItem.modelUsdz)
+                            modelInputRef.current?.click();
                         }}
                         className={`group relative aspect-video bg-indigo-50/30 border-2 border-dashed border-indigo-100 rounded-3xl flex flex-col items-center justify-center transition-all ${
-                          editingItem.modelGlb
+                          editingItem.modelGlb || editingItem.modelUsdz
                             ? "cursor-default"
                             : "cursor-pointer hover:bg-indigo-50"
                         }`}
                       >
-                        {editingItem.modelGlb ? (
+                        {editingItem.modelGlb || editingItem.modelUsdz ? (
                           <div className="w-full h-full overflow-hidden rounded-3xl border border-indigo-100 bg-white">
                             <button
                               type="button"
@@ -1275,6 +1427,16 @@ export default function MenuPage() {
                               className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-indigo-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 shadow-sm"
                             >
                               Replace
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeMediaAsset("model");
+                              }}
+                              className="absolute top-3 right-[86px] z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
+                            >
+                              Remove
                             </button>
                             <a
                               href={editingItem.modelGlb || editingItem.modelUsdz || "#"}

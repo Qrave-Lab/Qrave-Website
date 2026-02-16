@@ -248,6 +248,11 @@ export default function LoginPage() {
                   </div>
                 </div>
               )}
+              {!googleClientId && (
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-bold uppercase tracking-wider text-center">
+                  Google login hidden: set <code className="font-black">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> and restart frontend.
+                </div>
+              )}
 
               <div className="space-y-5">
                 <div className="space-y-2">

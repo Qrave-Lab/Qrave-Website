@@ -127,7 +127,7 @@ export default function SettingsPage() {
           close_time: restaurant.closeTime || "",
         }),
       });
-      setInitialData({ restaurant, tables, staff });
+      await fetchData();
       toast.success("Settings updated successfully");
     } catch (e) {
       toast.error("Failed to save changes");
