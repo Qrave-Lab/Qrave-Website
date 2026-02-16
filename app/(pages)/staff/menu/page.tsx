@@ -130,6 +130,16 @@ export default function MenuPage() {
     refreshMe();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (document.querySelector("script[data-model-viewer]")) return;
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js";
+    script.setAttribute("data-model-viewer", "true");
+    document.head.appendChild(script);
+  }, []);
+
   const refreshMe = async () => {
     try {
       const me = await authFetch("/api/admin/me");
@@ -244,7 +254,8 @@ export default function MenuPage() {
           modelUsdz: res.model_usdz || "",
         });
         if (res?.conversion_warning) {
-          toast(`3D model uploaded. ${res.conversion_warning}`, {
+          console.warn("Model conversion warning:", res.conversion_warning);
+          toast("3D model uploaded. iOS/AR conversion is temporarily unavailable.", {
             icon: "⚠️",
           });
         } else {
@@ -258,7 +269,10 @@ export default function MenuPage() {
         /conversion skipped|conversion service unavailable|http 502/i.test(msg);
 
       if (conversionSoftFail) {
-        toast(`3D model uploaded. ${msg}`, { icon: "⚠️" });
+        console.warn("Model conversion soft-fail:", msg);
+        toast("3D model uploaded. iOS/AR conversion is temporarily unavailable.", {
+          icon: "⚠️",
+        });
         refreshMenu(true);
         return;
       }
@@ -1233,15 +1247,43 @@ export default function MenuPage() {
                         onChange={(e) => handleFileUpload(e, "model")}
                       />
                       <div
-                        onClick={() => modelInputRef.current?.click()}
-                        className="group relative aspect-video bg-indigo-50/30 border-2 border-dashed border-indigo-100 rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-indigo-50"
+                        onClick={() => {
+                          if (!editingItem.modelGlb) modelInputRef.current?.click();
+                        }}
+                        className={`group relative aspect-video bg-indigo-50/30 border-2 border-dashed border-indigo-100 rounded-3xl flex flex-col items-center justify-center transition-all ${
+                          editingItem.modelGlb
+                            ? "cursor-default"
+                            : "cursor-pointer hover:bg-indigo-50"
+                        }`}
                       >
                         {editingItem.modelGlb ? (
-                          <div className="text-center p-6 bg-white rounded-2xl shadow-sm border border-indigo-100">
-                            <Box className="mx-auto text-indigo-600 mb-2" />
-                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                              Model Ready
-                            </span>
+                          <div className="w-full h-full overflow-hidden rounded-3xl border border-indigo-100 bg-white">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                modelInputRef.current?.click();
+                              }}
+                              className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-indigo-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 shadow-sm"
+                            >
+                              Replace
+                            </button>
+                            <model-viewer
+                              src={editingItem.modelGlb}
+                              ios-src={editingItem.modelUsdz || undefined}
+                              alt={editingItem.name || "3D model"}
+                              camera-controls
+                              auto-rotate
+                              ar
+                              ar-modes="scene-viewer webxr quick-look"
+                              style={{ width: "100%", height: "100%", background: "#eef2ff" }}
+                            />
+                            <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
+                              <div className="inline-flex items-center gap-2 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 border border-indigo-100">
+                                <Box className="w-3.5 h-3.5" />
+                                3D Preview
+                              </div>
+                            </div>
                           </div>
                         ) : (
                           <div className="text-center">
