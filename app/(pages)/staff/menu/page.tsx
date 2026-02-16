@@ -231,24 +231,24 @@ export default function MenuPage() {
 
     try {
       if (type === "image") {
-  const res: any = await authFetch(
-    `/api/admin/menu/item/image/upload-url?item_id=${editingItem.id}`,
-    { method: "POST" }
-  );
+        const res: any = await authFetch(
+          `/api/admin/menu/item/image/upload-url?item_id=${editingItem.id}`,
+          { method: "POST" }
+        );
 
-  await fetch(res.upload_url, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
+        await fetch(res.upload_url, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type },
+        });
 
-  setEditingItem({
-    ...editingItem,
-    imageUrl: res.public_url,
-  });
+        setEditingItem({
+          ...editingItem,
+          imageUrl: res.public_url,
+        });
 
-  toast.success("Image uploaded");
-} else {
+        toast.success("Image uploaded");
+      } else {
         if (!editingItem.id) {
           toast.error("Save item first before uploading 3D model");
           return;
@@ -671,11 +671,10 @@ export default function MenuPage() {
                 setShowArchived(!showArchived);
                 setSelectedItems(new Set());
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
-                showArchived
-                  ? "bg-amber-50 border-amber-200 text-amber-700"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showArchived
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
             >
               {showArchived ? (
                 <ArchiveRestore className="w-4 h-4" />
@@ -724,51 +723,63 @@ export default function MenuPage() {
         <main className="flex-1 overflow-y-auto p-8 bg-[#F8F9FB]">
           <div className="max-w-7xl mx-auto">
             {canManageCategories && (
-              <div className="mb-6 bg-white border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center gap-4">
-                <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="mb-6 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
+                      <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 tracking-tight">
                       Add Subcategory
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowSubcategoryManager(true)}
-                      className="h-7 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
-                    >
-                      Manage Names
-                    </button>
                   </div>
-                  <div className="flex-1 flex flex-col sm:flex-row items-stretch gap-2">
-                    <select
-                      value={newSubcategoryParentId || parentCategories[0]?.id || ""}
-                      onChange={(e) => setNewSubcategoryParentId(e.target.value)}
-                      className="h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all"
-                    >
-                      {parentCategories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={newSubcategoryName}
-                      onChange={(e) => setNewSubcategoryName(e.target.value)}
-                      placeholder="e.g. Pizzas, Burgers, Chinese"
-                      className="flex-1 h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all"
-                    />
-                    <button
-                      onClick={() =>
+                  <button
+                    type="button"
+                    onClick={() => setShowSubcategoryManager(true)}
+                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                  >
+                    Manage Names →
+                  </button>
+                </div>
+                <div className="px-5 py-4 flex flex-col sm:flex-row items-stretch gap-3">
+                  <select
+                    value={newSubcategoryParentId || parentCategories[0]?.id || ""}
+                    onChange={(e) => setNewSubcategoryParentId(e.target.value)}
+                    className="h-10 px-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all min-w-[140px]"
+                  >
+                    {parentCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={newSubcategoryName}
+                    onChange={(e) => setNewSubcategoryName(e.target.value)}
+                    placeholder="e.g. Pizzas, Burgers, Chinese"
+                    className="flex-1 h-10 px-4 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-slate-300"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
                         createSubcategory(
                           newSubcategoryName,
                           newSubcategoryParentId || parentCategories[0]?.id || ""
-                        )
+                        );
                       }
-                      disabled={isCreatingSubcategory}
-                      className="h-10 px-4 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-black transition-all disabled:opacity-60"
-                    >
-                      Add
-                    </button>
-                  </div>
+                    }}
+                  />
+                  <button
+                    onClick={() =>
+                      createSubcategory(
+                        newSubcategoryName,
+                        newSubcategoryParentId || parentCategories[0]?.id || ""
+                      )
+                    }
+                    disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
+                    className="h-10 px-5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add
+                  </button>
                 </div>
               </div>
             )}
@@ -779,11 +790,10 @@ export default function MenuPage() {
                     <button
                       key={cat}
                       onClick={() => setActiveTab(cat as any)}
-                      className={`px-5 py-2 rounded-lg text-xs font-bold capitalize transition-all ${
-                        activeTab === cat
-                          ? "bg-slate-900 text-white"
-                          : "text-slate-500 hover:text-slate-900"
-                      }`}
+                      className={`px-5 py-2 rounded-lg text-xs font-bold capitalize transition-all ${activeTab === cat
+                        ? "bg-slate-900 text-white"
+                        : "text-slate-500 hover:text-slate-900"
+                        }`}
                     >
                       {cat}
                     </button>
@@ -974,10 +984,10 @@ export default function MenuPage() {
                         {getSubcategories(
                           newSubcategoryParentId || parentCategories[0]?.id || ""
                         ).length === 0 && (
-                          <div className="text-xs text-slate-400 py-4 text-center">
-                            No subcategories for selected parent
-                          </div>
-                        )}
+                            <div className="text-xs text-slate-400 py-4 text-center">
+                              No subcategories for selected parent
+                            </div>
+                          )}
                       </div>
                     </div>
                   </motion.div>
@@ -1051,11 +1061,10 @@ export default function MenuPage() {
                 {filteredItems.map((item) => (
                   <div
                     key={item.id}
-                    className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${
-                      selectedItems.has(item.id)
-                        ? "border-indigo-600 ring-4 ring-indigo-600/10"
-                        : "border-slate-200 hover:shadow-xl hover:shadow-slate-200/50"
-                    }`}
+                    className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${selectedItems.has(item.id)
+                      ? "border-indigo-600 ring-4 ring-indigo-600/10"
+                      : "border-slate-200 hover:shadow-xl hover:shadow-slate-200/50"
+                      }`}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
                       <button
@@ -1092,10 +1101,10 @@ export default function MenuPage() {
                           <Pencil className="w-4 h-4" />
                         </button>
                       </div>
-                    {item.modelGlb && (
-                      <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
-                        <Box className="w-3.5 h-3.5" />
-                      </div>
+                      {item.modelGlb && (
+                        <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
+                          <Box className="w-3.5 h-3.5" />
+                        </div>
                       )}
                     </div>
                     <div className="p-5 flex-1 flex flex-col">
@@ -1119,24 +1128,23 @@ export default function MenuPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateOutOfStock(item, !item.isOutOfStock)}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                              item.isOutOfStock
-                                ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                            }`}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${item.isOutOfStock
+                              ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                              }`}
                           >
                             {item.isOutOfStock ? "Out of Stock" : "In Stock"}
                           </button>
                           <div className="flex -space-x-1">
-                          {item.allergens.slice(0, 3).map((a) => (
-                            <div
-                              key={a.type}
-                              className="w-5 h-5 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-amber-700"
-                              title={a.type}
-                            >
-                              {a.type[0]}
-                            </div>
-                          ))}
+                            {item.allergens.slice(0, 3).map((a) => (
+                              <div
+                                key={a.type}
+                                className="w-5 h-5 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-amber-700"
+                                title={a.type}
+                              >
+                                {a.type[0]}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -1193,11 +1201,10 @@ export default function MenuPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveModalTab(tab.id as any)}
-                    className={`px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${
-                      activeModalTab === tab.id
-                        ? "border-indigo-600 text-indigo-600"
-                        : "border-transparent text-slate-400 hover:text-slate-600"
-                    }`}
+                    className={`px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${activeModalTab === tab.id
+                      ? "border-indigo-600 text-indigo-600"
+                      : "border-transparent text-slate-400 hover:text-slate-600"
+                      }`}
                   >
                     {tab.label}
                   </button>
@@ -1373,30 +1380,28 @@ export default function MenuPage() {
                                 onClick={() => {
                                   const next = active
                                     ? editingItem.allergens.filter(
-                                        (a) => a.type !== alg
-                                      )
+                                      (a) => a.type !== alg
+                                    )
                                     : [
-                                        ...editingItem.allergens,
-                                        {
-                                          type: alg,
-                                          confidence: "contains" as const,
-                                        },
-                                      ];
+                                      ...editingItem.allergens,
+                                      {
+                                        type: alg,
+                                        confidence: "contains" as const,
+                                      },
+                                    ];
                                   setEditingItem({
                                     ...editingItem,
                                     allergens: next,
                                   });
                                 }}
-                                className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold transition-all ${
-                                  active
-                                    ? "bg-indigo-600 border-indigo-600 text-white"
-                                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
-                                }`}
+                                className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold transition-all ${active
+                                  ? "bg-indigo-600 border-indigo-600 text-white"
+                                  : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                                  }`}
                               >
                                 <div
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    active ? "bg-white" : "bg-slate-200"
-                                  }`}
+                                  className={`w-1.5 h-1.5 rounded-full ${active ? "bg-white" : "bg-slate-200"
+                                    }`}
                                 />
                                 {alg}
                               </button>
@@ -1468,11 +1473,10 @@ export default function MenuPage() {
                           if (!editingItem.modelGlb && !editingItem.modelUsdz)
                             modelInputRef.current?.click();
                         }}
-                        className={`group relative aspect-video bg-indigo-50/30 border-2 border-dashed border-indigo-100 rounded-3xl flex flex-col items-center justify-center transition-all ${
-                          editingItem.modelGlb || editingItem.modelUsdz
-                            ? "cursor-default"
-                            : "cursor-pointer hover:bg-indigo-50"
-                        }`}
+                        className={`group relative aspect-video bg-indigo-50/30 border-2 border-dashed border-indigo-100 rounded-3xl flex flex-col items-center justify-center transition-all ${editingItem.modelGlb || editingItem.modelUsdz
+                          ? "cursor-default"
+                          : "cursor-pointer hover:bg-indigo-50"
+                          }`}
                       >
                         {editingItem.modelGlb || editingItem.modelUsdz ? (
                           <div className="w-full h-full overflow-hidden rounded-3xl border border-indigo-100 bg-white">
@@ -1519,6 +1523,9 @@ export default function MenuPage() {
                                 auto-rotate
                                 ar
                                 ar-modes="scene-viewer webxr quick-look"
+                                environment-image="neutral"
+                                shadow-intensity="1"
+                                tone-mapping="commerce"
                                 onLoad={() => setModelPreviewError("")}
                                 onError={() =>
                                   setModelPreviewError(
@@ -1809,11 +1816,10 @@ export default function MenuPage() {
                               isOutOfStock: !editingItem.isOutOfStock,
                             })
                           }
-                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
-                            editingItem.isOutOfStock
-                              ? "bg-rose-600 text-white border-rose-600"
-                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                          }`}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${editingItem.isOutOfStock
+                            ? "bg-rose-600 text-white border-rose-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            }`}
                         >
                           {editingItem.isOutOfStock ? "Mark In Stock" : "Mark Out of Stock"}
                         </button>
@@ -1838,11 +1844,10 @@ export default function MenuPage() {
                                   availableDays: next,
                                 });
                               }}
-                              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-black uppercase transition-all border-2 ${
-                                active
-                                  ? "bg-indigo-600 border-indigo-600 text-white shadow-lg"
-                                  : "bg-white border-slate-100 text-slate-300 hover:border-slate-200"
-                              }`}
+                              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-black uppercase transition-all border-2 ${active
+                                ? "bg-indigo-600 border-indigo-600 text-white shadow-lg"
+                                : "bg-white border-slate-100 text-slate-300 hover:border-slate-200"
+                                }`}
                             >
                               {day}
                             </button>

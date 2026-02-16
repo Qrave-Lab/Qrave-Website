@@ -1,7 +1,83 @@
 import React from "react";
-import { Store, Camera, Loader2, Image as ImageIcon } from "lucide-react";
+import { Store, Camera, Loader2, Image as ImageIcon, Clock } from "lucide-react";
 import type { Restaurant } from "./types";
 import toast from "react-hot-toast";
+
+/* ---------- 24h ↔ 12h helpers ---------- */
+function parse24(time: string): { hour: number; minute: number; period: "AM" | "PM" } {
+  const [h, m] = (time || "00:00").split(":").map(Number);
+  const period: "AM" | "PM" = h >= 12 ? "PM" : "AM";
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return { hour, minute: m, period };
+}
+
+function to24(hour: number, minute: number, period: "AM" | "PM"): string {
+  let h = hour;
+  if (period === "AM" && h === 12) h = 0;
+  else if (period === "PM" && h !== 12) h += 12;
+  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
+const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+
+/* ---------- TimePicker field ---------- */
+function TimePickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const { hour, minute, period } = parse24(value);
+
+  const update = (h: number, m: number, p: "AM" | "PM") => onChange(to24(h, m, p));
+  const selectClass =
+    "h-10 rounded-lg border border-slate-200 bg-slate-50/30 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer";
+
+  return (
+    <div>
+      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+        {label}
+      </label>
+      <div className="flex items-center gap-1.5">
+        <select
+          value={hour}
+          onChange={(e) => update(Number(e.target.value), minute, period)}
+          className={`${selectClass} w-[4.5rem] px-2 text-center`}
+        >
+          {HOURS.map((h) => (
+            <option key={h} value={h}>
+              {h}
+            </option>
+          ))}
+        </select>
+        <span className="text-slate-400 font-bold text-sm">:</span>
+        <select
+          value={minute}
+          onChange={(e) => update(hour, Number(e.target.value), period)}
+          className={`${selectClass} w-[4.5rem] px-2 text-center`}
+        >
+          {MINUTES.map((m) => (
+            <option key={m} value={m}>
+              {String(m).padStart(2, "0")}
+            </option>
+          ))}
+        </select>
+        <select
+          value={period}
+          onChange={(e) => update(hour, minute, e.target.value as "AM" | "PM")}
+          className={`${selectClass} w-[4.5rem] px-2 text-center font-bold`}
+        >
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
+      </div>
+    </div>
+  );
+}
 
 
 type Props = {
@@ -24,20 +100,20 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
   }, [data.serviceCharge]);
 
   const handleChange = (key: keyof Restaurant, value: any) => {
-  if (key === "phone") {
-    const cleaned = value.replace(/\D/g, "");
+    if (key === "phone") {
+      const cleaned = value.replace(/\D/g, "");
 
-    if (cleaned.length > 10) {
-      toast.error("Phone number cannot exceed 10 digits.");
+      if (cleaned.length > 10) {
+        toast.error("Phone number cannot exceed 10 digits.");
+        return;
+      }
+
+      onChange({ ...data, [key]: cleaned });
       return;
     }
 
-    onChange({ ...data, [key]: cleaned });
-    return;
-  }
-
-  onChange({ ...data, [key]: value });
-};
+    onChange({ ...data, [key]: value });
+  };
 
 
   return (
@@ -53,9 +129,9 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
           <div className="relative shrink-0">
             <div className="w-24 h-24 bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
               {data.logo_url ? (
-                <img 
-                  src={data.logo_url} 
-                  alt="Restaurant Logo" 
+                <img
+                  src={data.logo_url}
+                  alt="Restaurant Logo"
                   className="w-full h-full object-cover transition-transform group-hover:scale-110"
                 />
               ) : (
@@ -68,16 +144,16 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
               ) : (
                 <Camera className="w-4 h-4" />
               )}
-              <input 
-                type="file" 
-                className="hidden" 
-                accept="image/*" 
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
                 onChange={onLogoChange}
                 disabled={isUploading}
               />
             </label>
           </div>
-          
+
           <div className="flex-1 space-y-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -111,14 +187,14 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
               Phone Number
             </label>
             <input
-  value={data.phone}
-  onChange={(e) => handleChange("phone", e.target.value)}
-  placeholder="0000000000"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  maxLength={10}
-  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
-/>
+              value={data.phone}
+              onChange={(e) => handleChange("phone", e.target.value)}
+              placeholder="0000000000"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={10}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+            />
 
           </div>
         </div>
@@ -171,28 +247,16 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
         </div>
 
         <div className="grid grid-cols-2 gap-4 pt-2">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Opens At
-            </label>
-            <input
-              type="time"
-              value={data.openTime || ""}
-              onChange={(e) => handleChange("openTime", e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Closes At
-            </label>
-            <input
-              type="time"
-              value={data.closeTime || ""}
-              onChange={(e) => handleChange("closeTime", e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
-            />
-          </div>
+          <TimePickerField
+            label="Opens At"
+            value={data.openTime || ""}
+            onChange={(v) => handleChange("openTime", v)}
+          />
+          <TimePickerField
+            label="Closes At"
+            value={data.closeTime || ""}
+            onChange={(v) => handleChange("closeTime", v)}
+          />
         </div>
       </div>
     </section>

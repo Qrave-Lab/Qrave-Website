@@ -36,15 +36,7 @@ export default function MenuClient({ table }: { table: string | null }) {
     );
   }, [restaurantFromUrl]);
 
-  useEffect(() => {
-    if (!tableFromUrl && resolvedTable) {
-      const base = `/menu?table=${encodeURIComponent(resolvedTable)}`;
-      const withRestaurant = resolvedRestaurant
-        ? `${base}&restaurant=${encodeURIComponent(resolvedRestaurant)}`
-        : base;
-      router.replace(withRestaurant);
-    }
-  }, [router, tableFromUrl, resolvedTable, resolvedRestaurant]);
+
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -111,14 +103,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             "session_context_key",
             `${restaurant || "na"}::${serverTable}`
           );
-          const currentUrlTable = tableFromUrl;
-          if (currentUrlTable !== serverTable) {
-            const base = `/menu?table=${encodeURIComponent(serverTable)}`;
-            const withRestaurant = restaurant
-              ? `${base}&restaurant=${encodeURIComponent(restaurant)}`
-              : base;
-            router.replace(withRestaurant);
-          }
+
         }
       } catch {
         // keep UI usable
@@ -284,7 +269,36 @@ export default function MenuClient({ table }: { table: string | null }) {
     );
   }
 
-  if (!items) return <div>Loading menu...</div>;
+  if (!items) return (
+    <>
+      <style>{menuLoadingStyles}</style>
+      <div className="ml-loader">
+        <div className="ml-particle p1">🍕</div>
+        <div className="ml-particle p2">🍜</div>
+        <div className="ml-particle p3">🥗</div>
+        <div className="ml-particle p4">🍰</div>
+        <div className="ml-particle p5">☕</div>
+        <div className="ml-particle p6">🍣</div>
+
+        <div className="ml-plate">
+          <div className="ml-plate-inner" />
+          <div className="ml-plate-rim" />
+        </div>
+
+        <div className="ml-brand">
+          {"Qrave".split("").map((char, i) => (
+            <span key={i} className="ml-letter" style={{ animationDelay: `${0.15 * i}s` }}>{char}</span>
+          ))}
+        </div>
+
+        <p className="ml-tagline">Loading your menu…</p>
+
+        <div className="ml-bar-track">
+          <div className="ml-bar-fill" />
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <ModernFoodUI
@@ -294,3 +308,97 @@ export default function MenuClient({ table }: { table: string | null }) {
     />
   );
 }
+
+const menuLoadingStyles = `
+  .ml-loader {
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 28px;
+    background: #ffffff;
+    position: relative; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 24px;
+  }
+  .ml-particle {
+    position: absolute; font-size: 22px;
+    opacity: 0; pointer-events: none;
+    animation: mlFloat 4s ease-in-out infinite;
+  }
+  .p1 { top: 12%; left: 10%; animation-delay: 0s; }
+  .p2 { top: 18%; right: 14%; animation-delay: 0.7s; }
+  .p3 { bottom: 22%; left: 16%; animation-delay: 1.4s; }
+  .p4 { bottom: 14%; right: 10%; animation-delay: 0.3s; }
+  .p5 { top: 40%; left: 6%; animation-delay: 1.8s; }
+  .p6 { top: 35%; right: 8%; animation-delay: 1s; }
+  .ml-plate {
+    width: 160px; height: 160px;
+    border-radius: 50%; position: relative;
+    animation: mlPlateIn 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .ml-plate-rim {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 3px solid #e2e8f0;
+    animation: mlRimSpin 8s linear infinite;
+    border-top-color: #0f172a;
+    border-right-color: transparent;
+  }
+  .ml-plate-inner {
+    position: absolute; inset: 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, #f8fafc, #f1f5f9);
+    border: 1px solid #e2e8f0;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .ml-brand {
+    display: flex; gap: 2px;
+    z-index: 2; margin-top: -20px;
+  }
+  .ml-letter {
+    font-size: 48px; font-weight: 900;
+    letter-spacing: -1px; color: #0f172a;
+    display: inline-block;
+    opacity: 0;
+    animation: mlLetterIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  .ml-tagline {
+    color: #94a3b8; font-size: 14px; font-weight: 500;
+    letter-spacing: 0.5px; margin: 0;
+    animation: mlFadeUp 0.8s ease 0.9s both;
+  }
+  .ml-bar-track {
+    width: 120px; height: 3px;
+    border-radius: 3px; background: #f1f5f9;
+    overflow: hidden;
+    animation: mlFadeUp 0.8s ease 1s both;
+  }
+  .ml-bar-fill {
+    width: 40%; height: 100%;
+    border-radius: 3px;
+    background: #0f172a;
+    animation: mlShimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes mlLetterIn {
+    0% { opacity: 0; transform: translateY(40px) scale(0.3) rotate(-20deg); filter: blur(8px); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); filter: blur(0); }
+  }
+  @keyframes mlPlateIn {
+    0% { opacity: 0; transform: scale(0.4) rotate(-90deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+  @keyframes mlRimSpin { to { transform: rotate(360deg); } }
+  @keyframes mlFloat {
+    0%, 100% { opacity: 0; transform: translateY(0) scale(0.8); }
+    30% { opacity: 0.3; }
+    50% { opacity: 0.4; transform: translateY(-18px) scale(1); }
+    70% { opacity: 0.3; }
+  }
+  @keyframes mlShimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+  @keyframes mlFadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+`;

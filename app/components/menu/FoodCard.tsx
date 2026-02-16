@@ -99,7 +99,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
           {item.arModelGlb ? (
             <button
               onClick={() => onArClick(item)}
-              className={`absolute bottom-2 right-2 p-1.5 rounded-lg text-white transition-colors ${showArTour ? "bg-emerald-600 animate-pulse" : "bg-black/60 hover:bg-black/80"}`}
+              className={`ar-view-btn absolute bottom-2 right-2 p-1.5 rounded-lg text-white transition-colors ${showArTour ? "bg-emerald-600 animate-pulse" : "bg-black/60 hover:bg-black/80"}`}
             >
               <Scan className="w-3.5 h-3.5" />
             </button>

@@ -24,3 +24,76 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── driver.js tour overrides ──────────────── */
+.driver-popover {
+  border-radius: 20px !important;
+  padding: 24px !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12) !important;
+  border: 1px solid #e2e8f0 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  max-width: 340px !important;
+}
+.driver-popover-title {
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.3px !important;
+}
+.driver-popover-description {
+  font-size: 13px !important;
+  color: #64748b !important;
+  line-height: 1.6 !important;
+  margin-top: 8px !important;
+}
+.driver-popover-progress-text {
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  font-weight: 600 !important;
+}
+.driver-popover-navigation-btns {
+  gap: 8px !important;
+}
+.driver-popover-next-btn,
+.driver-popover-prev-btn {
+  border-radius: 12px !important;
+  padding: 8px 18px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border: none !important;
+  text-shadow: none !important;
+}
+.driver-popover-next-btn,
+.driver-popover-close-btn {
+  background: #0f172a !important;
+  color: #fff !important;
+}
+.driver-popover-next-btn:hover {
+  background: #1e293b !important;
+}
+.driver-popover-prev-btn {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+}
+.driver-popover-prev-btn:hover {
+  background: #e2e8f0 !important;
+}
+.driver-popover-close-btn {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  font-size: 16px !important;
+  top: 14px !important;
+  right: 14px !important;
+}
+.driver-popover-close-btn:hover {
+  background: #e2e8f0 !important;
+}
+.driver-popover-arrow-side-left .driver-popover-arrow,
+.driver-popover-arrow-side-right .driver-popover-arrow,
+.driver-popover-arrow-side-top .driver-popover-arrow,
+.driver-popover-arrow-side-bottom .driver-popover-arrow {
+  border: 6px solid transparent !important;
+}

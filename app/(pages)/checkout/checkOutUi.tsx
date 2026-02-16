@@ -45,8 +45,8 @@ const CheckoutPage: React.FC = () => {
       ? rawTable
       : typeof window !== "undefined"
         ? localStorage.getItem("table_number") ||
-          localStorage.getItem("table") ||
-          "7"
+        localStorage.getItem("table") ||
+        "7"
         : "7";
 
   useEffect(() => {
@@ -61,6 +61,9 @@ const CheckoutPage: React.FC = () => {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [isSeparateBill, setIsSeparateBill] = useState(false);
+  const [isTableOccupied, setIsTableOccupied] = useState(false);
+  const [myOrderIds, setMyOrderIds] = useState<Set<string>>(new Set());
 
   const {
     cart,
@@ -78,6 +81,12 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     setIsMounted(true);
+    setIsSeparateBill(localStorage.getItem("separate_bill") === "1");
+    setIsTableOccupied(localStorage.getItem("table_occupied") === "1");
+    try {
+      const stored = JSON.parse(localStorage.getItem("my_order_ids") || "[]");
+      if (Array.isArray(stored)) setMyOrderIds(new Set(stored));
+    } catch { /* ignore */ }
 
     const ensureSession = async () => {
       if (typeof window === "undefined") return null;
@@ -151,11 +160,11 @@ const CheckoutPage: React.FC = () => {
         orderService.getOrders(),
       ])
         .then(([menu, cartRes, ordersRes]) => {
-        const mapped =
-          menu?.map((i: any) => {
-            const basePrice = Number(i.price || 0);
-            const variants = Array.isArray(i.variants)
-              ? i.variants.map((v: any) => {
+          const mapped =
+            menu?.map((i: any) => {
+              const basePrice = Number(i.price || 0);
+              const variants = Array.isArray(i.variants)
+                ? i.variants.map((v: any) => {
                   const variantPrice = Number(v.price ?? 0);
                   return {
                     id: String(v.id),
@@ -168,29 +177,29 @@ const CheckoutPage: React.FC = () => {
                         : variantPrice - basePrice,
                   };
                 })
-              : [];
+                : [];
 
-            return {
-              ...i,
-              id: String(i.id),
-              price: basePrice,
-              variants,
-              image:
-                i.image ||
-                i.imageUrl ||
-                "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
-            };
-          }) || [];
+              return {
+                ...i,
+                id: String(i.id),
+                price: basePrice,
+                variants,
+                image:
+                  i.image ||
+                  i.imageUrl ||
+                  "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
+              };
+            }) || [];
 
-        setMenuItems(mapped);
-        setMenuCache(mapped);
+          setMenuItems(mapped);
+          setMenuCache(mapped);
 
-        if (cartRes?.items) {
-          syncCart(cartRes.items);
-        }
-        if (ordersRes?.orders) {
-          setOrders(ordersRes.orders);
-        }
+          if (cartRes?.items) {
+            syncCart(cartRes.items);
+          }
+          if (ordersRes?.orders) {
+            setOrders(ordersRes.orders);
+          }
         })
         .finally(() => {
           setIsCartReady(true);
@@ -257,13 +266,17 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
-  const placedOrders = orders.filter(
+  const allPlacedOrders = orders.filter(
     (o) =>
       o.id !== currentOrderId &&
       o.status !== "cart" &&
       Array.isArray(o.items) &&
       o.items.length > 0
   );
+
+  const placedOrders = isSeparateBill
+    ? allPlacedOrders.filter((o) => myOrderIds.has(o.id))
+    : allPlacedOrders;
 
   const cartSubtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
 
@@ -287,6 +300,11 @@ const CheckoutPage: React.FC = () => {
       }
       await orderService.finalizeOrder(orderId);
       toast.success("Order placed!");
+
+      const prevIds: string[] = JSON.parse(localStorage.getItem("my_order_ids") || "[]");
+      if (!prevIds.includes(orderId)) prevIds.push(orderId);
+      localStorage.setItem("my_order_ids", JSON.stringify(prevIds));
+      setMyOrderIds(new Set(prevIds));
 
       localStorage.removeItem("order_id");
       clearCart();
@@ -350,6 +368,15 @@ const CheckoutPage: React.FC = () => {
       </header>
 
       <main className="mx-auto max-w-lg px-6 pt-4">
+        {isTableOccupied && (
+          <div className={`mb-4 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${isSeparateBill
+            ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
+            : "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200"
+            }`}>
+            <span className="text-lg">{isSeparateBill ? "🧾" : "🤝"}</span>
+            <span>{isSeparateBill ? "Your separate bill" : "Shared order with table"}</span>
+          </div>
+        )}
         {!currentCartHasItems && !hasPlacedOrders ? (
           <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
             <div className="relative mb-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Search, ChevronDown, ChevronRight, UtensilsCrossed, Bell, Droplets, Loader2, Smartphone } from "lucide-react";
 import { useCartStore, getCartKey } from "@/stores/cartStore";
@@ -10,6 +10,8 @@ import FoodCard from "@/app/components/menu/FoodCard";
 import ImmersiveMenu from "@/app/components/menu/ImmersiveMenu";
 import { api } from "@/app/lib/api";
 import { useLanguageStore } from "@/stores/languageStore";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 const resolve = (val: any): string => {
   if (!val) return "";
@@ -46,7 +48,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [isWaiterCalled, setIsWaiterCalled] = useState(false);
   const [isWaterRequested, setIsWaterRequested] = useState(false);
-  const [showArTour, setShowArTour] = useState(false);
+  const [tourReady, setTourReady] = useState(false);
   const [hasArItems, setHasArItems] = useState(false);
   const [isImmersive, setIsImmersive] = useState(false);
   const [arItem, setArItem] = useState<any | null>(null);
@@ -167,11 +169,121 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const seen = localStorage.getItem("ar_tour_seen") === "true";
-    if (!seen && hasArItems) {
-      setShowArTour(true);
+    const seen = localStorage.getItem("qrave_tour_seen") === "true";
+    if (!seen) {
+      setTourReady(true);
     }
-  }, [hasArItems]);
+  }, []);
+
+  const startTour = useCallback(() => {
+    const driverObj = driver({
+      showProgress: true,
+      animate: true,
+      allowClose: true,
+      overlayColor: "rgba(15, 23, 42, 0.65)",
+      stagePadding: 8,
+      stageRadius: 16,
+      popoverClass: "qrave-tour-popover",
+      nextBtnText: "Next →",
+      prevBtnText: "← Back",
+      doneBtnText: "Let's order! 🍽️",
+      onDestroyStarted: () => {
+        localStorage.setItem("qrave_tour_seen", "true");
+        setTourReady(false);
+        driverObj.destroy();
+      },
+      steps: [
+        {
+          popover: {
+            title: "👋 Welcome to Qrave!",
+            description: "Let us show you around. We have some amazing features to help you decide what to eat.",
+            side: "bottom" as const,
+            align: "center" as const,
+          },
+        },
+        {
+          element: ".ar-view-btn",
+          popover: {
+            title: "✨ View in AR",
+            description: "See it before you eat it! Tap this button to place a realistic 3D model of the dish right on your table.",
+            side: "left" as const,
+            align: "center" as const,
+          },
+        },
+        {
+          element: "#tour-search",
+          popover: {
+            title: "🔍 Search the menu",
+            description: "Looking for something specific? Type a dish name or keyword here to instantly find it.",
+            side: "bottom" as const,
+          },
+        },
+        {
+          element: "#tour-veg-filter",
+          popover: {
+            title: "🥬 Veg-only filter",
+            description: "One tap to show only vegetarian dishes.",
+            side: "bottom" as const,
+          },
+        },
+        {
+          element: "#tour-language",
+          popover: {
+            title: "🌐 Switch language",
+            description: "Instantly translate the entire menu to your preferred language.",
+            side: "bottom" as const,
+          },
+        },
+        {
+          element: "#tour-immersive",
+          popover: {
+            title: "📱 Immersive mode",
+            description: "Want larger images? Switch to the full-screen immersive view.",
+            side: "bottom" as const,
+          },
+        },
+        {
+          element: "#tour-food-card",
+          popover: {
+            title: "🍽️ Add to cart",
+            description: "Use the + button to add items. You can also customize variants here.",
+            side: "top" as const,
+          },
+        },
+        {
+          element: "#tour-waiter",
+          popover: {
+            title: "🔔 Call a waiter",
+            description: "Need help? Tap here to alert the staff.",
+            side: "left" as const,
+          },
+        },
+        {
+          element: "#tour-water",
+          popover: {
+            title: "💧 Request water",
+            description: "Thirsty? Request water with a single tap.",
+            side: "left" as const,
+          },
+        },
+        {
+          popover: {
+            title: "🎉 Ready to order?",
+            description: "Explore the menu and enjoy your meal! You can revisit this tour anytime by clearing your browser data.",
+            side: "bottom" as const,
+            align: "center" as const,
+          },
+        },
+      ],
+    });
+    driverObj.drive();
+  }, []);
+
+  useEffect(() => {
+    if (!tourReady) return;
+    const timer = setTimeout(() => startTour(), 800);
+    return () => clearTimeout(timer);
+  }, [tourReady, startTour]);
 
   useEffect(() => {
     setIsBrowser(true);
@@ -308,18 +420,21 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
 
           <div className="flex items-center gap-2">
             <button
+              id="tour-language"
               onClick={toggleLanguage}
               className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 font-bold text-xs uppercase hover:bg-slate-200 transition-colors"
             >
               {language}
             </button>
             <button
+              id="tour-immersive"
               onClick={() => setIsImmersive(!isImmersive)}
               className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-200 transition-transform active:scale-95"
             >
               <Smartphone size={16} />
             </button>
             <button
+              id="tour-veg-filter"
               onClick={() => setIsVegOnly(!isVegOnly)}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 active:scale-95 ${isVegOnly
                 ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-100"
@@ -339,44 +454,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
             This table already has an active session. You are viewing the active table.
           </div>
         )}
-        {showArTour && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6">
-            <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden">
-              <div className="px-6 pt-6 pb-4">
-                <h2 className="text-lg font-black text-slate-900">{t('arTour')}</h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  {t('arTourDesc')}
-                </p>
-              </div>
-              <div className="px-6 pb-6 space-y-4 text-sm text-slate-600">
-                <div className="flex gap-3">
-                  <div className="h-6 w-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">1</div>
-                  <div>Tap the <span className="font-bold text-slate-900">AR</span> badge on any dish.</div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="h-6 w-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">2</div>
-                  <div>Point your camera at the table and move slowly to place the dish.</div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="h-6 w-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center">3</div>
-                  <div>Adjust size or angle, then add to cart when you're ready.</div>
-                </div>
-              </div>
-              <div className="px-6 pb-6">
-                <button
-                  onClick={() => {
-                    setShowArTour(false);
-                    localStorage.setItem("ar_tour_seen", "true");
-                  }}
-                  className="w-full rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white shadow-xl transition-all active:scale-95"
-                >
-                  {t('gotIt')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="relative mb-10 group">
+        <div id="tour-search" className="relative mb-10 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 transition-colors group-focus-within:text-slate-900" />
           <input
             type="text"
@@ -425,30 +503,32 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
                             </h3>
                           </div>
                           <div className="grid gap-6">
-                            {subItems.map((item: any) => {
+                            {subItems.map((item: any, itemIdx: number) => {
                               const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                               const cartKey = getCartKey(item.id, currentVId);
                               const cartItem = cart[cartKey];
                               const quantity = cartItem ? cartItem.quantity : 0;
+                              const isFirstCard = categories.indexOf(category) === 0 && subcategories.indexOf(subcat) === 0 && itemIdx === 0;
 
                               return (
-                                <FoodCard
-                                  key={item.id}
-                                  item={{
-                                    ...item,
-                                    id: String(item.id),
-                                    name: item.name,
-                                    description: item.description,
-                                    category: item.categoryName || "General"
-                                  }}
-                                  ratingStyles={getRatingStyles(item.rating)}
-                                  selectedVariantId={currentVId}
-                                  onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
-                                  currentQty={quantity}
-                                  onAdd={handleAdd}
-                                  onRemove={handleRemove}
-                                  onArClick={handleArOpen}
-                                />
+                                <div key={item.id} id={isFirstCard ? "tour-food-card" : undefined}>
+                                  <FoodCard
+                                    item={{
+                                      ...item,
+                                      id: String(item.id),
+                                      name: item.name,
+                                      description: item.description,
+                                      category: item.categoryName || "General"
+                                    }}
+                                    ratingStyles={getRatingStyles(item.rating)}
+                                    selectedVariantId={currentVId}
+                                    onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
+                                    currentQty={quantity}
+                                    onAdd={handleAdd}
+                                    onRemove={handleRemove}
+                                    onArClick={handleArOpen}
+                                  />
+                                </div>
                               );
                             })}
                           </div>
@@ -465,6 +545,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
 
       <div className="fixed bottom-32 right-6 z-40 flex flex-col gap-4">
         <button
+          id="tour-waiter"
           onClick={async () => {
             try {
               await api("/api/customer/service-calls", {
@@ -482,6 +563,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
           {isWaiterCalled ? <Loader2 className="animate-spin text-slate-900" /> : <Bell className="text-slate-600 w-6 h-6" />}
         </button>
         <button
+          id="tour-water"
           onClick={async () => {
             try {
               await api("/api/customer/service-calls", {
@@ -504,7 +586,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-white via-white/90 to-transparent p-6 pb-8">
           <div className="max-w-md mx-auto">
             <button
-              onClick={() => router.push(`/checkout?table=${tableId}`)}
+              onClick={() => router.push(`/checkout`)}
               className="group w-full h-16 bg-slate-900 text-white px-6 rounded-2xl flex justify-between items-center shadow-2xl shadow-slate-400 transition-all active:scale-[0.98]"
             >
               <div className="flex items-center gap-4">
