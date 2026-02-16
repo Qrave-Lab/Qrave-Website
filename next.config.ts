@@ -9,8 +9,10 @@ const nextConfig: NextConfig = {
       "frame-ancestors 'self'",
       "img-src 'self' data: blob: https:",
       "media-src 'self' blob: https:",
-      "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://accounts.google.com",
+      "frame-src 'self' https://accounts.google.com",
       "connect-src 'self' https: http: ws: wss:",
     ].join("; ");
 
