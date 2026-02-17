@@ -19,7 +19,6 @@ import {
   Smartphone
 } from "lucide-react";
 import { api } from "@/app/lib/api";
-import { getRootDomain, slugifyRestaurantName } from "@/app/lib/tenant";
 
 
 
@@ -36,23 +35,16 @@ const getTableLabel = (table: Table) =>
 
 const getTableUrl = (
   table: Table | null,
-  restaurantId?: string,
-  restaurantName?: string
+  restaurantId?: string
 ) => {
   if (!table || typeof window === "undefined") return "";
-  const slug = slugifyRestaurantName(restaurantName || "");
-  const rootDomain = getRootDomain();
-  const hostname = window.location.hostname.toLowerCase();
-  const protocol = window.location.protocol;
-  const port = window.location.port ? `:${window.location.port}` : "";
-
-  const isLocalDev = hostname === "localhost" || hostname === "127.0.0.1";
-  if (slug && !isLocalDev) {
-    return `${protocol}//${slug}.${rootDomain}${port}/menu/t/${table.table_number}`;
-  }
-
-  const origin = window.location.origin;
-  const base = `${origin}/menu/t/${table.table_number}`;
+  const isLocalDev =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+  const baseOrigin = isLocalDev
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_APP_ORIGIN || "https://qrave-website.vercel.app");
+  const base = `${baseOrigin}/menu/t/${table.table_number}`;
   return restaurantId ? `${base}?restaurant=${restaurantId}` : base;
 };
 
@@ -516,7 +508,7 @@ export default function QrFlyerGenerator() {
                 >
                  {selectedTable && (
   <QRCodeSVG
-    value={getTableUrl(selectedTable, restaurantId, restaurantName)}
+    value={getTableUrl(selectedTable, restaurantId)}
     size={220}
     level="H"
     fgColor={template === "dark" ? "#ffffff" : "#000000"}
