@@ -15,6 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCartStore } from "@/stores/cartStore";
 import { orderService } from "@/services/orderService";
 import { api } from "@/app/lib/api";
+import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { toast } from "react-hot-toast";
 
 const BASE_VARIANT = "__base__";
@@ -95,7 +96,9 @@ const CheckoutPage: React.FC = () => {
       let session = localStorage.getItem("session_id");
       if (session) return session;
 
-      const restaurantId = localStorage.getItem("restaurant_id");
+      const restaurantId =
+        localStorage.getItem("restaurant_id") ||
+        (await resolveRestaurantIdFromTenantSlug());
       const rawTable =
         tableNumber && tableNumber !== "N/A"
           ? tableNumber
@@ -233,7 +236,7 @@ const CheckoutPage: React.FC = () => {
           restaurant?: string;
           logo_url?: string | null;
           logo_version?: number | null;
-        }>("/api/admin/me");
+        }>("/api/admin/me", { skipAuthRedirect: true });
         if (cancelled) return;
         const name = me?.restaurant?.trim();
         if (name) {

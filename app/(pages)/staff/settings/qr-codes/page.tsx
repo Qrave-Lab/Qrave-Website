@@ -19,6 +19,7 @@ import {
   Smartphone
 } from "lucide-react";
 import { api } from "@/app/lib/api";
+import { getRootDomain, slugifyRestaurantName } from "@/app/lib/tenant";
 
 
 
@@ -33,8 +34,23 @@ const getTableLabel = (table: Table) =>
   table.table_number.toString().padStart(2, "0");
 
 
-const getTableUrl = (table: Table | null, restaurantId?: string) => {
+const getTableUrl = (
+  table: Table | null,
+  restaurantId?: string,
+  restaurantName?: string
+) => {
   if (!table || typeof window === "undefined") return "";
+  const slug = slugifyRestaurantName(restaurantName || "");
+  const rootDomain = getRootDomain();
+  const hostname = window.location.hostname.toLowerCase();
+  const protocol = window.location.protocol;
+  const port = window.location.port ? `:${window.location.port}` : "";
+
+  const isLocalDev = hostname === "localhost" || hostname === "127.0.0.1";
+  if (slug && !isLocalDev) {
+    return `${protocol}//${slug}.${rootDomain}${port}/menu/t/${table.table_number}`;
+  }
+
   const origin = window.location.origin;
   const base = `${origin}/menu/t/${table.table_number}`;
   return restaurantId ? `${base}?restaurant=${restaurantId}` : base;
@@ -500,7 +516,7 @@ export default function QrFlyerGenerator() {
                 >
                  {selectedTable && (
   <QRCodeSVG
-    value={getTableUrl(selectedTable, restaurantId)}
+    value={getTableUrl(selectedTable, restaurantId, restaurantName)}
     size={220}
     level="H"
     fgColor={template === "dark" ? "#ffffff" : "#000000"}

@@ -193,7 +193,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
           restaurant?: string;
           logo_url?: string | null;
           logo_version?: number | null;
-        }>("/api/admin/me");
+        }>("/api/admin/me", { skipAuthRedirect: true });
         if (cancelled) return;
         const name = me?.restaurant?.trim();
         if (name) {

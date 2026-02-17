@@ -1,4 +1,5 @@
 import { api } from "@/app/lib/api";
+import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 
 export type CartItemDTO = {
   quantity: number;
@@ -27,7 +28,10 @@ export const orderService = {
     })();
 
     const restaurantId =
-      localStorage.getItem("restaurant_id") || restaurantFromUrl || null;
+      localStorage.getItem("restaurant_id") ||
+      restaurantFromUrl ||
+      (await resolveRestaurantIdFromTenantSlug()) ||
+      null;
     const rawTable =
       localStorage.getItem("table_number") ||
       localStorage.getItem("table") ||

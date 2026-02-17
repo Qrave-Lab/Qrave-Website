@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/lib/api";
+import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { useCartStore } from "@/stores/cartStore";
 
 type SessionResult = {
@@ -40,14 +41,18 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
       }
 
       let redirectTable = table;
-      let redirectRestaurant = restaurantFromUrl || localStorage.getItem("restaurant_id") || "";
+      let redirectRestaurant =
+        restaurantFromUrl || localStorage.getItem("restaurant_id") || "";
 
       try {
         const isUUID =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(table);
         const normalizedTable = normalizedScannedTable;
         const tableNumber = Number.parseInt(normalizedTable, 10);
-        const restaurantId = restaurantFromUrl || localStorage.getItem("restaurant_id");
+        const restaurantId =
+          restaurantFromUrl ||
+          localStorage.getItem("restaurant_id") ||
+          (await resolveRestaurantIdFromTenantSlug());
         const nextTable = !Number.isNaN(tableNumber) ? String(tableNumber) : table;
         redirectTable = nextTable;
         redirectRestaurant = restaurantId || "";
@@ -383,4 +388,3 @@ const animationStyles = `
     to { opacity: 1; transform: translateY(0); }
   }
 `;
-

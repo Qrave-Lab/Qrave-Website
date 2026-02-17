@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ModernFoodUI from "../(pages)/menu/MenuUi";
 import { api } from "@/app/lib/api";
+import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { useCartStore } from "@/stores/cartStore";
 
 export default function MenuClient({ table }: { table: string | null }) {
@@ -112,6 +113,11 @@ export default function MenuClient({ table }: { table: string | null }) {
 
     const ensureSessionAndLoad = async () => {
       let session = localStorage.getItem("session_id");
+      let restaurantForSession =
+        resolvedRestaurant || localStorage.getItem("restaurant_id");
+      if (!restaurantForSession) {
+        restaurantForSession = await resolveRestaurantIdFromTenantSlug();
+      }
 
       const isUUID = (value: string) =>
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -122,7 +128,7 @@ export default function MenuClient({ table }: { table: string | null }) {
           : resolvedTable.trim();
         const tableNumber = Number.parseInt(normalizedTable, 10);
         if (!Number.isNaN(tableNumber)) {
-          if (!resolvedRestaurant) {
+          if (!restaurantForSession) {
             console.error("No restaurant found for session start");
             setItems([]);
             return;
@@ -132,7 +138,7 @@ export default function MenuClient({ table }: { table: string | null }) {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                restaurant_id: resolvedRestaurant,
+                restaurant_id: restaurantForSession,
                 table_number: tableNumber,
               }),
               credentials: "include",
@@ -142,8 +148,8 @@ export default function MenuClient({ table }: { table: string | null }) {
             const occupied = Boolean(res?.is_occupied);
             if (occupied) localStorage.setItem("table_occupied", "1");
             else localStorage.removeItem("table_occupied");
-            if (resolvedRestaurant) {
-              localStorage.setItem("restaurant_id", resolvedRestaurant);
+            if (restaurantForSession) {
+              localStorage.setItem("restaurant_id", restaurantForSession);
             }
           } catch (err) {
             console.error("Failed to start session", err);
@@ -209,7 +215,7 @@ export default function MenuClient({ table }: { table: string | null }) {
         if (err?.status === 401 || String(err?.message || "").includes("session expired")) {
           localStorage.removeItem("session_id");
           session = null;
-          if (resolvedTable && resolvedRestaurant) {
+          if (resolvedTable && restaurantForSession) {
             const tableNumber = Number.parseInt(resolvedTable, 10);
             if (!Number.isNaN(tableNumber)) {
               try {
@@ -217,7 +223,7 @@ export default function MenuClient({ table }: { table: string | null }) {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    restaurant_id: resolvedRestaurant,
+                    restaurant_id: restaurantForSession,
                     table_number: tableNumber,
                   }),
                   credentials: "include",
@@ -227,8 +233,8 @@ export default function MenuClient({ table }: { table: string | null }) {
                 const occupied = Boolean(res?.is_occupied);
                 if (occupied) localStorage.setItem("table_occupied", "1");
                 else localStorage.removeItem("table_occupied");
-                if (resolvedRestaurant) {
-                  localStorage.setItem("restaurant_id", resolvedRestaurant);
+                if (restaurantForSession) {
+                  localStorage.setItem("restaurant_id", restaurantForSession);
                 }
                 const menu = await loadMenu(session);
                 setItems(menu);

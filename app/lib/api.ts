@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   "/public/otp/verify",
   "/public/otp/resend",
   "/public/session/start",
+  "/public/restaurants/resolve",
   "/api/customer/menu",
   "/api/customer/session",
   "/api/customer/orders",
@@ -64,9 +65,10 @@ function getCsrfToken(): string | null {
 
 export async function api<T>(
   path: string,
-  options: RequestInit = {},
+  options: (RequestInit & { skipAuthRedirect?: boolean }) = {},
   didRetry = false
 ): Promise<T> {
+  const { skipAuthRedirect = false, ...requestOptions } = options;
   let resolvedPath = path;
   if (
     typeof window !== "undefined" &&
@@ -84,12 +86,12 @@ export async function api<T>(
   );
 
   const headerInit: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
+    ...(requestOptions.headers as Record<string, string>),
   };
-  if (!(options.body instanceof FormData) && !headerInit["Content-Type"]) {
+  if (!(requestOptions.body instanceof FormData) && !headerInit["Content-Type"]) {
     headerInit["Content-Type"] = "application/json";
   }
-  const method = (options.method || "GET").toUpperCase();
+  const method = (requestOptions.method || "GET").toUpperCase();
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrf = getCsrfToken();
     if (csrf) headerInit["X-CSRF-Token"] = csrf;
@@ -99,7 +101,7 @@ export async function api<T>(
 
   try {
     res = await fetch(`${API_BASE}${resolvedPath}`, {
-      ...options,
+      ...requestOptions,
       headers: new Headers(headerInit),
       credentials: "include",
     });
@@ -109,7 +111,7 @@ export async function api<T>(
     throw new Error("Network error");
   }
 
-  if (res.status === 401 && !isPublic && typeof window !== "undefined") {
+  if (res.status === 401 && !isPublic && !skipAuthRedirect && typeof window !== "undefined") {
     if (!didRetry) {
       const refreshed = await tryRefresh();
       if (refreshed) {
@@ -133,10 +135,11 @@ export async function api<T>(
       res.status === 400 &&
       (message.includes("order not found") ||
         message.includes("violates foreign key constraint"));
+    const isExpectedUnauthorized = res.status === 401 && skipAuthRedirect;
 
-    if (!isKnownError) {
+    if (!isKnownError && !isExpectedUnauthorized) {
       console.error("API Error:", resolvedPath, res.status, message);
-    } else {
+    } else if (isKnownError) {
       console.warn("API Note:", resolvedPath, res.status, message.trim());
     }
 
