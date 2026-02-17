@@ -124,12 +124,16 @@ export async function api<T>(
 
   if (!res.ok) {
     const raw = await res.text();
-    let message = raw;
+    let message = raw?.trim();
 
     try {
       const json = JSON.parse(raw);
-      if (json?.message) message = json.message;
+      if (json?.message) message = String(json.message).trim();
     } catch { }
+
+    if (!message) {
+      message = res.statusText?.trim() || `Request failed (${res.status})`;
+    }
 
     const isKnownError =
       res.status === 400 &&

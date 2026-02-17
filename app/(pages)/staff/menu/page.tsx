@@ -555,12 +555,18 @@ export default function MenuPage() {
 
     try {
       let itemId = editingItem.id;
+      const categoryId = editingItem.categoryId || getDefaultCategoryId();
+
+      if (!categoryId) {
+        toast.error("Please create/select a category first");
+        return;
+      }
 
       if (modalMode === "add") {
         const res: any = await authFetch("/api/admin/menu/item", {
           method: "POST",
           body: JSON.stringify({
-            category_id: editingItem.categoryId || getDefaultCategoryId(),
+            category_id: categoryId,
             name: editingItem.name,
             price: editingItem.price,
           }),
@@ -571,7 +577,7 @@ export default function MenuPage() {
       await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
         method: "PUT",
         body: JSON.stringify({
-          category_id: editingItem.categoryId || undefined,
+          category_id: categoryId,
           name: editingItem.name,
           price: editingItem.price,
           description: editingItem.description,
