@@ -46,6 +46,28 @@ const slideVariants = {
   exit: { opacity: 0, y: -10, filter: "blur(10px)" },
 };
 
+const BLOCKED_EMAIL_DOMAINS = new Set([
+  "hello.com",
+  "example.com",
+  "example.org",
+  "example.net",
+  "test.com",
+  "invalid.com",
+  "mailinator.com",
+  "yopmail.com",
+  "tempmail.com",
+  "trashmail.com",
+  "guerrillamail.com",
+  "10minutemail.com",
+  "dispostable.com",
+  "fakeinbox.com",
+  "maildrop.cc",
+  "getnada.com",
+  "sharklasers.com",
+  "burnermail.io",
+  "temp-mail.org",
+]);
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
@@ -62,7 +84,7 @@ export default function OnboardingPage() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
   
-  const [emailStatus, setEmailStatus] = useState<'idle' | 'taken'>('idle');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'taken' | 'invalid'>('idle');
   
   const otpRefs = [
     useRef<HTMLInputElement>(null),
@@ -94,9 +116,13 @@ export default function OnboardingPage() {
   };
 
   const validateEmail = (email: string) => {
-    return String(email)
-      .toLowerCase()
-      .match(/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/);
+    const normalized = String(email).trim().toLowerCase();
+    const pattern = /^([a-z0-9._%+\-]+)@([a-z0-9.\-]+\.[a-z]{2,})$/;
+    const match = normalized.match(pattern);
+    if (!match) return false;
+    const domain = match[2];
+    if (BLOCKED_EMAIL_DOMAINS.has(domain)) return false;
+    return true;
   };
 
   const nextStep = async () => {
@@ -108,13 +134,18 @@ export default function OnboardingPage() {
       
       setIsLoading(true);
       try {
-        const res = await api<{ available: boolean }>("/auth/email_available", {
+        const res = await api<{ available: boolean; reason?: string }>("/auth/email_available", {
           method: "POST",
           body: JSON.stringify({ email: data.email }),
         });
 
         if (!res.available) {
-          setEmailStatus('taken');
+          if (res.reason === "invalid_email") {
+            setEmailStatus("invalid");
+            setIsLoading(false);
+            return toast.error("Invalid email. Use a real deliverable email address.");
+          }
+          setEmailStatus("taken");
           setIsLoading(false);
           return toast.error("This email is already registered");
         }
@@ -151,6 +182,7 @@ export default function OnboardingPage() {
               id_token: googleIdToken,
               restaurant_name: data.name,
               currency: data.currency,
+              table_count: data.tableCount,
             }),
           });
         } else {
@@ -166,6 +198,7 @@ export default function OnboardingPage() {
               password: data.password,
               restaurant_name: data.name,
               currency: data.currency,
+              table_count: data.tableCount,
             }),
           });
         }
@@ -176,6 +209,10 @@ export default function OnboardingPage() {
       } catch (e: any) {
         if (e?.status === 409) {
           toast.error("An account already exists with this Google email. Please login.");
+        } else if (e?.status === 403) {
+          toast.error("Please complete email verification before signup.");
+        } else if (e?.status === 400) {
+          toast.error(e?.message || "Invalid signup details");
         } else if (e?.status === 503) {
           toast.error("Google signup is not configured yet.");
         } else {
@@ -397,8 +434,8 @@ export default function OnboardingPage() {
                   )}
                   <div className="space-y-4">
                     <div className="relative group">
-                      <Mail className={`absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 transition-colors ${emailStatus === 'taken' ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-600'}`} />
-                      <input autoFocus type="email" placeholder="manager@restaurant.com" value={data.email} onChange={(e) => { setData({ ...data, email: e.target.value }); setEmailStatus('idle'); }} className={`w-full pl-10 text-2xl font-semibold border-b-2 outline-none py-4 transition-all placeholder:text-slate-200 ${emailStatus === 'taken' ? 'border-red-100 focus:border-red-500' : 'border-slate-100 focus:border-indigo-600'}`} />
+                      <Mail className={`absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 transition-colors ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-600'}`} />
+                      <input autoFocus type="email" placeholder="manager@restaurant.com" value={data.email} onChange={(e) => { setData({ ...data, email: e.target.value }); setEmailStatus('idle'); }} className={`w-full pl-10 text-2xl font-semibold border-b-2 outline-none py-4 transition-all placeholder:text-slate-200 ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'border-red-100 focus:border-red-500' : 'border-slate-100 focus:border-indigo-600'}`} />
                     </div>
                     
                     <AnimatePresence>
@@ -406,6 +443,12 @@ export default function OnboardingPage() {
                         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-red-500">
                           <AlertCircle size={14} />
                           <span className="text-xs font-bold uppercase tracking-wider">Account already exists with this email</span>
+                        </motion.div>
+                      )}
+                      {emailStatus === 'invalid' && (
+                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-red-500">
+                          <AlertCircle size={14} />
+                          <span className="text-xs font-bold uppercase tracking-wider">Invalid email domain. Use a real deliverable email.</span>
                         </motion.div>
                       )}
                     </AnimatePresence>

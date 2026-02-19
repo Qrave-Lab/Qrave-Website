@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Save, Loader2, Globe } from "lucide-react";
+import { Save, Loader2, Globe, AlertTriangle, ArrowRight } from "lucide-react";
 import StaffSidebar from "../../../components/StaffSidebar";
 import RestaurantProfile from "@/app/components/settings/RestaurantProfile";
 import DeviceSettings from "@/app/components/settings/DeviceSettings";
@@ -10,12 +10,30 @@ import StaffManager from "@/app/components/settings/StaffManager";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
 import type { Restaurant, Staff, Table } from "@/app/components/settings/types";
+import Link from "next/link";
+
+type AdminMeResponse = {
+  role?: string;
+  email?: string;
+  restaurant?: string;
+  address?: string;
+  phone?: string;
+  currency?: string;
+  tax_percent?: number;
+  service_charge?: number;
+  ordering_enabled?: boolean;
+  logo_url?: string;
+  logo_version?: number;
+  open_time?: string;
+  close_time?: string;
+};
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  
+  const [role, setRole] = useState<string>("");
+
   const [tables, setTables] = useState<Table[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [restaurant, setRestaurant] = useState<Restaurant>({
@@ -44,7 +62,7 @@ export default function SettingsPage() {
   const fetchData = async () => {
     try {
       const [adminData, tablesData] = await Promise.all([
-        api<any>("/api/admin/me", { method: "GET" }),
+        api<AdminMeResponse>("/api/admin/me", { method: "GET" }),
         api<Table[]>("/api/admin/tables", { method: "GET" })
       ]);
 
@@ -63,12 +81,13 @@ export default function SettingsPage() {
       };
 
       const fetchedTables = tablesData || [];
-      const fetchedStaff: Staff[] = []; 
+      const fetchedStaff: Staff[] = [];
 
       setRestaurant(restObj);
       setTables(fetchedTables);
       setStaff(fetchedStaff);
-      
+      setRole(adminData.role || "");
+
       setInitialData({
         restaurant: restObj,
         tables: fetchedTables,
@@ -107,7 +126,7 @@ export default function SettingsPage() {
       if (!uploadRes.ok) throw new Error();
       setRestaurant((prev) => ({ ...prev, logo_url: `${public_url}?v=${Date.now()}` }));
       toast.success("Logo uploaded");
-    } catch (err) {
+    } catch {
       toast.error("Logo upload failed");
     } finally {
       setIsUploading(false);
@@ -132,7 +151,7 @@ export default function SettingsPage() {
       });
       await fetchData();
       toast.success("Settings updated successfully");
-    } catch (e) {
+    } catch {
       toast.error("Failed to save changes");
     } finally {
       setIsSaving(false);
@@ -218,9 +237,9 @@ export default function SettingsPage() {
         <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 max-w-[1600px] mx-auto pb-10">
             <div className="xl:col-span-7 flex flex-col gap-6">
-              <RestaurantProfile 
-                data={restaurant} 
-                onChange={setRestaurant} 
+              <RestaurantProfile
+                data={restaurant}
+                onChange={setRestaurant}
                 onLogoChange={handleLogoChange}
                 isUploading={isUploading}
               />
@@ -228,13 +247,33 @@ export default function SettingsPage() {
             </div>
 
             <div className="xl:col-span-5 flex flex-col gap-6">
-              <TableManager 
-                tables={tables} 
-                onAdd={addTable} 
-                onToggle={toggleTable} 
-                onRemove={removeTable} 
+              <TableManager
+                tables={tables}
+                onAdd={addTable}
+                onToggle={toggleTable}
+                onRemove={removeTable}
               />
               <StaffManager />
+              {role === "owner" && (
+                <section className="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-rose-100 bg-rose-50/50">
+                    <h2 className="font-bold text-rose-700">Delete Account</h2>
+                    <p className="text-[11px] text-rose-600 mt-1">
+                      Account deletion is permanent.
+                    </p>
+                  </div>
+                  <div className="p-6">
+                    <Link
+                      href="/staff/settings/delete-account"
+                      className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold"
+                    >
+                      <AlertTriangle className="w-4 h-4" />
+                      Delete Account
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </section>
+              )}
             </div>
           </div>
         </main>

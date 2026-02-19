@@ -20,12 +20,15 @@ import {
   Receipt,
   UtensilsCrossed,
   LogOut,
-  Trash2
+  Trash2,
+  Printer
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import StaffSidebar from "../../components/StaffSidebar";
 import { api } from "@/app/lib/api";
+import { printBillTicket, printKitchenTicket } from "@/app/lib/posPrinter";
+import { toast } from "react-hot-toast";
 
 type BillStatus = "open" | "bill_requested" | "bill_printed" | "paid";
 
@@ -561,12 +564,66 @@ export default function StaffDashboardPage() {
     const table = tables.find((t) => t.id === tableId);
     if (!table?.activeSessionId) return;
 
+    const tableOrders = activeOrders.filter((o) => o.table_id === table.id);
+    const billItems: Array<{ name: string; qty: number; amount: number }> = [];
+    let total = 0;
+    for (const order of tableOrders) {
+      for (const item of order.items || []) {
+        const lineTotal = item.price * item.quantity;
+        total += lineTotal;
+        billItems.push({
+          name: item.variant_label
+            ? `${item.menu_item_name} (${item.variant_label})`
+            : item.menu_item_name,
+          qty: item.quantity,
+          amount: lineTotal,
+        });
+      }
+    }
+
+    try {
+      await printBillTicket({
+        tableCode: table.tableCode,
+        printedAt: new Date().toLocaleString(),
+        items: billItems,
+        total,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to print bill";
+      toast.error(msg);
+      return;
+    }
+
     await api(`/api/admin/sessions/${table.activeSessionId}/end`, {
       method: "POST",
     });
 
+    toast.success("Bill printed and table closed");
     await refreshDashboard();
     setOpenMenuId(null);
+  };
+
+  const printOrderKOT = async (orderId: string) => {
+    const source = activeOrders.find((o) => (o.id || o.order_id) === orderId);
+    if (!source) {
+      toast.error("Order not found for printing");
+      return;
+    }
+    try {
+      await printKitchenTicket({
+        orderId,
+        tableCode: `T${source.table_number}`,
+        placedAt: new Date(source.created_at).toLocaleString(),
+        items: (source.items || []).map((i) => ({
+          name: i.variant_label ? `${i.menu_item_name} (${i.variant_label})` : i.menu_item_name,
+          qty: i.quantity,
+        })),
+      });
+      toast.success("Kitchen ticket sent");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to print ticket";
+      toast.error(msg);
+    }
   };
 
   const executeMoveTable = async (targetTableId: string) => {
@@ -841,7 +898,6 @@ export default function StaffDashboardPage() {
                 const seatedMinutes = getMinutesDiff(table.seatedAt);
                 const longSit = table.isOccupied && seatedMinutes > 90;
 
-                // Count both pending AND cooking for the table pill, because cooking items are still "In Kitchen"
                 const activeOrdersForTable = orders.filter((o) => o.tableCode === table.tableCode && (o.status === 'pending' || o.status === 'cooking')).length;
 
                 let cardStyle = "bg-white border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300";
@@ -1172,9 +1228,17 @@ export default function StaffDashboardPage() {
                               <>
                                 <button onClick={() => handleAccept(order.orderId)} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100">Accept</button>
                                 <button onClick={() => handleReject(order.orderId)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100">Reject</button>
+                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-indigo-100 inline-flex items-center gap-1">
+                                  <Printer className="w-3.5 h-3.5" /> KOT
+                                </button>
                               </>
                             ) : (
-                              <button onClick={() => handleServe(order.orderId)} className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors">Mark Served</button>
+                              <div className="w-full flex gap-2">
+                                <button onClick={() => handleServe(order.orderId)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors">Mark Served</button>
+                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-indigo-100 inline-flex items-center gap-1">
+                                  <Printer className="w-3.5 h-3.5" /> KOT
+                                </button>
+                              </div>
                             )}
                           </div>
                         </motion.div>
