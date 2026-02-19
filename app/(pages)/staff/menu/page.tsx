@@ -150,7 +150,7 @@ export default function MenuPage() {
     let cancelled = false;
     (async () => {
       try {
-        await import("@google/model-viewer/dist/model-viewer.min.js");
+        await import("@google/model-viewer");
         if (!cancelled) setModelViewerReady(true);
       } catch {
         try {
