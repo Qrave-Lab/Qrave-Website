@@ -8,6 +8,7 @@ export type CartItemDTO = {
 
 export type CartRes = {
   items: Record<string, CartItemDTO>;
+  order_id?: string;
 };
 export const orderService = {
   ensureSession: async () => {
@@ -119,7 +120,11 @@ export const orderService = {
     if (!orderId && typeof window !== "undefined") {
       orderId = localStorage.getItem("order_id") || undefined;
     }
-    return api<CartRes>(`/api/customer/orders/cart${orderId ? `?order_id=${orderId}` : ""}`);
+    const res = await api<CartRes>(`/api/customer/orders/cart${orderId ? `?order_id=${orderId}` : ""}`);
+    if (res.order_id) {
+      localStorage.setItem("order_id", res.order_id);
+    }
+    return res;
   },
 
   getOrders: () => {
@@ -175,6 +180,9 @@ export const orderService = {
         }),
         credentials: "include"
       });
+      if (res.order_id) {
+        localStorage.setItem("order_id", res.order_id);
+      }
       return res;
     } catch (e: any) {
       if (e.message && (e.message.includes("session_id is required") || e.message.includes("session expired"))) {
@@ -189,9 +197,9 @@ export const orderService = {
     }
   },
 
-  decrementItem: (itemId: string, variantId?: string | number) => {
+  decrementItem: async (itemId: string, variantId?: string | number) => {
     const orderId = typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
-    return api<CartRes>(`/api/customer/orders/decrement${orderId ? `?order_id=${orderId}` : ""}`, {
+    const res = await api<CartRes>(`/api/customer/orders/decrement${orderId ? `?order_id=${orderId}` : ""}`, {
       method: "POST",
       body: JSON.stringify({
         order_id: orderId,
@@ -199,11 +207,15 @@ export const orderService = {
         variant_id: variantId || null,
       }),
     });
+    if (res.order_id) {
+      localStorage.setItem("order_id", res.order_id);
+    }
+    return res;
   },
 
-  removeItem: (itemId: string, variantId?: string | number) => {
+  removeItem: async (itemId: string, variantId?: string | number) => {
     const orderId = typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
-    return api(`/api/customer/orders/remove${orderId ? `?order_id=${orderId}` : ""}`, {
+    const res = await api<any>(`/api/customer/orders/remove${orderId ? `?order_id=${orderId}` : ""}`, {
       method: "POST",
       body: JSON.stringify({
         order_id: orderId,
@@ -211,6 +223,10 @@ export const orderService = {
         variant_id: variantId || null,
       }),
     });
+    if (res.order_id) {
+      localStorage.setItem("order_id", res.order_id);
+    }
+    return res;
   },
 
   getTotalBreakdown: (orderId: string) => {

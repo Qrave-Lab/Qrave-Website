@@ -62,11 +62,17 @@ export default function ImmersiveMenu({
 
     if (!currentItem) {
         return (
-            <div className="fixed inset-0 z-[60] bg-[#1a1a2e] flex items-center justify-center">
+            <div className="fixed inset-0 z-[60] bg-white flex items-center justify-center">
                 <div className="text-center">
-                    <p className="text-xl font-bold text-white mb-4">No items available</p>
+                    <p className="text-xl font-bold text-black mb-4" style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}>
+                        No items available
+                    </p>
                     {orderingEnabled && (
-                        <button onClick={onClose} className="px-6 py-2 bg-white text-slate-900 rounded-full font-bold text-sm">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-black text-white text-xs font-bold tracking-[0.15em] uppercase transition-all active:scale-95"
+                            style={{ fontFamily: "'DM Sans', sans-serif" }}
+                        >
                             {t("listView")}
                         </button>
                     )}
@@ -116,8 +122,8 @@ export default function ImmersiveMenu({
             x: 0,
             opacity: 1,
             transition: {
-                x: { type: "spring" as const, stiffness: 300, damping: 30 },
-                opacity: { duration: 0.15 },
+                x: { type: "spring" as const, stiffness: 320, damping: 32 },
+                opacity: { duration: 0.12 },
             },
         },
         exit: (dir: number) => ({
@@ -125,8 +131,8 @@ export default function ImmersiveMenu({
             x: dir < 0 ? "100%" : "-100%",
             opacity: 0,
             transition: {
-                x: { type: "spring" as const, stiffness: 300, damping: 30 },
-                opacity: { duration: 0.15 },
+                x: { type: "spring" as const, stiffness: 320, damping: 32 },
+                opacity: { duration: 0.12 },
             },
         }),
     };
@@ -144,42 +150,53 @@ export default function ImmersiveMenu({
     const desc = currentItem.description || "";
 
     return (
-        <div className="fixed inset-0 z-[60] bg-[#1a1a2e] overflow-hidden flex flex-col">
+        <div
+            className="fixed inset-0 z-[60] overflow-hidden flex flex-col bg-white"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+        >
             {/* ── Header ── */}
-            <header className="relative z-10 px-5 pt-5 pb-3 flex items-center justify-between">
+            <header className="relative z-10 px-5 pt-8 pb-2 flex items-center justify-between">
                 <button
                     onClick={orderingEnabled ? onClose : undefined}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${orderingEnabled
-                        ? "bg-white/10 text-white hover:bg-white/20 active:scale-95"
-                        : "opacity-0 pointer-events-none"
-                        }`}
+                    className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center transition-all active:scale-90 hover:bg-black/5"
+                    style={{
+                        opacity: orderingEnabled ? 1 : 0,
+                        pointerEvents: orderingEnabled ? "auto" : "none",
+                        color: "#111",
+                    }}
                 >
-                    <ChevronLeft size={20} />
+                    <ChevronLeft size={18} strokeWidth={2.5} />
                 </button>
 
-                <div className="flex items-center gap-1.5">
+                {/* Animated progress dots */}
+                <div className="flex items-center gap-[5px]">
                     {items.map((_, idx) => {
-                        if (Math.abs(idx - currentIndex) > 4) return null;
+                        if (Math.abs(idx - currentIndex) > 5) return null;
                         return (
-                            <div
+                            <motion.div
                                 key={idx}
-                                className={`rounded-full transition-all duration-300 ${idx === currentIndex ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/30"
-                                    }`}
+                                animate={{
+                                    width: idx === currentIndex ? 20 : 5,
+                                    opacity: idx === currentIndex ? 1 : 0.18,
+                                }}
+                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                className="h-[5px] rounded-full bg-black"
                             />
                         );
                     })}
                 </div>
 
-                {orderingEnabled ? (
-                    <button
-                        onClick={onClose}
-                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:scale-95 transition-colors"
-                    >
-                        <List size={18} />
-                    </button>
-                ) : (
-                    <div className="w-10 h-10" />
-                )}
+                <button
+                    onClick={orderingEnabled ? onClose : undefined}
+                    className="w-10 h-10 rounded-full border border-black/10 flex items-center justify-center transition-all active:scale-90 hover:bg-black/5"
+                    style={{
+                        opacity: orderingEnabled ? 1 : 0,
+                        pointerEvents: orderingEnabled ? "auto" : "none",
+                        color: "#111",
+                    }}
+                >
+                    <List size={17} />
+                </button>
             </header>
 
             {/* ── Swipeable Content ── */}
@@ -194,17 +211,37 @@ export default function ImmersiveMenu({
                         exit="exit"
                         drag="x"
                         dragConstraints={{ left: 0, right: 0 }}
-                        dragElastic={0.7}
+                        dragElastic={0.65}
                         onDragEnd={onDragEnd}
-                        className="absolute inset-0 flex flex-col overflow-y-auto px-6 pb-6"
+                        className="absolute inset-0 flex flex-col overflow-y-auto"
                         style={{ scrollbarWidth: "none" }}
                     >
-                        {/* ── Hero: 3D Model or Image ── */}
-                        <div className="flex-shrink-0 flex items-center justify-center pt-2 pb-6">
-                            <div className="relative w-64 h-64 sm:w-72 sm:h-72">
-                                {/* Circular glow behind the food */}
-                                <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/5 to-transparent" />
-                                <div className="absolute inset-4 rounded-full bg-[#2a2a40] shadow-2xl shadow-black/50" />
+                        {/* ── Hero Image ── */}
+                        <div className="relative flex-shrink-0 flex items-center justify-center pt-4 pb-0 mx-6">
+                            {/* Ghost watermark index */}
+                            <span
+                                className="absolute left-0 top-1/2 -translate-y-1/2 select-none pointer-events-none font-black text-[110px] leading-none"
+                                style={{
+                                    color: "transparent",
+                                    WebkitTextStroke: "1.5px rgba(0,0,0,0.045)",
+                                    fontFamily: "'Cormorant Garamond', Georgia, serif",
+                                    zIndex: 0,
+                                    userSelect: "none",
+                                }}
+                            >
+                                {String(currentIndex + 1).padStart(2, "0")}
+                            </span>
+
+                            <div className="relative z-10 w-64 h-64 sm:w-72 sm:h-72">
+                                {/* Plate disc */}
+                                <div
+                                    className="absolute inset-0 rounded-full"
+                                    style={{
+                                        background: "radial-gradient(circle at 38% 33%, #f7f7f7, #e8e8e8)",
+                                        boxShadow:
+                                            "0 24px 64px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)",
+                                    }}
+                                />
 
                                 {hasModel ? (
                                     <div className="absolute inset-0 rounded-full overflow-hidden">
@@ -215,19 +252,16 @@ export default function ImmersiveMenu({
                                             auto-rotate
                                             tone-mapping="commerce"
                                             shadow-intensity="1"
-                                            style={{
-                                                width: "100%",
-                                                height: "100%",
-                                                background: "transparent",
-                                            }}
+                                            style={{ width: "100%", height: "100%", background: "transparent" }}
                                         />
                                     </div>
                                 ) : (
-                                    <div className="absolute inset-4 rounded-full overflow-hidden">
+                                    <div className="absolute inset-0 rounded-full overflow-hidden p-6">
                                         <img
                                             src={currentItem.image}
                                             alt={currentItem.name}
-                                            className="w-full h-full object-cover"
+                                            className="w-full h-full object-contain"
+                                            style={{ filter: "drop-shadow(0 14px 28px rgba(0,0,0,0.15))" }}
                                         />
                                     </div>
                                 )}
@@ -235,149 +269,183 @@ export default function ImmersiveMenu({
                                 {hasModel && (
                                     <button
                                         onClick={() => onArClick(currentItem)}
-                                        className="absolute bottom-2 right-2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[10px] font-bold flex items-center gap-1 active:scale-95 transition-transform"
+                                        className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full text-[10px] font-black flex items-center gap-1.5 active:scale-95 transition-transform uppercase tracking-wider border border-black text-black bg-white"
+                                        style={{ boxShadow: "0 2px 10px rgba(0,0,0,0.1)" }}
                                     >
-                                        <Scan size={12} />
+                                        <Scan size={11} />
                                         AR
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        {/* ── Food Title + Price ── */}
-                        <div className="flex items-start justify-between mb-3">
-                            <h2 className="text-2xl font-black text-white leading-tight pr-4">
-                                {currentItem.name}
-                            </h2>
-                            <span className="text-xl font-black text-white flex-shrink-0">
-                                ₹{displayPrice}
-                            </span>
-                        </div>
+                        {/* ── Content ── */}
+                        <div className="flex-1 px-6 pt-8 pb-6">
 
-                        {/* ── Description ── */}
-                        {desc && (
-                            <div className="mb-5">
-                                <p className={`text-sm text-white/50 leading-relaxed ${!expandedDesc ? "line-clamp-2" : ""}`}>
-                                    {desc}
-                                </p>
-                                {desc.length > 80 && (
-                                    <button
-                                        onClick={() => setExpandedDesc(!expandedDesc)}
-                                        className="text-xs font-bold text-amber-400 mt-1"
-                                    >
-                                        {expandedDesc ? "Show Less" : "Read More"}
-                                    </button>
-                                )}
+                            {/* Category + counter */}
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-black/25">
+                                    {currentItem.category || "Menu"}
+                                </span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-black/25">
+                                    {String(currentIndex + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
+                                </span>
                             </div>
-                        )}
 
-                        {/* ── Stats Row ── */}
-                        <div className="flex items-center gap-4 mb-6">
-                            {currentItem.rating > 0 && (
-                                <div className="flex items-center gap-1.5">
-                                    <Star size={16} className="fill-amber-400 text-amber-400" />
-                                    <span className="text-sm font-bold text-white">{currentItem.rating}</span>
-                                </div>
-                            )}
-                            {currentItem.calories && (
-                                <div className="flex items-center gap-1.5">
-                                    <Flame size={16} className="text-orange-400" />
-                                    <span className="text-sm font-medium text-white/70">{currentItem.calories} Kcal</span>
-                                </div>
-                            )}
-                            <div className="flex items-center gap-1.5">
-                                <Clock size={16} className="text-blue-400" />
-                                <span className="text-sm font-medium text-white/70">8-10 Min</span>
+                            {/* Name + Price */}
+                            <div className="flex items-end justify-between gap-4 mb-1">
+                                <h2
+                                    className="text-[30px] leading-[1.08] text-black flex-1"
+                                    style={{
+                                        fontFamily: "'Cormorant Garamond', Georgia, serif",
+                                        fontWeight: 600,
+                                        letterSpacing: "-0.02em",
+                                    }}
+                                >
+                                    {currentItem.name}
+                                </h2>
+                                <span
+                                    className="text-2xl text-black flex-shrink-0 pb-0.5"
+                                    style={{
+                                        fontFamily: "'Cormorant Garamond', Georgia, serif",
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    ₹{displayPrice}
+                                </span>
                             </div>
-                        </div>
 
-                        {/* ── Ingredients ── */}
-                        {ingredients.length > 0 && (
-                            <div className="mb-6">
-                                <h4 className="text-xs font-bold uppercase tracking-widest text-white/40 mb-3">
-                                    Ingredients
-                                </h4>
-                                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-                                    {ingredients.map((ing, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white/8 border border-white/10 flex items-center justify-center"
-                                            title={ing}
-                                        >
-                                            <span className="text-[10px] font-medium text-white/60 text-center leading-tight px-1">
-                                                {ing.length > 6 ? ing.slice(0, 6) + "…" : ing}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                            {/* Rule */}
+                            <div className="w-full h-px bg-black/8 mb-4" />
 
-                        {/* ── Variants ── */}
-                        {visibleVariants.length > 0 && (
-                            <div className="mb-6">
-                                <h4 className="text-xs font-bold uppercase tracking-widest text-white/40 mb-3">
-                                    Options
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {visibleVariants.map((v: any) => (
+                            {/* Description */}
+                            {desc && (
+                                <div className="mb-5">
+                                    <p className={`text-sm leading-relaxed text-black/45 ${!expandedDesc ? "line-clamp-2" : ""}`}>
+                                        {desc}
+                                    </p>
+                                    {desc.length > 80 && (
                                         <button
-                                            key={v.id}
-                                            onClick={() => setSelectedVariants((p) => ({ ...p, [currentItem.id]: v.id }))}
-                                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${activeVariantId === v.id
-                                                ? "bg-white text-slate-900 border-white"
-                                                : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
-                                                }`}
+                                            onClick={() => setExpandedDesc(!expandedDesc)}
+                                            className="text-[10px] font-black mt-1.5 uppercase tracking-[0.15em] text-black/30 hover:text-black transition-colors"
                                         >
-                                            {v.name}
-                                            {v.priceDelta > 0 && ` +₹${v.priceDelta}`}
+                                            {expandedDesc ? "collapse ↑" : "read more ↓"}
                                         </button>
-                                    ))}
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Stats pills */}
+                            <div className="flex items-center gap-2 mb-7 flex-wrap">
+                                {currentItem.rating > 0 && (
+                                    <div className="flex items-center gap-1.5 px-3 py-[7px] border border-black/10 rounded-full">
+                                        <Star size={11} className="fill-black text-black" />
+                                        <span className="text-[11px] font-bold text-black">{currentItem.rating}</span>
+                                    </div>
+                                )}
+                                {currentItem.calories && (
+                                    <div className="flex items-center gap-1.5 px-3 py-[7px] border border-black/10 rounded-full">
+                                        <Flame size={11} className="text-black" />
+                                        <span className="text-[11px] font-bold text-black">{currentItem.calories} kcal</span>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-1.5 px-3 py-[7px] border border-black/10 rounded-full">
+                                    <Clock size={11} className="text-black" />
+                                    <span className="text-[11px] font-bold text-black">8–10 min</span>
                                 </div>
                             </div>
-                        )}
+
+                            {/* Ingredients */}
+                            {ingredients.length > 0 && (
+                                <div className="mb-7">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.22em] text-black/22 mb-3">
+                                        Ingredients
+                                    </h4>
+                                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                        {ingredients.map((ing, idx) => (
+                                            <div
+                                                key={idx}
+                                                title={ing}
+                                                className="flex-shrink-0 px-3 py-2 border border-black/8 rounded-xl flex items-center justify-center active:scale-95 transition-transform hover:border-black/20 hover:bg-black/[0.02]"
+                                                style={{ minWidth: "52px" }}
+                                            >
+                                                <span className="text-[10px] font-bold text-black/35 text-center leading-tight uppercase tracking-tight">
+                                                    {ing.length > 6 ? ing.slice(0, 6) : ing}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Variants */}
+                            {visibleVariants.length > 0 && (
+                                <div className="mb-4">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.22em] text-black/22 mb-3">
+                                        Options
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {visibleVariants.map((v: any) => {
+                                            const isActive = activeVariantId === v.id;
+                                            return (
+                                                <button
+                                                    key={v.id}
+                                                    onClick={() => setSelectedVariants((p) => ({ ...p, [currentItem.id]: v.id }))}
+                                                    className="px-4 py-2.5 text-[11px] font-black transition-all uppercase tracking-wider active:scale-95 rounded-full"
+                                                    style={{
+                                                        background: isActive ? "#000" : "transparent",
+                                                        color: isActive ? "#fff" : "#000",
+                                                        border: "1.5px solid #000",
+                                                        boxShadow: isActive ? "0 4px 14px rgba(0,0,0,0.2)" : "none",
+                                                    }}
+                                                >
+                                                    {v.name}{v.priceDelta > 0 && ` +₹${v.priceDelta}`}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </motion.div>
                 </AnimatePresence>
             </div>
 
             {/* ── Bottom Bar ── */}
             {orderingEnabled && (
-                <div className="relative z-10 px-6 pb-8 pt-3 bg-gradient-to-t from-[#1a1a2e] via-[#1a1a2e] to-transparent">
+                <div
+                    className="relative z-10 px-5 pb-10 pt-4 bg-white"
+                    style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}
+                >
                     <div className="flex items-center gap-3">
-                        {quantity > 0 ? (
-                            <>
-                                <div className="flex items-center bg-[#2a2a40] rounded-2xl h-14 px-1">
-                                    <button
-                                        onClick={() => onRemove(currentItem.id, activeVariantId)}
-                                        className="w-12 h-12 rounded-xl flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all"
-                                    >
-                                        <Minus size={18} />
-                                    </button>
-                                    <span className="w-8 text-center text-lg font-black text-white">{quantity}</span>
-                                    <button
-                                        onClick={() => onAdd(currentItem.id, activeVariantId, displayPrice)}
-                                        className="w-12 h-12 rounded-xl flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all"
-                                    >
-                                        <Plus size={18} />
-                                    </button>
-                                </div>
-                                <button
-                                    onClick={() => onAdd(currentItem.id, activeVariantId, displayPrice)}
-                                    className="flex-1 h-14 bg-amber-500 text-slate-900 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                                >
-                                    <ShoppingBag size={18} />
-                                    Add To Cart
-                                </button>
-                            </>
-                        ) : (
+                        {/* Qty stepper */}
+                        <div className="flex items-center border border-black/10 rounded-2xl h-[60px] px-1.5">
+                            <button
+                                onClick={() => onRemove(currentItem.id, activeVariantId)}
+                                className="w-11 h-11 rounded-xl flex items-center justify-center text-black/30 hover:text-black hover:bg-black/5 active:scale-90 transition-all"
+                            >
+                                <Minus size={17} strokeWidth={2.5} />
+                            </button>
+                            <span className="w-9 text-center text-lg font-black text-black">
+                                {quantity || 0}
+                            </span>
                             <button
                                 onClick={() => onAdd(currentItem.id, activeVariantId, displayPrice)}
-                                className="w-full h-14 bg-amber-500 text-slate-900 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-lg shadow-amber-500/20"
+                                className="w-11 h-11 rounded-xl flex items-center justify-center text-black hover:bg-black/5 active:scale-90 transition-all"
                             >
-                                <ShoppingBag size={18} />
-                                Add To Cart — ₹{displayPrice}
+                                <Plus size={17} strokeWidth={2.5} />
                             </button>
-                        )}
+                        </div>
+
+                        {/* CTA */}
+                        <button
+                            onClick={() => onAdd(currentItem.id, activeVariantId, displayPrice)}
+                            className="flex-1 h-[60px] bg-black text-white rounded-2xl font-black text-[12px] active:scale-[0.97] transition-all flex items-center justify-center gap-2.5 uppercase tracking-[0.12em]"
+                            style={{ boxShadow: "0 8px 28px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.1)" }}
+                        >
+                            <ShoppingBag size={17} strokeWidth={2.5} />
+                            Add to Cart
+                        </button>
                     </div>
                 </div>
             )}

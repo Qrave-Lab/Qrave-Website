@@ -72,6 +72,12 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
     return () => window.removeEventListener("cart-error", handleError);
   }, []);
 
+  useEffect(() => {
+    if (!orderingEnabled) {
+      setIsImmersive(true);
+    }
+  }, [orderingEnabled]);
+
   const normalizeItem = (item: any) => {
     const basePrice = Number(item.price || 0);
     const variants = Array.isArray(item.variants)
