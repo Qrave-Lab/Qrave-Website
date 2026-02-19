@@ -233,8 +233,9 @@ export default function MenuPage() {
 
     try {
       if (type === "image") {
+        const ct = encodeURIComponent(file.type || "image/png");
         const res: any = await authFetch(
-          `/api/admin/menu/item/image/upload-url?item_id=${editingItem.id}`,
+          `/api/admin/menu/item/image/upload-url?item_id=${editingItem.id}&content_type=${ct}`,
           { method: "POST" }
         );
 
@@ -253,6 +254,12 @@ export default function MenuPage() {
       } else {
         if (!editingItem.id) {
           toast.error("Save item first before uploading 3D model");
+          return;
+        }
+        const maxBytes = 12 * 1024 * 1024;
+        if (file.size > maxBytes) {
+          toast.dismiss(uploadToastId);
+          toast.error("GLB too large. Keep it under 12MB for reliable loading.");
           return;
         }
         const form = new FormData();

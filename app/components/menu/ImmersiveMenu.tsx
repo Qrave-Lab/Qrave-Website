@@ -48,6 +48,7 @@ export default function ImmersiveMenu({
     const [direction, setDirection] = useState(0);
     const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
     const [expandedDesc, setExpandedDesc] = useState(false);
+    const [modelViewerReady, setModelViewerReady] = useState(false);
 
     useEffect(() => {
         if (items.length === 0) return;
@@ -57,6 +58,21 @@ export default function ImmersiveMenu({
     useEffect(() => {
         setExpandedDesc(false);
     }, [currentIndex]);
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                await import("@google/model-viewer");
+                if (mounted) setModelViewerReady(true);
+            } catch {
+                if (mounted) setModelViewerReady(false);
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const currentItem = items[currentIndex];
 
@@ -243,7 +259,7 @@ export default function ImmersiveMenu({
                                     }}
                                 />
 
-                                {hasModel ? (
+                                {hasModel && modelViewerReady ? (
                                     <div className="absolute inset-0 rounded-full overflow-hidden">
                                         <model-viewer
                                             src={currentItem.arModelGlb}

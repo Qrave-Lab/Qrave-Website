@@ -19,6 +19,14 @@ const resolve = (val: any): string => {
   return String(val);
 };
 
+const sanitizeModelUrl = (val: any): string => {
+  const raw = resolve(val).trim();
+  if (!raw) return "";
+  const lower = raw.toLowerCase();
+  if (lower.startsWith("blob:")) return "";
+  return raw;
+};
+
 const getParentName = (item: any): string => {
   const parent = resolve(item.parentCategoryName);
   if (parent) return parent;
@@ -54,6 +62,10 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
   const [arItem, setArItem] = useState<any | null>(null);
   const modelViewerRef = React.useRef<any>(null);
   const [isBrowser, setIsBrowser] = useState(false);
+  const [modelViewerReady, setModelViewerReady] = useState(false);
+  const [modelViewerFailed, setModelViewerFailed] = useState(false);
+  const [arModelError, setArModelError] = useState("");
+  const [arModelRenderKey, setArModelRenderKey] = useState(0);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
 
@@ -94,8 +106,8 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
       })
       : [];
 
-    const resolvedGlb = resolve(item.modelGlb || item.arModelGlb);
-    const resolvedUsdz = resolve(item.modelUsdz || item.arModelUsdz);
+    const resolvedGlb = sanitizeModelUrl(item.modelGlb || item.arModelGlb);
+    const resolvedUsdz = sanitizeModelUrl(item.modelUsdz || item.arModelUsdz);
 
     return {
       ...item,
@@ -358,13 +370,51 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (document.querySelector("script[data-model-viewer]")) return;
-    const script = document.createElement("script");
-    script.type = "module";
-    script.src = "https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js";
-    script.setAttribute("data-model-viewer", "true");
-    document.head.appendChild(script);
+    let mounted = true;
+    (async () => {
+      try {
+        await import("@google/model-viewer");
+        if (!mounted) return;
+        setModelViewerReady(true);
+        setModelViewerFailed(false);
+      } catch {
+        if (!mounted) return;
+        setModelViewerFailed(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const link = document.createElement("link");
+    link.rel = "preconnect";
+    link.href = "https://qrave-restaurant-profile.s3.amazonaws.com";
+    link.crossOrigin = "anonymous";
+    document.head.appendChild(link);
+    return () => {
+      if (link.parentNode) link.parentNode.removeChild(link);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!arItem?.arModelGlb) return;
+    const modelUrl = sanitizeModelUrl(arItem.arModelGlb);
+    if (!modelUrl) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 7000);
+    fetch(modelUrl, {
+      method: "HEAD",
+      cache: "force-cache",
+      signal: controller.signal,
+    }).catch(() => {});
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [arItem?.arModelGlb]);
 
   const toggleLanguage = () => {
     const langs = ['en', 'hi', 'ml'] as const;
@@ -374,11 +424,14 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
   };
 
   const handleArOpen = (item: any) => {
+    setArModelError("");
+    setArModelRenderKey((v) => v + 1);
     setArItem(item);
   };
 
   const handleArClose = () => {
     setArItem(null);
+    setArModelError("");
   };
 
   const activateAr = () => {
@@ -436,24 +489,47 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
 
               <div className="p-5 space-y-4">
                 <div className="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">
-                  <model-viewer
-                    ref={modelViewerRef}
-                    src={arItem.arModelGlb}
-                    alt={arItem.name}
-                    auto-rotate
-                    ar
-                    ar-modes="scene-viewer webxr"
-                    ar-scale="fixed"
-                    disable-zoom
-                    interaction-prompt="none"
-                    camera-orbit="0deg 75deg 1.8m"
-                    min-camera-orbit="auto auto 1.8m"
-                    max-camera-orbit="auto auto 1.8m"
-                    tone-mapping="commerce"
-                    shadow-intensity="1"
-                    style={{ width: "100%", height: "280px", background: "#f1f5f9" }}
-                  />
+                  {!modelViewerReady ? (
+                    <div className="w-full h-[280px] flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100">
+                      {modelViewerFailed ? "3D viewer failed to initialize" : "Loading 3D viewer..."}
+                    </div>
+                  ) : (
+                    <model-viewer
+                      key={`${arItem.id || arItem.name}-${arModelRenderKey}`}
+                      ref={modelViewerRef}
+                      src={sanitizeModelUrl(arItem.arModelGlb)}
+                      alt={arItem.name}
+                      auto-rotate
+                      ar
+                      ar-modes="scene-viewer webxr"
+                      ar-scale="fixed"
+                      disable-zoom
+                      interaction-prompt="none"
+                      camera-orbit="0deg 75deg 1.8m"
+                      min-camera-orbit="auto auto 1.8m"
+                      max-camera-orbit="auto auto 1.8m"
+                      tone-mapping="commerce"
+                      shadow-intensity="1"
+                      onLoad={() => setArModelError("")}
+                      onError={() =>
+                        setArModelError("3D model failed to load. Try again or re-upload an optimized GLB.")
+                      }
+                      style={{ width: "100%", height: "280px", background: "#f1f5f9" }}
+                    />
+                  )}
                 </div>
+                {arModelError && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+                    {arModelError}
+                    <button
+                      type="button"
+                      onClick={() => setArModelRenderKey((v) => v + 1)}
+                      className="ml-2 underline"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-slate-200 p-3">

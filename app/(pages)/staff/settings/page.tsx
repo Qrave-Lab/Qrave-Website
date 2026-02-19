@@ -115,7 +115,8 @@ export default function SettingsPage() {
     if (!file) return;
     setIsUploading(true);
     try {
-      const { upload_url, public_url } = await api<{ upload_url: string; public_url: string }>("/api/admin/logo-pic/upload-url", {
+      const ct = encodeURIComponent(file.type || "image/png");
+      const { upload_url, public_url } = await api<{ upload_url: string; public_url: string }>(`/api/admin/logo-pic/upload-url?content_type=${ct}`, {
         method: "POST",
       });
       const uploadRes = await fetch(upload_url, {
