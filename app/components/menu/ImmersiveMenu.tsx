@@ -248,8 +248,12 @@ export default function ImmersiveMenu({
                                         <model-viewer
                                             src={currentItem.arModelGlb}
                                             alt={currentItem.name}
-                                            camera-controls
                                             auto-rotate
+                                            disable-zoom
+                                            interaction-prompt="none"
+                                            camera-orbit="0deg 75deg 1.8m"
+                                            min-camera-orbit="auto auto 1.8m"
+                                            max-camera-orbit="auto auto 1.8m"
                                             tone-mapping="commerce"
                                             shadow-intensity="1"
                                             style={{ width: "100%", height: "100%", background: "transparent" }}

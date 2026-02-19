@@ -1525,10 +1525,15 @@ export default function MenuPage() {
                                 key={editingItem.modelGlb || editingItem.modelUsdz}
                                 src={editingItem.modelGlb}
                                 alt={editingItem.name || "3D model"}
-                                camera-controls
                                 auto-rotate
                                 ar
                                 ar-modes="scene-viewer webxr"
+                                ar-scale="fixed"
+                                disable-zoom
+                                interaction-prompt="none"
+                                camera-orbit="0deg 75deg 1.8m"
+                                min-camera-orbit="auto auto 1.8m"
+                                max-camera-orbit="auto auto 1.8m"
                                 environment-image="neutral"
                                 shadow-intensity="1"
                                 tone-mapping="commerce"
@@ -1557,7 +1562,7 @@ export default function MenuPage() {
                           <div className="text-center">
                             <Box className="mx-auto text-indigo-200 mb-2" />
                             <span className="text-sm font-bold text-indigo-300">
-                              Upload GLB/USDZ for AR
+                              Upload GLB for AR
                             </span>
                           </div>
                         )}

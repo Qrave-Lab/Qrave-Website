@@ -440,10 +440,15 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
                     ref={modelViewerRef}
                     src={arItem.arModelGlb}
                     alt={arItem.name}
-                    camera-controls
                     auto-rotate
                     ar
                     ar-modes="scene-viewer webxr"
+                    ar-scale="fixed"
+                    disable-zoom
+                    interaction-prompt="none"
+                    camera-orbit="0deg 75deg 1.8m"
+                    min-camera-orbit="auto auto 1.8m"
+                    max-camera-orbit="auto auto 1.8m"
                     tone-mapping="commerce"
                     shadow-intensity="1"
                     style={{ width: "100%", height: "280px", background: "#f1f5f9" }}
