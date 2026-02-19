@@ -93,6 +93,16 @@ type CategoryOption = {
   parent_name?: string | null;
 };
 
+const normalizeAssetUrl = (value: string): string => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (/^[a-z0-9-]+\.cloudfront\.net\//i.test(raw)) return `https://${raw}`;
+  if (/^[a-z0-9.-]+\.amazonaws\.com\//i.test(raw)) return `https://${raw}`;
+  return raw;
+};
+
 export const authFetch = async (url: string, options: RequestInit = {}) => {
   return await api(url, {
     ...options,
@@ -140,10 +150,23 @@ export default function MenuPage() {
     let cancelled = false;
     (async () => {
       try {
-        await import("@google/model-viewer");
+        await import("@google/model-viewer/dist/model-viewer.min.js");
         if (!cancelled) setModelViewerReady(true);
-      } catch (e) {
-        console.error("Failed to initialize model-viewer", e);
+      } catch {
+        try {
+          if (!document.querySelector('script[data-model-viewer-fallback="true"]')) {
+            const script = document.createElement("script");
+            script.type = "module";
+            script.src = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.1.0/dist/model-viewer.min.js";
+            script.setAttribute("data-model-viewer-fallback", "true");
+            script.onload = () => {
+              if (!cancelled) setModelViewerReady(true);
+            };
+            document.head.appendChild(script);
+          }
+        } catch {
+          // keep false; UI handles loading/error text
+        }
       }
     })();
     return () => {
@@ -182,9 +205,9 @@ export default function MenuPage() {
             ? item.parentCategoryName?.String ?? ""
             : item.parentCategoryName ?? "",
         description: item.description?.String ?? item.description ?? "",
-        imageUrl: item.imageUrl?.String ?? item.imageUrl ?? "",
-        modelGlb: item.modelGlb?.String ?? item.modelGlb ?? "",
-        modelUsdz: item.modelUsdz?.String ?? item.modelUsdz ?? "",
+        imageUrl: normalizeAssetUrl(item.imageUrl?.String ?? item.imageUrl ?? ""),
+        modelGlb: normalizeAssetUrl(item.modelGlb?.String ?? item.modelGlb ?? ""),
+        modelUsdz: normalizeAssetUrl(item.modelUsdz?.String ?? item.modelUsdz ?? ""),
         variants: item.variants || [],
         allergens: item.allergens || [],
         availableDays: item.availableDays || [],
@@ -1515,7 +1538,7 @@ export default function MenuPage() {
                               Remove
                             </button>
                             <a
-                              href={editingItem.modelGlb || editingItem.modelUsdz || "#"}
+                              href={normalizeAssetUrl(editingItem.modelGlb || editingItem.modelUsdz || "#")}
                               target="_blank"
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}
@@ -1530,7 +1553,7 @@ export default function MenuPage() {
                             ) : (
                               <model-viewer
                                 key={editingItem.modelGlb || editingItem.modelUsdz}
-                                src={editingItem.modelGlb}
+                                src={normalizeAssetUrl(editingItem.modelGlb)}
                                 alt={editingItem.name || "3D model"}
                                 auto-rotate
                                 ar

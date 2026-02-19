@@ -24,6 +24,10 @@ const sanitizeModelUrl = (val: any): string => {
   if (!raw) return "";
   const lower = raw.toLowerCase();
   if (lower.startsWith("blob:")) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (/^[a-z0-9-]+\.cloudfront\.net\//i.test(raw)) return `https://${raw}`;
+  if (/^[a-z0-9.-]+\.amazonaws\.com\//i.test(raw)) return `https://${raw}`;
   return raw;
 };
 
