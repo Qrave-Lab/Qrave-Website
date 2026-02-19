@@ -23,30 +23,57 @@ async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string
   headers.delete("host");
   headers.delete("connection");
   headers.delete("content-length");
+  headers.delete("accept-encoding");
   headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(":", ""));
 
-  const init: RequestInit & { duplex?: "half" } = {
-    method: request.method,
-    headers,
-    body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
-    redirect: "manual",
-    cache: "no-store",
-  };
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.duplex = "half";
+  try {
+    const init: RequestInit = {
+      method: request.method,
+      headers,
+      body:
+        request.method === "GET" || request.method === "HEAD"
+          ? undefined
+          : await request.arrayBuffer(),
+      redirect: "manual",
+      cache: "no-store",
+    };
+
+    const upstream = await fetch(target, init);
+
+    const responseHeaders = new Headers();
+    upstream.headers.forEach((value, key) => {
+      const lower = key.toLowerCase();
+      if (
+        lower === "content-encoding" ||
+        lower === "content-length" ||
+        lower === "transfer-encoding" ||
+        lower === "connection" ||
+        lower === "set-cookie"
+      ) {
+        return;
+      }
+      responseHeaders.append(key, value);
+    });
+
+    // Preserve multiple Set-Cookie headers correctly for auth flows.
+    const getSetCookie = (upstream.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
+    if (typeof getSetCookie === "function") {
+      for (const cookie of getSetCookie.call(upstream.headers)) {
+        responseHeaders.append("set-cookie", cookie);
+      }
+    } else {
+      const single = upstream.headers.get("set-cookie");
+      if (single) responseHeaders.append("set-cookie", single);
+    }
+
+    return new NextResponse(upstream.body, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "proxy request failed";
+    return NextResponse.json({ message }, { status: 502 });
   }
-
-  const upstream = await fetch(target, init);
-
-  const responseHeaders = new Headers();
-  upstream.headers.forEach((value, key) => {
-    responseHeaders.append(key, value);
-  });
-
-  return new NextResponse(upstream.body, {
-    status: upstream.status,
-    headers: responseHeaders,
-  });
 }
 
 export async function GET(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
