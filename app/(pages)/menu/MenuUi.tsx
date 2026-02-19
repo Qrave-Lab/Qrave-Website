@@ -40,7 +40,7 @@ const getRatingStyles = (rating: number) => {
   return { container: "bg-red-50 text-red-700 ring-1 ring-red-200/50", icon: "text-red-500 fill-red-500" };
 };
 
-const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber, isTableOccupied = false }) => {
+const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber, isTableOccupied = false, orderingEnabled = true }) => {
   const [menuItems, setMenuItems] = useState(initialMenu);
   const [searchQuery, setSearchQuery] = useState("");
   const [isVegOnly, setIsVegOnly] = useState(false);
@@ -50,7 +50,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
   const [isWaterRequested, setIsWaterRequested] = useState(false);
   const [tourReady, setTourReady] = useState(false);
   const [hasArItems, setHasArItems] = useState(false);
-  const [isImmersive, setIsImmersive] = useState(false);
+  const [isImmersive, setIsImmersive] = useState(!orderingEnabled);
   const [arItem, setArItem] = useState<any | null>(null);
   const modelViewerRef = React.useRef<any>(null);
   const [isBrowser, setIsBrowser] = useState(false);
@@ -88,9 +88,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
       })
       : [];
 
-    const itemName = resolve(item.name).toLowerCase();
-    const fallbackGlb = itemName.includes("burger") ? "/models/pizza.glb" : "/models/pizza.glb";
-    const resolvedGlb = resolve(item.modelGlb || item.arModelGlb) || fallbackGlb;
+    const resolvedGlb = resolve(item.modelGlb || item.arModelGlb);
     const resolvedUsdz = resolve(item.modelUsdz || item.arModelUsdz);
 
     return {
@@ -102,7 +100,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
       parentCategoryName: resolve(item.parentCategoryName),
       price: basePrice,
       image: resolve(item.imageUrl) || item.image,
-      arModelGlb: resolvedGlb,
+      arModelGlb: resolvedGlb || null,
       arModelUsdz: resolvedUsdz || null,
       ingredients: item.ingredients || item.ingredient_list || item.ingredientList || [],
       calories: item.calories || item.kcal || item.nutrition?.calories,
@@ -140,10 +138,15 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
   }, [translatedItems]);
 
   const handleAdd = async (id: string, vId?: string, price?: number) => {
+    if (!orderingEnabled) {
+      toast("Ordering is currently disabled for this restaurant.", { icon: "ℹ️" });
+      return;
+    }
     addItemStore(id, vId || "", price || 0);
   };
 
   const handleRemove = async (id: string, vId?: string) => {
+    if (!orderingEnabled) return;
     decrementItemStore(id, vId || "");
   };
 
@@ -352,7 +355,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
     if (document.querySelector("script[data-model-viewer]")) return;
     const script = document.createElement("script");
     script.type = "module";
-    script.src = "https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js";
+    script.src = "https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js";
     script.setAttribute("data-model-viewer", "true");
     document.head.appendChild(script);
   }, []);
@@ -399,8 +402,9 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
           cart={cart}
           onAdd={handleAdd}
           onRemove={handleRemove}
-          onClose={() => setIsImmersive(false)}
+          onClose={() => orderingEnabled && setIsImmersive(false)}
           tableNumber={tableId}
+          orderingEnabled={orderingEnabled}
           restaurantName={restaurantName}
           logoUrl={restaurantLogoUrl}
           onArClick={handleArOpen}
@@ -429,12 +433,13 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
                   <model-viewer
                     ref={modelViewerRef}
                     src={arItem.arModelGlb}
-                    ios-src={arItem.arModelUsdz || undefined}
                     alt={arItem.name}
                     camera-controls
                     auto-rotate
                     ar
-                    ar-modes="scene-viewer webxr quick-look"
+                    ar-modes="scene-viewer webxr"
+                    tone-mapping="commerce"
+                    shadow-intensity="1"
                     style={{ width: "100%", height: "280px", background: "#f1f5f9" }}
                   />
                 </div>
@@ -493,13 +498,15 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
             >
               {language}
             </button>
-            <button
-              id="tour-immersive"
-              onClick={() => setIsImmersive(!isImmersive)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-200 transition-transform active:scale-95"
-            >
-              <Smartphone size={16} />
-            </button>
+            {orderingEnabled && (
+              <button
+                id="tour-immersive"
+                onClick={() => setIsImmersive(!isImmersive)}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-200 transition-transform active:scale-95"
+              >
+                <Smartphone size={16} />
+              </button>
+            )}
             <button
               id="tour-veg-filter"
               onClick={() => setIsVegOnly(!isVegOnly)}
@@ -516,7 +523,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
       </header>
 
       <main className="max-w-md mx-auto px-6 pt-6 pb-44">
-        {isTableOccupied && (
+        {isTableOccupied && orderingEnabled && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
             This table already has an active session. You are viewing the active table.
           </div>
@@ -594,6 +601,7 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
                                     onAdd={handleAdd}
                                     onRemove={handleRemove}
                                     onArClick={handleArOpen}
+                                    orderingEnabled={orderingEnabled}
                                   />
                                 </div>
                               );
@@ -610,46 +618,58 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
         </div>
       </main>
 
-      <div className="fixed bottom-32 right-6 z-40 flex flex-col gap-4">
-        <button
-          id="tour-waiter"
-          onClick={async () => {
-            try {
-              await api("/api/customer/service-calls", {
-                method: "POST",
-                body: JSON.stringify({ type: "waiter" }),
-              });
-              setIsWaiterCalled(true);
-              toast.success(t('waiterCalled'));
-            } catch {
-              toast.error(t('waiterCalled') + " failed");
-            }
-          }}
-          className="w-14 h-14 rounded-2xl shadow-2xl bg-white border border-slate-100 flex items-center justify-center transition-all active:scale-90"
-        >
-          {isWaiterCalled ? <Loader2 className="animate-spin text-slate-900" /> : <Bell className="text-slate-600 w-6 h-6" />}
-        </button>
-        <button
-          id="tour-water"
-          onClick={async () => {
-            try {
-              await api("/api/customer/service-calls", {
-                method: "POST",
-                body: JSON.stringify({ type: "water" }),
-              });
-              setIsWaterRequested(true);
-              toast.success(t('waterRequested'));
-            } catch {
-              toast.error(t('waterRequested') + " failed");
-            }
-          }}
-          className="w-14 h-14 rounded-2xl shadow-2xl bg-slate-900 text-white flex items-center justify-center transition-all active:scale-90"
-        >
-          {isWaterRequested ? <Loader2 className="animate-spin" /> : <Droplets className="w-6 h-6" />}
-        </button>
-      </div>
+      {orderingEnabled && (
+        <div className="fixed bottom-32 right-6 z-40 flex flex-col gap-4">
+          <button
+            id="tour-waiter"
+            onClick={async () => {
+              if (!orderingEnabled) {
+                toast("Ordering is currently disabled for this restaurant.", { icon: "ℹ️" });
+                return;
+              }
+              try {
+                await api("/api/customer/service-calls", {
+                  method: "POST",
+                  body: JSON.stringify({ type: "waiter" }),
+                });
+                setIsWaiterCalled(true);
+                toast.success(t('waiterCalled'));
+              } catch {
+                toast.error(t('waiterCalled') + " failed");
+              }
+            }}
+            className="w-14 h-14 rounded-2xl shadow-2xl bg-white border border-slate-100 flex items-center justify-center transition-all active:scale-90"
+          >
+            {isWaiterCalled ? <Loader2 className="animate-spin text-slate-900" /> : <Bell className="text-slate-600 w-6 h-6" />}
+          </button>
+          <button
+            id="tour-water"
+            onClick={async () => {
+              if (!orderingEnabled) {
+                toast("Ordering is currently disabled for this restaurant.", { icon: "ℹ️" });
+                return;
+              }
+              try {
+                await api("/api/customer/service-calls", {
+                  method: "POST",
+                  body: JSON.stringify({ type: "water" }),
+                });
+                setIsWaterRequested(true);
+                toast.success(t('waterRequested'));
+              } catch {
+                toast.error(t('waterRequested') + " failed");
+              }
+            }}
+            className="w-14 h-14 rounded-2xl shadow-2xl bg-slate-900 text-white flex items-center justify-center transition-all active:scale-90"
+          >
+            {isWaterRequested ? <Loader2 className="animate-spin" /> : <Droplets className="w-6 h-6" />}
+          </button>
+        </div>
+      )}
 
-      {totalItems > 0 && (
+
+
+      {orderingEnabled && totalItems > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-white via-white/90 to-transparent p-6 pb-8">
           <div className="max-w-md mx-auto">
             <button

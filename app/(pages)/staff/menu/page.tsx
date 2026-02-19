@@ -228,6 +228,8 @@ export default function MenuPage() {
   ) => {
     const file = e.target.files?.[0];
     if (!file || !editingItem) return;
+    const uploadToastId =
+      type === "model" ? toast.loading("Uploading 3D model...") : undefined;
 
     try {
       if (type === "image") {
@@ -255,41 +257,40 @@ export default function MenuPage() {
         }
         const form = new FormData();
         form.append("file", file);
-        const res: any = await authFetch(
-          `/api/admin/menu/item/model?item_id=${editingItem.id}`,
-          { method: "POST", body: form }
-        );
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 45000);
+        let res: any;
+        try {
+          res = await authFetch(
+            `/api/admin/menu/item/model?item_id=${editingItem.id}`,
+            { method: "POST", body: form, signal: controller.signal }
+          );
+        } finally {
+          clearTimeout(timeout);
+        }
+        if (!res?.model_glb) {
+          throw new Error("Model upload failed. No GLB URL returned.");
+        }
         setEditingItem({
           ...editingItem,
           modelGlb: res.model_glb || "",
-          modelUsdz: res.model_usdz || "",
+          modelUsdz: "",
         });
         setModelPreviewError("");
-        if (res?.conversion_warning) {
-          console.warn("Model conversion warning:", res.conversion_warning);
-          toast("3D model uploaded. iOS/AR conversion is temporarily unavailable.", {
-            icon: "⚠️",
-          });
-        } else {
-          toast.success("3D model uploaded and converted");
-        }
+        toast.dismiss(uploadToastId);
+        toast.success("3D model uploaded");
       }
     } catch (err: any) {
-      const msg = String(err?.message || "Upload failed");
-      const conversionSoftFail =
-        type === "model" &&
-        /conversion skipped|conversion service unavailable|http 502/i.test(msg);
-
-      if (conversionSoftFail) {
-        console.warn("Model conversion soft-fail:", msg);
-        toast("3D model uploaded. iOS/AR conversion is temporarily unavailable.", {
-          icon: "⚠️",
-        });
-        refreshMenu(true);
-        return;
+      toast.dismiss(uploadToastId);
+      const aborted = err?.name === "AbortError" || String(err?.message || "").toLowerCase().includes("abort");
+      const msg = aborted
+        ? "Upload timed out. Try a smaller/optimized GLB file."
+        : String(err?.message || "Upload failed");
+      if (type === "model") {
+        toast.error(`3D model upload failed: ${msg}`);
+      } else {
+        toast.error(msg);
       }
-
-      toast.error(msg);
     }
   };
 
@@ -1471,7 +1472,7 @@ export default function MenuPage() {
                         type="file"
                         hidden
                         ref={modelInputRef}
-                        accept=".glb,.usdz"
+                        accept=".glb"
                         onChange={(e) => handleFileUpload(e, "model")}
                       />
                       <div
@@ -1522,13 +1523,12 @@ export default function MenuPage() {
                             ) : (
                               <model-viewer
                                 key={editingItem.modelGlb || editingItem.modelUsdz}
-                                src={editingItem.modelGlb || editingItem.modelUsdz}
-                                ios-src={editingItem.modelUsdz || undefined}
+                                src={editingItem.modelGlb}
                                 alt={editingItem.name || "3D model"}
                                 camera-controls
                                 auto-rotate
                                 ar
-                                ar-modes="scene-viewer webxr quick-look"
+                                ar-modes="scene-viewer webxr"
                                 environment-image="neutral"
                                 shadow-intensity="1"
                                 tone-mapping="commerce"

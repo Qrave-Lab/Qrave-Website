@@ -14,6 +14,7 @@ export default function MenuClient({ table }: { table: string | null }) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [currentTableNumber, setCurrentTableNumber] = useState<string | null>(null);
   const [isOccupiedNotice, setIsOccupiedNotice] = useState(false);
+  const [isOrderingEnabled, setIsOrderingEnabled] = useState(true);
   const clearCart = useCartStore((state) => state.clearCart);
 
   const tableFromUrl = searchParams.get("table");
@@ -88,7 +89,7 @@ export default function MenuClient({ table }: { table: string | null }) {
 
     const syncSessionDetails = async () => {
       try {
-        const details = await api<{ table_number?: number; restaurant_id?: string; session_id?: string }>("/api/customer/session", {
+        const details = await api<{ table_number?: number; restaurant_id?: string; session_id?: string; ordering_enabled?: boolean }>("/api/customer/session", {
           credentials: "include",
         });
         if (cancelled) return;
@@ -105,6 +106,10 @@ export default function MenuClient({ table }: { table: string | null }) {
             `${restaurant || "na"}::${serverTable}`
           );
 
+        }
+        if (typeof details?.ordering_enabled === "boolean") {
+          setIsOrderingEnabled(details.ordering_enabled);
+          localStorage.setItem("ordering_enabled", details.ordering_enabled ? "1" : "0");
         }
       } catch {
         // keep UI usable
@@ -134,7 +139,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             return;
           }
           try {
-            const res = await api<{ session_id: string; is_occupied?: boolean }>("/public/session/start", {
+            const res = await api<{ session_id: string; is_occupied?: boolean; ordering_enabled?: boolean }>("/public/session/start", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -148,6 +153,10 @@ export default function MenuClient({ table }: { table: string | null }) {
             const occupied = Boolean(res?.is_occupied);
             if (occupied) localStorage.setItem("table_occupied", "1");
             else localStorage.removeItem("table_occupied");
+            if (typeof res?.ordering_enabled === "boolean") {
+              setIsOrderingEnabled(res.ordering_enabled);
+              localStorage.setItem("ordering_enabled", res.ordering_enabled ? "1" : "0");
+            }
             if (restaurantForSession) {
               localStorage.setItem("restaurant_id", restaurantForSession);
             }
@@ -163,7 +172,7 @@ export default function MenuClient({ table }: { table: string | null }) {
           }
         } else if (isUUID(resolvedTable)) {
           try {
-            const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number; is_occupied?: boolean }>("/public/session/start", {
+            const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number; is_occupied?: boolean; ordering_enabled?: boolean }>("/public/session/start", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -175,6 +184,10 @@ export default function MenuClient({ table }: { table: string | null }) {
             localStorage.setItem("session_id", res.session_id);
             if (res?.is_occupied) localStorage.setItem("table_occupied", "1");
             else localStorage.removeItem("table_occupied");
+            if (typeof res?.ordering_enabled === "boolean") {
+              setIsOrderingEnabled(res.ordering_enabled);
+              localStorage.setItem("ordering_enabled", res.ordering_enabled ? "1" : "0");
+            }
             if (res.restaurant_id) {
               localStorage.setItem("restaurant_id", res.restaurant_id);
             }
@@ -219,7 +232,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             const tableNumber = Number.parseInt(resolvedTable, 10);
             if (!Number.isNaN(tableNumber)) {
               try {
-                const res = await api<{ session_id: string; is_occupied?: boolean }>("/public/session/start", {
+                const res = await api<{ session_id: string; is_occupied?: boolean; ordering_enabled?: boolean }>("/public/session/start", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -233,6 +246,10 @@ export default function MenuClient({ table }: { table: string | null }) {
                 const occupied = Boolean(res?.is_occupied);
                 if (occupied) localStorage.setItem("table_occupied", "1");
                 else localStorage.removeItem("table_occupied");
+                if (typeof res?.ordering_enabled === "boolean") {
+                  setIsOrderingEnabled(res.ordering_enabled);
+                  localStorage.setItem("ordering_enabled", res.ordering_enabled ? "1" : "0");
+                }
                 if (restaurantForSession) {
                   localStorage.setItem("restaurant_id", restaurantForSession);
                 }
@@ -311,6 +328,7 @@ export default function MenuClient({ table }: { table: string | null }) {
       menuItems={items}
       tableNumber={currentTableNumber || resolvedTable || "N/A"}
       isTableOccupied={isOccupiedNotice}
+      orderingEnabled={isOrderingEnabled}
     />
   );
 }

@@ -107,6 +107,9 @@ export async function api<T>(
     });
     persistCsrfFromResponse(res);
   } catch (err) {
+    if ((err as { name?: string } | null)?.name === "AbortError") {
+      throw err;
+    }
     console.error("Network error:", err);
     throw new Error("Network error");
   }

@@ -11,6 +11,7 @@ type SessionResult = {
   restaurant_id?: string;
   table_number?: number;
   is_occupied?: boolean;
+  ordering_enabled?: boolean;
 };
 
 type Phase = "loading" | "choosing" | "error";
@@ -99,6 +100,11 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
         }
         if (res.is_occupied) localStorage.setItem("table_occupied", "1");
         else localStorage.removeItem("table_occupied");
+        if (typeof res.ordering_enabled === "boolean") {
+          localStorage.setItem("ordering_enabled", res.ordering_enabled ? "1" : "0");
+        } else {
+          localStorage.removeItem("ordering_enabled");
+        }
         if (res.restaurant_id) {
           localStorage.setItem("restaurant_id", res.restaurant_id);
           redirectRestaurant = res.restaurant_id;

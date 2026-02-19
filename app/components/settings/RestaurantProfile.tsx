@@ -258,6 +258,32 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
             onChange={(v) => handleChange("closeTime", v)}
           />
         </div>
+
+        <div className="pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3">
+            <div>
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Ordering
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                When off, guests can view menu and AR only.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleChange("orderingEnabled", !(data.orderingEnabled !== false))}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                data.orderingEnabled !== false ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  data.orderingEnabled !== false ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );

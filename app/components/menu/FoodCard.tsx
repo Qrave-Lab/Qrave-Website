@@ -40,6 +40,7 @@ interface FoodCardProps {
   showArTour?: boolean;
   selectedVariantId?: string;
   onVariantChange?: (variantId: string) => void;
+  orderingEnabled?: boolean;
 }
 
 const FoodCard: React.FC<FoodCardProps> = ({
@@ -52,6 +53,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
   showArTour,
   selectedVariantId,
   onVariantChange,
+  orderingEnabled = true,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const { t } = useLanguageStore();
@@ -151,14 +153,16 @@ const FoodCard: React.FC<FoodCardProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-base font-semibold text-slate-900">₹{displayPrice}</span>
             {isAvailable ? (
-              currentQty > 0 ? (
-                <div className="flex items-center h-8 bg-slate-900 text-white rounded-lg overflow-hidden">
-                  <button onClick={() => onRemove(item.id, activeVariantId)} className="w-8 h-full flex items-center justify-center hover:bg-white/10"><Minus className="w-3.5 h-3.5" /></button>
-                  <span className="min-w-[2rem] text-center text-xs font-medium">{currentQty}</span>
-                  <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="w-8 h-full flex items-center justify-center hover:bg-white/10"><Plus className="w-3.5 h-3.5" /></button>
-                </div>
-              ) : (
-                <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="h-8 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg transition-colors">{t('add')}</button>
+              orderingEnabled && (
+                currentQty > 0 ? (
+                  <div className="flex items-center h-8 bg-slate-900 text-white rounded-lg overflow-hidden">
+                    <button onClick={() => onRemove(item.id, activeVariantId)} className="w-8 h-full flex items-center justify-center hover:bg-white/10"><Minus className="w-3.5 h-3.5" /></button>
+                    <span className="min-w-[2rem] text-center text-xs font-medium">{currentQty}</span>
+                    <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="w-8 h-full flex items-center justify-center hover:bg-white/10"><Plus className="w-3.5 h-3.5" /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="h-8 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg transition-colors">{t('add')}</button>
+                )
               )
             ) : <span className="text-xs font-semibold text-red-500">{t('unavailable')}</span>}
           </div>
