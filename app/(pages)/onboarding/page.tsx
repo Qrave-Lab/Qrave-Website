@@ -37,6 +37,7 @@ type Step = 1 | 2 | 3 | 4 | 5 | 6;
 declare global {
   interface Window {
     google?: any;
+    __gsiScriptPromise?: Promise<void>;
   }
 }
 
@@ -79,10 +80,61 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [googleLoadFailed, setGoogleLoadFailed] = useState(false);
   const [googleIdToken, setGoogleIdToken] = useState("");
   const [googleEmail, setGoogleEmail] = useState("");
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+
+  const waitForGoogleIdentity = useCallback((): Promise<void> => {
+    if (typeof window === "undefined") return Promise.resolve();
+    if (window.google?.accounts?.id) return Promise.resolve();
+    return new Promise<void>((resolve, reject) => {
+      const start = Date.now();
+      const check = () => {
+        if (window.google?.accounts?.id) {
+          resolve();
+          return;
+        }
+        if (Date.now() - start > 6000) {
+          reject(new Error("gsi_not_ready"));
+          return;
+        }
+        window.setTimeout(check, 80);
+      };
+      check();
+    });
+  }, []);
+
+  const loadGoogleIdentityScript = useCallback((): Promise<void> => {
+    if (typeof window === "undefined") return Promise.resolve();
+    if (window.google?.accounts?.id) return Promise.resolve();
+    if (window.__gsiScriptPromise) return window.__gsiScriptPromise;
+
+    window.__gsiScriptPromise = new Promise<void>((resolve, reject) => {
+      const scriptId = "google-identity-services";
+      const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("gsi_load_failed")), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("gsi_load_failed"));
+      document.head.appendChild(script);
+    }).catch((err) => {
+      delete window.__gsiScriptPromise;
+      throw err;
+    });
+
+    return window.__gsiScriptPromise.then(() => waitForGoogleIdentity());
+  }, [waitForGoogleIdentity]);
   
   const [emailStatus, setEmailStatus] = useState<'idle' | 'taken' | 'invalid'>('idle');
   
@@ -234,6 +286,29 @@ export default function OnboardingPage() {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !googleClientId) return;
+    const preconnect = document.createElement("link");
+    preconnect.rel = "preconnect";
+    preconnect.href = "https://accounts.google.com";
+    preconnect.crossOrigin = "anonymous";
+    document.head.appendChild(preconnect);
+
+    const dnsPrefetch = document.createElement("link");
+    dnsPrefetch.rel = "dns-prefetch";
+    dnsPrefetch.href = "https://accounts.google.com";
+    document.head.appendChild(dnsPrefetch);
+
+    loadGoogleIdentityScript().catch(() => {
+      setGoogleLoadFailed(true);
+    });
+
+    return () => {
+      if (preconnect.parentNode) preconnect.parentNode.removeChild(preconnect);
+      if (dnsPrefetch.parentNode) dnsPrefetch.parentNode.removeChild(dnsPrefetch);
+    };
+  }, [googleClientId, loadGoogleIdentityScript]);
+
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;
     try {
@@ -308,10 +383,27 @@ export default function OnboardingPage() {
     if (!googleClientId || step !== 2) return;
 
     let cancelled = false;
-    const scriptId = "google-identity-services";
+    const initStartedAt = Date.now();
 
     const initGoogle = () => {
-      if (cancelled || !window.google || !googleButtonRef.current) return;
+      if (cancelled) return;
+      if (!window.google?.accounts?.id) {
+        if (Date.now() - initStartedAt < 6000) {
+          window.setTimeout(initGoogle, 80);
+        } else {
+          setGoogleLoadFailed(true);
+        }
+        return;
+      }
+      if (!googleButtonRef.current) {
+        // Step 2 is wrapped in AnimatePresence; ref can be late.
+        if (Date.now() - initStartedAt < 6000) {
+          window.setTimeout(initGoogle, 80);
+        } else {
+          setGoogleLoadFailed(true);
+        }
+        return;
+      }
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: (resp: any) => {
@@ -327,29 +419,24 @@ export default function OnboardingPage() {
         text: "continue_with",
       });
       setGoogleReady(true);
+      setGoogleLoadFailed(false);
     };
+    const timer = window.setTimeout(() => {
+      if (!cancelled && !googleReady) setGoogleLoadFailed(true);
+    }, 4000);
 
-    const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
-    if (existing) {
-      if (window.google) initGoogle();
-      else existing.addEventListener("load", initGoogle, { once: true });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const script = document.createElement("script");
-    script.id = scriptId;
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = initGoogle;
-    document.head.appendChild(script);
+    loadGoogleIdentityScript()
+      .then(() => waitForGoogleIdentity())
+      .then(() => initGoogle())
+      .catch(() => {
+        if (!cancelled) setGoogleLoadFailed(true);
+      });
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [googleClientId, step, handleGoogleCredential]);
+  }, [googleClientId, step, handleGoogleCredential, googleReady, loadGoogleIdentityScript, waitForGoogleIdentity]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -418,6 +505,21 @@ export default function OnboardingPage() {
                       {!googleReady && (
                         <div className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
                           Loading Google sign-up...
+                        </div>
+                      )}
+                      {googleLoadFailed && (
+                        <div className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGoogleLoadFailed(false);
+                              setGoogleReady(false);
+                              loadGoogleIdentityScript().catch(() => setGoogleLoadFailed(true));
+                            }}
+                            className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 hover:text-indigo-700"
+                          >
+                            Retry Google Sign-Up
+                          </button>
                         </div>
                       )}
                       <div className="flex items-center gap-3">

@@ -50,6 +50,9 @@ const sidebarItems: SidebarSection[] = [
   }
 ];
 
+const ME_CACHE_KEY = "staff_sidebar_me_cache_v1";
+const ME_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export default function StaffSidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -71,15 +74,51 @@ export default function StaffSidebar() {
 
     const fetchMe = async () => {
       try {
+        let shouldFetch = true;
+        const cachedRaw = localStorage.getItem(ME_CACHE_KEY);
+        if (cachedRaw) {
+          try {
+            const cached = JSON.parse(cachedRaw) as {
+              restaurant?: string;
+              logo_url?: string;
+              updated_at?: number;
+            };
+            if (isActive) {
+              setRestaurantName(cached.restaurant || "Restaurant");
+              setLogoUrl(cached.logo_url || "");
+            }
+            if (
+              typeof cached.updated_at === "number" &&
+              Date.now() - cached.updated_at < ME_CACHE_TTL_MS
+            ) {
+              shouldFetch = false;
+            }
+          } catch {
+            // ignore malformed cache
+          }
+        }
+
+        if (!shouldFetch) return;
+
         const me = await api<{
           restaurant?: string;
           logo_url?: string | null;
           logo_version?: number | null;
         }>("/api/admin/me");
         if (!isActive) return;
-        setRestaurantName(me?.restaurant || "Restaurant");
         const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
-        setLogoUrl(me?.logo_url ? `${me.logo_url}${suffix}` : "");
+        const nextRestaurant = me?.restaurant || "Restaurant";
+        const nextLogo = me?.logo_url ? `${me.logo_url}${suffix}` : "";
+        setRestaurantName(nextRestaurant);
+        setLogoUrl(nextLogo);
+        localStorage.setItem(
+          ME_CACHE_KEY,
+          JSON.stringify({
+            restaurant: nextRestaurant,
+            logo_url: nextLogo,
+            updated_at: Date.now(),
+          })
+        );
       } catch {
         if (!isActive) return;
         setRestaurantName("Restaurant");
