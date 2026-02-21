@@ -62,10 +62,10 @@ function getCsrfToken(): string | null {
 
 export async function api<T>(
   path: string,
-  options: (RequestInit & { skipAuthRedirect?: boolean }) = {},
+  options: (RequestInit & { skipAuthRedirect?: boolean; suppressErrorLog?: boolean }) = {},
   didRetry = false
 ): Promise<T> {
-  const { skipAuthRedirect = false, ...requestOptions } = options;
+  const { skipAuthRedirect = false, suppressErrorLog = false, ...requestOptions } = options;
   let resolvedPath = path;
   if (
     typeof window !== "undefined" &&
@@ -122,6 +122,16 @@ export async function api<T>(
     throw new Error("Session expired. Please login again.");
   }
 
+  if (res.status === 402 && typeof window !== "undefined") {
+    const isAdminPath = resolvedPath.startsWith("/api/admin");
+    const isBillingPath = resolvedPath.startsWith("/api/admin/billing/");
+    const isMePath = resolvedPath === "/api/admin/me";
+    if (isAdminPath && !isBillingPath && !isMePath) {
+      window.location.href = "/staff/settings/subscription";
+      throw new Error("Subscription required. Please reactivate your plan.");
+    }
+  }
+
   if (!res.ok) {
     const raw = await res.text();
     let message = raw?.trim();
@@ -141,9 +151,9 @@ export async function api<T>(
         message.includes("violates foreign key constraint"));
     const isExpectedUnauthorized = res.status === 401 && skipAuthRedirect;
 
-    if (!isKnownError && !isExpectedUnauthorized) {
+    if (!suppressErrorLog && !isKnownError && !isExpectedUnauthorized) {
       console.error("API Error:", resolvedPath, res.status, message);
-    } else if (isKnownError) {
+    } else if (!suppressErrorLog && isKnownError) {
       console.warn("API Note:", resolvedPath, res.status, message.trim());
     }
 

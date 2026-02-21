@@ -59,6 +59,7 @@ export default function StaffSidebar() {
   const [isMounted, setIsMounted] = useState(false);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [logoUrl, setLogoUrl] = useState<string>("");
+  const [billingLocked, setBillingLocked] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
@@ -132,6 +133,32 @@ export default function StaffSidebar() {
     };
   }, []);
 
+  useEffect(() => {
+    let isActive = true;
+    const fetchBilling = async () => {
+      try {
+        const data = await api<{ is_access_allowed?: boolean; status?: string }>("/api/admin/billing/status");
+        if (!isActive) return;
+        const allowed = data?.is_access_allowed !== false;
+        setBillingLocked(!allowed);
+      } catch {
+        if (!isActive) return;
+        setBillingLocked(false);
+      }
+    };
+    fetchBilling();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!billingLocked) return;
+    if (pathname === "/staff/settings/subscription") return;
+    if (pathname === "/staff/settings") return;
+    window.location.href = "/staff/settings/subscription";
+  }, [billingLocked, pathname]);
+
   const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
@@ -159,6 +186,15 @@ export default function StaffSidebar() {
   };
 
   if (!isMounted) return null; 
+
+  const visibleSections = billingLocked
+    ? sidebarItems
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item.href === "/staff/settings"),
+      }))
+      .filter((section) => section.items.length > 0)
+    : sidebarItems;
 
   return (
     <motion.div
@@ -193,7 +229,7 @@ export default function StaffSidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-6">
-        {sidebarItems.map((section, idx) => (
+        {visibleSections.map((section, idx) => (
           <div key={idx} className={isCollapsed ? "px-2 text-center" : "px-4"}>
             {!isCollapsed && (
               <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2 whitespace-nowrap">

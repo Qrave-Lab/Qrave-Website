@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Save, Loader2, Globe, AlertTriangle, ArrowRight } from "lucide-react";
+import { Save, Loader2, Globe, AlertTriangle, ArrowRight, CreditCard } from "lucide-react";
 import StaffSidebar from "../../../components/StaffSidebar";
 import RestaurantProfile from "@/app/components/settings/RestaurantProfile";
 import DeviceSettings from "@/app/components/settings/DeviceSettings";
@@ -255,6 +255,26 @@ export default function SettingsPage() {
                 onRemove={removeTable}
               />
               <StaffManager />
+              {role === "owner" && (
+                <section className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-indigo-100 bg-indigo-50/40">
+                    <h2 className="font-bold text-indigo-700">Subscription</h2>
+                    <p className="text-[11px] text-indigo-600 mt-1">
+                      Manage free trial, plan, and billing status.
+                    </p>
+                  </div>
+                  <div className="p-6">
+                    <Link
+                      href="/staff/settings/subscription"
+                      className="inline-flex items-center gap-2 rounded-lg border border-indigo-300 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      Manage Subscription
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </section>
+              )}
               {role === "owner" && (
                 <section className="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
                   <div className="px-6 py-4 border-b border-rose-100 bg-rose-50/50">

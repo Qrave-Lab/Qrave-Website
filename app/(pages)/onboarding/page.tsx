@@ -32,12 +32,20 @@ import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/lib/api";
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6;
+type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+type MandateLinkResponse = {
+  subscription_id: string;
+  short_url: string;
+  status: string;
+  key_id?: string;
+};
 
 declare global {
   interface Window {
     google?: any;
     __gsiScriptPromise?: Promise<void>;
+    Razorpay?: any;
   }
 }
 
@@ -135,9 +143,9 @@ export default function OnboardingPage() {
 
     return window.__gsiScriptPromise.then(() => waitForGoogleIdentity());
   }, [waitForGoogleIdentity]);
-  
+
   const [emailStatus, setEmailStatus] = useState<'idle' | 'taken' | 'invalid'>('idle');
-  
+
   const otpRefs = [
     useRef<HTMLInputElement>(null),
     useRef<HTMLInputElement>(null),
@@ -152,6 +160,7 @@ export default function OnboardingPage() {
     confirmPassword: "",
     currency: "INR",
     tableCount: 8,
+    subscriptionPlan: "monthly_499",
   });
 
   const decodeJwtPayload = (token: string): Record<string, any> | null => {
@@ -183,7 +192,7 @@ export default function OnboardingPage() {
       setStep(2);
     } else if (step === 2) {
       if (!validateEmail(data.email)) return toast.error("Please enter a valid email address");
-      
+
       setIsLoading(true);
       try {
         const res = await api<{ available: boolean; reason?: string }>("/auth/email_available", {
@@ -220,6 +229,8 @@ export default function OnboardingPage() {
       if (data.password !== data.confirmPassword) return toast.error("Passwords do not match");
       setStep(5);
     } else if (step === 5) {
+      setStep(6);
+    } else if (step === 6) {
       setIsLoading(true);
       try {
         if (googleIdToken) {
@@ -235,6 +246,7 @@ export default function OnboardingPage() {
               restaurant_name: data.name,
               currency: data.currency,
               table_count: data.tableCount,
+              subscription_plan: data.subscriptionPlan,
             }),
           });
         } else {
@@ -251,12 +263,73 @@ export default function OnboardingPage() {
               restaurant_name: data.name,
               currency: data.currency,
               table_count: data.tableCount,
+              subscription_plan: data.subscriptionPlan,
             }),
           });
         }
 
-        // Tokens are now stored in secure cookies by the backend.
-        setStep(6);
+        const mandate = await api<MandateLinkResponse>("/api/admin/billing/mandate-link", {
+          method: "POST",
+          body: JSON.stringify({ plan: data.subscriptionPlan }),
+        });
+
+        if (mandate?.subscription_id) {
+          const syncBilling = async () => {
+            for (let i = 0; i < 4; i++) {
+              try {
+                await api("/api/admin/billing/sync", { method: "POST", suppressErrorLog: true });
+                return true;
+              } catch {
+                await new Promise((resolve) => setTimeout(resolve, 1200));
+              }
+            }
+            return false;
+          };
+
+          const loadRazorpay = () =>
+            new Promise<boolean>((resolve) => {
+              if (window.Razorpay) return resolve(true);
+              const script = document.createElement("script");
+              script.src = "https://checkout.razorpay.com/v1/checkout.js";
+              script.onload = () => resolve(true);
+              script.onerror = () => resolve(false);
+              document.body.appendChild(script);
+            });
+
+          const isLoaded = await loadRazorpay();
+          if (!isLoaded) {
+            toast.error("Failed to load payment gateway.");
+            if (mandate.short_url) window.location.assign(mandate.short_url);
+            else setStep(7);
+            return;
+          }
+
+          const rzp = new window.Razorpay({
+            key: mandate.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_SIQgCgfhNqKSFT",
+            subscription_id: mandate.subscription_id,
+            name: data.name,
+            description: "Setup Autopay (7-Day Free Trial - No Charge Yet)",
+            handler: async function () {
+              await syncBilling();
+              toast.success("Autopay setup successful! Trial started.");
+              setStep(7);
+            },
+            prefill: {
+              email: data.email,
+            },
+            theme: {
+              color: "#4f46e5",
+            },
+          });
+          rzp.on("payment.failed", function (response: any) {
+            toast.error(response.error.description || "Payment failed");
+          });
+          rzp.open();
+          return;
+        }
+
+        // Fallback: if mandate URL is unavailable, complete onboarding and continue.
+        setStep(7);
 
       } catch (e: any) {
         if (e?.status === 409) {
@@ -267,6 +340,8 @@ export default function OnboardingPage() {
           toast.error(e?.message || "Invalid signup details");
         } else if (e?.status === 503) {
           toast.error("Google signup is not configured yet.");
+        } else if (e?.status === 502) {
+          toast.error("Failed to start payment mandate. Please try again.");
         } else {
           toast.error(e.message || "Signup failed");
         }
@@ -440,7 +515,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && step !== 3 && step < 6 && !isLoading) nextStep();
+      if (e.key === "Enter" && step !== 3 && step < 7 && !isLoading) nextStep();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -460,12 +535,12 @@ export default function OnboardingPage() {
               <span className="text-xl font-extrabold tracking-tight text-slate-900 uppercase">Qrave</span>
             </div>
             <div className="px-3 py-1 rounded-full bg-slate-50 border border-slate-100">
-              <span className="text-[11px] font-bold text-slate-500 tracking-wider">STEP 0{step} / 06</span>
+              <span className="text-[11px] font-bold text-slate-500 tracking-wider">STEP 0{step} / 07</span>
             </div>
           </div>
 
           <div className="flex gap-2 h-1.5 overflow-hidden">
-            {[1, 2, 3, 4, 5, 6].map((s) => (
+            {[1, 2, 3, 4, 5, 6, 7].map((s) => (
               <div key={s} className="flex-1 h-full bg-slate-100 rounded-full relative">
                 <motion.div initial={false} animate={{ width: s <= step ? "100%" : "0%" }} className="absolute inset-0 bg-indigo-600 rounded-full" transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} />
               </div>
@@ -539,7 +614,7 @@ export default function OnboardingPage() {
                       <Mail className={`absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 transition-colors ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-600'}`} />
                       <input autoFocus type="email" placeholder="manager@restaurant.com" value={data.email} onChange={(e) => { setData({ ...data, email: e.target.value }); setEmailStatus('idle'); }} className={`w-full pl-10 text-2xl font-semibold border-b-2 outline-none py-4 transition-all placeholder:text-slate-200 ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'border-red-100 focus:border-red-500' : 'border-slate-100 focus:border-indigo-600'}`} />
                     </div>
-                    
+
                     <AnimatePresence>
                       {emailStatus === 'taken' && (
                         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2 text-red-500">
@@ -609,8 +684,8 @@ export default function OnboardingPage() {
               {step === 5 && (
                 <div className="space-y-8">
                   <div className="space-y-2">
-                    <h1 className="text-4xl font-bold tracking-tight text-slate-900">Seating layout</h1>
-                    <p className="text-slate-500 font-medium">How many tables should we generate QR codes for?</p>
+                    <h1 className="text-4xl font-bold tracking-tight text-slate-900">Choose a plan</h1>
+                    <p className="text-slate-500 font-medium">Select a subscription. Your first 7 days are free.</p>
                   </div>
                   {googleEmail && (
                     <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
@@ -618,6 +693,35 @@ export default function OnboardingPage() {
                       <div className="text-sm font-bold text-indigo-700 mt-1">{googleEmail}</div>
                     </div>
                   )}
+                  <div className="grid grid-cols-1 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setData((prev) => ({ ...prev, subscriptionPlan: "monthly_499" }))}
+                      className={`text-left rounded-2xl border px-4 py-4 transition-all ${data.subscriptionPlan === "monthly_499" ? "border-indigo-500 bg-indigo-50" : "border-slate-200 bg-white"}`}
+                    >
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Monthly</div>
+                      <div className="mt-1 text-xl font-black text-slate-900">₹499 / month</div>
+                      <div className="mt-1 text-xs font-semibold text-slate-500">7-day free trial, cancel anytime.</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setData((prev) => ({ ...prev, subscriptionPlan: "yearly_5500" }))}
+                      className={`text-left rounded-2xl border px-4 py-4 transition-all ${data.subscriptionPlan === "yearly_5500" ? "border-indigo-500 bg-indigo-50" : "border-slate-200 bg-white"}`}
+                    >
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Yearly</div>
+                      <div className="mt-1 text-xl font-black text-slate-900">₹5,500 / year</div>
+                      <div className="mt-1 text-xs font-semibold text-slate-500">7-day free trial, best value plan.</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {step === 6 && (
+                <div className="space-y-8">
+                  <div className="space-y-2">
+                    <h1 className="text-4xl font-bold tracking-tight text-slate-900">Seating layout</h1>
+                    <p className="text-slate-500 font-medium">How many tables should we generate QR codes for?</p>
+                  </div>
                   <div className="bg-slate-50 p-10 rounded-[32px] border border-slate-100 text-center space-y-8">
                     <div className="relative inline-block">
                       <div className="text-8xl font-black text-slate-900 tabular-nums">{data.tableCount}</div>
@@ -628,7 +732,7 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              {step === 6 && (
+              {step === 7 && (
                 <div className="text-center space-y-8">
                   <div className="mx-auto w-24 h-24 rounded-[30%] bg-emerald-50 flex items-center justify-center border border-emerald-100 relative">
                     <CheckCircle2 className="w-12 h-12 text-emerald-500" />
@@ -648,14 +752,16 @@ export default function OnboardingPage() {
         </div>
 
         <div className="p-10 md:p-14 flex justify-between items-center bg-white">
-          {step > 1 && step < 6 && !isVerifying ? (
+          {step > 1 && step < 7 && !isVerifying ? (
             <button onClick={() => setStep((s) => (s - 1) as Step)} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold text-[11px] uppercase tracking-[0.15em] transition-colors group">
               <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back
             </button>
           ) : <div />}
-          {step < 6 && step !== 3 && (
+          {step < 7 && step !== 3 && (
             <button onClick={nextStep} disabled={isLoading || isGoogleLoading} className={`flex items-center gap-3 px-10 py-4 rounded-2xl text-white font-bold text-[11px] uppercase tracking-[0.15em] shadow-lg transition-all active:scale-95 group ${(isLoading || isGoogleLoading) ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100 hover:shadow-indigo-200'}`}>
-              {(isLoading || isGoogleLoading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
+              {(isLoading || isGoogleLoading)
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <>{step === 6 ? "Start free trial" : "Continue"} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
             </button>
           )}
         </div>
@@ -674,7 +780,7 @@ export default function OnboardingPage() {
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {step < 6 ? (
+          {step < 7 ? (
             <motion.div key="phone-mockup" initial={{ opacity: 0, scale: 0.9, y: 20, rotateX: 10, rotateY: -10 }} animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0, rotateY: 0 }} exit={{ opacity: 0, scale: 1.1, y: -20 }} className="relative bg-white rounded-[3rem] p-4 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.12)] border-[8px] border-slate-900 w-[300px] h-[600px] z-10 overflow-hidden flex flex-col">
               <div className="absolute inset-0 bg-gradient-to-br from-white via-transparent to-indigo-50/20 pointer-events-none" />
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-900 rounded-b-2xl z-20" />
