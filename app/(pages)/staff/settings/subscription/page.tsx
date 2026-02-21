@@ -158,16 +158,21 @@ export default function SubscriptionSettingsPage() {
   };
 
   const statusText = useMemo(() => {
-    const status = String(billing?.status || "trialing").toUpperCase();
+    const raw = String(billing?.status || "trialing").toLowerCase();
+    const hasPaidCycle = Boolean(billing?.last_payment_at) || Boolean(billing?.current_period_end);
+    const status = (raw === "trialing" && hasPaidCycle ? "active" : raw).toUpperCase();
+    const planType = billing?.plan === "yearly_5500" ? "YEARLY" : "MONTHLY";
     const days = billing?.days_left ?? 0;
     if (status === "TRIALING") return `TRIAL (${days} day${days === 1 ? "" : "s"} left)`;
-    if (status === "ACTIVE") return `ACTIVE (${days} day${days === 1 ? "" : "s"} left)`;
+    if (status === "ACTIVE") return `ACTIVE • ${planType}`;
     if (status === "PAST_DUE") return `PAST DUE (${days} day${days === 1 ? "" : "s"} grace left)`;
     return status;
   }, [billing]);
 
   const isInactive = useMemo(() => {
-    const status = String(billing?.status || "").toLowerCase();
+    const raw = String(billing?.status || "").toLowerCase();
+    const hasPaidCycle = Boolean(billing?.last_payment_at) || Boolean(billing?.current_period_end);
+    const status = raw === "trialing" && hasPaidCycle ? "active" : raw;
     return status === "canceled" || status === "cancelled" || status === "expired";
   }, [billing]);
 
