@@ -40,6 +40,7 @@ export default function LoginPage() {
       const me = await api<{ role?: string }>("/api/admin/me", { method: "GET" });
       const role = (me?.role || "").toLowerCase();
       if (role === "kitchen") return "/staff/kitchen";
+      if (role === "cashier") return "/staff/cashier";
       return "/staff";
     } catch {
       return "/staff";

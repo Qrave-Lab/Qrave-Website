@@ -36,7 +36,6 @@ const EditStaffPage = () => {
   });
 
   const roles = [
-    { id: "owner", label: "Owner" },
     { id: "manager", label: "Manager" },
     { id: "kitchen", label: "Chef" },
     { id: "waiter", label: "Waiter" },

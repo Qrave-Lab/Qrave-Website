@@ -94,6 +94,12 @@ type CategoryOption = {
   parent_name?: string | null;
 };
 
+type BranchOption = {
+  restaurant_id: string;
+  name: string;
+  role: string;
+};
+
 const normalizeAssetUrl = (value: string): string => {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -116,6 +122,14 @@ export const authFetch = async (url: string, options: RequestInit = {}) => {
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [role, setRole] = useState<string>("");
+  const [currentRestaurantId, setCurrentRestaurantId] = useState<string>("");
+  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [sourceBranchId, setSourceBranchId] = useState<string>("");
+  const [isImportingMenu, setIsImportingMenu] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncSourceBranchId, setSyncSourceBranchId] = useState<string>("");
+  const [syncTargetBranchIds, setSyncTargetBranchIds] = useState<string[]>([]);
+  const [isSyncingMenu, setIsSyncingMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<CategoryTab>("all");
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -184,12 +198,28 @@ export default function MenuPage() {
     try {
       const me = await authFetch("/api/admin/me");
       setRole((me as any)?.role || "");
+      setCurrentRestaurantId((me as any)?.restaurant_id || "");
     } catch {
       // ignore
     }
   };
 
+  const refreshBranches = async () => {
+    try {
+      const res = await authFetch("/api/admin/branches");
+      const allBranches: BranchOption[] = Array.isArray((res as any)?.branches)
+        ? (res as any).branches
+        : [];
+      setBranches(allBranches);
+    } catch {
+      setBranches([]);
+    }
+  };
+
   const canManageCategories = role === "owner" || role === "manager";
+  const canImportMenu = role === "owner" || role === "manager";
+  const branchOptionsForImport = branches.filter((b) => b.restaurant_id !== currentRestaurantId);
+  const branchOptionsForSync = branches.filter((b) => b.restaurant_id !== syncSourceBranchId);
 
   const refreshMenu = async (silent = false) => {
     try {
@@ -675,6 +705,74 @@ export default function MenuPage() {
     }
   };
 
+  const handleImportMenu = async () => {
+    if (!sourceBranchId) {
+      toast.error("Select a source branch");
+      return;
+    }
+    const confirmed = window.confirm(
+      "This will replace the current branch menu with items from the selected branch. Continue?"
+    );
+    if (!confirmed) return;
+
+    setIsImportingMenu(true);
+    try {
+      await authFetch("/api/admin/menu/import", {
+        method: "POST",
+        body: JSON.stringify({ source_branch_id: sourceBranchId }),
+      });
+      await Promise.all([refreshCategories(), refreshMenu(true)]);
+      toast.success("Menu copied from selected branch");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to copy menu");
+    } finally {
+      setIsImportingMenu(false);
+    }
+  };
+
+  const openSyncModal = () => {
+    const fallbackSource = sourceBranchId || currentRestaurantId || branches[0]?.restaurant_id || "";
+    setSyncSourceBranchId(fallbackSource);
+    setSyncTargetBranchIds([]);
+    setShowSyncModal(true);
+  };
+
+  const toggleSyncTargetBranch = (branchID: string) => {
+    setSyncTargetBranchIds((prev) =>
+      prev.includes(branchID) ? prev.filter((id) => id !== branchID) : [...prev, branchID]
+    );
+  };
+
+  const handleConfirmSync = async () => {
+    if (!syncSourceBranchId) {
+      toast.error("Select source branch");
+      return;
+    }
+    if (syncTargetBranchIds.length === 0) {
+      toast.error("Select at least one target branch");
+      return;
+    }
+
+    setIsSyncingMenu(true);
+    try {
+      const res: any = await authFetch("/api/admin/menu/sync", {
+        method: "POST",
+        body: JSON.stringify({
+          source_branch_id: syncSourceBranchId,
+          target_branch_ids: syncTargetBranchIds,
+        }),
+      });
+      const syncedCount = Number(res?.synced_branches || 0);
+      toast.success(`Menu synced to ${syncedCount} branch${syncedCount === 1 ? "" : "es"}`);
+      setShowSyncModal(false);
+      await Promise.all([refreshCategories(), refreshMenu(true)]);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to sync menu");
+    } finally {
+      setIsSyncingMenu(false);
+    }
+  };
+
   const filteredItems = items.filter((item) => {
     const matchesTab =
       activeTab === "all" || resolveParentName(item) === activeTab;
@@ -694,6 +792,10 @@ export default function MenuPage() {
     ? getSubcategories(selectedParentId)
     : [];
 
+  useEffect(() => {
+    refreshBranches();
+  }, []);
+
   return (
     <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
       <StaffSidebar />
@@ -711,6 +813,37 @@ export default function MenuPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {canImportMenu && (
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2">
+                <select
+                  value={sourceBranchId}
+                  onChange={(e) => setSourceBranchId(e.target.value)}
+                  className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 outline-none focus:border-indigo-400"
+                >
+                  <option value="">Copy menu from branch...</option>
+                  {branchOptionsForImport.map((branch) => (
+                    <option key={branch.restaurant_id} value={branch.restaurant_id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleImportMenu}
+                  disabled={!sourceBranchId || isImportingMenu}
+                  className="h-8 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  {isImportingMenu ? "Copying..." : "Copy Menu"}
+                </button>
+                <button
+                  type="button"
+                  onClick={openSyncModal}
+                  className="h-8 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white hover:bg-indigo-700"
+                >
+                  Sync Menu
+                </button>
+              </div>
+            )}
             <button
               onClick={() => {
                 setShowArchived(!showArchived);
@@ -1953,6 +2086,104 @@ export default function MenuPage() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showSyncModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => !isSyncingMenu && setShowSyncModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            >
+              <div className="border-b border-slate-100 px-5 py-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900">Sync Menu Across Branches</h3>
+                <button
+                  type="button"
+                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                  onClick={() => !isSyncingMenu && setShowSyncModal(false)}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-4 px-5 py-5">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  This will overwrite menu categories, menu items, and prices in selected target branches.
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Source Branch
+                  </label>
+                  <select
+                    value={syncSourceBranchId}
+                    onChange={(e) => {
+                      const nextSource = e.target.value;
+                      setSyncSourceBranchId(nextSource);
+                      setSyncTargetBranchIds((prev) => prev.filter((id) => id !== nextSource));
+                    }}
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                  >
+                    <option value="">Select source branch...</option>
+                    {branches.map((branch) => (
+                      <option key={branch.restaurant_id} value={branch.restaurant_id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Target Branches
+                  </label>
+                  <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    {branchOptionsForSync.length === 0 && (
+                      <p className="text-xs text-slate-500">No target branches available.</p>
+                    )}
+                    {branchOptionsForSync.map((branch) => (
+                      <label
+                        key={branch.restaurant_id}
+                        className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
+                      >
+                        <span className="text-xs font-semibold text-slate-700">{branch.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={syncTargetBranchIds.includes(branch.restaurant_id)}
+                          onChange={() => toggleSyncTargetBranch(branch.restaurant_id)}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-4">
+                <button
+                  type="button"
+                  onClick={() => setShowSyncModal(false)}
+                  className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600"
+                  disabled={isSyncingMenu}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmSync}
+                  disabled={isSyncingMenu || !syncSourceBranchId || syncTargetBranchIds.length === 0}
+                  className="h-9 rounded-lg bg-indigo-600 px-4 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  {isSyncingMenu ? "Syncing..." : "Confirm Sync"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
       <ConfirmModal

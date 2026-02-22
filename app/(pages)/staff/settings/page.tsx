@@ -1,20 +1,28 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { Save, Loader2, Globe, AlertTriangle, ArrowRight, CreditCard, Palette } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CreditCard,
+  Globe,
+  Loader2,
+  Palette,
+  PlusCircle,
+  Printer,
+  Receipt,
+  Save,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import toast from "react-hot-toast";
 import StaffSidebar from "../../../components/StaffSidebar";
 import RestaurantProfile from "@/app/components/settings/RestaurantProfile";
-import DeviceSettings from "@/app/components/settings/DeviceSettings";
-import TableManager from "@/app/components/settings/TableManager";
-import StaffManager from "@/app/components/settings/StaffManager";
 import { api } from "@/app/lib/api";
-import toast from "react-hot-toast";
-import type { Restaurant, Staff, Table } from "@/app/components/settings/types";
-import Link from "next/link";
+import type { Restaurant } from "@/app/components/settings/types";
 
 type AdminMeResponse = {
   role?: string;
-  email?: string;
   restaurant?: string;
   address?: string;
   phone?: string;
@@ -29,22 +37,20 @@ type AdminMeResponse = {
   theme_config?: Restaurant["themeConfig"];
 };
 
-const PHONE_COUNTRY_CODES = [
-  "+91",
-  "+1",
-  "+44",
-  "+61",
-  "+65",
-  "+971",
-];
+type LocationOption = {
+  restaurant_id: string;
+  restaurant: string;
+};
 
-const PHONE_RULES: Record<string, { min: number; max: number; pattern: RegExp; example: string }> = {
-  "+91": { min: 10, max: 10, pattern: /^[2-9][0-9]{9}$/, example: "8012345678" },
-  "+1": { min: 10, max: 10, pattern: /^[2-9][0-9]{2}[2-9][0-9]{6}$/, example: "4155552671" },
-  "+44": { min: 10, max: 10, pattern: /^7[0-9]{9}$/, example: "7123456789" },
-  "+61": { min: 9, max: 9, pattern: /^4[0-9]{8}$/, example: "412345678" },
-  "+65": { min: 8, max: 8, pattern: /^[689][0-9]{7}$/, example: "91234567" },
-  "+971": { min: 9, max: 9, pattern: /^5[0-9]{8}$/, example: "501234567" },
+const PHONE_COUNTRY_CODES = ["+91", "+1", "+44", "+61", "+65", "+971"];
+
+const PHONE_RULES: Record<string, { min: number; max: number; pattern: RegExp }> = {
+  "+91": { min: 10, max: 10, pattern: /^[2-9][0-9]{9}$/ },
+  "+1": { min: 10, max: 10, pattern: /^[2-9][0-9]{2}[2-9][0-9]{6}$/ },
+  "+44": { min: 10, max: 10, pattern: /^7[0-9]{9}$/ },
+  "+61": { min: 9, max: 9, pattern: /^4[0-9]{8}$/ },
+  "+65": { min: 8, max: 8, pattern: /^[689][0-9]{7}$/ },
+  "+971": { min: 9, max: 9, pattern: /^5[0-9]{8}$/ },
 };
 
 function splitE164Phone(value?: string): { countryCode: string; phone: string } {
@@ -85,14 +91,44 @@ function validatePhone(countryCode: string, phone: string) {
   return total >= 8 && total <= 15;
 }
 
+type NavCard = {
+  title: string;
+  subtitle: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  show?: boolean;
+};
+
+function SettingsNavCard({ title, subtitle, href, icon: Icon }: NavCard) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-xl bg-slate-100 p-2 text-slate-700">
+            <Icon className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900">{title}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-700" />
+      </div>
+    </Link>
+  );
+}
+
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [role, setRole] = useState<string>("");
-
-  const [tables, setTables] = useState<Table[]>([]);
-  const [staff, setStaff] = useState<Staff[]>([]);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [activeRestaurantId, setActiveRestaurantId] = useState<string>("");
+  const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
   const [restaurant, setRestaurant] = useState<Restaurant>({
     name: "",
     address: "",
@@ -107,24 +143,27 @@ export default function SettingsPage() {
     closeTime: "",
     themeConfig: {},
   });
-
-  const [initialData, setInitialData] = useState<{
-    restaurant: Restaurant;
-    tables: Table[];
-    staff: Staff[];
-  } | null>(null);
+  const [initialRestaurant, setInitialRestaurant] = useState<Restaurant | null>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations", { method: "GET" });
+        setLocations(res?.locations || []);
+        setActiveRestaurantId(res?.active_restaurant_id || "");
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
   const fetchData = async () => {
     try {
-      const [adminData, tablesData] = await Promise.all([
-        api<AdminMeResponse>("/api/admin/me", { method: "GET" }),
-        api<Table[]>("/api/admin/tables", { method: "GET" })
-      ]);
-
+      const adminData = await api<AdminMeResponse>("/api/admin/me", { method: "GET" });
       const logoVersionSuffix = adminData.logo_version ? `?v=${adminData.logo_version}` : "";
       const parsedPhone = splitE164Phone(adminData.phone);
       const restObj: Restaurant = {
@@ -141,21 +180,9 @@ export default function SettingsPage() {
         closeTime: adminData.close_time || "",
         themeConfig: adminData.theme_config || {},
       };
-
-      const fetchedTables = tablesData || [];
-      const fetchedStaff: Staff[] = [];
-
       setRestaurant(restObj);
-      setTables(fetchedTables);
-      setStaff(fetchedStaff);
       setRole(adminData.role || "");
-
-      setInitialData({
-        restaurant: restObj,
-        tables: fetchedTables,
-        staff: fetchedStaff
-      });
-
+      setInitialRestaurant(restObj);
     } catch {
       toast.error("Failed to load settings");
     } finally {
@@ -164,13 +191,9 @@ export default function SettingsPage() {
   };
 
   const isDirty = useMemo(() => {
-    if (!initialData) return false;
-    return (
-      JSON.stringify(restaurant) !== JSON.stringify(initialData.restaurant) ||
-      JSON.stringify(tables) !== JSON.stringify(initialData.tables) ||
-      JSON.stringify(staff) !== JSON.stringify(initialData.staff)
-    );
-  }, [restaurant, tables, staff, initialData]);
+    if (!initialRestaurant) return false;
+    return JSON.stringify(restaurant) !== JSON.stringify(initialRestaurant);
+  }, [restaurant, initialRestaurant]);
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -239,50 +262,22 @@ export default function SettingsPage() {
     }
   };
 
-  const addTable = async () => {
+  const switchLocationFromSettings = async (nextRestaurantId: string) => {
+    if (!nextRestaurantId || nextRestaurantId === activeRestaurantId || isSwitchingLocation) return;
+    setIsSwitchingLocation(true);
     try {
-      const newTable = await api<Table>("/api/admin/tables", {
+      await api("/api/admin/locations/switch", {
         method: "POST",
+        body: JSON.stringify({ restaurant_id: nextRestaurantId }),
       });
-      setTables(prev => [...prev, newTable]);
-      toast.success("Table created");
+      if (typeof window !== "undefined") {
+        window.location.href = "/staff";
+      }
     } catch {
-      toast.error("Failed to create table");
+      toast.error("Failed to switch branch");
+      setIsSwitchingLocation(false);
     }
   };
-
-  const toggleTable = async (id: string) => {
-    const table = tables.find(t => t.id === id);
-    if (!table) return;
-
-    try {
-      await api(`/api/admin/tables/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          is_enabled: !table.is_enabled,
-        }),
-      });
-
-      setTables(prev =>
-        prev.map(t =>
-          t.id === id ? { ...t, is_enabled: !t.is_enabled } : t
-        )
-      );
-    } catch {
-      toast.error("Failed to update status");
-    }
-  };
-
-  const removeTable = async (id: string) => {
-    try {
-      await api(`/api/admin/tables/${id}`, { method: "DELETE" });
-      setTables((prev) => prev.filter((t) => t.id !== id));
-      toast.success("Table archived");
-    } catch {
-      toast.error("Failed to archive table");
-    }
-  };
-
 
   if (isLoading) {
     return (
@@ -291,6 +286,16 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const cards: NavCard[] = [
+    { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt },
+    { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users },
+    { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer },
+    { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette },
+    { title: "Add New Branch", subtitle: "Create another branch/location", href: "/staff/settings/branches/add", icon: PlusCircle, show: role === "owner" },
+    { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
+    { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
+  ];
 
   return (
     <div className="flex h-screen w-full bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
@@ -306,94 +311,53 @@ export default function SettingsPage() {
               </span>
             </div>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={isSaving || !isDirty}
-            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 text-white disabled:text-slate-400 px-8 py-2.5 rounded-lg text-sm font-bold transition-all active:scale-95 shadow-sm"
-          >
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
-          </button>
+          <div className="flex items-center gap-3">
+            {locations.length > 1 && (
+              <select
+                value={activeRestaurantId}
+                disabled={isSwitchingLocation}
+                onChange={(e) => switchLocationFromSettings(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"
+              >
+                {locations.map((loc) => (
+                  <option key={loc.restaurant_id} value={loc.restaurant_id}>
+                    {loc.restaurant}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={isSaving || !isDirty}
+              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 text-white disabled:text-slate-400 px-8 py-2.5 rounded-lg text-sm font-bold transition-all active:scale-95 shadow-sm"
+            >
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 max-w-[1600px] mx-auto pb-10">
-            <div className="xl:col-span-7 flex flex-col gap-6">
-              <RestaurantProfile
-                data={restaurant}
-                onChange={setRestaurant}
-                onLogoChange={handleLogoChange}
-                isUploading={isUploading}
-              />
-              <DeviceSettings />
-            </div>
+          <div className="mx-auto max-w-[1400px] space-y-6 pb-10">
+            <RestaurantProfile
+              data={restaurant}
+              onChange={setRestaurant}
+              onLogoChange={handleLogoChange}
+              isUploading={isUploading}
+            />
 
-            <div className="xl:col-span-5 flex flex-col gap-6">
-              <TableManager
-                tables={tables}
-                onAdd={addTable}
-                onToggle={toggleTable}
-                onRemove={removeTable}
-              />
-              <StaffManager />
-              <section className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/40">
-                  <h2 className="font-bold text-amber-700">Theme Studio</h2>
-                  <p className="text-[11px] text-amber-700 mt-1">
-                    Customize customer menu visuals with live side preview.
-                  </p>
-                </div>
-                <div className="p-6">
-                  <Link
-                    href="/staff/settings/theme"
-                    className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-xs font-bold"
-                  >
-                    <Palette className="w-4 h-4" />
-                    Open Theme Studio
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </section>
-              {role === "owner" && (
-                <section className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 border-b border-indigo-100 bg-indigo-50/40">
-                    <h2 className="font-bold text-indigo-700">Subscription</h2>
-                    <p className="text-[11px] text-indigo-600 mt-1">
-                      Manage free trial, plan, and billing status.
-                    </p>
-                  </div>
-                  <div className="p-6">
-                    <Link
-                      href="/staff/settings/subscription"
-                      className="inline-flex items-center gap-2 rounded-lg border border-indigo-300 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold"
-                    >
-                      <CreditCard className="w-4 h-4" />
-                      Manage Subscription
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </section>
-              )}
-              {role === "owner" && (
-                <section className="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 border-b border-rose-100 bg-rose-50/50">
-                    <h2 className="font-bold text-rose-700">Delete Account</h2>
-                    <p className="text-[11px] text-rose-600 mt-1">
-                      Account deletion is permanent.
-                    </p>
-                  </div>
-                  <div className="p-6">
-                    <Link
-                      href="/staff/settings/delete-account"
-                      className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold"
-                    >
-                      <AlertTriangle className="w-4 h-4" />
-                      Delete Account
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </section>
-              )}
-            </div>
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3">
+                <h2 className="text-sm font-bold text-slate-900">More Settings</h2>
+                <p className="text-xs text-slate-500">Open a section to manage it in its own page.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {cards
+                  .filter((card) => card.show !== false)
+                  .map((card) => (
+                    <SettingsNavCard key={card.title} {...card} />
+                  ))}
+              </div>
+            </section>
           </div>
         </main>
       </div>

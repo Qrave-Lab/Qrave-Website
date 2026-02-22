@@ -3,6 +3,8 @@ export type Table = {
   table_number: number;
   is_enabled: boolean;
   zone?: string | null;
+  floor_name?: string;
+  counter_name?: string;
 };
 
 export type Staff = {

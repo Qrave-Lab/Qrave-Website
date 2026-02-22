@@ -183,8 +183,13 @@ export default function StaffDashboardPage() {
       try {
         const me = await api<{ role?: string }>("/api/admin/me", { method: "GET" });
         if (!mounted) return;
-        if ((me?.role || "").toLowerCase() === "kitchen") {
+        const role = (me?.role || "").toLowerCase();
+        if (role === "kitchen") {
           router.replace("/staff/kitchen");
+          return;
+        }
+        if (role === "cashier") {
+          router.replace("/staff/cashier");
         }
       } catch {
         // ignore

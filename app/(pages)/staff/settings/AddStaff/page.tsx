@@ -32,7 +32,6 @@ const AddStaffPage = () => {
   });
 
   const roles = [
-    { id: "owner", label: "Owner" },
     { id: "manager", label: "Manager" },
     { id: "kitchen", label: "Chef" },
     { id: "waiter", label: "Waiter" },
@@ -43,7 +42,7 @@ const AddStaffPage = () => {
     const getRestaurantInfo = async () => {
       try {
         const data = await api<{ restaurant_id?: string; id?: string }>("/api/admin/me", { method: "GET" });
-        const id = data.restaurant_id || data.id;
+        const id = data.restaurant_id || data.id || null;
         setRestaurantId(id);
       } catch {
         toast.error("Authentication error");

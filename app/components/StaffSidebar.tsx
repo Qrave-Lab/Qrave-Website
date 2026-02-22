@@ -28,6 +28,13 @@ type SidebarSection = {
   items: SidebarItem[];
 };
 
+type LocationOption = {
+  restaurant_id: string;
+  restaurant: string;
+  role: string;
+  currency: string;
+};
+
 const sidebarItems: SidebarSection[] = [
   {
     category: "Overview",
@@ -61,6 +68,9 @@ export default function StaffSidebar() {
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [billingLocked, setBillingLocked] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [activeRestaurantId, setActiveRestaurantId] = useState<string>("");
+  const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
 
   useEffect(() => {
     const savedState = localStorage.getItem("sidebarCollapsed");
@@ -68,6 +78,26 @@ export default function StaffSidebar() {
       setIsCollapsed(JSON.parse(savedState));
     }
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const fetchLocations = async () => {
+      try {
+        const res = await api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations");
+        if (!isActive) return;
+        setLocations(res?.locations || []);
+        setActiveRestaurantId(res?.active_restaurant_id || "");
+      } catch {
+        if (!isActive) return;
+        setLocations([]);
+        setActiveRestaurantId("");
+      }
+    };
+    fetchLocations();
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -186,6 +216,28 @@ export default function StaffSidebar() {
     localStorage.setItem("sidebarCollapsed", JSON.stringify(newState));
   };
 
+  const handleSwitchLocation = async (nextRestaurantId: string) => {
+    if (!nextRestaurantId || nextRestaurantId === activeRestaurantId || isSwitchingLocation) return;
+    setIsSwitchingLocation(true);
+    try {
+      await api("/api/admin/locations/switch", {
+        method: "POST",
+        body: JSON.stringify({ restaurant_id: nextRestaurantId }),
+      });
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(ME_CACHE_KEY);
+        localStorage.removeItem("restaurant_name");
+        localStorage.removeItem("restaurant_logo_url");
+        localStorage.removeItem("session_id");
+        localStorage.removeItem("order_id");
+        localStorage.removeItem("table_number");
+        window.location.href = "/staff";
+      }
+    } catch {
+      setIsSwitchingLocation(false);
+    }
+  };
+
   if (!isMounted) return null; 
 
   const visibleSections = billingLocked
@@ -228,6 +280,26 @@ export default function StaffSidebar() {
           </motion.div>
         )}
       </div>
+
+      {!isCollapsed && locations.length > 1 && (
+        <div className="px-4 py-3 border-b border-gray-100">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+            Location
+          </label>
+          <select
+            value={activeRestaurantId}
+            disabled={isSwitchingLocation}
+            onChange={(e) => handleSwitchLocation(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 disabled:opacity-60"
+          >
+            {locations.map((loc) => (
+              <option key={loc.restaurant_id} value={loc.restaurant_id}>
+                {loc.restaurant}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-6">
         {visibleSections.map((section, idx) => (
