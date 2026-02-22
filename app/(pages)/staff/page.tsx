@@ -30,6 +30,7 @@ import StaffSidebar from "../../components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import { printBillTicket, printKitchenTicket } from "@/app/lib/posPrinter";
 import { toast } from "react-hot-toast";
+import { connectEventSocket, type EventSocketMessage } from "@/app/lib/eventSocket";
 
 type BillStatus = "open" | "bill_requested" | "bill_printed" | "paid";
 
@@ -153,6 +154,7 @@ export default function StaffDashboardPage() {
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>([]);
   const [todaySales, setTodaySales] = useState<number>(0);
+  const [orderActionPending, setOrderActionPending] = useState<Record<string, boolean>>({});
 
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -242,6 +244,13 @@ export default function StaffDashboardPage() {
       }
     }
     return next;
+  };
+
+  const upsertOrder = (ordersList: ActiveOrder[], incoming: ActiveOrder) => {
+    const orderId = incoming.id || incoming.order_id;
+    if (!orderId) return ordersList;
+    const normalized: ActiveOrder = { ...incoming, id: orderId, order_id: orderId };
+    return [normalized, ...ordersList.filter((o) => (o.id || o.order_id) !== orderId)];
   };
 
   const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[]) => {
@@ -359,105 +368,67 @@ export default function StaffDashboardPage() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       refreshDashboard().catch(() => { });
-    }, 4000);
+    }, 12000);
     return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const base = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL;
+    const base = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL?.trim();
     if (!base) return;
 
-    let cancelled = false;
-
-    const connect = async (): Promise<(() => void) | undefined> => {
+    const getRealtimeToken = async (): Promise<string | null> => {
       try {
         const res = await api<{ access_token?: string }>("/auth/refresh", {
           method: "POST",
+          skipAuthRedirect: true,
+          suppressErrorLog: true,
         });
-        if (cancelled) return;
-        const token = res?.access_token;
-        if (!token) return;
-        const ws = new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`);
-        ws.onerror = () => {
-          // no-op
-        };
-        ws.onmessage = (evt) => {
-          try {
-            const msg = JSON.parse(evt.data);
-            if (msg?.type === "order.created" || msg?.type === "order.updated") {
-              const data = msg?.data as ActiveOrder;
-              const orderId = data?.id || data?.order_id;
-              if (!data || !orderId) return;
-              const normalized: ActiveOrder = { ...data, id: orderId };
-              setActiveOrders((prev) => {
-                const next = [normalized, ...prev.filter((o) => (o.id || o.order_id) !== orderId)];
-                setOrders(buildPendingOrders(next));
-                setTables((prevTables) =>
-                  buildTables(
-                    prevTables.map((t) => ({
-                      id: t.id,
-                      table_number: parseInt(t.tableCode.replace("T", ""), 10),
-                      is_enabled: true,
-                    })),
-                    next,
-                    prevTables
-                      .filter((t) => Boolean(t.activeSessionId))
-                      .map((t) => ({
-                        session_id: t.activeSessionId as string,
-                        table_id: t.id,
-                        table_number: parseInt(t.tableCode.replace("T", ""), 10),
-                        started_at: t.seatedAt ? t.seatedAt.toISOString() : new Date().toISOString(),
-                        last_active_at: new Date().toISOString(),
-                      }))
-                  )
-                );
-                return next;
-              });
-              return;
-            }
-
-            if (msg?.type === "service.call.created" || msg?.type === "service.call.updated") {
-              const data = msg?.data as ServiceCallAPI & { table_number: number };
-              if (!data || !data.id) return;
-              setServiceCalls((prev) => {
-                const next = [
-                  {
-                    id: data.id,
-                    tableCode: `T${data.table_number}`,
-                    type: data.type,
-                    status: data.status,
-                    createdAt: new Date(data.created_at),
-                  },
-                  ...prev.filter((c) => c.id !== data.id),
-                ].filter((c) => c.status !== "done");
-                return next;
-              });
-              return;
-            }
-          } catch {
-            // ignore
-          }
-        };
-        ws.onclose = () => {
-          // no-op
-        };
-
-        return () => ws.close();
+        return (res?.access_token || "").trim() || null;
       } catch {
-        // ignore
+        return null;
       }
-      return undefined;
     };
 
-    let cleanup: (() => void) | undefined;
-    connect().then((fn) => {
-      cleanup = fn;
+    const cleanup = connectEventSocket({
+      baseUrl: base,
+      getToken: getRealtimeToken,
+      onMessage: (msg: EventSocketMessage) => {
+        if (msg?.type === "order.created" || msg?.type === "order.updated") {
+          const data = msg?.data as ActiveOrder;
+          const orderId = data?.id || data?.order_id;
+          if (!data || !orderId) return;
+          setActiveOrders((prev) => {
+            const next = upsertOrder(prev, data);
+            setOrders(buildPendingOrders(next));
+            return next;
+          });
+          refreshLiveData().catch(() => { });
+          return;
+        }
+
+        if (msg?.type === "service.call.created" || msg?.type === "service.call.updated") {
+          const data = msg?.data as ServiceCallAPI & { table_number: number };
+          if (!data || !data.id) return;
+          setServiceCalls((prev) => {
+            const next = [
+              {
+                id: data.id,
+                tableCode: `T${data.table_number}`,
+                type: data.type,
+                status: data.status,
+                createdAt: new Date(data.created_at),
+              },
+              ...prev.filter((c) => c.id !== data.id),
+            ].filter((c) => c.status !== "done");
+            return next;
+          });
+        }
+      },
     });
 
     return () => {
-      cancelled = true;
-      if (cleanup) cleanup();
+      cleanup();
     };
   }, []);
 
@@ -511,59 +482,74 @@ export default function StaffDashboardPage() {
     });
 
   const handleAccept = async (orderId: string) => {
+    if (orderActionPending[orderId]) return;
     const previous = activeOrders;
     const next = activeOrders.map((o) =>
       (o.id || o.order_id) === orderId ? { ...o, status: "accepted" } : o
     );
     setActiveOrders(next);
     setOrders(buildPendingOrders(next));
+    setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
       await api(`/api/admin/orders/${orderId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status: "accepted" }),
       });
-      await refreshDashboard();
+      refreshLiveData().catch(() => { });
     } catch {
       setActiveOrders(previous);
       setOrders(buildPendingOrders(previous));
+      toast.error("Unable to accept order");
+    } finally {
+      setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
   const handleServe = async (orderId: string) => {
+    if (orderActionPending[orderId]) return;
     const previous = activeOrders;
     const next = activeOrders.map((o) =>
       (o.id || o.order_id) === orderId ? { ...o, status: "served" } : o
     );
     setActiveOrders(next);
     setOrders(buildPendingOrders(next));
+    setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
       await api(`/api/admin/orders/${orderId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status: "served" }),
       });
-      await refreshDashboard();
+      refreshLiveData().catch(() => { });
     } catch {
       setActiveOrders(previous);
       setOrders(buildPendingOrders(previous));
+      toast.error("Unable to mark order served");
+    } finally {
+      setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
   const handleReject = async (orderId: string) => {
+    if (orderActionPending[orderId]) return;
     const previous = activeOrders;
     const next = activeOrders.map((o) =>
       (o.id || o.order_id) === orderId ? { ...o, status: "cancelled" } : o
     );
     setActiveOrders(next);
     setOrders(buildPendingOrders(next));
+    setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
       await api(`/api/admin/orders/${orderId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status: "cancelled" }),
       });
-      await refreshDashboard();
+      refreshLiveData().catch(() => { });
     } catch {
       setActiveOrders(previous);
       setOrders(buildPendingOrders(previous));
+      toast.error("Unable to reject order");
+    } finally {
+      setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -1294,15 +1280,33 @@ export default function StaffDashboardPage() {
                           <div className="flex gap-2">
                             {order.status === 'pending' ? (
                               <>
-                                <button onClick={() => handleAccept(order.orderId)} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100">Accept</button>
-                                <button onClick={() => handleReject(order.orderId)} className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100">Reject</button>
+                                <button
+                                  onClick={() => handleAccept(order.orderId)}
+                                  disabled={Boolean(orderActionPending[order.orderId])}
+                                  className="flex-1 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100"
+                                >
+                                  {orderActionPending[order.orderId] ? "Updating..." : "Accept"}
+                                </button>
+                                <button
+                                  onClick={() => handleReject(order.orderId)}
+                                  disabled={Boolean(orderActionPending[order.orderId])}
+                                  className="flex-1 bg-rose-50 hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100"
+                                >
+                                  {orderActionPending[order.orderId] ? "Updating..." : "Reject"}
+                                </button>
                                 <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-indigo-100 inline-flex items-center gap-1">
                                   <Printer className="w-3.5 h-3.5" /> KOT
                                 </button>
                               </>
                             ) : (
                               <div className="w-full flex gap-2">
-                                <button onClick={() => handleServe(order.orderId)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors">Mark Served</button>
+                                <button
+                                  onClick={() => handleServe(order.orderId)}
+                                  disabled={Boolean(orderActionPending[order.orderId])}
+                                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors"
+                                >
+                                  {orderActionPending[order.orderId] ? "Updating..." : "Mark Served"}
+                                </button>
                                 <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-indigo-100 inline-flex items-center gap-1">
                                   <Printer className="w-3.5 h-3.5" /> KOT
                                 </button>

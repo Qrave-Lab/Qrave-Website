@@ -5,6 +5,7 @@ import { ChefHat, Clock3, Loader2, LogOut, RefreshCw, UtensilsCrossed } from "lu
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { api } from "@/app/lib/api";
+import { connectEventSocket, type EventSocketMessage } from "@/app/lib/eventSocket";
 
 type ActiveOrderItem = {
   menu_item_id: string;
@@ -33,6 +34,11 @@ export default function KitchenDisplayPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const prevIds = useRef<Set<string>>(new Set());
+  const ordersRef = useRef<ActiveOrder[]>([]);
+
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
 
   const acceptedOrders = useMemo(
     () =>
@@ -41,6 +47,13 @@ export default function KitchenDisplayPage() {
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     [orders]
   );
+
+  const upsertOrder = useCallback((incoming: ActiveOrder) => {
+    const orderId = incoming.id || incoming.order_id;
+    if (!orderId) return;
+    const normalized: ActiveOrder = { ...incoming, id: orderId, order_id: orderId };
+    setOrders((prev) => [normalized, ...prev.filter((o) => (o.id || o.order_id) !== orderId)]);
+  }, []);
 
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
@@ -73,12 +86,55 @@ export default function KitchenDisplayPage() {
     fetchOrders().catch(() => undefined);
     const t = window.setInterval(() => {
       fetchOrders(true).catch(() => undefined);
-    }, 5000);
+    }, 15000);
     return () => window.clearInterval(t);
   }, [fetchOrders]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const base = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL?.trim();
+    if (!base) return;
+
+    const getRealtimeToken = async (): Promise<string | null> => {
+      try {
+        const res = await api<{ access_token?: string }>("/auth/refresh", {
+          method: "POST",
+          skipAuthRedirect: true,
+          suppressErrorLog: true,
+        });
+        return (res?.access_token || "").trim() || null;
+      } catch {
+        return null;
+      }
+    };
+
+    const cleanup = connectEventSocket({
+      baseUrl: base,
+      getToken: getRealtimeToken,
+      onMessage: (msg: EventSocketMessage) => {
+        if (msg?.type !== "order.created" && msg?.type !== "order.updated") {
+          return;
+        }
+        const data = msg?.data as ActiveOrder;
+        const nextId = data?.id || data?.order_id;
+        if (!data || !nextId) return;
+        const wasAccepted = ordersRef.current.some((o) => (o.id || o.order_id) === nextId && o.status === "accepted");
+        upsertOrder(data);
+        if (data.status === "accepted" && !wasAccepted) {
+          toast.success("New accepted order in kitchen");
+        }
+      },
+    });
+
+    return () => cleanup();
+  }, [upsertOrder]);
+
   const markReady = async (orderId: string) => {
     if (!orderId || markingId) return;
+    const previous = orders;
+    setOrders((prev) =>
+      prev.map((o) => ((o.id || o.order_id) === orderId ? { ...o, status: "ready" } : o))
+    );
     setMarkingId(orderId);
     try {
       await api(`/api/admin/orders/${orderId}/status`, {
@@ -86,8 +142,8 @@ export default function KitchenDisplayPage() {
         body: JSON.stringify({ status: "ready" }),
       });
       toast.success("Order marked as ready");
-      await fetchOrders(true);
     } catch {
+      setOrders(previous);
       toast.error("Unable to update order");
     } finally {
       setMarkingId(null);
