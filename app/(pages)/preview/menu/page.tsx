@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ModernFoodUI from "@/app/(pages)/menu/MenuUi";
 import { api } from "@/app/lib/api";
@@ -61,7 +61,7 @@ const SAMPLE_MENU = [
   },
 ];
 
-export default function PreviewMenuPage() {
+function PreviewMenuContent() {
   const searchParams = useSearchParams();
   const name = searchParams.get("name") || "Preview Restaurant";
   const themeRaw = searchParams.get("theme");
@@ -109,5 +109,13 @@ export default function PreviewMenuPage() {
       previewRestaurantName={name}
       previewThemeConfig={themeConfig}
     />
+  );
+}
+
+export default function PreviewMenuPage() {
+  return (
+    <Suspense fallback={null}>
+      <PreviewMenuContent />
+    </Suspense>
   );
 }

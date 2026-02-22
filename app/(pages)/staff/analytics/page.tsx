@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import StaffSidebar from "@/app/components/StaffSidebar";
-import { analyticsApi } from "@/app/lib/analyticsApi";
 import { api } from "@/app/lib/api";
 import {
   BarChart3,
@@ -22,6 +21,10 @@ type SalesPoint = { t: string; sales: number };
 
 const fmtINR = (n: number) =>
   `₹${Math.round(n).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+
+const adminAnalyticsApi = async <T,>(path: string): Promise<T> => {
+  return api<T>(`/api/admin/analytics${path}`, { method: "GET" });
+};
 
 const SimpleBars = ({ points }: { points: SalesPoint[] }) => {
   const max = Math.max(1, ...points.map((p) => p.sales));
@@ -110,11 +113,11 @@ export default function AnalyticsPage() {
         range.start && range.end ? `&start=${range.start}&end=${range.end}` : "";
       const branchQ = range.start && range.end ? `?start=${range.start}&end=${range.end}` : "";
       const [salesRes, mixRes, topRes, txRes, insRes, branchRes] = await Promise.all([
-        analyticsApi<any>(`/v1/sales/timeseries?bucket=${bucket}${qs}`),
-        analyticsApi<any>(`/v1/payment-mix${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
-        analyticsApi<any>(`/v1/top-items${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
-        analyticsApi<any>(`/v1/transactions${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
-        analyticsApi<any>(`/v1/insights?bucket=day${qs}`),
+        adminAnalyticsApi<any>(`/timeseries?bucket=${bucket}${qs}`),
+        adminAnalyticsApi<any>(`/payment-mix${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
+        adminAnalyticsApi<any>(`/top-items${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
+        adminAnalyticsApi<any>(`/transactions${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
+        adminAnalyticsApi<any>(`/insights?bucket=day${qs}`),
         api<{ branches?: BranchSales[] }>(`/api/admin/sales/branches${branchQ}`),
       ]);
       setSales(salesRes?.points || []);
