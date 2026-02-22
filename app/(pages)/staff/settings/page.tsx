@@ -164,6 +164,16 @@ export default function SettingsPage() {
   const fetchData = async () => {
     try {
       const adminData = await api<AdminMeResponse>("/api/admin/me", { method: "GET" });
+      const nextRole = String(adminData.role || "").toLowerCase();
+      const roleAccess = (adminData.theme_config as any)?.role_access as Record<string, Record<string, boolean>> | undefined;
+      if (nextRole && nextRole !== "owner") {
+        const allowed = roleAccess?.[nextRole]?.settings;
+        if (allowed === false && typeof window !== "undefined") {
+          toast.error("Settings access disabled for your role");
+          window.location.href = "/staff";
+          return;
+        }
+      }
       const logoVersionSuffix = adminData.logo_version ? `?v=${adminData.logo_version}` : "";
       const parsedPhone = splitE164Phone(adminData.phone);
       const restObj: Restaurant = {
@@ -215,7 +225,25 @@ export default function SettingsPage() {
         method: "POST",
         body: JSON.stringify({ logo_url: public_url }),
       });
-      setRestaurant((prev) => ({ ...prev, logo_url: `${public_url}?v=${Date.now()}` }));
+      const nextLogo = `${public_url}?v=${Date.now()}`;
+      setRestaurant((prev) => ({ ...prev, logo_url: nextLogo }));
+      if (typeof window !== "undefined") {
+        try {
+          const cachedRaw = localStorage.getItem("staff_sidebar_me_cache_v1");
+          const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
+          localStorage.setItem(
+            "staff_sidebar_me_cache_v1",
+            JSON.stringify({
+              ...cached,
+              restaurant: restaurant.name,
+              logo_url: nextLogo,
+            })
+          );
+        } catch {
+          // ignore cache write error
+        }
+        window.dispatchEvent(new Event("qrave:profile-updated"));
+      }
       toast.success("Logo uploaded");
     } catch {
       toast.error("Logo upload failed");
@@ -293,6 +321,7 @@ export default function SettingsPage() {
     { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer },
     { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette },
     { title: "Add New Branch", subtitle: "Create another branch/location", href: "/staff/settings/branches/add", icon: PlusCircle, show: role === "owner" },
+    { title: "Role Access Control", subtitle: "Set feature access per staff role", href: "/staff/settings/access-control", icon: Users, show: role === "owner" },
     { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
     { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
   ];

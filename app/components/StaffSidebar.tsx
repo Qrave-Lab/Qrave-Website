@@ -35,6 +35,8 @@ type LocationOption = {
   currency: string;
 };
 
+type RoleAccessConfig = Record<string, Record<string, boolean>>;
+
 const sidebarItems: SidebarSection[] = [
   {
     category: "Overview",
@@ -58,7 +60,17 @@ const sidebarItems: SidebarSection[] = [
 ];
 
 const ME_CACHE_KEY = "staff_sidebar_me_cache_v1";
-const ME_CACHE_TTL_MS = 5 * 60 * 1000;
+const PROFILE_UPDATED_EVENT = "qrave:profile-updated";
+
+function hasFeatureAccess(role: string, roleAccess: RoleAccessConfig | null, feature: string): boolean {
+  const r = String(role || "").toLowerCase();
+  if (!r || r === "owner") return true;
+  if (!roleAccess) return true;
+  const byRole = roleAccess[r];
+  if (!byRole) return true;
+  if (typeof byRole[feature] === "boolean") return byRole[feature];
+  return true;
+}
 
 export default function StaffSidebar() {
   const pathname = usePathname();
@@ -66,6 +78,8 @@ export default function StaffSidebar() {
   const [isMounted, setIsMounted] = useState(false);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [logoUrl, setLogoUrl] = useState<string>("");
+  const [currentRole, setCurrentRole] = useState<string>("");
+  const [roleAccess, setRoleAccess] = useState<RoleAccessConfig | null>(null);
   const [billingLocked, setBillingLocked] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [locations, setLocations] = useState<LocationOption[]>([]);
@@ -105,63 +119,76 @@ export default function StaffSidebar() {
 
     const fetchMe = async () => {
       try {
-        let shouldFetch = true;
         const cachedRaw = localStorage.getItem(ME_CACHE_KEY);
         if (cachedRaw) {
           try {
             const cached = JSON.parse(cachedRaw) as {
               restaurant?: string;
               logo_url?: string;
-              updated_at?: number;
+              role?: string;
+              role_access?: RoleAccessConfig;
             };
             if (isActive) {
               setRestaurantName(cached.restaurant || "Restaurant");
               setLogoUrl(cached.logo_url || "");
-            }
-            if (
-              typeof cached.updated_at === "number" &&
-              Date.now() - cached.updated_at < ME_CACHE_TTL_MS
-            ) {
-              shouldFetch = false;
+              setCurrentRole(cached.role || "");
+              setRoleAccess(cached.role_access || null);
             }
           } catch {
             // ignore malformed cache
           }
         }
 
-        if (!shouldFetch) return;
-
         const me = await api<{
           restaurant?: string;
+          role?: string;
           logo_url?: string | null;
           logo_version?: number | null;
+          theme_config?: { role_access?: RoleAccessConfig } | null;
         }>("/api/admin/me");
         if (!isActive) return;
         const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
         const nextRestaurant = me?.restaurant || "Restaurant";
         const nextLogo = me?.logo_url ? `${me.logo_url}${suffix}` : "";
+        const nextRole = me?.role || "";
+        const nextRoleAccess = me?.theme_config?.role_access || null;
         setRestaurantName(nextRestaurant);
         setLogoUrl(nextLogo);
+        setCurrentRole(nextRole);
+        setRoleAccess(nextRoleAccess);
         localStorage.setItem(
           ME_CACHE_KEY,
           JSON.stringify({
             restaurant: nextRestaurant,
             logo_url: nextLogo,
-            updated_at: Date.now(),
+            role: nextRole,
+            role_access: nextRoleAccess,
           })
         );
       } catch {
         if (!isActive) return;
         setRestaurantName("Restaurant");
         setLogoUrl("");
+        setCurrentRole("");
+        setRoleAccess(null);
       }
     };
 
     fetchMe();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === ME_CACHE_KEY) fetchMe();
+    };
+    const onProfileUpdated = () => {
+      fetchMe();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
     return () => {
       isActive = false;
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     let isActive = true;
@@ -247,7 +274,20 @@ export default function StaffSidebar() {
         items: section.items.filter((item) => item.href === "/staff/settings"),
       }))
       .filter((section) => section.items.length > 0)
-    : sidebarItems;
+    : sidebarItems
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => {
+          const feature =
+            item.href === "/staff" ? "floor" :
+            item.href === "/staff/menu" ? "menu" :
+            item.href === "/staff/analytics" ? "analytics" :
+            item.href === "/staff/settings" ? "settings" :
+            "";
+          return feature ? hasFeatureAccess(currentRole, roleAccess, feature) : true;
+        }),
+      }))
+      .filter((section) => section.items.length > 0);
 
   return (
     <motion.div

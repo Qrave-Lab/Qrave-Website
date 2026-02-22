@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { analyticsApi } from "@/app/lib/analyticsApi";
+import { api } from "@/app/lib/api";
 import {
   BarChart3,
   Calendar,
@@ -14,6 +15,8 @@ import {
 } from "lucide-react";
 
 type Bucket = "day" | "week" | "month";
+type LocationOption = { restaurant_id: string; restaurant: string; role: string };
+type BranchSales = { restaurant_id: string; name: string; role: string; total: number };
 
 type SalesPoint = { t: string; sales: number };
 
@@ -39,6 +42,10 @@ const SimpleBars = ({ points }: { points: SalesPoint[] }) => {
 
 export default function AnalyticsPage() {
   const [bucket, setBucket] = useState<Bucket>("day");
+  const [role, setRole] = useState<string>("");
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [activeRestaurantId, setActiveRestaurantId] = useState<string>("");
+  const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
   const [range, setRange] = useState<{ start: string; end: string }>({
     start: "",
     end: "",
@@ -50,12 +57,50 @@ export default function AnalyticsPage() {
   const [topItems, setTopItems] = useState<{ name: string; quantity: number; revenue: number }[]>([]);
   const [tx, setTx] = useState<any[]>([]);
   const [insights, setInsights] = useState<{ anomalies: any[]; forecast: any[] } | null>(null);
+  const [branchSales, setBranchSales] = useState<BranchSales[]>([]);
 
   const totals = useMemo(() => {
     const totalSales = sales.reduce((sum, p) => sum + (p.sales || 0), 0);
     const avg = sales.length ? totalSales / sales.length : 0;
-    return { totalSales, avg };
-  }, [sales]);
+    const transactions = tx.length;
+    const avgTicket = transactions ? tx.reduce((sum, t) => sum + Number(t?.amount || 0), 0) / transactions : 0;
+    const byHour: Record<string, number> = {};
+    for (const t of tx) {
+      const raw = String(t?.captured_at || "");
+      const hour = raw.length >= 13 ? raw.slice(11, 13) : "";
+      if (!hour) continue;
+      byHour[hour] = (byHour[hour] || 0) + 1;
+    }
+    let peakHour = "--";
+    let peakCount = 0;
+    Object.entries(byHour).forEach(([h, c]) => {
+      if (c > peakCount) {
+        peakCount = c;
+        peakHour = `${h}:00`;
+      }
+    });
+    const topBranch = [...branchSales].sort((a, b) => b.total - a.total)[0] || null;
+    return { totalSales, avg, transactions, avgTicket, peakHour, topBranch };
+  }, [sales, tx, branchSales]);
+
+  const loadBranchContext = async () => {
+    const [me, loc] = await Promise.all([
+      api<{ role?: string; theme_config?: { role_access?: Record<string, Record<string, boolean>> } }>("/api/admin/me"),
+      api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations"),
+    ]);
+    const nextRole = String(me?.role || "").toLowerCase();
+    const roleAccess = me?.theme_config?.role_access;
+    if (nextRole && nextRole !== "owner") {
+      const allowed = roleAccess?.[nextRole]?.analytics;
+      if (allowed === false && typeof window !== "undefined") {
+        window.location.href = "/staff";
+        return;
+      }
+    }
+    setRole(nextRole);
+    setLocations(loc?.locations || []);
+    setActiveRestaurantId(loc?.active_restaurant_id || "");
+  };
 
   const load = async () => {
     setLoading(true);
@@ -63,18 +108,21 @@ export default function AnalyticsPage() {
     try {
       const qs =
         range.start && range.end ? `&start=${range.start}&end=${range.end}` : "";
-      const [salesRes, mixRes, topRes, txRes, insRes] = await Promise.all([
+      const branchQ = range.start && range.end ? `?start=${range.start}&end=${range.end}` : "";
+      const [salesRes, mixRes, topRes, txRes, insRes, branchRes] = await Promise.all([
         analyticsApi<any>(`/v1/sales/timeseries?bucket=${bucket}${qs}`),
         analyticsApi<any>(`/v1/payment-mix${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
         analyticsApi<any>(`/v1/top-items${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
         analyticsApi<any>(`/v1/transactions${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
         analyticsApi<any>(`/v1/insights?bucket=day${qs}`),
+        api<{ branches?: BranchSales[] }>(`/api/admin/sales/branches${branchQ}`),
       ]);
       setSales(salesRes?.points || []);
       setMix(mixRes?.mix || []);
       setTopItems(topRes?.items || []);
       setTx(txRes?.transactions || []);
       setInsights({ anomalies: insRes?.anomalies || [], forecast: insRes?.forecast || [] });
+      setBranchSales(Array.isArray(branchRes?.branches) ? branchRes.branches : []);
     } catch (err: any) {
       setError(err?.message || "Failed to load analytics");
       setSales([]);
@@ -82,15 +130,36 @@ export default function AnalyticsPage() {
       setTopItems([]);
       setTx([]);
       setInsights(null);
+      setBranchSales([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
+    (async () => {
+      await loadBranchContext();
+      await load();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucket]);
+
+  const switchBranch = async (nextRestaurantId: string) => {
+    if (!nextRestaurantId || nextRestaurantId === activeRestaurantId || isSwitchingBranch) return;
+    setIsSwitchingBranch(true);
+    try {
+      await api("/api/admin/locations/switch", {
+        method: "POST",
+        body: JSON.stringify({ restaurant_id: nextRestaurantId }),
+      });
+      setActiveRestaurantId(nextRestaurantId);
+      await load();
+    } catch {
+      setError("Failed to switch branch");
+    } finally {
+      setIsSwitchingBranch(false);
+    }
+  };
 
   const exportCsv = () => {
     const headers = ["captured_at", "table_number", "items_count", "amount", "mode", "payment_id"];
@@ -126,6 +195,20 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {locations.length > 1 && (
+              <select
+                value={activeRestaurantId}
+                disabled={isSwitchingBranch}
+                onChange={(e) => switchBranch(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"
+              >
+                {locations.map((loc) => (
+                  <option key={loc.restaurant_id} value={loc.restaurant_id}>
+                    {loc.restaurant}
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
               {(["day", "week", "month"] as Bucket[]).map((b) => (
                 <button
@@ -240,6 +323,26 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="text-xs font-black uppercase tracking-widest text-slate-400">Transactions</div>
+                  <div className="text-3xl font-black mt-2">{totals.transactions}</div>
+                  <div className="text-xs text-slate-500 mt-1">In selected range</div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="text-xs font-black uppercase tracking-widest text-slate-400">Average Ticket</div>
+                  <div className="text-3xl font-black mt-2">{fmtINR(totals.avgTicket)}</div>
+                  <div className="text-xs text-slate-500 mt-1">Per transaction</div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="text-xs font-black uppercase tracking-widest text-slate-400">Peak Hour</div>
+                  <div className="text-3xl font-black mt-2">{totals.peakHour}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {totals.topBranch ? `Top branch: ${totals.topBranch.name}` : "No branch data"}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="text-sm font-black text-slate-900 mb-3">Sales Trend</div>
@@ -268,6 +371,30 @@ export default function AnalyticsPage() {
                     ))}
                     {!topItems.length && <div className="text-xs text-slate-500">No sales in range.</div>}
                   </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="text-sm font-black text-slate-900 mb-3">Branch-wise Sales</div>
+                <div className="space-y-3">
+                  {branchSales
+                    .sort((a, b) => b.total - a.total)
+                    .map((b) => {
+                      const max = Math.max(1, ...branchSales.map((x) => x.total || 0));
+                      const width = Math.max(4, Math.round(((b.total || 0) / max) * 100));
+                      return (
+                        <div key={b.restaurant_id} className="rounded-xl border border-slate-100 p-3">
+                          <div className="mb-2 flex items-center justify-between">
+                            <div className="text-sm font-bold text-slate-800">{b.name}</div>
+                            <div className="text-xs font-black text-slate-700">{fmtINR(b.total || 0)}</div>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-100">
+                            <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${width}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {!branchSales.length && <div className="text-xs text-slate-500">No branch sales data.</div>}
                 </div>
               </div>
 

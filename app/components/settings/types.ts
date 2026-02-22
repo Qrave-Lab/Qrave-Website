@@ -30,6 +30,13 @@ export type Restaurant = {
 };
 
 export type ThemeConfig = {
+  role_access?: {
+    owner?: Record<string, boolean>;
+    manager?: Record<string, boolean>;
+    kitchen?: Record<string, boolean>;
+    waiter?: Record<string, boolean>;
+    cashier?: Record<string, boolean>;
+  };
   preset?: "thai" | "indian" | "minimal" | "";
   font_family?: string;
   bg_image_url?: string;

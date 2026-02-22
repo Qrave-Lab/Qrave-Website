@@ -197,8 +197,17 @@ export default function MenuPage() {
   const refreshMe = async () => {
     try {
       const me = await authFetch("/api/admin/me");
-      setRole((me as any)?.role || "");
+      const nextRole = String((me as any)?.role || "").toLowerCase();
+      setRole(nextRole);
       setCurrentRestaurantId((me as any)?.restaurant_id || "");
+      const roleAccess = (me as any)?.theme_config?.role_access as Record<string, Record<string, boolean>> | undefined;
+      if (nextRole && nextRole !== "owner") {
+        const allowed = roleAccess?.[nextRole]?.menu;
+        if (allowed === false && typeof window !== "undefined") {
+          toast.error("Menu access disabled for your role");
+          window.location.href = "/staff";
+        }
+      }
     } catch {
       // ignore
     }
