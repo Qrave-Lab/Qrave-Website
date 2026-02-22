@@ -1,7 +1,6 @@
 import React from "react";
-import { Store, Camera, Loader2, Image as ImageIcon, Clock } from "lucide-react";
+import { Camera, Loader2, Image as ImageIcon } from "lucide-react";
 import type { Restaurant } from "./types";
-import toast from "react-hot-toast";
 
 /* ---------- 24h ↔ 12h helpers ---------- */
 function parse24(time: string): { hour: number; minute: number; period: "AM" | "PM" } {
@@ -20,6 +19,22 @@ function to24(hour: number, minute: number, period: "AM" | "PM"): string {
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+const PHONE_COUNTRY_CODES = [
+  { code: "+91", label: "IN (+91)" },
+  { code: "+1", label: "US/CA (+1)" },
+  { code: "+44", label: "UK (+44)" },
+  { code: "+61", label: "AU (+61)" },
+  { code: "+65", label: "SG (+65)" },
+  { code: "+971", label: "UAE (+971)" },
+];
+const PHONE_RULES: Record<string, { max: number; example: string; pattern: RegExp }> = {
+  "+91": { max: 10, example: "8012345678", pattern: /^[2-9][0-9]{9}$/ },
+  "+1": { max: 10, example: "4155552671", pattern: /^[2-9][0-9]{2}[2-9][0-9]{6}$/ },
+  "+44": { max: 10, example: "7123456789", pattern: /^7[0-9]{9}$/ },
+  "+61": { max: 9, example: "412345678", pattern: /^4[0-9]{8}$/ },
+  "+65": { max: 8, example: "91234567", pattern: /^[689][0-9]{7}$/ },
+  "+971": { max: 9, example: "501234567", pattern: /^5[0-9]{8}$/ },
+};
 
 /* ---------- TimePicker field ---------- */
 function TimePickerField({
@@ -99,19 +114,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
     setServiceInput(String(data.serviceCharge ?? 0));
   }, [data.serviceCharge]);
 
-  const handleChange = (key: keyof Restaurant, value: any) => {
-    if (key === "phone") {
-      const cleaned = value.replace(/\D/g, "");
-
-      if (cleaned.length > 10) {
-        toast.error("Phone number cannot exceed 10 digits.");
-        return;
-      }
-
-      onChange({ ...data, [key]: cleaned });
-      return;
-    }
-
+  const handleChange = (key: keyof Restaurant, value: string | number | boolean) => {
     onChange({ ...data, [key]: value });
   };
 
@@ -186,16 +189,35 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
               Phone Number
             </label>
-            <input
-              value={data.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
-              placeholder="0000000000"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={10}
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
-            />
-
+            <div className="flex gap-2">
+              <select
+                value={data.phoneCountryCode}
+                onChange={(e) => handleChange("phoneCountryCode", e.target.value)}
+                className="w-[130px] border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+              >
+                {PHONE_COUNTRY_CODES.map((opt) => (
+                  <option key={opt.code} value={opt.code}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={data.phone}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "");
+                  const max = PHONE_RULES[data.phoneCountryCode]?.max ?? 14;
+                  handleChange("phone", digits.slice(0, max));
+                }}
+                placeholder={PHONE_RULES[data.phoneCountryCode]?.example || "Business contact number"}
+                inputMode="tel"
+                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+              />
+            </div>
+            {data.phone.trim() && !PHONE_RULES[data.phoneCountryCode]?.pattern.test(data.phone.trim()) && (
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-red-500">
+                Invalid number format for {data.phoneCountryCode}. Example: {PHONE_RULES[data.phoneCountryCode]?.example}
+              </div>
+            )}
           </div>
         </div>
 

@@ -37,6 +37,62 @@ type CartLine = {
   lineTotal: number;
 };
 
+type ThemeConfig = {
+  preset?: "thai" | "indian" | "minimal" | "";
+  font_family?: string;
+  bg_image_url?: string;
+  bg_overlay_opacity?: number;
+  card_style?: "rounded" | "soft" | "sharp" | "";
+  button_style?: "solid" | "outline" | "glass" | "";
+  motif?: "thai" | "indian" | "minimal" | "custom" | "";
+  ornament_level?: "off" | "subtle" | "bold" | "";
+  header_style?: "classic" | "elegant" | "festival" | "";
+  pattern_style?: "none" | "silk" | "mandala" | "waves" | "leaf" | "";
+  section_icon?: string;
+  icon_pack?: "auto" | "thai" | "indian" | "minimal" | "";
+  colors?: {
+    bg?: string;
+    surface?: string;
+    text?: string;
+    muted?: string;
+    accent?: string;
+    accent_text?: string;
+  };
+};
+
+const DEFAULT_THEME: ThemeConfig = {
+  preset: "",
+  font_family: "'Inter','Segoe UI',sans-serif",
+  bg_image_url: "",
+  bg_overlay_opacity: 0.92,
+  card_style: "rounded",
+  button_style: "solid",
+  motif: "minimal",
+  ornament_level: "off",
+  header_style: "classic",
+  pattern_style: "none",
+  section_icon: "•",
+  icon_pack: "auto",
+  colors: {
+    bg: "#F8FAFC",
+    surface: "#FFFFFF",
+    text: "#0F172A",
+    muted: "#64748B",
+    accent: "#0F172A",
+    accent_text: "#FFFFFF",
+  },
+};
+
+const mergeTheme = (raw?: ThemeConfig | null): ThemeConfig => ({
+  ...DEFAULT_THEME,
+  ...(raw || {}),
+  bg_overlay_opacity: Math.min(0.98, Math.max(0.7, Number(raw?.bg_overlay_opacity ?? DEFAULT_THEME.bg_overlay_opacity))),
+  colors: {
+    ...(DEFAULT_THEME.colors || {}),
+    ...(raw?.colors || {}),
+  },
+});
+
 const CheckoutPage: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +116,7 @@ const CheckoutPage: React.FC = () => {
   const [isMounted, setIsMounted] = useState(false);
   const [isCartReady, setIsCartReady] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isSyncingAfterPlace, setIsSyncingAfterPlace] = useState(false);
   const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [isSeparateBill, setIsSeparateBill] = useState(false);
@@ -67,6 +124,15 @@ const CheckoutPage: React.FC = () => {
   const [myOrderIds, setMyOrderIds] = useState<Set<string>>(new Set());
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => {
+    if (typeof window === "undefined") return DEFAULT_THEME;
+    try {
+      const cached = localStorage.getItem("menu_theme_config");
+      return cached ? mergeTheme(JSON.parse(cached)) : DEFAULT_THEME;
+    } catch {
+      return DEFAULT_THEME;
+    }
+  });
 
   const {
     cart,
@@ -236,12 +302,18 @@ const CheckoutPage: React.FC = () => {
           restaurant?: string;
           logo_url?: string | null;
           logo_version?: number | null;
+          theme_config?: ThemeConfig;
         }>("/api/admin/me", { skipAuthRedirect: true });
         if (cancelled) return;
         const name = me?.restaurant?.trim();
         if (name) {
           setRestaurantName(name);
           localStorage.setItem("restaurant_name", name);
+        }
+        if (me?.theme_config) {
+          const merged = mergeTheme(me.theme_config);
+          setThemeConfig(merged);
+          localStorage.setItem("menu_theme_config", JSON.stringify(merged));
         }
         if (me?.logo_url) {
           const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
@@ -264,6 +336,20 @@ const CheckoutPage: React.FC = () => {
       } catch {
         // keep checkout header usable with text fallback
       }
+      try {
+        const theme = await api<{ theme_config?: ThemeConfig }>(`/public/restaurants/${rid}/theme`, {
+          skipAuthRedirect: true,
+          suppressErrorLog: true,
+        });
+        if (cancelled) return;
+        if (theme?.theme_config) {
+          const merged = mergeTheme(theme.theme_config);
+          setThemeConfig(merged);
+          localStorage.setItem("menu_theme_config", JSON.stringify(merged));
+        }
+      } catch {
+        // theme is optional
+      }
     };
 
     loadBranding();
@@ -271,6 +357,29 @@ const CheckoutPage: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  const activeTheme = useMemo(() => mergeTheme(themeConfig), [themeConfig]);
+  const themedSurfaceStyle: React.CSSProperties = {
+    background: "var(--co-surface)",
+    borderColor: "color-mix(in srgb, var(--co-muted) 20%, transparent)",
+  };
+  const themedAppStyle: React.CSSProperties = {
+    ["--co-bg" as string]: activeTheme.colors?.bg || "#F8FAFC",
+    ["--co-surface" as string]: activeTheme.colors?.surface || "#FFFFFF",
+    ["--co-text" as string]: activeTheme.colors?.text || "#0F172A",
+    ["--co-muted" as string]: activeTheme.colors?.muted || "#64748B",
+    ["--co-accent" as string]: activeTheme.colors?.accent || "#0F172A",
+    ["--co-accent-text" as string]: activeTheme.colors?.accent_text || "#FFFFFF",
+    ["--co-font" as string]: activeTheme.font_family || "'Inter','Segoe UI',sans-serif",
+    backgroundColor: "var(--co-bg)",
+    color: "var(--co-text)",
+    fontFamily: "var(--co-font)",
+    backgroundImage: activeTheme.bg_image_url
+      ? `linear-gradient(rgba(255,255,255,${activeTheme.bg_overlay_opacity ?? 0.92}), rgba(255,255,255,${activeTheme.bg_overlay_opacity ?? 0.92})), url('${activeTheme.bg_image_url}')`
+      : "none",
+    backgroundSize: "cover",
+    backgroundAttachment: "fixed",
+  };
 
   const lines: CartLine[] = useMemo(() => {
     if (!isMounted || !isCartReady) return [];
@@ -347,6 +456,7 @@ const CheckoutPage: React.FC = () => {
   const handlePlaceOrder = async () => {
     if (lines.length === 0 || isPlacingOrder) return;
     setIsPlacingOrder(true);
+    setIsSyncingAfterPlace(false);
 
     try {
       const orderId = localStorage.getItem("order_id");
@@ -361,16 +471,18 @@ const CheckoutPage: React.FC = () => {
       if (!prevIds.includes(orderId)) prevIds.push(orderId);
       localStorage.setItem("my_order_ids", JSON.stringify(prevIds));
       setMyOrderIds(new Set(prevIds));
-
+      setIsSyncingAfterPlace(true);
+      const res = await orderService.getOrders();
+      if (res?.orders) {
+        setOrders(res.orders);
+      }
       localStorage.removeItem("order_id");
       clearCart();
       setCurrentOrderId(null);
-
-      const res = await orderService.getOrders();
-      if (res?.orders) setOrders(res.orders);
     } catch {
       toast.error("Failed to place order");
     } finally {
+      setIsSyncingAfterPlace(false);
       setIsPlacingOrder(false);
     }
   };
@@ -404,19 +516,25 @@ const CheckoutPage: React.FC = () => {
   const hasPlacedOrders = placedOrders.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-36">
-      <header className="sticky top-0 z-50 w-full bg-white/70 backdrop-blur-md">
+    <div className="min-h-screen pb-36" style={themedAppStyle}>
+      <header
+        className="sticky top-0 z-50 w-full backdrop-blur-md"
+        style={{ background: "color-mix(in srgb, var(--co-surface) 82%, transparent)" }}
+      >
         <div className="mx-auto flex max-w-lg items-center justify-between px-6 py-4">
           <button
             onClick={() => router.back()}
-            className="group flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200 transition-all active:scale-90"
+            className="group flex h-10 w-10 items-center justify-center rounded-full shadow-sm ring-1 transition-all active:scale-90"
+            style={themedSurfaceStyle}
           >
-            <ChevronLeft className="h-5 w-5 text-slate-600 group-hover:text-slate-900" />
+            <ChevronLeft className="h-5 w-5 group-hover:opacity-80" style={{ color: "var(--co-text)" }} />
           </button>
           <div className="text-center">
-            <h1 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Checkout</h1>
+            <h1 className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: "var(--co-muted)" }}>
+              Checkout
+            </h1>
             <div className="mt-1 flex items-center justify-center gap-2">
-              <div className="h-6 w-6 rounded-md overflow-hidden border border-slate-200 bg-white shrink-0">
+              <div className="h-6 w-6 rounded-md overflow-hidden border shrink-0" style={themedSurfaceStyle}>
                 {restaurantLogoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={restaurantLogoUrl} alt={`${restaurantName} logo`} className="w-full h-full object-cover" />
@@ -426,26 +544,22 @@ const CheckoutPage: React.FC = () => {
                   </div>
                 )}
               </div>
-              <p className="font-serif text-xl font-bold text-slate-900">{restaurantName}</p>
+              <p className="font-serif text-xl font-bold" style={{ color: "var(--co-text)" }}>
+                {restaurantName}
+              </p>
             </div>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white shadow-lg">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[10px] font-bold shadow-lg"
+            style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+          >
             T-{tableNumber}
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-lg px-6 pt-4">
-        {isTableOccupied && (
-          <div className={`mb-4 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${isSeparateBill
-            ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
-            : "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200"
-            }`}>
-            <span className="text-lg">{isSeparateBill ? "🧾" : "🤝"}</span>
-            <span>{isSeparateBill ? "Your separate bill" : "Shared order with table"}</span>
-          </div>
-        )}
-        {!currentCartHasItems && !hasPlacedOrders ? (
+        {!currentCartHasItems && !hasPlacedOrders && !isSyncingAfterPlace ? (
           <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
             <div className="relative mb-6">
               <div className="absolute inset-0 animate-ping rounded-full bg-slate-100 opacity-75"></div>
@@ -473,13 +587,19 @@ const CheckoutPage: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                   {placedOrders.map((order) => (
-                    <div key={order.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-                      <div className="mb-3 flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
+                    <div key={order.id} className="rounded-3xl border p-4 shadow-sm" style={themedSurfaceStyle}>
+                      <div
+                        className="mb-3 flex items-center justify-between border-b border-dashed pb-2"
+                        style={{ borderColor: "color-mix(in srgb, var(--co-muted) 25%, transparent)" }}
+                      >
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                             Order #{order.id.slice(0, 4)}
                           </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-widest ${order.status === 'accepted' ? 'text-green-500' : 'text-slate-500'}`}>
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-widest ${order.status === "accepted" ? "text-green-500" : ""}`}
+                            style={order.status !== "accepted" ? { color: "var(--co-muted)" } : undefined}
+                          >
                             {order.status}
                           </span>
                         </div>
@@ -547,10 +667,7 @@ const CheckoutPage: React.FC = () => {
 
                 <div className="space-y-3">
                   {lines.map((line) => (
-                    <div
-                      key={line.key}
-                      className="flex gap-4 rounded-3xl border border-white bg-white/80 p-3 shadow-sm transition-all hover:shadow-md"
-                    >
+                    <div key={line.key} className="flex gap-4 rounded-3xl border p-3 shadow-sm transition-all hover:shadow-md" style={themedSurfaceStyle}>
                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
                         <img
                           src={line.item.image}
@@ -601,7 +718,7 @@ const CheckoutPage: React.FC = () => {
               </section>
             )}
 
-            <section className="overflow-hidden rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+            <section className="overflow-hidden rounded-3xl p-6 shadow-sm ring-1" style={themedSurfaceStyle}>
               <div className="mb-4 flex items-center gap-2">
                 <ReceiptText className="h-4 w-4 text-slate-400" />
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
@@ -630,7 +747,10 @@ const CheckoutPage: React.FC = () => {
       </main>
 
       {(currentCartHasItems || hasPlacedOrders) && (
-        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-to-t from-white via-white/90 to-transparent p-6 pb-8">
+        <div
+          className="fixed bottom-0 left-0 right-0 z-[60] p-6 pb-8"
+          style={{ background: "linear-gradient(to top, var(--co-surface), color-mix(in srgb, var(--co-surface) 90%, transparent), transparent)" }}
+        >
           <div className="mx-auto flex max-w-md items-center gap-4">
             <div className="hidden flex-col sm:flex">
               <span className="text-[10px] font-bold uppercase text-slate-400">Grand Total</span>
@@ -641,13 +761,15 @@ const CheckoutPage: React.FC = () => {
               <div className="flex flex-1 gap-3">
                 <button
                   onClick={() => router.push("/menu")}
-                  className="flex-1 rounded-2xl bg-white py-4 text-sm font-bold text-slate-900 shadow-xl ring-1 ring-slate-200 transition-all active:scale-95"
+                  className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-xl ring-1 transition-all active:scale-95"
+                  style={themedSurfaceStyle}
                 >
                   Add More Items
                 </button>
                 <button
                   onClick={() => toast.success("Bill Requested!")}
-                  className="flex-1 rounded-2xl bg-slate-900 py-4 text-sm font-bold text-white shadow-xl transition-all active:scale-95"
+                  className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-xl transition-all active:scale-95"
+                  style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
                 >
                   Get Bill
                 </button>
@@ -658,16 +780,17 @@ const CheckoutPage: React.FC = () => {
                 disabled={isPlacingOrder || isWaitingConfirmation}
                 className={`relative flex h-14 flex-1 items-center justify-center overflow-hidden rounded-2xl font-bold text-white transition-all active:scale-[0.98] ${isWaitingConfirmation ? "bg-amber-500 shadow-amber-200 shadow-lg" : "bg-slate-900 disabled:opacity-80 shadow-2xl"
                   }`}
+                style={!isWaitingConfirmation ? { background: "var(--co-accent)", color: "var(--co-accent-text)" } : undefined}
               >
                 {isWaitingConfirmation ? (
                   <div className="flex items-center gap-3">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Waiting for confirmation...</span>
                   </div>
-                ) : isPlacingOrder ? (
+                ) : isPlacingOrder || isSyncingAfterPlace ? (
                   <div className="flex items-center gap-3">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Processing...</span>
+                    <span>{isSyncingAfterPlace ? "Updating orders..." : "Processing..."}</span>
                   </div>
                 ) : (
                   <div className="flex w-full items-center justify-between px-6">

@@ -24,6 +24,7 @@ import {
   Printer
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import StaffSidebar from "../../components/StaffSidebar";
 import { api } from "@/app/lib/api";
@@ -145,6 +146,7 @@ const getMinutesDiff = (date?: Date) => {
 };
 
 export default function StaffDashboardPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [tables, setTables] = useState<StaffTable[]>([]);
   const [orders, setOrders] = useState<PendingOrder[]>([]);
@@ -174,6 +176,25 @@ export default function StaffDashboardPage() {
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const refreshLockRef = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const guardRole = async () => {
+      try {
+        const me = await api<{ role?: string }>("/api/admin/me", { method: "GET" });
+        if (!mounted) return;
+        if ((me?.role || "").toLowerCase() === "kitchen") {
+          router.replace("/staff/kitchen");
+        }
+      } catch {
+        // ignore
+      }
+    };
+    guardRole();
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -541,16 +562,34 @@ export default function StaffDashboardPage() {
     }
   };
 
-  const handleFreeTable = async (tableId: string) => {
+  const handleFreeTable = async (tableId: string, markPaid = false) => {
     const tableToFree = tables.find(t => t.id === tableId);
     if (!tableToFree) return;
     if (!tableToFree.activeSessionId) return;
 
-    await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
-      method: "POST",
-    });
+    try {
+      await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
+        method: "POST",
+        body: JSON.stringify(markPaid ? { mark_paid: true, payment_mode: "cash" } : {}),
+      });
+    } catch (err: any) {
+      const status = err?.status;
+      const msg = String(err?.message || "").toLowerCase();
+      if (!markPaid && status === 409 && (msg.includes("mark paid") || msg.includes("pending bill") || msg.includes("unpaid"))) {
+        setConfirmAction({
+          title: `Pending bill on ${tableToFree.tableCode}`,
+          message: "This table has unpaid orders. Mark all orders paid and free table?",
+          confirmText: "Mark Paid & Free",
+          onConfirm: async () => handleFreeTable(tableId, true),
+        });
+        return;
+      }
+      toast.error(err?.message || "Failed to free table");
+      return;
+    }
 
     await refreshDashboard();
+    toast.success(markPaid ? "Table closed and bill marked paid" : "Table freed");
     setOpenMenuId(null);
   };
 
@@ -560,7 +599,7 @@ export default function StaffDashboardPage() {
     setConfirmAction({
       title: `Free ${tableToFree.tableCode}?`,
       message: "This will end the active session immediately.",
-      onConfirm: async () => handleFreeTable(tableId),
+      onConfirm: async () => handleFreeTable(tableId, false),
     });
   };
 
@@ -600,6 +639,7 @@ export default function StaffDashboardPage() {
 
     await api(`/api/admin/sessions/${table.activeSessionId}/end`, {
       method: "POST",
+      body: JSON.stringify({ mark_paid: true, payment_mode: "cash" }),
     });
 
     toast.success("Bill printed and table closed");

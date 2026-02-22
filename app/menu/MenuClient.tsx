@@ -7,6 +7,29 @@ import { api } from "@/app/lib/api";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { useCartStore } from "@/stores/cartStore";
 
+type ThemeConfig = {
+  preset?: "thai" | "indian" | "minimal" | "";
+  font_family?: string;
+  bg_image_url?: string;
+  bg_overlay_opacity?: number;
+  card_style?: "rounded" | "soft" | "sharp" | "";
+  button_style?: "solid" | "outline" | "glass" | "";
+  motif?: "thai" | "indian" | "minimal" | "custom" | "";
+  ornament_level?: "off" | "subtle" | "bold" | "";
+  header_style?: "classic" | "elegant" | "festival" | "";
+  pattern_style?: "none" | "silk" | "mandala" | "waves" | "leaf" | "";
+  section_icon?: string;
+  icon_pack?: "auto" | "thai" | "indian" | "minimal" | "";
+  colors?: {
+    bg?: string;
+    surface?: string;
+    text?: string;
+    muted?: string;
+    accent?: string;
+    accent_text?: string;
+  };
+};
+
 export default function MenuClient({ table }: { table: string | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,6 +38,15 @@ export default function MenuClient({ table }: { table: string | null }) {
   const [currentTableNumber, setCurrentTableNumber] = useState<string | null>(null);
   const [isOccupiedNotice, setIsOccupiedNotice] = useState(false);
   const [isOrderingEnabled, setIsOrderingEnabled] = useState(true);
+  const [initialThemeConfig, setInitialThemeConfig] = useState<ThemeConfig | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    try {
+      const cached = localStorage.getItem("menu_theme_config");
+      return cached ? (JSON.parse(cached) as ThemeConfig) : undefined;
+    } catch {
+      return undefined;
+    }
+  });
   const clearCart = useCartStore((state) => state.clearCart);
 
   const tableFromUrl = searchParams.get("table");
@@ -221,7 +253,29 @@ export default function MenuClient({ table }: { table: string | null }) {
 
       try {
         setIsOccupiedNotice(localStorage.getItem("table_occupied") === "1");
-        const menu = await loadMenu(session || undefined);
+        const restaurantIdForTheme =
+          localStorage.getItem("restaurant_id") ||
+          detailsRestaurantIdFromSession(session || undefined) ||
+          resolvedRestaurant ||
+          "";
+        const [menu, themeRes] = await Promise.all([
+          loadMenu(session || undefined),
+          restaurantIdForTheme
+            ? api<{ theme_config?: ThemeConfig }>(`/public/restaurants/${restaurantIdForTheme}/theme`, {
+              skipAuthRedirect: true,
+              suppressErrorLog: true,
+            }).catch(() => ({} as { theme_config?: ThemeConfig }))
+            : Promise.resolve({} as { theme_config?: ThemeConfig }),
+        ]);
+        if (themeRes?.theme_config) {
+          setInitialThemeConfig(themeRes.theme_config);
+          localStorage.setItem("menu_theme_config", JSON.stringify(themeRes.theme_config));
+        } else {
+          try {
+            const cached = localStorage.getItem("menu_theme_config");
+            if (cached) setInitialThemeConfig(JSON.parse(cached));
+          } catch { }
+        }
         setItems(menu);
         await syncSessionDetails();
       } catch (err: any) {
@@ -253,6 +307,19 @@ export default function MenuClient({ table }: { table: string | null }) {
                 if (restaurantForSession) {
                   localStorage.setItem("restaurant_id", restaurantForSession);
                 }
+                try {
+                  const rid = localStorage.getItem("restaurant_id");
+                  if (rid) {
+                    const themeRes = await api<{ theme_config?: ThemeConfig }>(`/public/restaurants/${rid}/theme`, {
+                      skipAuthRedirect: true,
+                      suppressErrorLog: true,
+                    });
+                    if (themeRes?.theme_config) {
+                      setInitialThemeConfig(themeRes.theme_config);
+                      localStorage.setItem("menu_theme_config", JSON.stringify(themeRes.theme_config));
+                    }
+                  }
+                } catch { }
                 const menu = await loadMenu(session);
                 setItems(menu);
                 setIsOccupiedNotice(localStorage.getItem("table_occupied") === "1");
@@ -329,8 +396,13 @@ export default function MenuClient({ table }: { table: string | null }) {
       tableNumber={currentTableNumber || resolvedTable || "N/A"}
       isTableOccupied={isOccupiedNotice}
       orderingEnabled={isOrderingEnabled}
+      initialThemeConfig={initialThemeConfig}
     />
   );
+}
+
+function detailsRestaurantIdFromSession(_sessionId?: string): string | null {
+  return null;
 }
 
 const menuLoadingStyles = `

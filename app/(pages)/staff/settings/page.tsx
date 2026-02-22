@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Save, Loader2, Globe, AlertTriangle, ArrowRight, CreditCard } from "lucide-react";
+import { Save, Loader2, Globe, AlertTriangle, ArrowRight, CreditCard, Palette } from "lucide-react";
 import StaffSidebar from "../../../components/StaffSidebar";
 import RestaurantProfile from "@/app/components/settings/RestaurantProfile";
 import DeviceSettings from "@/app/components/settings/DeviceSettings";
@@ -26,7 +26,64 @@ type AdminMeResponse = {
   logo_version?: number;
   open_time?: string;
   close_time?: string;
+  theme_config?: Restaurant["themeConfig"];
 };
+
+const PHONE_COUNTRY_CODES = [
+  "+91",
+  "+1",
+  "+44",
+  "+61",
+  "+65",
+  "+971",
+];
+
+const PHONE_RULES: Record<string, { min: number; max: number; pattern: RegExp; example: string }> = {
+  "+91": { min: 10, max: 10, pattern: /^[2-9][0-9]{9}$/, example: "8012345678" },
+  "+1": { min: 10, max: 10, pattern: /^[2-9][0-9]{2}[2-9][0-9]{6}$/, example: "4155552671" },
+  "+44": { min: 10, max: 10, pattern: /^7[0-9]{9}$/, example: "7123456789" },
+  "+61": { min: 9, max: 9, pattern: /^4[0-9]{8}$/, example: "412345678" },
+  "+65": { min: 8, max: 8, pattern: /^[689][0-9]{7}$/, example: "91234567" },
+  "+971": { min: 9, max: 9, pattern: /^5[0-9]{8}$/, example: "501234567" },
+};
+
+function splitE164Phone(value?: string): { countryCode: string; phone: string } {
+  const raw = String(value || "").trim();
+  if (!raw.startsWith("+")) return { countryCode: "+91", phone: raw };
+  const digits = raw.slice(1).replace(/\D/g, "");
+  if (!digits) return { countryCode: "+91", phone: "" };
+  for (const code of PHONE_COUNTRY_CODES.sort((a, b) => b.length - a.length)) {
+    const cc = code.slice(1);
+    if (digits.startsWith(cc)) {
+      return { countryCode: code, phone: digits.slice(cc.length) };
+    }
+  }
+  return { countryCode: "+91", phone: digits };
+}
+
+function validateRestaurantName(name: string) {
+  const v = name.trim();
+  return v.length >= 2 && v.length <= 120 && !/[\x00-\x1F\x7F]/.test(v);
+}
+
+function validateAddress(address: string) {
+  const v = address.trim();
+  return v.length <= 240 && !/[\x00-\x1F\x7F]/.test(v);
+}
+
+function validatePhone(countryCode: string, phone: string) {
+  const v = phone.trim();
+  if (!v) return true;
+  if (!/^\+[1-9][0-9]{0,3}$/.test(countryCode)) return false;
+  const digits = v.replace(/\D/g, "");
+  const rule = PHONE_RULES[countryCode];
+  if (rule) {
+    return digits.length >= rule.min && digits.length <= rule.max && rule.pattern.test(digits);
+  }
+  if (digits.length < 6 || digits.length > 14) return false;
+  const total = countryCode.replace("+", "").length + digits.length;
+  return total >= 8 && total <= 15;
+}
 
 export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
@@ -43,10 +100,12 @@ export default function SettingsPage() {
     taxPercent: 5,
     serviceCharge: 10,
     phone: "",
+    phoneCountryCode: "+91",
     logo_url: "",
     orderingEnabled: true,
     openTime: "",
     closeTime: "",
+    themeConfig: {},
   });
 
   const [initialData, setInitialData] = useState<{
@@ -67,10 +126,12 @@ export default function SettingsPage() {
       ]);
 
       const logoVersionSuffix = adminData.logo_version ? `?v=${adminData.logo_version}` : "";
+      const parsedPhone = splitE164Phone(adminData.phone);
       const restObj: Restaurant = {
         name: adminData.restaurant || "",
         address: adminData.address || "",
-        phone: adminData.phone || "",
+        phone: parsedPhone.phone,
+        phoneCountryCode: parsedPhone.countryCode,
         currency: adminData.currency || "INR",
         taxPercent: adminData.tax_percent || 0,
         serviceCharge: adminData.service_charge || 0,
@@ -78,6 +139,7 @@ export default function SettingsPage() {
         logo_url: adminData.logo_url ? `${adminData.logo_url}${logoVersionSuffix}` : "",
         openTime: adminData.open_time || "",
         closeTime: adminData.close_time || "",
+        themeConfig: adminData.theme_config || {},
       };
 
       const fetchedTables = tablesData || [];
@@ -140,6 +202,18 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    if (!validateRestaurantName(restaurant.name)) {
+      toast.error("Enter a valid restaurant name");
+      return;
+    }
+    if (!validateAddress(restaurant.address)) {
+      toast.error("Address is invalid");
+      return;
+    }
+    if (!validatePhone(restaurant.phoneCountryCode, restaurant.phone)) {
+      toast.error("Phone number is invalid");
+      return;
+    }
     setIsSaving(true);
     try {
       await api("/api/admin/update-details", {
@@ -148,6 +222,7 @@ export default function SettingsPage() {
           name: restaurant.name,
           address: restaurant.address,
           phone: restaurant.phone,
+          phone_country_code: restaurant.phoneCountryCode,
           tax_percent: restaurant.taxPercent,
           service_charge: restaurant.serviceCharge,
           ordering_enabled: restaurant.orderingEnabled !== false,
@@ -260,6 +335,24 @@ export default function SettingsPage() {
                 onRemove={removeTable}
               />
               <StaffManager />
+              <section className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/40">
+                  <h2 className="font-bold text-amber-700">Theme Studio</h2>
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    Customize customer menu visuals with live side preview.
+                  </p>
+                </div>
+                <div className="p-6">
+                  <Link
+                    href="/staff/settings/theme"
+                    className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-xs font-bold"
+                  >
+                    <Palette className="w-4 h-4" />
+                    Open Theme Studio
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </section>
               {role === "owner" && (
                 <section className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
                   <div className="px-6 py-4 border-b border-indigo-100 bg-indigo-50/40">

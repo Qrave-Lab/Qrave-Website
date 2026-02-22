@@ -156,6 +156,7 @@ export default function StaffSidebar() {
     if (!billingLocked) return;
     if (pathname === "/staff/settings/subscription") return;
     if (pathname === "/staff/settings") return;
+    if (pathname === "/staff/settings/theme") return;
     window.location.href = "/staff/settings/subscription";
   }, [billingLocked, pathname]);
 

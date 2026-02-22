@@ -25,7 +25,10 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  Loader2
+  Loader2,
+  Clock3,
+  MapPin,
+  Phone
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import toast from "react-hot-toast";
@@ -76,6 +79,24 @@ const BLOCKED_EMAIL_DOMAINS = new Set([
   "burnermail.io",
   "temp-mail.org",
 ]);
+
+const PHONE_COUNTRY_CODES = [
+  { code: "+91", label: "IN (+91)" },
+  { code: "+1", label: "US/CA (+1)" },
+  { code: "+44", label: "UK (+44)" },
+  { code: "+61", label: "AU (+61)" },
+  { code: "+65", label: "SG (+65)" },
+  { code: "+971", label: "UAE (+971)" },
+];
+
+const PHONE_RULES: Record<string, { min: number; max: number; pattern: RegExp; example: string }> = {
+  "+91": { min: 10, max: 10, pattern: /^[2-9][0-9]{9}$/, example: "8012345678" },
+  "+1": { min: 10, max: 10, pattern: /^[2-9][0-9]{2}[2-9][0-9]{6}$/, example: "4155552671" },
+  "+44": { min: 10, max: 10, pattern: /^7[0-9]{9}$/, example: "7123456789" },
+  "+61": { min: 9, max: 9, pattern: /^4[0-9]{8}$/, example: "412345678" },
+  "+65": { min: 8, max: 8, pattern: /^[689][0-9]{7}$/, example: "91234567" },
+  "+971": { min: 9, max: 9, pattern: /^5[0-9]{8}$/, example: "501234567" },
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -161,6 +182,11 @@ export default function OnboardingPage() {
     currency: "INR",
     tableCount: 8,
     subscriptionPlan: "monthly_499",
+    openTime: "",
+    closeTime: "",
+    address: "",
+    phone: "",
+    phoneCountryCode: "+91",
   });
 
   const decodeJwtPayload = (token: string): Record<string, any> | null => {
@@ -186,9 +212,51 @@ export default function OnboardingPage() {
     return true;
   };
 
+  const validateRestaurantName = (name: string) => {
+    const v = name.trim();
+    if (v.length < 2 || v.length > 120) return false;
+    return !/[\x00-\x1F\x7F]/.test(v);
+  };
+
+  const validatePassword = (password: string) => {
+    const v = password.trim();
+    if (v.length < 8 || v.length > 72) return false;
+    if (!/[A-Za-z]/.test(v)) return false;
+    if (!/[0-9]/.test(v)) return false;
+    if (/[^\x20-\x7E]/.test(v)) return false;
+    return true;
+  };
+
+  const validateAddress = (address: string) => {
+    const v = address.trim();
+    if (!v) return true;
+    if (v.length > 240) return false;
+    return !/[\x00-\x1F\x7F]/.test(v);
+  };
+
+  const validatePhone = (countryCode: string, phone: string) => {
+    const v = phone.trim();
+    if (!v) return true;
+    if (!/^\+[1-9][0-9]{0,3}$/.test(countryCode)) return false;
+    const digits = v.replace(/\D/g, "");
+    const rule = PHONE_RULES[countryCode];
+    if (rule) {
+      return digits.length >= rule.min && digits.length <= rule.max && rule.pattern.test(digits);
+    }
+    if (digits.length < 6 || digits.length > 14) return false;
+    const total = countryCode.replace("+", "").length + digits.length;
+    return total >= 8 && total <= 15;
+  };
+
+  const normalizePhoneInput = (countryCode: string, phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    const max = PHONE_RULES[countryCode]?.max ?? 14;
+    return digits.slice(0, max);
+  };
+
   const nextStep = async () => {
     if (step === 1) {
-      if (data.name.length < 2) return toast.error("Your restaurant needs a name");
+      if (!validateRestaurantName(data.name)) return toast.error("Enter a valid restaurant name");
       setStep(2);
     } else if (step === 2) {
       if (!validateEmail(data.email)) return toast.error("Please enter a valid email address");
@@ -225,10 +293,14 @@ export default function OnboardingPage() {
         setIsLoading(false);
       }
     } else if (step === 4) {
-      if (data.password.length < 8) return toast.error("Password must be at least 8 characters");
+      if (!validatePassword(data.password)) return toast.error("Password must be 8-72 chars with letters and numbers");
       if (data.password !== data.confirmPassword) return toast.error("Passwords do not match");
       setStep(5);
     } else if (step === 5) {
+      if (!data.openTime) return toast.error("Please add opening time");
+      if (!data.closeTime) return toast.error("Please add closing time");
+      if (!validateAddress(data.address)) return toast.error("Address is invalid");
+      if (!validatePhone(data.phoneCountryCode, data.phone)) return toast.error("Phone number is invalid");
       setStep(6);
     } else if (step === 6) {
       setIsLoading(true);
@@ -247,6 +319,11 @@ export default function OnboardingPage() {
               currency: data.currency,
               table_count: data.tableCount,
               subscription_plan: data.subscriptionPlan,
+              open_time: data.openTime,
+              close_time: data.closeTime,
+              address: data.address.trim() || null,
+              phone: data.phone.trim() || null,
+              phone_country_code: data.phoneCountryCode,
             }),
           });
         } else {
@@ -264,6 +341,11 @@ export default function OnboardingPage() {
               currency: data.currency,
               table_count: data.tableCount,
               subscription_plan: data.subscriptionPlan,
+              open_time: data.openTime,
+              close_time: data.closeTime,
+              address: data.address.trim() || null,
+              phone: data.phone.trim() || null,
+              phone_country_code: data.phoneCountryCode,
             }),
           });
         }
@@ -546,7 +628,7 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="flex-1 px-10 md:px-14 flex flex-col justify-center">
+        <div className="flex-1 px-10 md:px-14 py-6 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div key={step} variants={slideVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="w-full">
               {step === 1 && (
@@ -682,6 +764,115 @@ export default function OnboardingPage() {
               {step === 5 && (
                 <div className="space-y-8">
                   <div className="space-y-2">
+                    <h1 className="text-4xl font-bold tracking-tight text-slate-900">Setup details</h1>
+                    <p className="text-slate-500 font-medium">Share opening and closing time, then add optional contact details.</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Opening Time</label>
+                      <div className="mt-2 relative">
+                        <Clock3 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="time"
+                          value={data.openTime}
+                          onChange={(e) => setData({ ...data, openTime: e.target.value })}
+                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Closing Time</label>
+                      <div className="mt-2 relative">
+                        <Clock3 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="time"
+                          value={data.closeTime}
+                          onChange={(e) => setData({ ...data, closeTime: e.target.value })}
+                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Address (Optional)</label>
+                        <button
+                          type="button"
+                          onClick={() => setData((prev) => ({ ...prev, address: "" }))}
+                          className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600 hover:text-indigo-700"
+                        >
+                          Skip
+                        </button>
+                      </div>
+                      <div className="mt-2 relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          value={data.address}
+                          onChange={(e) => setData({ ...data, address: e.target.value })}
+                          placeholder="Street, city, state"
+                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-indigo-500 placeholder:text-slate-300"
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Phone (Optional)</label>
+                        <button
+                          type="button"
+                          onClick={() => setData((prev) => ({ ...prev, phone: "", phoneCountryCode: "+91" }))}
+                          className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600 hover:text-indigo-700"
+                        >
+                          Skip
+                        </button>
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <select
+                          value={data.phoneCountryCode}
+                          onChange={(e) => {
+                            const nextCode = e.target.value;
+                            setData((prev) => ({
+                              ...prev,
+                              phoneCountryCode: nextCode,
+                              phone: normalizePhoneInput(nextCode, prev.phone),
+                            }));
+                          }}
+                          className="w-[130px] px-3 py-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                        >
+                          {PHONE_COUNTRY_CODES.map((opt) => (
+                            <option key={opt.code} value={opt.code}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <div className="relative flex-1">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            value={data.phone}
+                            onChange={(e) => setData({ ...data, phone: normalizePhoneInput(data.phoneCountryCode, e.target.value) })}
+                            placeholder={PHONE_RULES[data.phoneCountryCode]?.example || "Business contact number"}
+                            inputMode="tel"
+                            className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-indigo-500 placeholder:text-slate-300"
+                          />
+                        </div>
+                      </div>
+                      {data.phone.trim() && !validatePhone(data.phoneCountryCode, data.phone) && (
+                        <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.15em] text-red-500">
+                          Invalid number. Use {data.phoneCountryCode} {PHONE_RULES[data.phoneCountryCode]?.example || "valid format"}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 p-10 rounded-[32px] border border-slate-100 text-center space-y-8">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Seating layout</div>
+                    <div className="relative inline-block">
+                      <div className="text-8xl font-black text-slate-900 tabular-nums">{data.tableCount}</div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 absolute -bottom-2 left-1/2 -translate-x-1/2">Tables</div>
+                    </div>
+                    <input type="range" min={1} max={40} value={data.tableCount} onChange={(e) => setData({ ...data, tableCount: +e.target.value })} className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-indigo-600" />
+                  </div>
+                </div>
+              )}
+
+              {step === 6 && (
+                <div className="space-y-8">
+                  <div className="space-y-2">
                     <h1 className="text-4xl font-bold tracking-tight text-slate-900">Choose a plan</h1>
                     <p className="text-slate-500 font-medium">Select a subscription. Your first 7 days are free.</p>
                   </div>
@@ -710,22 +901,6 @@ export default function OnboardingPage() {
                       <div className="mt-1 text-xl font-black text-slate-900">₹5,500 / year</div>
                       <div className="mt-1 text-xs font-semibold text-slate-500">7-day free trial, best value plan.</div>
                     </button>
-                  </div>
-                </div>
-              )}
-
-              {step === 6 && (
-                <div className="space-y-8">
-                  <div className="space-y-2">
-                    <h1 className="text-4xl font-bold tracking-tight text-slate-900">Seating layout</h1>
-                    <p className="text-slate-500 font-medium">How many tables should we generate QR codes for?</p>
-                  </div>
-                  <div className="bg-slate-50 p-10 rounded-[32px] border border-slate-100 text-center space-y-8">
-                    <div className="relative inline-block">
-                      <div className="text-8xl font-black text-slate-900 tabular-nums">{data.tableCount}</div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 absolute -bottom-2 left-1/2 -translate-x-1/2">Tables</div>
-                    </div>
-                    <input type="range" min={1} max={40} value={data.tableCount} onChange={(e) => setData({ ...data, tableCount: +e.target.value })} className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-indigo-600" />
                   </div>
                 </div>
               )}

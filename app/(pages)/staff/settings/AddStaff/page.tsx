@@ -42,10 +42,10 @@ const AddStaffPage = () => {
   useEffect(() => {
     const getRestaurantInfo = async () => {
       try {
-        const data = await api<any>("/api/admin/me", { method: "GET" });
+        const data = await api<{ restaurant_id?: string; id?: string }>("/api/admin/me", { method: "GET" });
         const id = data.restaurant_id || data.id;
         setRestaurantId(id);
-      } catch (err) {
+      } catch {
         toast.error("Authentication error");
       }
     };
@@ -61,16 +61,25 @@ const AddStaffPage = () => {
 
     setIsSaving(true);
     try {
+      const payload = {
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+      };
       await api(`/api/admin/restaurants/${restaurantId}/staff`, {
         method: "POST",
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       toast.success("Staff member created successfully");
       router.push("/staff/settings");
       router.refresh();
-    } catch (err) {
-      toast.error("Failed to create staff member");
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message || "")
+          : "";
+      toast.error(message || "Failed to create staff member");
     } finally {
       setIsSaving(false);
     }

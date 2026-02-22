@@ -11,6 +11,21 @@ type CartItemDTO = {
 };
 
 type Cart = Record<string, CartItemDTO>;
+const mutationQueueByKey = new Map<string, Promise<void>>();
+
+const enqueueByKey = (key: string, op: () => Promise<void>) => {
+  const prev = mutationQueueByKey.get(key) || Promise.resolve();
+  const next = prev
+    .catch(() => { })
+    .then(op)
+    .finally(() => {
+      if (mutationQueueByKey.get(key) === next) {
+        mutationQueueByKey.delete(key);
+      }
+    });
+  mutationQueueByKey.set(key, next);
+  return next;
+};
 
 export type Order = {
   id: string;
@@ -50,51 +65,63 @@ export const useCartStore = create<CartState>()(
 
       addItem: async (id, variantId, price) => {
         const key = getCartKey(id, variantId);
-        const snapshot = get().cart;
-
-        set({
+        set((state) => ({
           cart: {
-            ...snapshot,
+            ...state.cart,
             [key]: {
-              quantity: (snapshot[key]?.quantity || 0) + 1,
+              quantity: (state.cart[key]?.quantity || 0) + 1,
               price,
             },
           },
-        });
+        }));
 
-        try {
-          const res = await orderService.addItem(id, variantId, price);
-          if (res?.items) set({ cart: res.items });
-        } catch (error: any) {
-          set({ cart: snapshot });
-          if (typeof window !== "undefined") {
-            const message =
-              error?.message?.includes("item unavailable")
-                ? "Item is out of stock"
-                : "Update failed";
-            window.dispatchEvent(new CustomEvent("cart-error", { detail: message }));
+        return enqueueByKey(key, async () => {
+          try {
+            await orderService.addItem(id, variantId, price);
+          } catch (error: any) {
+            set((state) => {
+              const current = state.cart[key];
+              if (!current) return state;
+              const next = { ...state.cart };
+              if (current.quantity <= 1) {
+                delete next[key];
+              } else {
+                next[key] = { ...current, quantity: current.quantity - 1 };
+              }
+              return { cart: next };
+            });
+            if (typeof window !== "undefined") {
+              const message =
+                error?.message?.includes("item unavailable")
+                  ? "Item is out of stock"
+                  : "Update failed";
+              window.dispatchEvent(new CustomEvent("cart-error", { detail: message }));
+            }
           }
-        }
+        });
       },
 
       removeItem: async (id, variantId) => {
         const key = getCartKey(id, variantId);
         const snapshot = get().cart;
+        const removed = snapshot[key];
 
         const next = { ...snapshot };
         delete next[key];
         set({ cart: next });
 
-        try {
-          await orderService.removeItem(id, variantId);
-        } catch (error: any) {
-          if (error?.message?.includes("order not found")) {
-            set({ cart: {} });
-            localStorage.removeItem("order_id");
-          } else {
-            set({ cart: snapshot });
+        return enqueueByKey(key, async () => {
+          try {
+            await orderService.removeItem(id, variantId);
+          } catch (error: any) {
+            if (error?.message?.includes("order not found")) {
+              set({ cart: {} });
+              localStorage.removeItem("order_id");
+            } else if (removed) {
+              set((state) => ({ cart: { ...state.cart, [key]: removed } }));
+            }
           }
-        }
+        });
       },
 
       decrementItem: async (id, variantId) => {
@@ -111,16 +138,30 @@ export const useCartStore = create<CartState>()(
         }
         set({ cart: next });
 
-        try {
-          await orderService.decrementItem(id, variantId);
-        } catch (error: any) {
-          if (error?.message?.includes("order not found")) {
-            set({ cart: {} });
-            localStorage.removeItem("order_id");
-          } else {
-            set({ cart: snapshot });
+        return enqueueByKey(key, async () => {
+          try {
+            await orderService.decrementItem(id, variantId);
+          } catch (error: any) {
+            if (error?.message?.includes("order not found")) {
+              set({ cart: {} });
+              localStorage.removeItem("order_id");
+            } else {
+              set((state) => {
+                const current = state.cart[key];
+                const restoredQty = (current?.quantity || 0) + 1;
+                return {
+                  cart: {
+                    ...state.cart,
+                    [key]: {
+                      quantity: restoredQty,
+                      price: item.price,
+                    },
+                  },
+                };
+              });
+            }
           }
-        }
+        });
       },
 
       clearCart: () => set({ cart: {} }),

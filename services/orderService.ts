@@ -10,7 +10,46 @@ export type CartRes = {
   items: Record<string, CartItemDTO>;
   order_id?: string;
 };
+
+let orderCreationPromise: Promise<string> | null = null;
+
 export const orderService = {
+  ensureOrderId: async () => {
+    if (typeof window === "undefined") {
+      throw new Error("order_id is required");
+    }
+    const existing = localStorage.getItem("order_id");
+    if (existing) return existing;
+
+    if (orderCreationPromise) {
+      return orderCreationPromise;
+    }
+
+    orderCreationPromise = (async () => {
+      let sessionId = localStorage.getItem("session_id");
+      if (!sessionId) {
+        sessionId = await orderService.ensureSession();
+      }
+      if (!sessionId) {
+        throw new Error("session_id is required");
+      }
+      const created = await api<{ order_id: string }>("/api/customer/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+        }),
+        credentials: "include"
+      });
+      localStorage.setItem("order_id", created.order_id);
+      return created.order_id;
+    })().finally(() => {
+      orderCreationPromise = null;
+    });
+
+    return orderCreationPromise;
+  },
+
   ensureSession: async () => {
     if (typeof window === "undefined") return null;
     let sessionId = localStorage.getItem("session_id");
@@ -145,26 +184,7 @@ export const orderService = {
     let orderId = localStorage.getItem("order_id");
 
     if (!orderId) {
-      if (!sessionId) {
-        sessionId = await orderService.ensureSession();
-      }
-      if (!sessionId && typeof window !== "undefined") {
-        sessionId = localStorage.getItem("session_id");
-      }
-      if (!sessionId) {
-        throw new Error("session_id is required");
-      }
-      const created = await api<{ order_id: string }>("/api/customer/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id: sessionId,
-        }),
-        credentials: "include"
-      });
-
-      orderId = created.order_id;
-      localStorage.setItem("order_id", orderId);
+      orderId = await orderService.ensureOrderId();
     }
 
     try {

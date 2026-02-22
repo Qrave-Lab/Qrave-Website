@@ -35,6 +35,17 @@ export default function LoginPage() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
+  const resolvePostLoginRoute = useCallback(async (): Promise<string> => {
+    try {
+      const me = await api<{ role?: string }>("/api/admin/me", { method: "GET" });
+      const role = (me?.role || "").toLowerCase();
+      if (role === "kitchen") return "/staff/kitchen";
+      return "/staff";
+    } catch {
+      return "/staff";
+    }
+  }, []);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -55,7 +66,8 @@ export default function LoginPage() {
         });
         toast.dismiss("welcome-back");
         toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
-        router.push("/staff");
+        const nextRoute = await resolvePostLoginRoute();
+        router.push(nextRoute);
       } catch (err: any) {
         if (err?.status === 404) {
           setError("No account found for this Google email. Use Create Account first.");
@@ -68,7 +80,7 @@ export default function LoginPage() {
         setIsGoogleLoading(false);
       }
     },
-    [isGoogleLoading, router]
+    [isGoogleLoading, resolvePostLoginRoute, router]
   );
 
   useEffect(() => {
@@ -140,7 +152,8 @@ export default function LoginPage() {
       if (res) {
         toast.dismiss("welcome-back");
         toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
-        router.push("/staff");
+        const nextRoute = await resolvePostLoginRoute();
+        router.push(nextRoute);
       }
     } catch (err: any) {
       const status = err.status;
