@@ -162,6 +162,10 @@ export default function StaffDashboardPage() {
     title: string;
     message: string;
     onConfirm: () => Promise<void>;
+    confirmText?: string;
+    cancelText?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
   }>(null);
 
   const [tableFilter, setTableFilter] = useState<TableFilter>("all");
@@ -650,7 +654,13 @@ export default function StaffDashboardPage() {
       setActiveTableId(null);
       setOpenMenuId(null);
     } catch (err: any) {
-      alert(err?.message || "Failed to move table");
+      setConfirmAction({
+        title: "Move failed",
+        message: err?.message || "Failed to move table",
+        onConfirm: async () => Promise.resolve(),
+        confirmText: "OK",
+        hideCancel: true,
+      });
     }
   };
 
@@ -682,7 +692,13 @@ export default function StaffDashboardPage() {
       activeOrders.find((o) => o.table_id === targetTable.id)?.session_id;
 
     if (!sourceSessionId || !targetSessionId) {
-      alert("Could not resolve active sessions for selected tables. Please try again.");
+      setConfirmAction({
+        title: "Merge unavailable",
+        message: "Could not resolve active sessions for selected tables. Please try again.",
+        onConfirm: async () => Promise.resolve(),
+        confirmText: "OK",
+        hideCancel: true,
+      });
       await refreshDashboard().catch(() => { });
       return;
     }
@@ -702,7 +718,13 @@ export default function StaffDashboardPage() {
         setOpenMenuId(null);
       }
     } catch (err: any) {
-      alert(err?.message || "Failed to merge bills");
+      setConfirmAction({
+        title: "Merge failed",
+        message: err?.message || "Failed to merge bills",
+        onConfirm: async () => Promise.resolve(),
+        confirmText: "OK",
+        hideCancel: true,
+      });
     }
   };
 
@@ -1152,9 +1174,10 @@ export default function StaffDashboardPage() {
             <div className="px-6 py-4 flex justify-end gap-2">
               <button
                 onClick={() => setConfirmAction(null)}
+                style={{ display: confirmAction.hideCancel ? "none" : "inline-flex" }}
                 className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
               >
-                Cancel
+                {confirmAction.cancelText || "Cancel"}
               </button>
               <button
                 onClick={async () => {
@@ -1162,9 +1185,9 @@ export default function StaffDashboardPage() {
                   setConfirmAction(null);
                   await action();
                 }}
-                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800"
+                className={`px-4 py-2 rounded-lg text-white text-sm font-semibold ${confirmAction.destructive ? "bg-rose-600 hover:bg-rose-700" : "bg-gray-900 hover:bg-gray-800"}`}
               >
-                Confirm
+                {confirmAction.confirmText || "Confirm"}
               </button>
             </div>
           </div>

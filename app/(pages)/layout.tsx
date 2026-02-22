@@ -1,6 +1,4 @@
 import { Metadata } from "next";
-import { Suspense } from "react";
-import TitleManager from "./TitleManager";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -17,12 +15,5 @@ export default function PagesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <Suspense fallback={null}>
-        <TitleManager />
-      </Suspense>
-      {children}
-    </>
-  );
+  return children;
 }

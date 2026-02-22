@@ -3,6 +3,7 @@
 import React from "react";
 import { Receipt, Plus, Trash2 } from "lucide-react";
 import type { Table } from "@/app/components/settings/types";
+import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
 type Props = {
   tables: Table[];
@@ -12,8 +13,11 @@ type Props = {
 };
 
 export default function TableManager({ tables, onAdd, onToggle, onRemove }: Props) {
+  const [pendingDelete, setPendingDelete] = React.useState<Table | null>(null);
+
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <>
+      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
         <h2 className="font-bold text-gray-900 flex items-center gap-2">
           <Receipt className="w-5 h-5 text-gray-500" /> Floor Plan
@@ -63,11 +67,7 @@ export default function TableManager({ tables, onAdd, onToggle, onRemove }: Prop
 
             <div className="col-span-2 flex justify-end">
               <button
-                onClick={() => {
-                  if (window.confirm(`Archive table ${table.table_number}?`)) {
-                    onRemove(table.id);
-                  }
-                }}
+                onClick={() => setPendingDelete(table)}
                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
@@ -82,6 +82,24 @@ export default function TableManager({ tables, onAdd, onToggle, onRemove }: Prop
           </div>
         )}
       </div>
-    </section>
+      </section>
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title="Archive table?"
+        message={
+          pendingDelete
+            ? `Archive table ${pendingDelete.table_number}?`
+            : "Archive this table?"
+        }
+        confirmText="Archive"
+        cancelText="Keep"
+        destructive
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete?.id) onRemove(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
+    </>
   );
 }

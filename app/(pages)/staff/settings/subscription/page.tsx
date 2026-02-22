@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, CreditCard, Loader2 } from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
+import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
 declare global {
   interface Window {
@@ -48,6 +49,7 @@ export default function SubscriptionSettingsPage() {
   const [role, setRole] = useState<string>("");
   const [selectedPlan, setSelectedPlan] = useState<"monthly_499" | "yearly_5500">("monthly_499");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const refresh = async () => {
     try {
@@ -106,7 +108,10 @@ export default function SubscriptionSettingsPage() {
       setStatusMessage({ type: "error", text: "Only owner can cancel subscription." });
       return;
     }
-    if (!window.confirm("Are you sure you want to cancel your subscription? This action cannot be undone and your access will be revoked immediately.")) return;
+    setShowCancelConfirm(true);
+  };
+
+  const confirmCancel = async () => {
     setCanceling(true);
     setStatusMessage(null);
     try {
@@ -154,6 +159,7 @@ export default function SubscriptionSettingsPage() {
       setStatusMessage({ type: "error", text: "Could not cancel subscription right now. Please retry." });
     } finally {
       setCanceling(false);
+      setShowCancelConfirm(false);
     }
   };
 
@@ -386,6 +392,20 @@ export default function SubscriptionSettingsPage() {
           </section>
         </div>
       </div>
+      <ConfirmModal
+        open={showCancelConfirm}
+        title="Cancel subscription?"
+        message="This action cannot be undone and your access will be revoked immediately."
+        confirmText={canceling ? "Canceling..." : "Yes, Cancel"}
+        cancelText="Keep Subscription"
+        destructive
+        onClose={() => {
+          if (!canceling) setShowCancelConfirm(false);
+        }}
+        onConfirm={() => {
+          if (!canceling) void confirmCancel();
+        }}
+      />
     </div>
   );
 }

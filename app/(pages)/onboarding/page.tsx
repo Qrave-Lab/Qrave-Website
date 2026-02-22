@@ -28,7 +28,7 @@ import {
   Loader2
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/lib/api";
 
@@ -523,8 +523,6 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex h-screen w-full bg-[#FCFCFD] font-sans text-slate-900 overflow-hidden select-none">
-      <Toaster position="top-center" toastOptions={{ style: { borderRadius: "12px", background: "#1e293b", color: "#fff", fontSize: "14px" } }} />
-
       <div className="relative z-30 w-full lg:w-[520px] bg-white flex flex-col border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.01)]">
         <div className="p-10 md:p-14">
           <div className="flex items-center justify-between mb-12">

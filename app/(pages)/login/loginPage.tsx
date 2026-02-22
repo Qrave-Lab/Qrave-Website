@@ -13,7 +13,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { api } from "@/app/lib/api";
 
 declare global {
@@ -53,7 +53,8 @@ export default function LoginPage() {
           method: "POST",
           body: JSON.stringify({ id_token: credential }),
         });
-        toast.success("Welcome back");
+        toast.dismiss("welcome-back");
+        toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
         router.push("/staff");
       } catch (err: any) {
         if (err?.status === 404) {
@@ -137,7 +138,8 @@ export default function LoginPage() {
       });
 
       if (res) {
-        toast.success("Welcome back");
+        toast.dismiss("welcome-back");
+        toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
         router.push("/staff");
       }
     } catch (err: any) {
@@ -159,8 +161,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden relative selection:bg-indigo-100">
-      <Toaster position="top-center" />
-      
       <motion.div 
         className="pointer-events-none fixed inset-0 z-0"
         animate={{

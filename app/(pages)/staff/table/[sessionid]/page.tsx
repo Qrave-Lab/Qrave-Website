@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { PrintButton } from "./PrintButton"; 
 import { api } from "@/app/lib/api";
+import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
 type OrderStatus =
   | "pending"
@@ -107,6 +108,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [isMerging, setIsMerging] = useState(false);
   const [billSessionIds, setBillSessionIds] = useState<string[]>([]);
   const [confirmRelocate, setConfirmRelocate] = useState(false);
+  const [noticeModal, setNoticeModal] = useState<{ title: string; message: string } | null>(null);
 
   // Menu State
   const [showMenu, setShowMenu] = useState(false);
@@ -309,7 +311,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       await refreshOrders();
     } catch (err: any) {
       const msg = err?.message || "Failed to move table";
-      alert(msg);
+      setNoticeModal({ title: "Move failed", message: msg });
     }
   };
 
@@ -358,7 +360,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       setShowMerge(false);
       await refreshOrders();
     } catch (err: any) {
-      alert(err?.message || "Failed to merge bills");
+      setNoticeModal({ title: "Merge failed", message: err?.message || "Failed to merge bills" });
     } finally {
       setIsMerging(false);
     }
@@ -839,6 +841,15 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
             </div>
           </div>
         )}
+        <ConfirmModal
+          open={Boolean(noticeModal)}
+          title={noticeModal?.title || ""}
+          message={noticeModal?.message || ""}
+          confirmText="OK"
+          hideCancel
+          onClose={() => setNoticeModal(null)}
+          onConfirm={() => setNoticeModal(null)}
+        />
 
       </div>
     </div>

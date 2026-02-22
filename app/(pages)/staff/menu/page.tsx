@@ -23,7 +23,8 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
+import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
 type CategoryTab = "all" | string;
 type Allergen =
@@ -136,6 +137,11 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
   const [modelViewerReady, setModelViewerReady] = useState(false);
   const [modelPreviewError, setModelPreviewError] = useState<string>("");
+  const [confirmDialog, setConfirmDialog] = useState<null | {
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void>;
+  }>(null);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -339,20 +345,22 @@ export default function MenuPage() {
 
   const handleDeleteItem = async () => {
     if (!editingItem?.id) return;
-    const ok = window.confirm(
-      `Delete "${editingItem.name}" permanently? This cannot be undone.`
-    );
-    if (!ok) return;
-    try {
-      await authFetch(`/api/admin/menu/item?item_id=${editingItem.id}`, {
-        method: "DELETE",
-      });
-      toast.success("Product deleted");
-      setModalMode(null);
-      refreshMenu(true);
-    } catch (err: any) {
-      toast.error(err?.message || "Delete failed");
-    }
+    setConfirmDialog({
+      title: "Delete product?",
+      message: `Delete "${editingItem.name}" permanently? This cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await authFetch(`/api/admin/menu/item?item_id=${editingItem.id}`, {
+            method: "DELETE",
+          });
+          toast.success("Product deleted");
+          setModalMode(null);
+          refreshMenu(true);
+        } catch (err: any) {
+          toast.error(err?.message || "Delete failed");
+        }
+      },
+    });
   };
 
   const toggleSelection = (id: string) => {
@@ -377,40 +385,41 @@ export default function MenuPage() {
 
   const handleBulkDelete = async () => {
     if (selectedItems.size === 0) return;
-    const ok = window.confirm(
-      `Delete ${selectedItems.size} selected product(s) permanently? This cannot be undone.`
-    );
-    if (!ok) return;
-
-    try {
-      const ids = Array.from(selectedItems);
-      let failed = 0;
-
-      for (const id of ids) {
+    setConfirmDialog({
+      title: "Delete selected products?",
+      message: `Delete ${selectedItems.size} selected product(s) permanently? This cannot be undone.`,
+      onConfirm: async () => {
         try {
-          await authFetch(`/api/admin/menu/item?item_id=${id}`, {
-            method: "DELETE",
-          });
+          const ids = Array.from(selectedItems);
+          let failed = 0;
+
+          for (const id of ids) {
+            try {
+              await authFetch(`/api/admin/menu/item?item_id=${id}`, {
+                method: "DELETE",
+              });
+            } catch {
+              failed += 1;
+            }
+          }
+
+          setSelectedItems(new Set());
+          refreshMenu(true);
+
+          if (failed === 0) {
+            toast.success(`${ids.length} product(s) deleted`);
+          } else if (failed === ids.length) {
+            toast.error("Delete failed");
+          } else {
+            toast(`Deleted ${ids.length - failed}/${ids.length} products`, {
+              icon: "⚠️",
+            });
+          }
         } catch {
-          failed += 1;
+          toast.error("Delete failed");
         }
-      }
-
-      setSelectedItems(new Set());
-      refreshMenu(true);
-
-      if (failed === 0) {
-        toast.success(`${ids.length} product(s) deleted`);
-      } else if (failed === ids.length) {
-        toast.error("Delete failed");
-      } else {
-        toast(`Deleted ${ids.length - failed}/${ids.length} products`, {
-          icon: "⚠️",
-        });
-      }
-    } catch {
-      toast.error("Delete failed");
-    }
+      },
+    });
   };
 
   const createSubcategory = async (name: string, parentId: string) => {
@@ -687,7 +696,6 @@ export default function MenuPage() {
 
   return (
     <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
-      <Toaster />
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -1947,6 +1955,20 @@ export default function MenuPage() {
           </div>
         )}
       </AnimatePresence>
+      <ConfirmModal
+        open={Boolean(confirmDialog)}
+        title={confirmDialog?.title || ""}
+        message={confirmDialog?.message || ""}
+        confirmText="Delete"
+        cancelText="Cancel"
+        destructive
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          if (action) void action();
+        }}
+      />
     </div>
   );
 }

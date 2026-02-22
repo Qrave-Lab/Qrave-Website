@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import { Suspense } from "react";
+import TitleManager from "./(pages)/TitleManager";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,23 +31,34 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Suspense fallback={null}>
+          <TitleManager />
+        </Suspense>
         {children}
         <Toaster
           position="top-center"
+          containerStyle={{ top: 16, left: 16, right: 16, bottom: 16, padding: 0 }}
           toastOptions={{
-            className: 'font-sans text-sm font-medium',
+            className: "font-sans text-sm font-medium",
+            style: {
+              borderRadius: "12px",
+              padding: "10px 14px",
+              boxShadow: "0 8px 24px rgba(2, 6, 23, 0.18)",
+              background: "#0f172a",
+              color: "#fff",
+            },
             success: {
-              duration: 3000,
+              duration: 2200,
               style: {
-                background: '#10b981',
-                color: '#fff',
+                background: "#10b981",
+                color: "#fff",
               },
             },
             error: {
-              duration: 4000,
+              duration: 3200,
               style: {
-                background: '#ef4444',
-                color: '#fff',
+                background: "#ef4444",
+                color: "#fff",
               },
             },
           }}

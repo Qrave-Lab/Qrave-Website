@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Search, ChevronDown, ChevronRight, UtensilsCrossed, Bell, Droplets, Loader2, Smartphone } from "lucide-react";
 import { useCartStore, getCartKey } from "@/stores/cartStore";
 import { useRouter } from "next/navigation";
-import { Toaster, toast } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import FoodCard from "@/app/components/menu/FoodCard";
 import ImmersiveMenu from "@/app/components/menu/ImmersiveMenu";
 import { api } from "@/app/lib/api";
@@ -456,7 +456,6 @@ const ModernFoodUI: React.FC<any> = ({ menuItems: initialMenu = [], tableNumber,
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] antialiased">
-      <Toaster position="top-center" />
 
       {isImmersive && (
         <ImmersiveMenu

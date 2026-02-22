@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowLeft, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { api } from "@/app/lib/api";
 
 export default function ForgotPasswordPage() {
@@ -59,7 +59,6 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
-      <Toaster position="top-center" />
       <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
         <button
           onClick={() => router.push("/login")}

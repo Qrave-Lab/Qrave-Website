@@ -115,16 +115,21 @@ export default function SettingsPage() {
     if (!file) return;
     setIsUploading(true);
     try {
-      const ct = encodeURIComponent(file.type || "image/png");
+      const contentType = file.type || "image/png";
+      const ct = encodeURIComponent(contentType);
       const { upload_url, public_url } = await api<{ upload_url: string; public_url: string }>(`/api/admin/logo-pic/upload-url?content_type=${ct}`, {
         method: "POST",
       });
       const uploadRes = await fetch(upload_url, {
         method: "PUT",
         body: file,
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": contentType },
       });
       if (!uploadRes.ok) throw new Error();
+      await api("/api/admin/logo-pic/commit", {
+        method: "POST",
+        body: JSON.stringify({ logo_url: public_url }),
+      });
       setRestaurant((prev) => ({ ...prev, logo_url: `${public_url}?v=${Date.now()}` }));
       toast.success("Logo uploaded");
     } catch {
