@@ -24,6 +24,8 @@ type MenuItem = {
   id: string;
   name: string;
   price: number;
+  offerPrice?: number;
+  offerLabel?: string;
   image: string;
   variants?: { id: string; name: string; priceDelta: number; price?: number; label?: string }[];
 };
@@ -35,6 +37,11 @@ type CartLine = {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+};
+
+type RecommendationItem = {
+  id: string;
+  reason?: string;
 };
 
 type ThemeConfig = {
@@ -121,9 +128,13 @@ const CheckoutPage: React.FC = () => {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [isSeparateBill, setIsSeparateBill] = useState(false);
   const [isTableOccupied, setIsTableOccupied] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCouponDiscount, setAppliedCouponDiscount] = useState(0);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [myOrderIds, setMyOrderIds] = useState<Set<string>>(new Set());
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => {
     if (typeof window === "undefined") return DEFAULT_THEME;
     try {
@@ -229,8 +240,9 @@ const CheckoutPage: React.FC = () => {
         orderService.getMenu(),
         orderService.getCart(),
         orderService.getOrders(),
+        api<{ popular_with_this?: RecommendationItem[]; margin_aware?: RecommendationItem[] }>("/api/customer/recommendations", { method: "GET" }),
       ])
-        .then(([menu, cartRes, ordersRes]) => {
+        .then(([menu, cartRes, ordersRes, recoRes]) => {
           const mapped =
             menu?.map((i: any) => {
               const basePrice = Number(i.price || 0);
@@ -254,6 +266,13 @@ const CheckoutPage: React.FC = () => {
                 ...i,
                 id: String(i.id),
                 price: basePrice,
+                offerPrice:
+                  typeof i.offerPrice === "number"
+                    ? Number(i.offerPrice)
+                    : typeof i.offer_price === "number"
+                      ? Number(i.offer_price)
+                      : undefined,
+                offerLabel: i.offerLabel || i.offer_label,
                 variants,
                 image:
                   i.image ||
@@ -271,6 +290,12 @@ const CheckoutPage: React.FC = () => {
           if (ordersRes?.orders) {
             setOrders(ordersRes.orders);
           }
+          const recos = [
+            ...(recoRes?.popular_with_this || []),
+            ...(recoRes?.margin_aware || []),
+          ];
+          const unique = Array.from(new Set(recos.map((r) => String(r.id)))).map((id) => ({ id }));
+          setRecommendations(unique.slice(0, 4));
         })
         .finally(() => {
           setIsCartReady(true);
@@ -286,6 +311,11 @@ const CheckoutPage: React.FC = () => {
       setCurrentOrderId(id);
     }
   }, [cart]);
+
+  useEffect(() => {
+    setAppliedCouponDiscount(0);
+    setCouponCode("");
+  }, [currentOrderId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -404,7 +434,9 @@ const CheckoutPage: React.FC = () => {
 
         const unitPrice =
           cartItem.price ||
-          (variant?.price ?? item.price + (variant?.priceDelta || 0));
+          (variant?.price ??
+            ((typeof item.offerPrice === "number" ? item.offerPrice : item.price) +
+              (variant?.priceDelta || 0)));
 
         return {
           key,
@@ -450,8 +482,10 @@ const CheckoutPage: React.FC = () => {
   }, 0);
 
   const subtotal = cartSubtotal + previousOrdersTotal;
-  const tax = Math.round(subtotal * 0.05);
-  const grandTotal = subtotal + tax;
+  const couponDiscount = Math.min(appliedCouponDiscount, cartSubtotal);
+  const subtotalAfterDiscount = Math.max(0, subtotal - couponDiscount);
+  const tax = Math.round(subtotalAfterDiscount * 0.05);
+  const grandTotal = subtotalAfterDiscount + tax;
 
   const handlePlaceOrder = async () => {
     if (lines.length === 0 || isPlacingOrder) return;
@@ -479,6 +513,8 @@ const CheckoutPage: React.FC = () => {
       localStorage.removeItem("order_id");
       clearCart();
       setCurrentOrderId(null);
+      setAppliedCouponDiscount(0);
+      setCouponCode("");
     } catch {
       toast.error("Failed to place order");
     } finally {
@@ -512,8 +548,34 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    if (!currentOrderId) {
+      toast.error("No active cart order");
+      return;
+    }
+    const code = couponCode.trim().toUpperCase();
+    if (!code) {
+      toast.error("Enter a coupon code");
+      return;
+    }
+    setIsApplyingCoupon(true);
+    try {
+      const res = await orderService.applyCoupon(currentOrderId, code);
+      setAppliedCouponDiscount(Number(res?.discount || 0));
+      setCouponCode(code);
+      toast.success("Coupon applied");
+    } catch (e: any) {
+      toast.error(e?.message || "Invalid coupon");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
   const currentCartHasItems = lines.length > 0;
   const hasPlacedOrders = placedOrders.length > 0;
+  const recommendationItems = recommendations
+    .map((rec) => menuItems.find((m) => m.id === rec.id))
+    .filter(Boolean) as MenuItem[];
 
   return (
     <div className="min-h-screen pb-36" style={themedAppStyle}>
@@ -718,6 +780,37 @@ const CheckoutPage: React.FC = () => {
               </section>
             )}
 
+            {recommendationItems.length > 0 && (
+              <section>
+                <div className="mb-3 px-1">
+                  <h2 className="text-lg font-bold text-slate-900">AI Upsell Suggestions</h2>
+                  <p className="text-xs text-slate-500">Popular pairings and high-value picks</p>
+                </div>
+                <div className="space-y-2">
+                  {recommendationItems.map((item) => (
+                    <div key={`reco-${item.id}`} className="flex items-center justify-between rounded-2xl border p-3" style={themedSurfaceStyle}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-12 w-12 overflow-hidden rounded-xl bg-slate-100">
+                          <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-slate-900">{item.name}</p>
+                          <p className="text-xs text-slate-500">₹{item.offerPrice ?? item.price}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => addItem(item.id, "", Number(item.offerPrice ?? item.price))}
+                        className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white"
+                        style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="overflow-hidden rounded-3xl p-6 shadow-sm ring-1" style={themedSurfaceStyle}>
               <div className="mb-4 flex items-center gap-2">
                 <ReceiptText className="h-4 w-4 text-slate-400" />
@@ -726,10 +819,34 @@ const CheckoutPage: React.FC = () => {
                 </h3>
               </div>
               <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-200 p-3">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Coupon Code</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      placeholder="Enter code"
+                      className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      disabled={isApplyingCoupon || !currentOrderId || !currentCartHasItems}
+                      className="h-10 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white disabled:opacity-60"
+                    >
+                      {isApplyingCoupon ? "Applying..." : "Apply"}
+                    </button>
+                  </div>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Subtotal</span>
                   <span className="font-bold text-slate-700">₹{subtotal}</span>
                 </div>
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-emerald-600">Coupon discount</span>
+                    <span className="font-bold text-emerald-700">-₹{couponDiscount}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Taxes (GST 5%)</span>
                   <span className="font-bold text-slate-700">₹{tax}</span>

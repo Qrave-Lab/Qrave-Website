@@ -23,7 +23,10 @@ const PUBLIC_ROUTES = [
   "/api/customer/session",
   "/api/customer/orders",
   "/api/customer/orders/items",
+  "/api/customer/orders/apply-coupon",
+  "/api/customer/recommendations",
   "/api/customer/orders/bill",
+  "/api/customer/offers",
   "/api/customer/service-calls",
 ];
 

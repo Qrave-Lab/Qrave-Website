@@ -239,6 +239,11 @@ type ModernFoodUIProps = {
   previewRestaurantLogoUrl?: string;
 };
 
+type RecommendationItem = {
+  id: string;
+  reason?: string;
+};
+
 const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   menuItems: initialMenu = [],
   tableNumber,
@@ -273,6 +278,15 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     mergeTheme(initialThemeConfig || previewThemeConfig || DEFAULT_THEME)
   );
   const [previewCart, setPreviewCart] = useState<Record<string, { quantity: number; price: number }>>({});
+  const [recommendations, setRecommendations] = useState<{
+    frequently_bought_together: RecommendationItem[];
+    popular_with_this: RecommendationItem[];
+    margin_aware: RecommendationItem[];
+  }>({
+    frequently_bought_together: [],
+    popular_with_this: [],
+    margin_aware: [],
+  });
 
   const { t, tContent, language, setLanguage } = useLanguageStore();
 
@@ -324,11 +338,36 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       categoryName: resolve(item.categoryName),
       parentCategoryName: resolve(item.parentCategoryName),
       price: basePrice,
+      offerPrice:
+        typeof item.offerPrice === "number"
+          ? Number(item.offerPrice)
+          : typeof item.offer_price === "number"
+            ? Number(item.offer_price)
+            : undefined,
+      offerLabel: resolve(item.offerLabel || item.offer_label),
+      isTodaysSpecial: Boolean(item.isTodaysSpecial ?? item.is_todays_special),
+      isChefSpecial: Boolean(item.isChefSpecial ?? item.is_chef_special),
+      specialNote: resolve(item.specialNote || item.special_note),
       image: resolve(item.imageUrl) || item.image,
       arModelGlb: resolvedGlb || null,
       arModelUsdz: resolvedUsdz || null,
-      ingredients: item.ingredients || item.ingredient_list || item.ingredientList || [],
-      calories: item.calories || item.kcal || item.nutrition?.calories,
+      ingredients:
+        item.ingredients ||
+        item.ingredient_list ||
+        item.ingredientList ||
+        (Array.isArray(item.ingredientsStructured)
+          ? item.ingredientsStructured.map((x: any) => x?.name).filter(Boolean)
+          : []),
+      calories:
+        typeof item.calories === "number"
+          ? item.calories
+          : item.kcal || item.nutrition?.calories,
+      isVeg: Boolean(item.isVeg ?? item.is_veg ?? true),
+      allergens: Array.isArray(item.allergens)
+        ? item.allergens
+          .map((a: any) => String(a?.type || "").trim())
+          .filter(Boolean)
+        : [],
       variants,
     };
   };
@@ -338,6 +377,31 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     setMenuItems(normalized);
     setHasArItems(normalized.some((i: any) => Boolean(i.arModelGlb)));
   }, [initialMenu]);
+
+  useEffect(() => {
+    if (previewMode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api<{
+          frequently_bought_together?: RecommendationItem[];
+          popular_with_this?: RecommendationItem[];
+          margin_aware?: RecommendationItem[];
+        }>("/api/customer/recommendations");
+        if (cancelled) return;
+        setRecommendations({
+          frequently_bought_together: data?.frequently_bought_together || [],
+          popular_with_this: data?.popular_with_this || [],
+          margin_aware: data?.margin_aware || [],
+        });
+      } catch {
+        if (cancelled) return;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [previewMode]);
 
   const translatedItems = useMemo(() => {
     return menuItems.map((item: any) => ({
@@ -400,6 +464,25 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     const matchesSearch = item.name.toLowerCase().includes(query) || item.description.toLowerCase().includes(query);
     return matchesSearch && (isVegOnly ? item.isVeg : true);
   });
+
+  const offerItems = filteredItems.filter(
+    (item: any) =>
+      typeof item.offerPrice === "number" &&
+      Number(item.offerPrice) >= 0 &&
+      Number(item.offerPrice) < Number(item.price || 0),
+  );
+  const todaySpecialItems = filteredItems.filter((item: any) => item.isTodaysSpecial);
+  const chefSpecialItems = filteredItems.filter((item: any) => item.isChefSpecial && !item.isTodaysSpecial);
+  const recommendationIDs = Array.from(
+    new Set([
+      ...(recommendations.frequently_bought_together || []).map((r) => String(r.id)),
+      ...(recommendations.popular_with_this || []).map((r) => String(r.id)),
+      ...(recommendations.margin_aware || []).map((r) => String(r.id)),
+    ]),
+  );
+  const recommendationItems = recommendationIDs
+    .map((id) => filteredItems.find((item: any) => String(item.id) === id))
+    .filter(Boolean) as any[];
 
   const categories = Array.from(
     new Set(translatedItems.map((item: any) => getParentName(item)).filter(Boolean))
@@ -953,6 +1036,111 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
         </div>
 
         <div className="space-y-10">
+          {offerItems.length > 0 && (
+            <div className="animate-in fade-in duration-500">
+              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-1 w-8 bg-emerald-500 rounded-full" />
+                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Offer Products</h2>
+              </div>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Original price is shown struck through, discounted price shown below.
+              </p>
+              <div className="grid gap-6">
+                {offerItems.slice(0, 8).map((item: any) => {
+                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
+                  const cartKey = getCartKey(item.id, currentVId);
+                  const cartItem = cartState[cartKey];
+                  const quantity = cartItem ? cartItem.quantity : 0;
+                  return (
+                    <FoodCard
+                      key={`offer-${item.id}`}
+                      item={{
+                        ...item,
+                        id: String(item.id),
+                        name: item.name,
+                        description: item.offerLabel ? `${item.offerLabel}${item.specialNote ? ` • ${item.specialNote}` : ""}` : item.description,
+                        category: item.categoryName || "General",
+                      }}
+                      ratingStyles={getRatingStyles(item.rating)}
+                      selectedVariantId={currentVId}
+                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
+                      currentQty={quantity}
+                      onAdd={handleAdd}
+                      onRemove={handleRemove}
+                      onArClick={handleArOpen}
+                      orderingEnabled={orderingEnabled}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {(todaySpecialItems.length > 0 || chefSpecialItems.length > 0) && (
+            <div className="animate-in fade-in duration-500">
+              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-1 w-8 bg-amber-500 rounded-full" />
+                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Today&apos;s & Chef Specials</h2>
+              </div>
+              <div className="grid gap-6">
+                {[...todaySpecialItems, ...chefSpecialItems].slice(0, 6).map((item: any) => {
+                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
+                  const cartKey = getCartKey(item.id, currentVId);
+                  const cartItem = cartState[cartKey];
+                  const quantity = cartItem ? cartItem.quantity : 0;
+                  return (
+                    <FoodCard
+                      key={`special-${item.id}`}
+                      item={{ ...item, id: String(item.id), name: item.name, description: item.specialNote || item.description, category: item.categoryName || "General" }}
+                      ratingStyles={getRatingStyles(item.rating)}
+                      selectedVariantId={currentVId}
+                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
+                      currentQty={quantity}
+                      onAdd={handleAdd}
+                      onRemove={handleRemove}
+                      onArClick={handleArOpen}
+                      orderingEnabled={orderingEnabled}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {recommendationItems.length > 0 && (
+            <div className="animate-in fade-in duration-500">
+              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-1 w-8 bg-indigo-500 rounded-full" />
+                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">AI Upsell Picks</h2>
+              </div>
+              <div className="grid gap-6">
+                {recommendationItems.slice(0, 4).map((item: any) => {
+                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
+                  const cartKey = getCartKey(item.id, currentVId);
+                  const cartItem = cartState[cartKey];
+                  const quantity = cartItem ? cartItem.quantity : 0;
+                  return (
+                    <FoodCard
+                      key={`upsell-${item.id}`}
+                      item={{ ...item, id: String(item.id), name: item.name, description: item.description, category: item.categoryName || "General" }}
+                      ratingStyles={getRatingStyles(item.rating)}
+                      selectedVariantId={currentVId}
+                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
+                      currentQty={quantity}
+                      onAdd={handleAdd}
+                      onRemove={handleRemove}
+                      onArClick={handleArOpen}
+                      orderingEnabled={orderingEnabled}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {categories.map((category) => {
             const items = filteredItems.filter((item: any) => getParentName(item) === category.id);
             if (items.length === 0) return null;
@@ -1109,6 +1297,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               <div className="flex flex-col items-start min-w-0">
                 <span className="text-[10px] uppercase font-bold text-white/50 leading-none mb-1">{t('viewCart')}</span>
                 <span className="font-black text-lg leading-none truncate">₹{cartTotal}</span>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-white/50 mt-1">Apply coupon at checkout</span>
               </div>
             </div>
 

@@ -46,7 +46,7 @@ type CartState = {
   addOrder: (order: Order) => void;
   setOrders: (orders: Order[]) => void;
   cart: Cart;
-  addItem: (id: string, variantId: string, price: number) => Promise<void>;
+  addItem: (id: string, variantId: string, price: number, modifierOptionIds?: string[]) => Promise<void>;
   removeItem: (id: string, variantId: string) => Promise<void>;
   decrementItem: (id: string, variantId: string) => Promise<void>;
   clearCart: () => void;
@@ -63,7 +63,7 @@ export const useCartStore = create<CartState>()(
       setOrders: (orders) => set({ orders }),
       cart: {},
 
-      addItem: async (id, variantId, price) => {
+      addItem: async (id, variantId, price, modifierOptionIds) => {
         const key = getCartKey(id, variantId);
         set((state) => ({
           cart: {
@@ -77,7 +77,7 @@ export const useCartStore = create<CartState>()(
 
         return enqueueByKey(key, async () => {
           try {
-            await orderService.addItem(id, variantId, price);
+            await orderService.addItem(id, variantId, price, modifierOptionIds);
           } catch (error: any) {
             set((state) => {
               const current = state.cart[key];

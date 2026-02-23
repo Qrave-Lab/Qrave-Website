@@ -106,8 +106,15 @@ export default function ImmersiveMenu({
     const visibleVariants = (currentItem.variants || []).filter((v: any) => !isDefaultVariant(v));
     const activeVariantId = selectedVariants[currentItem.id] || visibleVariants[0]?.id || currentItem.variants?.[0]?.id;
     const currentVariant = currentItem.variants?.find((v: any) => v.id === activeVariantId);
-    const basePrice = currentItem.price || 0;
-    const displayPrice = basePrice + (currentVariant?.priceDelta || 0);
+    const basePrice = Number(currentItem.price || 0);
+    const discountedBasePrice =
+        typeof currentItem.offerPrice === "number" &&
+            currentItem.offerPrice >= 0 &&
+            currentItem.offerPrice < basePrice
+            ? Number(currentItem.offerPrice)
+            : basePrice;
+    const displayPrice = discountedBasePrice + (currentVariant?.priceDelta || 0);
+    const originalDisplayPrice = basePrice + (currentVariant?.priceDelta || 0);
 
     const cartKey = getCartKey(currentItem.id, activeVariantId);
     const cartItem = cart[cartKey];
@@ -324,15 +331,20 @@ export default function ImmersiveMenu({
                                 >
                                     {currentItem.name}
                                 </h2>
-                                <span
-                                    className="text-2xl text-black flex-shrink-0 pb-0.5"
-                                    style={{
-                                        fontFamily: "'Cormorant Garamond', Georgia, serif",
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    ₹{displayPrice}
-                                </span>
+                                <div className="flex flex-col items-end">
+                                    {originalDisplayPrice > displayPrice && (
+                                        <span className="text-xs text-black/35 line-through">₹{originalDisplayPrice}</span>
+                                    )}
+                                    <span
+                                        className="text-2xl text-black flex-shrink-0 pb-0.5"
+                                        style={{
+                                            fontFamily: "'Cormorant Garamond', Georgia, serif",
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        ₹{displayPrice}
+                                    </span>
+                                </div>
                             </div>
 
                             {/* Rule */}

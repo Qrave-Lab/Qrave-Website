@@ -80,7 +80,15 @@ function hasFeatureAccess(role: string, roleAccess: RoleAccessConfig | null, fea
 export default function StaffSidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const savedState = localStorage.getItem("sidebarCollapsed");
+      return savedState ? Boolean(JSON.parse(savedState)) : false;
+    } catch {
+      return false;
+    }
+  });
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [currentRole, setCurrentRole] = useState<string>("");
@@ -121,13 +129,6 @@ export default function StaffSidebar() {
     }
   });
   const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
-
-  useEffect(() => {
-    const savedState = localStorage.getItem("sidebarCollapsed");
-    if (savedState) {
-      setIsCollapsed(JSON.parse(savedState));
-    }
-  }, []);
 
   useEffect(() => {
     let isActive = true;

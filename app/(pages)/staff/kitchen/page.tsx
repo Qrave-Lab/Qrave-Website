@@ -21,6 +21,8 @@ type ActiveOrder = {
   order_id?: string;
   status: string;
   created_at: string;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
   session_id: string;
   table_id: string;
   table_number: number;
@@ -33,6 +35,7 @@ export default function KitchenDisplayPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [isKitchenPaused, setIsKitchenPaused] = useState(false);
   const prevIds = useRef<Set<string>>(new Set());
   const ordersRef = useRef<ActiveOrder[]>([]);
 
@@ -66,6 +69,8 @@ export default function KitchenDisplayPage() {
       }
 
       const res = await api<{ orders: ActiveOrder[] }>("/api/admin/orders/active");
+      const capacity = await api<{ is_paused?: boolean }>("/api/admin/kitchen/capacity");
+      setIsKitchenPaused(Boolean(capacity?.is_paused));
       const list = res?.orders || [];
       const nextIds = new Set<string>(list.map((o) => o.id || o.order_id || "").filter(Boolean));
       if (prevIds.current.size > 0) {
@@ -246,6 +251,12 @@ export default function KitchenDisplayPage() {
           <p className="mt-1 text-sm text-slate-400">New accepted orders will appear here automatically.</p>
         </div>
       ) : (
+        <div className="space-y-3">
+          {isKitchenPaused && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+              Kitchen is paused for new order intake (auto-throttle active).
+            </div>
+          )}
         <div className="grid items-start grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {acceptedOrders.map((order) => {
             const id = order.id || order.order_id || "";
@@ -267,6 +278,12 @@ export default function KitchenDisplayPage() {
                     </div>
                   </div>
                 </div>
+                {(order.estimated_prep_minutes || order.estimated_ready_at) && (
+                  <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700">
+                    ETA {order.estimated_prep_minutes ? `${order.estimated_prep_minutes}m` : "--"}
+                    {order.estimated_ready_at ? ` • Ready by ${new Date(order.estimated_ready_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   {order.items.map((item, idx) => (
@@ -294,6 +311,7 @@ export default function KitchenDisplayPage() {
               </article>
             );
           })}
+        </div>
         </div>
       )}
     </div>

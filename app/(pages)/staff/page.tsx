@@ -99,6 +99,8 @@ type ActiveOrder = {
   order_id?: string;
   status: string;
   created_at: string;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
   session_id: string;
   table_id: string;
   table_number: number;
@@ -479,6 +481,24 @@ export default function StaffDashboardPage() {
       }
       return 0;
     });
+
+  const buildTableTimeline = (table: StaffTable) => {
+    const tableOrders = activeOrders
+      .filter((o) => o.table_id === table.id)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const hasSeated = Boolean(table.isOccupied && table.seatedAt);
+    const hasAccepted = tableOrders.some((o) => o.status === "accepted" || o.status === "ready" || o.status === "served");
+    const hasKitchen = tableOrders.some((o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing" || o.status === "ready");
+    const hasServed = tableOrders.some((o) => o.status === "served");
+    const hasPaid = table.billStatus === "paid";
+    return [
+      { key: "seated", label: "Seated", done: hasSeated },
+      { key: "accepted", label: "Accepted", done: hasAccepted },
+      { key: "kitchen", label: "Kitchen", done: hasKitchen },
+      { key: "served", label: "Served", done: hasServed },
+      { key: "paid", label: "Paid", done: hasPaid },
+    ];
+  };
 
   const handleAccept = async (orderId: string) => {
     if (orderActionPending[orderId]) return;
@@ -1060,6 +1080,30 @@ export default function StaffDashboardPage() {
                             <span className="block text-[10px] text-gray-400 uppercase font-bold">Items</span>
                             <span className="text-sm font-semibold text-gray-700">{table.itemsCount}</span>
                           </div>
+                          <div className="bg-gray-50 rounded-lg p-2 text-center border border-gray-100">
+                            <span className="block text-[10px] text-gray-400 uppercase font-bold">ETA</span>
+                            <span className="text-sm font-semibold text-gray-700">
+                              {(() => {
+                                const first = activeOrders.find((o) => o.table_id === table.id && (o.status === "pending" || o.status === "accepted" || o.status === "preparing"));
+                                if (!first) return "--";
+                                if (first.estimated_prep_minutes) return `${first.estimated_prep_minutes}m`;
+                                return "--";
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {buildTableTimeline(table).map((step) => (
+                            <span
+                              key={`${table.id}-${step.key}`}
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                step.done ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-400 border border-slate-200"
+                              }`}
+                            >
+                              {step.label}
+                            </span>
+                          ))}
                         </div>
 
                         <div className="flex items-center justify-between">

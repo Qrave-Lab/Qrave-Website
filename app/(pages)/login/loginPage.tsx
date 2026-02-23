@@ -29,8 +29,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isSelectingBranch, setIsSelectingBranch] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showBranchPicker, setShowBranchPicker] = useState(false);
+  const [pendingRoute, setPendingRoute] = useState("");
+  const [branchOptions, setBranchOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
@@ -46,6 +51,60 @@ export default function LoginPage() {
       return "/staff";
     }
   }, []);
+
+  const routeAfterLogin = useCallback(async () => {
+    const nextRoute = await resolvePostLoginRoute();
+    if (nextRoute !== "/staff") {
+      router.push(nextRoute);
+      return;
+    }
+
+    try {
+      const [locRes, branchRes] = await Promise.all([
+        api<{ active_restaurant_id?: string; locations?: Array<{ restaurant_id: string; restaurant: string }> }>("/api/admin/locations", { method: "GET" }),
+        api<{ branches?: Array<{ restaurant_id: string; address?: string | null }> }>("/api/admin/branches?include_archived=0", { method: "GET" }),
+      ]);
+      const locations = Array.isArray(locRes?.locations) ? locRes.locations : [];
+      if (locations.length <= 1) {
+        router.push(nextRoute);
+        return;
+      }
+      const locationLabels: Record<string, string> = {};
+      for (const b of branchRes?.branches || []) {
+        const addr = String(b.address || "").trim();
+        if (addr) locationLabels[b.restaurant_id] = addr;
+      }
+      const options = locations.map((loc) => ({
+        id: loc.restaurant_id,
+        label: locationLabels[loc.restaurant_id]
+          ? `${loc.restaurant} - ${locationLabels[loc.restaurant_id]}`
+          : loc.restaurant,
+      }));
+      setBranchOptions(options);
+      setSelectedBranchId(locRes?.active_restaurant_id || options[0]?.id || "");
+      setPendingRoute(nextRoute);
+      setShowBranchPicker(true);
+    } catch {
+      router.push(nextRoute);
+    }
+  }, [resolvePostLoginRoute, router]);
+
+  const handleConfirmBranchSelection = useCallback(async () => {
+    if (!selectedBranchId || isSelectingBranch) return;
+    setIsSelectingBranch(true);
+    try {
+      await api("/api/admin/locations/switch", {
+        method: "POST",
+        body: JSON.stringify({ restaurant_id: selectedBranchId }),
+      });
+      setShowBranchPicker(false);
+      router.push(pendingRoute || "/staff");
+    } catch {
+      setError("Failed to switch branch. Try again.");
+    } finally {
+      setIsSelectingBranch(false);
+    }
+  }, [selectedBranchId, isSelectingBranch, pendingRoute, router]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -67,8 +126,7 @@ export default function LoginPage() {
         });
         toast.dismiss("welcome-back");
         toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
-        const nextRoute = await resolvePostLoginRoute();
-        router.push(nextRoute);
+        await routeAfterLogin();
       } catch (err: any) {
         if (err?.status === 404) {
           setError("No account found for this Google email. Use Create Account first.");
@@ -81,7 +139,7 @@ export default function LoginPage() {
         setIsGoogleLoading(false);
       }
     },
-    [isGoogleLoading, resolvePostLoginRoute, router]
+    [isGoogleLoading, routeAfterLogin]
   );
 
   useEffect(() => {
@@ -153,8 +211,7 @@ export default function LoginPage() {
       if (res) {
         toast.dismiss("welcome-back");
         toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
-        const nextRoute = await resolvePostLoginRoute();
-        router.push(nextRoute);
+        await routeAfterLogin();
       }
     } catch (err: any) {
       const status = err.status;
@@ -357,6 +414,53 @@ export default function LoginPage() {
           </div>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {showBranchPicker && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[130] bg-slate-900/45 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+            >
+              <h3 className="text-2xl font-bold text-slate-900">Choose Branch</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Select which location dashboard to open.
+              </p>
+              <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
+                {branchOptions.map((branch) => (
+                  <button
+                    key={branch.id}
+                    onClick={() => setSelectedBranchId(branch.id)}
+                    className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all ${
+                      selectedBranchId === branch.id
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {branch.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button
+                  onClick={handleConfirmBranchSelection}
+                  disabled={!selectedBranchId || isSelectingBranch}
+                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {isSelectingBranch ? "Opening..." : "Open Dashboard"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");

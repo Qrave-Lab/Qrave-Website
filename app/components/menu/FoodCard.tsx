@@ -15,6 +15,8 @@ type MenuItem = {
   name: string;
   category: string;
   price: number;
+  offerPrice?: number;
+  offerLabel?: string;
   description: string;
   image: string;
   isVeg?: boolean;
@@ -23,6 +25,7 @@ type MenuItem = {
   arModelUsdz?: string | null;
   ingredients?: string[] | string;
   calories?: number | string;
+  allergens?: string[];
   isAvailable?: boolean;
   isOutOfStock?: boolean;
   isBestseller?: boolean;
@@ -76,8 +79,14 @@ const FoodCard: React.FC<FoodCardProps> = ({
     visibleVariants[0]?.id ||
     item.variants?.[0]?.id ||
     "";
-  const displayPrice =
-    item.price + (item.variants?.find((v) => v.id === activeVariantId)?.priceDelta || 0);
+  const basePrice = item.price;
+  const discountedBasePrice =
+    typeof item.offerPrice === "number" && item.offerPrice >= 0 && item.offerPrice < basePrice
+      ? item.offerPrice
+      : basePrice;
+  const variantDelta = item.variants?.find((v) => v.id === activeVariantId)?.priceDelta || 0;
+  const displayPrice = discountedBasePrice + variantDelta;
+  const displayBaseWithoutDiscount = basePrice + variantDelta;
 
   return (
     <div className={`w-full ${!isAvailable ? "opacity-60" : ""}`}>
@@ -136,6 +145,18 @@ const FoodCard: React.FC<FoodCardProps> = ({
               </div>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 mb-3">{item.description}</p>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              {item.calories ? (
+                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                  {item.calories} kcal
+                </span>
+              ) : null}
+              {Array.isArray(item.allergens) && item.allergens.length > 0 ? (
+                <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">
+                  Allergens: {item.allergens.slice(0, 3).join(", ")}
+                </span>
+              ) : null}
+            </div>
             {visibleVariants.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {visibleVariants.map((v) => (
@@ -151,7 +172,12 @@ const FoodCard: React.FC<FoodCardProps> = ({
             )}
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-base font-semibold text-slate-900">₹{displayPrice}</span>
+            <div className="flex flex-col">
+              {displayBaseWithoutDiscount > displayPrice && (
+                <span className="text-[11px] font-semibold text-slate-400 line-through">₹{displayBaseWithoutDiscount}</span>
+              )}
+              <span className="text-base font-semibold text-slate-900">₹{displayPrice}</span>
+            </div>
             {isAvailable ? (
               orderingEnabled && (
                 currentQty > 0 ? (

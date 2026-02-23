@@ -65,6 +65,25 @@ type StructuredIngredient = {
   unit: "g" | "ml" | "pcs" | "oz";
 };
 
+type ModifierOption = {
+  id: string;
+  label: string;
+  price_delta: number;
+  is_available: boolean;
+  sort_order?: number;
+};
+
+type ModifierGroup = {
+  id: string;
+  title: string;
+  min_select: number;
+  max_select: number;
+  required: boolean;
+  is_combo: boolean;
+  sort_order?: number;
+  options: ModifierOption[];
+};
+
 type MenuItem = {
   id: string;
   name: string;
@@ -75,13 +94,20 @@ type MenuItem = {
   isAvailable: boolean;
   isArchived: boolean;
   isOutOfStock: boolean;
+  isTodaysSpecial: boolean;
+  isChefSpecial: boolean;
+  specialNote: string;
   stockCount: number | null;
   variants: Variant[];
   imageUrl: string;
   modelGlb: string;
   modelUsdz: string;
   description: string;
+  calories: number | null;
+  isVeg: boolean;
+  dietaryManualOverride: boolean;
   ingredientsStructured: StructuredIngredient[];
+  modifierGroups: ModifierGroup[];
   allergens: { type: Allergen; confidence: AllergenConfidence }[];
   availableDays: DayOfWeek[];
   updatedBy: string;
@@ -146,7 +172,7 @@ export default function MenuPage() {
   const [editingSubcategoryName, setEditingSubcategoryName] = useState("");
   const [isRenamingSubcategory, setIsRenamingSubcategory] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState<
-    "general" | "variants" | "assets" | "ingredients" | "availability"
+    "general" | "variants" | "assets" | "ingredients" | "modifiers" | "availability"
   >("general");
   const [loading, setLoading] = useState(true);
   const [modelViewerReady, setModelViewerReady] = useState(false);
@@ -156,6 +182,7 @@ export default function MenuPage() {
     message: string;
     onConfirm: () => Promise<void>;
   }>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -250,6 +277,16 @@ export default function MenuPage() {
             ? item.parentCategoryName?.String ?? ""
             : item.parentCategoryName ?? "",
         description: item.description?.String ?? item.description ?? "",
+        calories:
+          typeof item.calories === "number"
+            ? item.calories
+            : typeof item.calories?.Int64 === "number"
+              ? item.calories.Int64
+              : null,
+        isVeg: Boolean(item.isVeg ?? item.is_veg ?? true),
+        dietaryManualOverride: Boolean(
+          item.dietaryManualOverride ?? item.dietary_manual_override ?? false
+        ),
         imageUrl: normalizeAssetUrl(item.imageUrl?.String ?? item.imageUrl ?? ""),
         modelGlb: normalizeAssetUrl(item.modelGlb?.String ?? item.modelGlb ?? ""),
         modelUsdz: normalizeAssetUrl(item.modelUsdz?.String ?? item.modelUsdz ?? ""),
@@ -257,7 +294,14 @@ export default function MenuPage() {
         allergens: item.allergens || [],
         availableDays: item.availableDays || [],
         isOutOfStock: item.isOutOfStock ?? item.is_out_of_stock ?? false,
+        isTodaysSpecial: item.isTodaysSpecial ?? item.is_todays_special ?? false,
+        isChefSpecial: item.isChefSpecial ?? item.is_chef_special ?? false,
+        specialNote:
+          typeof item.specialNote === "object"
+            ? item.specialNote?.String ?? ""
+            : item.specialNote ?? item.special_note ?? "",
         ingredientsStructured: item.ingredientsStructured || [],
+        modifierGroups: item.modifier_groups || item.modifierGroups || [],
       }));
       setItems(normalized);
     } catch (err) {
@@ -578,12 +622,18 @@ export default function MenuPage() {
           name: item.name,
           price: item.price,
           description: item.description || "",
+          calories: item.calories,
+          is_veg: item.isVeg,
+          dietary_manual_override: item.dietaryManualOverride,
           image_url: item.imageUrl || "",
           model_glb: item.modelGlb || "",
           model_usdz: item.modelUsdz || "",
           available_days: item.availableDays || [],
           is_archived: item.isArchived,
           is_out_of_stock: isOutOfStock,
+          is_todays_special: item.isTodaysSpecial,
+          is_chef_special: item.isChefSpecial,
+          special_note: item.specialNote || "",
         }),
       });
     } catch (err) {
@@ -611,12 +661,18 @@ export default function MenuPage() {
               name: item.name,
               price: item.price,
               description: item.description || "",
+              calories: item.calories,
+              is_veg: item.isVeg,
+              dietary_manual_override: item.dietaryManualOverride,
               image_url: item.imageUrl || "",
               model_glb: item.modelGlb || "",
               model_usdz: item.modelUsdz || "",
               available_days: item.availableDays || [],
               is_archived: item.isArchived,
               is_out_of_stock: isOutOfStock,
+              is_todays_special: item.isTodaysSpecial,
+              is_chef_special: item.isChefSpecial,
+              special_note: item.specialNote || "",
             }),
           });
         })
@@ -630,7 +686,8 @@ export default function MenuPage() {
   };
 
   const handleSave = async () => {
-    if (!editingItem) return;
+    if (!editingItem || isSaving) return;
+    setIsSaving(true);
 
     try {
       let itemId = editingItem.id;
@@ -660,12 +717,18 @@ export default function MenuPage() {
           name: editingItem.name,
           price: editingItem.price,
           description: editingItem.description,
+          calories: editingItem.calories,
+          is_veg: editingItem.isVeg,
+          dietary_manual_override: editingItem.dietaryManualOverride,
           image_url: editingItem.imageUrl,
           model_glb: editingItem.modelGlb,
           model_usdz: editingItem.modelUsdz,
           available_days: editingItem.availableDays,
           is_archived: editingItem.isArchived,
           is_out_of_stock: editingItem.isOutOfStock,
+          is_todays_special: editingItem.isTodaysSpecial,
+          is_chef_special: editingItem.isChefSpecial,
+          special_note: editingItem.specialNote || "",
         }),
       });
 
@@ -678,6 +741,33 @@ export default function MenuPage() {
             unit: i.unit,
           }))
         ),
+      });
+
+      await authFetch(`/api/admin/menu/item/modifiers?item_id=${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify(
+          (editingItem.modifierGroups || []).map((g, gi) => ({
+            id: g.id,
+            title: g.title,
+            min_select: g.min_select,
+            max_select: g.max_select,
+            required: g.required,
+            is_combo: g.is_combo,
+            sort_order: gi,
+            options: (g.options || []).map((o, oi) => ({
+              id: o.id,
+              label: o.label,
+              price_delta: o.price_delta,
+              is_available: o.is_available !== false,
+              sort_order: oi,
+            })),
+          }))
+        ),
+      });
+
+      await authFetch(`/api/admin/menu/item/allergens?item_id=${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify(editingItem.allergens),
       });
 
       const existing = items.find((i) => i.id === itemId)?.variants ?? [];
@@ -711,6 +801,52 @@ export default function MenuPage() {
     } catch (err) {
       console.error(err);
       toast.error("Save failed");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAIAssist = async () => {
+    if (!editingItem) return;
+    try {
+      const res: any = await authFetch("/api/admin/menu/item/ai-assist", {
+        method: "POST",
+        body: JSON.stringify({
+          name: editingItem.name,
+          description: editingItem.description,
+          ingredients: editingItem.ingredientsStructured.map((ing) => ({
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })),
+        }),
+      });
+
+      const nextAllergens = Array.isArray(res?.allergens)
+        ? res.allergens
+          .map((a: any) => ({
+            type: String(a?.type || "") as Allergen,
+            confidence: String(a?.confidence || "contains") as AllergenConfidence,
+          }))
+          .filter((a: any) => ALLERGEN_LIST.includes(a.type))
+        : editingItem.allergens;
+
+      setEditingItem({
+        ...editingItem,
+        description: String(res?.description || editingItem.description || ""),
+        calories:
+          typeof res?.estimated_calories === "number"
+            ? Number(res.estimated_calories)
+            : editingItem.calories,
+        isVeg:
+          typeof res?.is_veg === "boolean"
+            ? Boolean(res.is_veg)
+            : editingItem.isVeg,
+        allergens: nextAllergens,
+      });
+      toast.success("AI suggestions applied");
+    } catch {
+      toast.error("AI assist failed");
     }
   };
 
@@ -885,13 +1021,20 @@ export default function MenuPage() {
                   isAvailable: true,
                   isArchived: false,
                   isOutOfStock: false,
+                  isTodaysSpecial: false,
+                  isChefSpecial: false,
+                  specialNote: "",
                   stockCount: null,
                   variants: [],
                   imageUrl: "",
                   modelGlb: "",
                   modelUsdz: "",
                   description: "",
+                  calories: null,
+                  isVeg: true,
+                  dietaryManualOverride: false,
                   ingredientsStructured: [],
+                  modifierGroups: [],
                   allergens: [],
                   availableDays: [...DAYS],
                   updatedBy: "Staff",
@@ -1222,13 +1365,20 @@ export default function MenuPage() {
                         isAvailable: true,
                         isArchived: false,
                         isOutOfStock: false,
+                        isTodaysSpecial: false,
+                        isChefSpecial: false,
+                        specialNote: "",
                         stockCount: null,
                         variants: [],
                         imageUrl: "",
                         modelGlb: "",
                         modelUsdz: "",
                         description: "",
+                        calories: null,
+                        isVeg: true,
+                        dietaryManualOverride: false,
                         ingredientsStructured: [],
+                        modifierGroups: [],
                         allergens: [],
                         availableDays: [...DAYS],
                         updatedBy: "Staff",
@@ -1303,8 +1453,22 @@ export default function MenuPage() {
                           ₹{item.price}
                         </span>
                       </div>
+                      {(item.isTodaysSpecial || item.isChefSpecial) && (
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          {item.isTodaysSpecial && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                              Today
+                            </span>
+                          )}
+                          {item.isChefSpecial && (
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                              Chef
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-4">
-                        {item.description || "No description provided."}
+                        {item.specialNote || item.description || "No description provided."}
                       </p>
                       <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -1369,18 +1533,46 @@ export default function MenuPage() {
                     Configure details, pricing, and assets.
                   </p>
                 </div>
-                <button
-                  onClick={() => setModalMode(null)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
-                >
-                  <X />
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                    <span className="text-[11px] font-bold text-slate-500">Veg</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!editingItem.isVeg}
+                      onClick={() =>
+                        setEditingItem({
+                          ...editingItem,
+                          isVeg: !editingItem.isVeg,
+                          dietaryManualOverride: true,
+                        })
+                      }
+                      className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all ${
+                        editingItem.isVeg ? "bg-emerald-500" : "bg-rose-500"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                          editingItem.isVeg ? "translate-x-0.5" : "translate-x-6"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-[11px] font-bold text-slate-500">Non-Veg</span>
+                  </div>
+                  <button
+                    onClick={() => setModalMode(null)}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                  >
+                    <X />
+                  </button>
+                </div>
               </div>
 
               <div className="flex bg-slate-50/50 px-8 border-b border-slate-100">
                 {[
                   { id: "general", label: "General Info" },
                   { id: "variants", label: "Variants & Price" },
+                  { id: "modifiers", label: "Modifiers & Combos" },
                   { id: "assets", label: "Media & 3D" },
                   { id: "ingredients", label: "Ingredients" },
                   { id: "availability", label: "Availability" },
@@ -1419,9 +1611,18 @@ export default function MenuPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                          Description
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Description
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleAIAssist}
+                            className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 hover:bg-indigo-100"
+                          >
+                            AI Improve
+                          </button>
+                        </div>
                         <textarea
                           value={editingItem.description}
                           onChange={(e) =>
@@ -1459,6 +1660,24 @@ export default function MenuPage() {
                               ₹
                             </span>
                           </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Calories (kcal)
+                          </label>
+                          <input
+                            type="number"
+                            value={editingItem.calories ?? ""}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              setEditingItem({
+                                ...editingItem,
+                                calories: e.target.value === "" ? null : Number(e.target.value),
+                              })
+                            }
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                            placeholder="e.g. 320"
+                          />
                         </div>
 
                         <div className="space-y-2">
@@ -1548,6 +1767,53 @@ export default function MenuPage() {
                               </svg>
                             </div>
                           </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 mb-3">
+                          Specials
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800">
+                            <input
+                              type="checkbox"
+                              checked={editingItem.isTodaysSpecial}
+                              onChange={(e) =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  isTodaysSpecial: e.target.checked,
+                                })
+                              }
+                            />
+                            Today's Special
+                          </label>
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800">
+                            <input
+                              type="checkbox"
+                              checked={editingItem.isChefSpecial}
+                              onChange={(e) =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  isChefSpecial: e.target.checked,
+                                })
+                              }
+                            />
+                            Chef's Special
+                          </label>
+                        </div>
+                        <div className="mt-3">
+                          <input
+                            value={editingItem.specialNote || ""}
+                            onChange={(e) =>
+                              setEditingItem({
+                                ...editingItem,
+                                specialNote: e.target.value,
+                              })
+                            }
+                            className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
+                            placeholder="Special note (e.g., Only today, limited quantity)"
+                          />
                         </div>
                       </div>
                     </div>
@@ -1985,6 +2251,192 @@ export default function MenuPage() {
                   </div>
                 )}
 
+                {activeModalTab === "modifiers" && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-slate-900">Modifier Groups</h4>
+                        <p className="text-xs text-slate-500">Use as add-ons or combo choices. Enforced at checkout/order add.</p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setEditingItem({
+                            ...editingItem,
+                            modifierGroups: [
+                              ...(editingItem.modifierGroups || []),
+                              {
+                                id: crypto.randomUUID(),
+                                title: "",
+                                min_select: 0,
+                                max_select: 1,
+                                required: false,
+                                is_combo: false,
+                                options: [],
+                              },
+                            ],
+                          })
+                        }
+                        className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+                      >
+                        + Add Group
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(editingItem.modifierGroups || []).map((group, gi) => (
+                        <div key={group.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+                            <input
+                              value={group.title}
+                              onChange={(e) => {
+                                const next = [...(editingItem.modifierGroups || [])];
+                                next[gi] = { ...group, title: e.target.value };
+                                setEditingItem({ ...editingItem, modifierGroups: next });
+                              }}
+                              className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold"
+                              placeholder="Group title (e.g. Toppings)"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              value={group.min_select}
+                              onChange={(e) => {
+                                const next = [...(editingItem.modifierGroups || [])];
+                                next[gi] = { ...group, min_select: Math.max(0, Number(e.target.value) || 0) };
+                                setEditingItem({ ...editingItem, modifierGroups: next });
+                              }}
+                              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              placeholder="Min"
+                            />
+                            <input
+                              type="number"
+                              min={1}
+                              value={group.max_select}
+                              onChange={(e) => {
+                                const next = [...(editingItem.modifierGroups || [])];
+                                next[gi] = { ...group, max_select: Math.max(1, Number(e.target.value) || 1) };
+                                setEditingItem({ ...editingItem, modifierGroups: next });
+                              }}
+                              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              placeholder="Max"
+                            />
+                            <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={group.required}
+                                onChange={(e) => {
+                                  const next = [...(editingItem.modifierGroups || [])];
+                                  next[gi] = { ...group, required: e.target.checked };
+                                  setEditingItem({ ...editingItem, modifierGroups: next });
+                                }}
+                              />
+                              Required
+                            </label>
+                            <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={group.is_combo}
+                                onChange={(e) => {
+                                  const next = [...(editingItem.modifierGroups || [])];
+                                  next[gi] = { ...group, is_combo: e.target.checked };
+                                  setEditingItem({ ...editingItem, modifierGroups: next });
+                                }}
+                              />
+                              Combo
+                            </label>
+                          </div>
+
+                          <div className="mt-3 space-y-2">
+                            {(group.options || []).map((opt, oi) => (
+                              <div key={opt.id} className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                                <input
+                                  value={opt.label}
+                                  onChange={(e) => {
+                                    const next = [...(editingItem.modifierGroups || [])];
+                                    const opts = [...(group.options || [])];
+                                    opts[oi] = { ...opt, label: e.target.value };
+                                    next[gi] = { ...group, options: opts };
+                                    setEditingItem({ ...editingItem, modifierGroups: next });
+                                  }}
+                                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                  placeholder="Option label"
+                                />
+                                <input
+                                  type="number"
+                                  value={opt.price_delta}
+                                  onChange={(e) => {
+                                    const next = [...(editingItem.modifierGroups || [])];
+                                    const opts = [...(group.options || [])];
+                                    opts[oi] = { ...opt, price_delta: Number(e.target.value) || 0 };
+                                    next[gi] = { ...group, options: opts };
+                                    setEditingItem({ ...editingItem, modifierGroups: next });
+                                  }}
+                                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                  placeholder="Price delta"
+                                />
+                                <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">
+                                  <input
+                                    type="checkbox"
+                                    checked={opt.is_available !== false}
+                                    onChange={(e) => {
+                                      const next = [...(editingItem.modifierGroups || [])];
+                                      const opts = [...(group.options || [])];
+                                      opts[oi] = { ...opt, is_available: e.target.checked };
+                                      next[gi] = { ...group, options: opts };
+                                      setEditingItem({ ...editingItem, modifierGroups: next });
+                                    }}
+                                  />
+                                  Available
+                                </label>
+                                <button
+                                  onClick={() => {
+                                    const next = [...(editingItem.modifierGroups || [])];
+                                    next[gi] = { ...group, options: (group.options || []).filter((o) => o.id !== opt.id) };
+                                    setEditingItem({ ...editingItem, modifierGroups: next });
+                                  }}
+                                  className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <button
+                              onClick={() => {
+                                const next = [...(editingItem.modifierGroups || [])];
+                                next[gi] = {
+                                  ...group,
+                                  options: [
+                                    ...(group.options || []),
+                                    { id: crypto.randomUUID(), label: "", price_delta: 0, is_available: true },
+                                  ],
+                                };
+                                setEditingItem({ ...editingItem, modifierGroups: next });
+                              }}
+                              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                            >
+                              + Add Option
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingItem({
+                                  ...editingItem,
+                                  modifierGroups: (editingItem.modifierGroups || []).filter((g) => g.id !== group.id),
+                                });
+                              }}
+                              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                            >
+                              Delete Group
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {activeModalTab === "availability" && (
                   <div className="space-y-8">
                     <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
@@ -2087,9 +2539,17 @@ export default function MenuPage() {
                   </button>
                   <button
                     onClick={handleSave}
-                    className="px-10 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-black shadow-lg transition-all"
+                    disabled={isSaving}
+                    className="px-10 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-black shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
                   >
-                    Save Changes
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
                   </button>
                 </div>
               </div>

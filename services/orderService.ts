@@ -176,7 +176,7 @@ export const orderService = {
     return api<{ orders: any[] }>(`/api/customer/orders${suffix}`);
   },
 
-  async addItem(id: string, variantId: string | null, price: number): Promise<any> {
+  async addItem(id: string, variantId: string | null, price: number, modifierOptionIds?: string[]): Promise<any> {
     let sessionId = await orderService.ensureSession();
     if (!sessionId && typeof window !== "undefined") {
       sessionId = localStorage.getItem("session_id");
@@ -195,6 +195,7 @@ export const orderService = {
           order_id: orderId,
           menu_item_id: id,
           variant_id: variantId || null,
+          modifier_option_ids: modifierOptionIds || [],
           quantity: 1,
           price
         }),
@@ -207,11 +208,11 @@ export const orderService = {
     } catch (e: any) {
       if (e.message && (e.message.includes("session_id is required") || e.message.includes("session expired"))) {
         localStorage.removeItem("session_id");
-        return this.addItem(id, variantId, price);
+        return this.addItem(id, variantId, price, modifierOptionIds);
       }
       if (e.message && (e.message.includes("order not found") || e.message.includes("violates foreign key constraint"))) {
         localStorage.removeItem("order_id");
-        return this.addItem(id, variantId, price);
+        return this.addItem(id, variantId, price, modifierOptionIds);
       }
       throw e;
     }
@@ -251,6 +252,13 @@ export const orderService = {
 
   getTotalBreakdown: (orderId: string) => {
     return api<any>(`/api/customer/orders/breakdown?order_id=${orderId}`);
+  },
+
+  applyCoupon: (orderId: string, code: string) => {
+    return api<{ discount: number }>("/api/customer/orders/apply-coupon", {
+      method: "POST",
+      body: JSON.stringify({ order_id: orderId, code }),
+    });
   },
 
   finalizeOrder: (orderId: string) => {
