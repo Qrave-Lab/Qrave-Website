@@ -38,6 +38,7 @@ export default function BranchManager() {
     password: "",
     role: "cashier",
   });
+  const [isNewBranchLocked, setIsNewBranchLocked] = useState(false);
 
   const selectedBranch = useMemo(
     () => branches.find((b) => b.restaurant_id === selectedBranchId) || null,
@@ -45,8 +46,18 @@ export default function BranchManager() {
   );
 
   const loadBranches = async () => {
-    const res = await api<{ branches: Branch[] }>("/api/admin/branches?include_archived=0");
+    const [res, billing] = await Promise.all([
+      api<{ branches: Branch[] }>("/api/admin/branches?include_archived=0"),
+      api<{ plan?: string }>("/api/admin/billing/status"),
+    ]);
     const list = res?.branches || [];
+    const normalizedPlan = String(billing?.plan || "").toLowerCase();
+    const isPremiumPlan =
+      normalizedPlan === "monthly_999" ||
+      normalizedPlan === "monthly_1499" ||
+      normalizedPlan === "yearly_10999" ||
+      normalizedPlan === "yearly_14999";
+    setIsNewBranchLocked(!isPremiumPlan && list.length >= 1);
     setBranches(list);
     const nextSelected = selectedBranchId && list.some((b) => b.restaurant_id === selectedBranchId)
       ? selectedBranchId
@@ -92,7 +103,11 @@ export default function BranchManager() {
     try {
       await api(`/api/admin/branches/${selectedBranchId}`, {
         method: "PATCH",
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          currency: editForm.currency,
+          address: editForm.address,
+          phone: editForm.phone,
+        }),
       });
       toast.success("Branch updated");
       await loadBranches();
@@ -142,15 +157,37 @@ export default function BranchManager() {
         <h2 className="font-bold text-slate-900 flex items-center gap-2">
           <Building2 className="w-5 h-5 text-slate-500" /> Branches & Locations
         </h2>
-        <Link
-          href="/staff/settings/branches/add"
-          className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-slate-800 flex items-center gap-1"
-        >
-          <Plus className="w-3 h-3" /> New Branch
-        </Link>
+        {isNewBranchLocked ? (
+          <Link
+            href="/staff/settings/subscription"
+            className="text-xs bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg font-bold hover:bg-amber-100 flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" /> Upgrade Plan
+          </Link>
+        ) : (
+          <Link
+            href="/staff/settings/branches/add"
+            className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-slate-800 flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" /> New Branch
+          </Link>
+        )}
       </div>
 
       <div className="p-4 space-y-4">
+        {isNewBranchLocked && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <p className="text-xs font-semibold text-amber-800">
+              Current plan has reached branch limit. Upgrade plan to add more branches.
+            </p>
+            <Link
+              href="/staff/settings/subscription"
+              className="mt-2 inline-flex items-center rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+            >
+              Go to Subscription
+            </Link>
+          </div>
+        )}
         {branches.length > 0 ? (
           <div className="space-y-3">
             <select
@@ -160,7 +197,7 @@ export default function BranchManager() {
             >
               {branches.map((b) => (
                 <option key={b.restaurant_id} value={b.restaurant_id}>
-                  {b.name} ({b.role})
+                  {b.address ? `${b.name} - ${b.address}` : `${b.name} (${b.role})`}
                 </option>
               ))}
             </select>
@@ -168,7 +205,7 @@ export default function BranchManager() {
             <div className="rounded-xl border border-slate-200 p-3 space-y-2">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Edit Branch</p>
               <div className="grid grid-cols-2 gap-2">
-                <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs" value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
+                <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs bg-slate-100 text-slate-500" value={editForm.name} disabled />
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs" value={editForm.currency} onChange={(e) => setEditForm((p) => ({ ...p, currency: e.target.value }))} />
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs col-span-2" value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs col-span-2" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />

@@ -1,40 +1,30 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
   CreditCard,
   Globe,
-  Loader2,
   Palette,
   PlusCircle,
   Printer,
   Receipt,
-  Save,
+  Store,
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import StaffSidebar from "../../../components/StaffSidebar";
-import RestaurantProfile from "@/app/components/settings/RestaurantProfile";
 import { api } from "@/app/lib/api";
-import type { Restaurant } from "@/app/components/settings/types";
 
 type AdminMeResponse = {
   role?: string;
-  restaurant?: string;
-  address?: string;
-  phone?: string;
   currency?: string;
-  tax_percent?: number;
-  service_charge?: number;
-  ordering_enabled?: boolean;
-  logo_url?: string;
-  logo_version?: number;
-  open_time?: string;
-  close_time?: string;
-  theme_config?: Restaurant["themeConfig"];
+  theme_config?: {
+    role_access?: Record<string, Record<string, boolean>>;
+  };
 };
 
 type LocationOption = {
@@ -42,54 +32,10 @@ type LocationOption = {
   restaurant: string;
 };
 
-const PHONE_COUNTRY_CODES = ["+91", "+1", "+44", "+61", "+65", "+971"];
-
-const PHONE_RULES: Record<string, { min: number; max: number; pattern: RegExp }> = {
-  "+91": { min: 10, max: 10, pattern: /^[2-9][0-9]{9}$/ },
-  "+1": { min: 10, max: 10, pattern: /^[2-9][0-9]{2}[2-9][0-9]{6}$/ },
-  "+44": { min: 10, max: 10, pattern: /^7[0-9]{9}$/ },
-  "+61": { min: 9, max: 9, pattern: /^4[0-9]{8}$/ },
-  "+65": { min: 8, max: 8, pattern: /^[689][0-9]{7}$/ },
-  "+971": { min: 9, max: 9, pattern: /^5[0-9]{8}$/ },
+type BranchMeta = {
+  restaurant_id: string;
+  address?: string | null;
 };
-
-function splitE164Phone(value?: string): { countryCode: string; phone: string } {
-  const raw = String(value || "").trim();
-  if (!raw.startsWith("+")) return { countryCode: "+91", phone: raw };
-  const digits = raw.slice(1).replace(/\D/g, "");
-  if (!digits) return { countryCode: "+91", phone: "" };
-  for (const code of PHONE_COUNTRY_CODES.sort((a, b) => b.length - a.length)) {
-    const cc = code.slice(1);
-    if (digits.startsWith(cc)) {
-      return { countryCode: code, phone: digits.slice(cc.length) };
-    }
-  }
-  return { countryCode: "+91", phone: digits };
-}
-
-function validateRestaurantName(name: string) {
-  const v = name.trim();
-  return v.length >= 2 && v.length <= 120 && !/[\x00-\x1F\x7F]/.test(v);
-}
-
-function validateAddress(address: string) {
-  const v = address.trim();
-  return v.length <= 240 && !/[\x00-\x1F\x7F]/.test(v);
-}
-
-function validatePhone(countryCode: string, phone: string) {
-  const v = phone.trim();
-  if (!v) return true;
-  if (!/^\+[1-9][0-9]{0,3}$/.test(countryCode)) return false;
-  const digits = v.replace(/\D/g, "");
-  const rule = PHONE_RULES[countryCode];
-  if (rule) {
-    return digits.length >= rule.min && digits.length <= rule.max && rule.pattern.test(digits);
-  }
-  if (digits.length < 6 || digits.length > 14) return false;
-  const total = countryCode.replace("+", "").length + digits.length;
-  return total >= 8 && total <= 15;
-}
 
 type NavCard = {
   title: string;
@@ -97,198 +43,127 @@ type NavCard = {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   show?: boolean;
+  disabled?: boolean;
+  disabledHint?: string;
 };
 
-function SettingsNavCard({ title, subtitle, href, icon: Icon }: NavCard) {
+function SettingsNavCard({ title, subtitle, href, icon: Icon, disabled, disabledHint }: NavCard) {
+  const content = (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start gap-4">
+        <div className="mt-0.5 rounded-2xl bg-slate-100 p-3 text-slate-700">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-base font-bold text-slate-900">{title}</p>
+          <p className="mt-1 text-sm text-slate-500 leading-relaxed">{subtitle}</p>
+          {disabled && disabledHint ? (
+            <p className="mt-1.5 text-xs font-semibold text-amber-700">{disabledHint}</p>
+          ) : null}
+        </div>
+      </div>
+      <ArrowRight className="h-5 w-5 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-700" />
+    </div>
+  );
+
+  if (disabled) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm opacity-75 cursor-not-allowed">
+        {content}
+      </div>
+    );
+  }
+
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+      className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 rounded-xl bg-slate-100 p-2 text-slate-700">
-            <Icon className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-900">{title}</p>
-            <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
-          </div>
-        </div>
-        <ArrowRight className="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-700" />
-      </div>
+      {content}
     </Link>
   );
 }
 
+function SettingsHubSkeleton() {
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+      <div className="mb-5 space-y-2">
+        <div className="h-5 w-40 rounded bg-slate-200" />
+        <div className="h-4 w-72 rounded bg-slate-100" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 9 }).map((_, idx) => (
+          <div key={idx} className="rounded-3xl border border-slate-200 bg-white p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="h-11 w-11 rounded-2xl bg-slate-100" />
+                <div className="space-y-2">
+                  <div className="h-4 w-36 rounded bg-slate-200" />
+                  <div className="h-3 w-48 rounded bg-slate-100" />
+                </div>
+              </div>
+              <div className="h-5 w-5 rounded bg-slate-100" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function SettingsPage() {
-  const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
   const [role, setRole] = useState<string>("");
+  const [currency, setCurrency] = useState<string>("INR");
   const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [locationLabels, setLocationLabels] = useState<Record<string, string>>({});
   const [activeRestaurantId, setActiveRestaurantId] = useState<string>("");
   const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
-  const [restaurant, setRestaurant] = useState<Restaurant>({
-    name: "",
-    address: "",
-    currency: "INR",
-    taxPercent: 5,
-    serviceCharge: 10,
-    phone: "",
-    phoneCountryCode: "+91",
-    logo_url: "",
-    orderingEnabled: true,
-    openTime: "",
-    closeTime: "",
-    themeConfig: {},
-  });
-  const [initialRestaurant, setInitialRestaurant] = useState<Restaurant | null>(null);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [planCode, setPlanCode] = useState<string>("monthly_499");
+  const [branchCount, setBranchCount] = useState(1);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations", { method: "GET" });
-        setLocations(res?.locations || []);
-        setActiveRestaurantId(res?.active_restaurant_id || "");
+        const [adminData, locRes, branchRes, billingRes] = await Promise.all([
+          api<AdminMeResponse>("/api/admin/me", { method: "GET" }),
+          api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations", { method: "GET" }),
+          api<{ branches?: BranchMeta[] }>("/api/admin/branches?include_archived=0", { method: "GET" }),
+          api<{ plan?: string }>("/api/admin/billing/status", { method: "GET" }),
+        ]);
+
+        const nextRole = String(adminData.role || "").toLowerCase();
+        const roleAccess = adminData?.theme_config?.role_access;
+        if (nextRole && nextRole !== "owner") {
+          const allowed = roleAccess?.[nextRole]?.settings;
+          if (allowed === false && typeof window !== "undefined") {
+            toast.error("Settings access disabled for your role");
+            router.replace("/staff");
+            return;
+          }
+        }
+
+        const byId: Record<string, string> = {};
+        for (const b of branchRes?.branches || []) {
+          const addr = String(b.address || "").trim();
+          if (addr) byId[b.restaurant_id] = addr;
+        }
+
+        setRole(nextRole);
+        setCurrency(String(adminData.currency || "INR"));
+        setLocations(locRes?.locations || []);
+        setLocationLabels(byId);
+        setActiveRestaurantId(locRes?.active_restaurant_id || "");
+        setPlanCode(String(billingRes?.plan || "monthly_499"));
+        setBranchCount((branchRes?.branches || []).length || 1);
       } catch {
-        // ignore
+        toast.error("Failed to load settings");
+      } finally {
+        setIsLoading(false);
       }
     })();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const adminData = await api<AdminMeResponse>("/api/admin/me", { method: "GET" });
-      const nextRole = String(adminData.role || "").toLowerCase();
-      const roleAccess = (adminData.theme_config as any)?.role_access as Record<string, Record<string, boolean>> | undefined;
-      if (nextRole && nextRole !== "owner") {
-        const allowed = roleAccess?.[nextRole]?.settings;
-        if (allowed === false && typeof window !== "undefined") {
-          toast.error("Settings access disabled for your role");
-          window.location.href = "/staff";
-          return;
-        }
-      }
-      const logoVersionSuffix = adminData.logo_version ? `?v=${adminData.logo_version}` : "";
-      const parsedPhone = splitE164Phone(adminData.phone);
-      const restObj: Restaurant = {
-        name: adminData.restaurant || "",
-        address: adminData.address || "",
-        phone: parsedPhone.phone,
-        phoneCountryCode: parsedPhone.countryCode,
-        currency: adminData.currency || "INR",
-        taxPercent: adminData.tax_percent || 0,
-        serviceCharge: adminData.service_charge || 0,
-        orderingEnabled: adminData.ordering_enabled !== false,
-        logo_url: adminData.logo_url ? `${adminData.logo_url}${logoVersionSuffix}` : "",
-        openTime: adminData.open_time || "",
-        closeTime: adminData.close_time || "",
-        themeConfig: adminData.theme_config || {},
-      };
-      setRestaurant(restObj);
-      setRole(adminData.role || "");
-      setInitialRestaurant(restObj);
-    } catch {
-      toast.error("Failed to load settings");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isDirty = useMemo(() => {
-    if (!initialRestaurant) return false;
-    return JSON.stringify(restaurant) !== JSON.stringify(initialRestaurant);
-  }, [restaurant, initialRestaurant]);
-
-  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      const contentType = file.type || "image/png";
-      const ct = encodeURIComponent(contentType);
-      const { upload_url, public_url } = await api<{ upload_url: string; public_url: string }>(`/api/admin/logo-pic/upload-url?content_type=${ct}`, {
-        method: "POST",
-      });
-      const uploadRes = await fetch(upload_url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": contentType },
-      });
-      if (!uploadRes.ok) throw new Error();
-      await api("/api/admin/logo-pic/commit", {
-        method: "POST",
-        body: JSON.stringify({ logo_url: public_url }),
-      });
-      const nextLogo = `${public_url}?v=${Date.now()}`;
-      setRestaurant((prev) => ({ ...prev, logo_url: nextLogo }));
-      if (typeof window !== "undefined") {
-        try {
-          const cachedRaw = localStorage.getItem("staff_sidebar_me_cache_v1");
-          const cached = cachedRaw ? JSON.parse(cachedRaw) : {};
-          localStorage.setItem(
-            "staff_sidebar_me_cache_v1",
-            JSON.stringify({
-              ...cached,
-              restaurant: restaurant.name,
-              logo_url: nextLogo,
-            })
-          );
-        } catch {
-          // ignore cache write error
-        }
-        window.dispatchEvent(new Event("qrave:profile-updated"));
-      }
-      toast.success("Logo uploaded");
-    } catch {
-      toast.error("Logo upload failed");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!validateRestaurantName(restaurant.name)) {
-      toast.error("Enter a valid restaurant name");
-      return;
-    }
-    if (!validateAddress(restaurant.address)) {
-      toast.error("Address is invalid");
-      return;
-    }
-    if (!validatePhone(restaurant.phoneCountryCode, restaurant.phone)) {
-      toast.error("Phone number is invalid");
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await api("/api/admin/update-details", {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: restaurant.name,
-          address: restaurant.address,
-          phone: restaurant.phone,
-          phone_country_code: restaurant.phoneCountryCode,
-          tax_percent: restaurant.taxPercent,
-          service_charge: restaurant.serviceCharge,
-          ordering_enabled: restaurant.orderingEnabled !== false,
-          open_time: restaurant.openTime || "",
-          close_time: restaurant.closeTime || "",
-        }),
-      });
-      await fetchData();
-      toast.success("Settings updated successfully");
-    } catch {
-      toast.error("Failed to save changes");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  }, [router]);
 
   const switchLocationFromSettings = async (nextRestaurantId: string) => {
     if (!nextRestaurantId || nextRestaurantId === activeRestaurantId || isSwitchingLocation) return;
@@ -298,29 +173,38 @@ export default function SettingsPage() {
         method: "POST",
         body: JSON.stringify({ restaurant_id: nextRestaurantId }),
       });
-      if (typeof window !== "undefined") {
-        window.location.href = "/staff";
-      }
+      setActiveRestaurantId(nextRestaurantId);
+      router.replace("/staff/settings");
+      router.refresh();
     } catch {
       toast.error("Failed to switch branch");
       setIsSwitchingLocation(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-white">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    );
-  }
+  const normalizedPlan = String(planCode || "").toLowerCase();
+  const isPremiumPlan =
+    normalizedPlan === "monthly_999" ||
+    normalizedPlan === "monthly_1499" ||
+    normalizedPlan === "yearly_10999" ||
+    normalizedPlan === "yearly_14999";
+  const addBranchLocked = role === "owner" && !isPremiumPlan && branchCount >= 1;
 
   const cards: NavCard[] = [
+    { title: "Restaurant Profile", subtitle: "Brand details, logo, hours, phone, taxes", href: "/staff/settings/profile", icon: Store },
     { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt },
     { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users },
     { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer },
     { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette },
-    { title: "Add New Branch", subtitle: "Create another branch/location", href: "/staff/settings/branches/add", icon: PlusCircle, show: role === "owner" },
+    {
+      title: "Add New Branch",
+      subtitle: "Create another branch/location",
+      href: "/staff/settings/branches/add",
+      icon: PlusCircle,
+      show: role === "owner",
+      disabled: addBranchLocked,
+      disabledHint: addBranchLocked ? "To add more branches, upgrade plan" : undefined,
+    },
     { title: "Role Access Control", subtitle: "Set feature access per staff role", href: "/staff/settings/access-control", icon: Users, show: role === "owner" },
     { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
     { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
@@ -332,61 +216,51 @@ export default function SettingsPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between shrink-0 z-10">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Settings</h1>
+            <h1 className="text-xl font-bold text-slate-900">Settings Hub</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <Globe className="w-3 h-3 text-slate-400" />
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                Global Configuration • {restaurant.currency}
+                Branch Configuration • {isLoading ? "..." : currency}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {locations.length > 1 && (
-              <select
-                value={activeRestaurantId}
-                disabled={isSwitchingLocation}
-                onChange={(e) => switchLocationFromSettings(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"
-              >
-                {locations.map((loc) => (
-                  <option key={loc.restaurant_id} value={loc.restaurant_id}>
-                    {loc.restaurant}
-                  </option>
-                ))}
-              </select>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={isSaving || !isDirty}
-              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 text-white disabled:text-slate-400 px-8 py-2.5 rounded-lg text-sm font-bold transition-all active:scale-95 shadow-sm"
+          {!isLoading && locations.length > 1 && (
+            <select
+              value={activeRestaurantId}
+              disabled={isSwitchingLocation}
+              onChange={(e) => switchLocationFromSettings(e.target.value)}
+              className="min-w-[320px] rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
             >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
-            </button>
-          </div>
+              {locations.map((loc) => (
+                <option key={loc.restaurant_id} value={loc.restaurant_id}>
+                  {locationLabels[loc.restaurant_id]
+                    ? `${loc.restaurant} - ${locationLabels[loc.restaurant_id]}`
+                    : loc.restaurant}
+                </option>
+              ))}
+            </select>
+          )}
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          <div className="mx-auto max-w-[1400px] space-y-6 pb-10">
-            <RestaurantProfile
-              data={restaurant}
-              onChange={setRestaurant}
-              onLogoChange={handleLogoChange}
-              isUploading={isUploading}
-            />
-
-            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3">
-                <h2 className="text-sm font-bold text-slate-900">More Settings</h2>
-                <p className="text-xs text-slate-500">Open a section to manage it in its own page.</p>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {cards
-                  .filter((card) => card.show !== false)
-                  .map((card) => (
-                    <SettingsNavCard key={card.title} {...card} />
-                  ))}
-              </div>
-            </section>
+          <div className="mx-auto max-w-[1400px] pb-10">
+            {isLoading ? (
+              <SettingsHubSkeleton />
+            ) : (
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-5">
+                  <h2 className="text-lg font-bold text-slate-900">Manage Settings</h2>
+                  <p className="text-sm text-slate-500">Open a section to manage it in its own page.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {cards
+                    .filter((card) => card.show !== false)
+                    .map((card) => (
+                      <SettingsNavCard key={card.title} {...card} />
+                    ))}
+                </div>
+              </section>
+            )}
           </div>
         </main>
       </div>

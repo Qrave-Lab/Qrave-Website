@@ -183,7 +183,7 @@ export default function StaffDashboardPage() {
     let mounted = true;
     const guardRole = async () => {
       try {
-        const me = await api<{ role?: string }>("/api/admin/me", { method: "GET" });
+        const me = await api<{ role?: string }>("/api/admin/me", { method: "GET", suppressErrorLog: true });
         if (!mounted) return;
         const role = (me?.role || "").toLowerCase();
         if (role === "kitchen") {
@@ -192,9 +192,10 @@ export default function StaffDashboardPage() {
         }
         if (role === "cashier") {
           router.replace("/staff/cashier");
+          return;
         }
       } catch {
-        // ignore
+        // staff layout already handles unauthenticated redirects
       }
     };
     guardRole();
@@ -348,13 +349,19 @@ export default function StaffDashboardPage() {
     };
   }, []);
 
-  // Keep the floor view in-sync when navigating back from table/bill pages.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      refreshDashboard().catch(() => { });
+    }, 12000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onFocus = () => refreshLiveData().catch(() => { });
+    const onFocus = () => refreshDashboard().catch(() => { });
     const onVis = () => {
       if (document.visibilityState === "visible") {
-        refreshLiveData().catch(() => { });
+        refreshDashboard().catch(() => { });
       }
     };
     window.addEventListener("focus", onFocus);
@@ -363,13 +370,6 @@ export default function StaffDashboardPage() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      refreshDashboard().catch(() => { });
-    }, 12000);
-    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -403,7 +403,6 @@ export default function StaffDashboardPage() {
             setOrders(buildPendingOrders(next));
             return next;
           });
-          refreshLiveData().catch(() => { });
           return;
         }
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -34,6 +34,10 @@ type LocationOption = {
   role: string;
   currency: string;
 };
+type BranchMeta = {
+  restaurant_id: string;
+  address?: string | null;
+};
 
 type RoleAccessConfig = Record<string, Record<string, boolean>>;
 
@@ -60,6 +64,7 @@ const sidebarItems: SidebarSection[] = [
 ];
 
 const ME_CACHE_KEY = "staff_sidebar_me_cache_v1";
+const LOCATION_CACHE_KEY = "staff_sidebar_locations_cache_v1";
 const PROFILE_UPDATED_EVENT = "qrave:profile-updated";
 
 function hasFeatureAccess(role: string, roleAccess: RoleAccessConfig | null, feature: string): boolean {
@@ -73,17 +78,48 @@ function hasFeatureAccess(role: string, roleAccess: RoleAccessConfig | null, fea
 }
 
 export default function StaffSidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [currentRole, setCurrentRole] = useState<string>("");
   const [roleAccess, setRoleAccess] = useState<RoleAccessConfig | null>(null);
   const [billingLocked, setBillingLocked] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [locations, setLocations] = useState<LocationOption[]>([]);
-  const [activeRestaurantId, setActiveRestaurantId] = useState<string>("");
+  const [locations, setLocations] = useState<LocationOption[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(LOCATION_CACHE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { locations?: LocationOption[] };
+      return Array.isArray(parsed?.locations) ? parsed.locations : [];
+    } catch {
+      return [];
+    }
+  });
+  const [locationLabels, setLocationLabels] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(LOCATION_CACHE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as { locationLabels?: Record<string, string> };
+      return parsed?.locationLabels || {};
+    } catch {
+      return {};
+    }
+  });
+  const [activeRestaurantId, setActiveRestaurantId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = localStorage.getItem(LOCATION_CACHE_KEY);
+      if (!raw) return "";
+      const parsed = JSON.parse(raw) as { activeRestaurantId?: string };
+      return String(parsed?.activeRestaurantId || "");
+    } catch {
+      return "";
+    }
+  });
   const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
 
   useEffect(() => {
@@ -91,26 +127,48 @@ export default function StaffSidebar() {
     if (savedState) {
       setIsCollapsed(JSON.parse(savedState));
     }
-    setIsMounted(true);
   }, []);
 
   useEffect(() => {
     let isActive = true;
     const fetchLocations = async () => {
       try {
-        const res = await api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations");
+        const [locRes, branchRes] = await Promise.all([
+          api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations"),
+          api<{ branches?: BranchMeta[] }>("/api/admin/branches?include_archived=0"),
+        ]);
         if (!isActive) return;
-        setLocations(res?.locations || []);
-        setActiveRestaurantId(res?.active_restaurant_id || "");
+        const byId: Record<string, string> = {};
+        for (const b of branchRes?.branches || []) {
+          const clean = String(b.address || "").trim();
+          if (clean) byId[b.restaurant_id] = clean;
+        }
+        setLocationLabels(byId);
+        setLocations(locRes?.locations || []);
+        setActiveRestaurantId(locRes?.active_restaurant_id || "");
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            LOCATION_CACHE_KEY,
+            JSON.stringify({
+              locations: locRes?.locations || [],
+              locationLabels: byId,
+              activeRestaurantId: locRes?.active_restaurant_id || "",
+            })
+          );
+        }
       } catch {
         if (!isActive) return;
-        setLocations([]);
-        setActiveRestaurantId("");
+        // keep cached values to avoid selector flicker on transient failures
       }
     };
     fetchLocations();
+    const onLocationChanged = () => {
+      fetchLocations();
+    };
+    window.addEventListener("qrave:location-changed", onLocationChanged);
     return () => {
       isActive = false;
+      window.removeEventListener("qrave:location-changed", onLocationChanged);
     };
   }, []);
 
@@ -214,8 +272,8 @@ export default function StaffSidebar() {
     if (pathname === "/staff/settings/subscription") return;
     if (pathname === "/staff/settings") return;
     if (pathname === "/staff/settings/theme") return;
-    window.location.href = "/staff/settings/subscription";
-  }, [billingLocked, pathname]);
+    router.replace("/staff/settings/subscription");
+  }, [billingLocked, pathname, router]);
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -232,7 +290,7 @@ export default function StaffSidebar() {
         localStorage.removeItem("session_id");
         localStorage.removeItem("order_id");
         localStorage.removeItem("table_number");
-        window.location.href = "/login";
+        router.replace("/login");
       }
     }
   };
@@ -251,6 +309,36 @@ export default function StaffSidebar() {
         method: "POST",
         body: JSON.stringify({ restaurant_id: nextRestaurantId }),
       });
+      setActiveRestaurantId(nextRestaurantId);
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem(LOCATION_CACHE_KEY);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as {
+              locations?: LocationOption[];
+              locationLabels?: Record<string, string>;
+              activeRestaurantId?: string;
+            };
+            localStorage.setItem(
+              LOCATION_CACHE_KEY,
+              JSON.stringify({
+                locations: parsed.locations || locations,
+                locationLabels: parsed.locationLabels || locationLabels,
+                activeRestaurantId: nextRestaurantId,
+              })
+            );
+          } catch {
+            localStorage.setItem(
+              LOCATION_CACHE_KEY,
+              JSON.stringify({
+                locations,
+                locationLabels,
+                activeRestaurantId: nextRestaurantId,
+              })
+            );
+          }
+        }
+      }
       if (typeof window !== "undefined") {
         localStorage.removeItem(ME_CACHE_KEY);
         localStorage.removeItem("restaurant_name");
@@ -258,14 +346,14 @@ export default function StaffSidebar() {
         localStorage.removeItem("session_id");
         localStorage.removeItem("order_id");
         localStorage.removeItem("table_number");
-        window.location.href = "/staff";
+        window.dispatchEvent(new Event("qrave:location-changed"));
+        router.replace("/staff");
+        router.refresh();
       }
     } catch {
       setIsSwitchingLocation(false);
     }
   };
-
-  if (!isMounted) return null; 
 
   const visibleSections = billingLocked
     ? sidebarItems
@@ -288,13 +376,24 @@ export default function StaffSidebar() {
         }),
       }))
       .filter((section) => section.items.length > 0);
+  const activeLocationLabel = (() => {
+    const active = locations.find((l) => l.restaurant_id === activeRestaurantId);
+    if (!active) return "No branch selected";
+    const label = locationLabels[active.restaurant_id];
+    return label ? `${active.restaurant} - ${label}` : active.restaurant;
+  })();
+  const roleViewLabel = (() => {
+    const r = String(currentRole || "").trim().toLowerCase();
+    if (!r || r === "owner" || r === "admin") return "Admin View";
+    return `${r.charAt(0).toUpperCase()}${r.slice(1)} View`;
+  })();
 
   return (
     <motion.div
       initial={false} 
       animate={{ width: isCollapsed ? 80 : 260 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="h-screen bg-white border-r border-gray-200 flex flex-col relative z-20 shrink-0"
+      className="h-screen bg-white border-r border-gray-200 flex flex-col relative z-[200] pointer-events-auto shrink-0"
     >
       <div className={`h-16 flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center" : "px-6"}`}>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 bg-white transition-all duration-300">
@@ -316,7 +415,10 @@ export default function StaffSidebar() {
             className="ml-3 overflow-hidden whitespace-nowrap"
           >
             <h1 className="text-sm font-bold text-gray-900">{restaurantName}</h1>
-            <p className="text-[10px] text-gray-500 font-medium">Manager View</p>
+            <p className="text-[10px] text-gray-500 font-medium">{roleViewLabel}</p>
+            <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-600" title={activeLocationLabel}>
+              {activeLocationLabel}
+            </p>
           </motion.div>
         )}
       </div>
@@ -330,11 +432,13 @@ export default function StaffSidebar() {
             value={activeRestaurantId}
             disabled={isSwitchingLocation}
             onChange={(e) => handleSwitchLocation(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
           >
             {locations.map((loc) => (
               <option key={loc.restaurant_id} value={loc.restaurant_id}>
-                {loc.restaurant}
+                {locationLabels[loc.restaurant_id]
+                  ? `${loc.restaurant} - ${locationLabels[loc.restaurant_id]}`
+                  : loc.restaurant}
               </option>
             ))}
           </select>
@@ -418,7 +522,7 @@ export default function StaffSidebar() {
 
       <button 
         onClick={toggleSidebar}
-        className="absolute -right-3 top-20 bg-white border border-gray-200 text-gray-500 hover:text-gray-900 p-1 rounded-full shadow-sm hover:shadow-md transition-all z-30"
+        className="absolute -right-3 top-20 bg-white border border-gray-200 text-gray-500 hover:text-gray-900 p-1 rounded-full shadow-sm hover:shadow-md transition-all z-[210]"
       >
         {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>

@@ -9,9 +9,10 @@ import toast from "react-hot-toast";
 
 export default function AddBranchPage() {
   const router = useRouter();
+  const [brandName, setBrandName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isBranchLockedByPlan, setIsBranchLockedByPlan] = useState(false);
   const [form, setForm] = useState({
-    name: "",
     currency: "INR",
     address: "",
     phone: "",
@@ -21,20 +22,34 @@ export default function AddBranchPage() {
     phone_country_code: "+91",
   });
   const [currentLogoUrl, setCurrentLogoUrl] = useState("");
+  const [isConfirmingAddon, setIsConfirmingAddon] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const me = await api<{ restaurant?: string; currency?: string; logo_url?: string | null; logo_version?: number | null }>("/api/admin/me", { method: "GET" });
+        const [me, branchesRes, billingRes] = await Promise.all([
+          api<{ restaurant?: string; currency?: string; logo_url?: string | null; logo_version?: number | null }>("/api/admin/me", { method: "GET" }),
+          api<{ branches?: Array<{ restaurant_id: string }> }>("/api/admin/branches?include_archived=0", { method: "GET" }),
+          api<{ plan?: string }>("/api/admin/billing/status", { method: "GET" }),
+        ]);
         const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
+        setBrandName(String(me?.restaurant || ""));
         setForm((prev) => ({
           ...prev,
-          name: prev.name || String(me?.restaurant || ""),
           currency: prev.currency === "INR" ? String(me?.currency || "INR") : prev.currency,
         }));
         setCurrentLogoUrl(me?.logo_url ? `${me.logo_url}${suffix}` : "");
+        const normalizedPlan = String(billingRes?.plan || "").toLowerCase();
+        const isPremiumPlan =
+          normalizedPlan === "monthly_999" ||
+          normalizedPlan === "monthly_1499" ||
+          normalizedPlan === "yearly_10999" ||
+          normalizedPlan === "yearly_14999";
+        const count = (branchesRes?.branches || []).length;
+        setIsBranchLockedByPlan(!isPremiumPlan && count >= 1);
       } catch {
-        // ignore; defaults already exist
+        // Fail-safe: if entitlement can't be resolved, block extra-branch creation from UI.
+        setIsBranchLockedByPlan(true);
       }
     })();
   }, []);
@@ -50,28 +65,61 @@ export default function AddBranchPage() {
     return digits;
   };
 
+  const createBranch = async (purchaseExtraBranch: boolean) => {
+    await api("/api/admin/branches", {
+      method: "POST",
+      body: JSON.stringify({
+        name: brandName.trim(),
+        ...form,
+        phone: normalizePhoneForSubmit(form.phone_country_code, form.phone),
+        phone_country_code: form.phone_country_code,
+        copy_current_logo: true,
+        purchase_extra_branch: purchaseExtraBranch,
+      }),
+    });
+  };
+
   const handleCreate = async () => {
-    if (!form.name.trim()) {
-      toast.error("Branch name is required");
+    if (isBranchLockedByPlan) {
+      return;
+    }
+    if (!brandName.trim()) {
+      toast.error("Brand name is missing");
+      return;
+    }
+    if (!form.address.trim()) {
+      toast.error("Location is required");
       return;
     }
     setIsSaving(true);
     try {
-      await api("/api/admin/branches", {
-        method: "POST",
-        body: JSON.stringify({
-          ...form,
-          phone: normalizePhoneForSubmit(form.phone_country_code, form.phone),
-          phone_country_code: form.phone_country_code,
-          copy_current_logo: true,
-        }),
-      });
+      await createBranch(false);
       toast.success("Branch created");
+      router.push("/staff/settings");
+    } catch (err: any) {
+      const message = String(err?.message || "Failed to create branch");
+      if (message.toLowerCase().includes("requires add-on")) {
+        setIsConfirmingAddon(true);
+        return;
+      }
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const confirmAddOnAndCreate = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await createBranch(true);
+      toast.success("Branch created with extra-branch add-on (₹249/month)");
       router.push("/staff/settings");
     } catch (err: any) {
       toast.error(err?.message || "Failed to create branch");
     } finally {
       setIsSaving(false);
+      setIsConfirmingAddon(false);
     }
   };
 
@@ -92,13 +140,28 @@ export default function AddBranchPage() {
               <h1 className="text-xl font-black text-slate-900">Add Branch</h1>
               <p className="mt-1 text-sm text-slate-500">Create a new branch/location with initial table setup.</p>
             </div>
+            {isBranchLockedByPlan && (
+              <div className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm font-semibold text-amber-900">To add more branches, upgrade plan.</p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Your current plan has reached the included branch limit.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/staff/settings/subscription")}
+                  className="mt-3 inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100"
+                >
+                  Go to Subscription
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Branch name</label>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Brand name (shared across branches)</label>
                 <input
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  value={brandName}
+                  disabled
+                  className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600"
                 />
               </div>
               <div>
@@ -121,10 +184,11 @@ export default function AddBranchPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Address</label>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Location (branch area/address)</label>
                 <input
                   value={form.address}
                   onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="e.g., Downtown, MG Road, Kochi"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
               </div>
@@ -190,7 +254,7 @@ export default function AddBranchPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => router.push("/staff/settings")}
+                    onClick={() => router.push("/staff/settings/profile")}
                     className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
                   >
                     <Camera className="h-3.5 w-3.5" /> Edit
@@ -201,14 +265,42 @@ export default function AddBranchPage() {
               <div className="md:col-span-2">
                 <button
                   onClick={handleCreate}
-                  disabled={isSaving}
+                  disabled={isSaving || isBranchLockedByPlan}
                   className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                 >
-                  <Building2 className="h-4 w-4" /> {isSaving ? "Creating..." : "Create Branch"}
+                  <Building2 className="h-4 w-4" /> {isBranchLockedByPlan ? "Upgrade Plan to Add Branch" : isSaving ? "Creating..." : "Create Branch"}
                 </button>
               </div>
             </div>
           </section>
+
+          {isConfirmingAddon && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+              <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+                <h3 className="text-lg font-bold text-slate-900">Add Extra Branch?</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  Your current plan includes the standard branch limit. This new branch will be added as an add-on at ₹249/month.
+                </p>
+                <div className="mt-5 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingAddon(false)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={confirmAddOnAndCreate}
+                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
+                  >
+                    {isSaving ? "Adding..." : "Confirm Add-On"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
