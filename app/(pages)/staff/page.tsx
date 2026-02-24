@@ -1017,9 +1017,9 @@ export default function StaffDashboardPage() {
                 return (
                   <div
                     key={table.id}
-                    className={`relative flex flex-col w-full rounded-2xl border overflow-hidden transition-all duration-200 hover:shadow-lg ${cardStyle}`}
+                    className={`relative flex flex-col w-full rounded-2xl border transition-all duration-200 hover:shadow-lg ${cardStyle}`}
                   >
-                    <div className={`h-1 w-full ${statusBar}`} />
+                    <div className={`h-1 w-full rounded-t-2xl ${statusBar}`} />
                     <div className="p-4 flex flex-col gap-3">
                       <div className="flex justify-between items-start">
                         <div>

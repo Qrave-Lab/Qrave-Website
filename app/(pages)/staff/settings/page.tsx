@@ -9,6 +9,7 @@ import {
   ChefHat,
   CreditCard,
   Globe,
+  MessageSquare,
   TicketPercent,
   Palette,
   PlusCircle,
@@ -218,6 +219,7 @@ export default function SettingsPage() {
     { title: "Role Access Control", subtitle: "Set feature access per staff role", href: "/staff/settings/access-control", icon: Users, show: role === "owner" },
     { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
     { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
+    { title: "Feedback & Issues", subtitle: "Report bugs, request features, or share thoughts about Qrave", href: "/staff/settings/feedback", icon: MessageSquare, show: true },
   ];
 
   return (
