@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
+  Bike,
   ClipboardList,
   ChefHat,
   CreditCard,
@@ -193,15 +194,18 @@ export default function SettingsPage() {
     normalizedPlan === "yearly_14999";
   const addBranchLocked = role === "owner" && !isPremiumPlan && branchCount >= 1;
 
+  const isOwnerOrManager = role === "owner" || role === "manager";
+
   const cards: NavCard[] = [
-    { title: "Restaurant Profile", subtitle: "Brand details, logo, hours, phone, taxes", href: "/staff/settings/profile", icon: Store },
-    { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt },
-    { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users },
-    { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer },
-    { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette },
-    { title: "Offers & Coupons", subtitle: "Create deals, promo codes, and item discounts", href: "/staff/settings/offers", icon: TicketPercent, show: role === "owner" || role === "manager" },
-    { title: "Kitchen Capacity", subtitle: "Auto-throttle, ETA, and category load limits", href: "/staff/settings/kitchen", icon: ChefHat, show: role === "owner" || role === "manager" },
-    { title: "Audit Logs", subtitle: "Track critical actions across staff and system", href: "/staff/settings/audit", icon: ClipboardList, show: role === "owner" || role === "manager" },
+    { title: "Restaurant Profile", subtitle: "Brand details, logo, hours, phone, taxes", href: "/staff/settings/profile", icon: Store, show: isOwnerOrManager },
+    { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt, show: isOwnerOrManager },
+    { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users, show: isOwnerOrManager },
+    { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer, show: isOwnerOrManager },
+    { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette, show: isOwnerOrManager },
+    { title: "Offers & Coupons", subtitle: "Create deals, promo codes, and item discounts", href: "/staff/settings/offers", icon: TicketPercent, show: isOwnerOrManager },
+    { title: "Delivery Zones", subtitle: "Configure delivery areas and fees by distance", href: "/staff/settings/delivery-zones", icon: Bike, show: isOwnerOrManager },
+    { title: "Kitchen Capacity", subtitle: "Auto-throttle, ETA, and category load limits", href: "/staff/settings/kitchen", icon: ChefHat, show: isOwnerOrManager },
+    { title: "Audit Logs", subtitle: "Track critical actions across staff and system", href: "/staff/settings/audit", icon: ClipboardList, show: isOwnerOrManager },
     {
       title: "Add New Branch",
       subtitle: "Create another branch/location",

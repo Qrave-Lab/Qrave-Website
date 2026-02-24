@@ -61,6 +61,10 @@ export default function AnalyticsPage() {
   const [tx, setTx] = useState<any[]>([]);
   const [insights, setInsights] = useState<{ anomalies: any[]; forecast: any[] } | null>(null);
   const [branchSales, setBranchSales] = useState<BranchSales[]>([]);
+  const [takeawaySummary, setTakeawaySummary] = useState<{
+    takeout_count: number; delivery_count: number;
+    takeout_revenue: number; delivery_revenue: number; delivery_fee_total: number;
+  } | null>(null);
 
   const totals = useMemo(() => {
     const totalSales = sales.reduce((sum, p) => sum + (p.sales || 0), 0);
@@ -112,13 +116,14 @@ export default function AnalyticsPage() {
       const qs =
         range.start && range.end ? `&start=${range.start}&end=${range.end}` : "";
       const branchQ = range.start && range.end ? `?start=${range.start}&end=${range.end}` : "";
-      const [salesRes, mixRes, topRes, txRes, insRes, branchRes] = await Promise.all([
+      const [salesRes, mixRes, topRes, txRes, insRes, branchRes, takeawayRes] = await Promise.all([
         adminAnalyticsApi<any>(`/timeseries?bucket=${bucket}${qs}`),
         adminAnalyticsApi<any>(`/payment-mix${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
         adminAnalyticsApi<any>(`/top-items${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
         adminAnalyticsApi<any>(`/transactions${range.start && range.end ? `?start=${range.start}&end=${range.end}` : ""}`),
         adminAnalyticsApi<any>(`/insights?bucket=day${qs}`),
         api<{ branches?: BranchSales[] }>(`/api/admin/sales/branches${branchQ}`),
+        api<any>("/api/admin/takeaway/summary").catch(() => null),
       ]);
       setSales(salesRes?.points || []);
       setMix(mixRes?.mix || []);
@@ -126,6 +131,7 @@ export default function AnalyticsPage() {
       setTx(txRes?.transactions || []);
       setInsights({ anomalies: insRes?.anomalies || [], forecast: insRes?.forecast || [] });
       setBranchSales(Array.isArray(branchRes?.branches) ? branchRes.branches : []);
+      setTakeawaySummary(takeawayRes || null);
     } catch (err: any) {
       setError(err?.message || "Failed to load analytics");
       setSales([]);
@@ -217,9 +223,8 @@ export default function AnalyticsPage() {
                 <button
                   key={b}
                   onClick={() => setBucket(b)}
-                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                    bucket === b ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-900"
-                  }`}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${bucket === b ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-900"
+                    }`}
                 >
                   {b}
                 </button>
@@ -290,6 +295,28 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               ) : null}
+
+              {takeawaySummary && (takeawaySummary.takeout_count > 0 || takeawaySummary.delivery_count > 0) && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 flex flex-wrap gap-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📦</span>
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Today Takeout</div>
+                      <div className="text-xl font-black text-indigo-900">{takeawaySummary.takeout_count} orders · {fmtINR(takeawaySummary.takeout_revenue)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🛵</span>
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Today Delivery</div>
+                      <div className="text-xl font-black text-indigo-900">{takeawaySummary.delivery_count} orders · {fmtINR(takeawaySummary.delivery_revenue)}</div>
+                      {takeawaySummary.delivery_fee_total > 0 && (
+                        <div className="text-[10px] text-indigo-500">incl. {fmtINR(takeawaySummary.delivery_fee_total)} delivery fees</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">

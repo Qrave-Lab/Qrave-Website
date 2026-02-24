@@ -187,6 +187,19 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
 
           <div className="md:col-span-2">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Website URL <span className="normal-case text-slate-300 ml-1">(optional)</span>
+            </label>
+            <input
+              type="url"
+              value={data.website || ""}
+              onChange={(e) => handleChange("website", e.target.value)}
+              placeholder="https://yourrestaurant.com"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
               Phone Number
             </label>
             <div className="flex gap-2">
@@ -294,14 +307,12 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, isUplo
             <button
               type="button"
               onClick={() => handleChange("orderingEnabled", !(data.orderingEnabled !== false))}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-                data.orderingEnabled !== false ? "bg-emerald-500" : "bg-slate-300"
-              }`}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${data.orderingEnabled !== false ? "bg-emerald-500" : "bg-slate-300"
+                }`}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                  data.orderingEnabled !== false ? "translate-x-6" : "translate-x-1"
-                }`}
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${data.orderingEnabled !== false ? "translate-x-6" : "translate-x-1"
+                  }`}
               />
             </button>
           </div>

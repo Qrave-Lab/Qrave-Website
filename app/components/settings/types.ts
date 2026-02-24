@@ -22,6 +22,7 @@ export type Restaurant = {
   serviceCharge: number;
   phone: string;
   phoneCountryCode: string;
+  website?: string;
   logo_url?: string;
   orderingEnabled?: boolean;
   openTime?: string;

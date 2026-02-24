@@ -855,24 +855,25 @@ export default function MenuPage() {
       toast.error("Select a source branch");
       return;
     }
-    const confirmed = window.confirm(
-      "This will replace the current branch menu with items from the selected branch. Continue?"
-    );
-    if (!confirmed) return;
-
-    setIsImportingMenu(true);
-    try {
-      await authFetch("/api/admin/menu/import", {
-        method: "POST",
-        body: JSON.stringify({ source_branch_id: sourceBranchId }),
-      });
-      await Promise.all([refreshCategories(), refreshMenu(true)]);
-      toast.success("Menu copied from selected branch");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to copy menu");
-    } finally {
-      setIsImportingMenu(false);
-    }
+    setConfirmDialog({
+      title: "Copy menu from branch?",
+      message: "This will replace the current branch menu with items from the selected branch. This cannot be undone.",
+      onConfirm: async () => {
+        setIsImportingMenu(true);
+        try {
+          await authFetch("/api/admin/menu/import", {
+            method: "POST",
+            body: JSON.stringify({ source_branch_id: sourceBranchId }),
+          });
+          await Promise.all([refreshCategories(), refreshMenu(true)]);
+          toast.success("Menu copied from selected branch");
+        } catch (err: any) {
+          toast.error(err?.message || "Failed to copy menu");
+        } finally {
+          setIsImportingMenu(false);
+        }
+      },
+    });
   };
 
   const openSyncModal = () => {
@@ -1326,11 +1327,23 @@ export default function MenuPage() {
             </AnimatePresence>
 
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-32">
-                <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-                <p className="text-slate-500 font-medium animate-pulse">
-                  Synchronizing menu data...
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <div key={i} className="flex flex-col bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm animate-pulse">
+                    <div className="h-48 bg-slate-200" />
+                    <div className="p-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="h-5 w-32 bg-slate-200 rounded" />
+                        <div className="h-5 w-16 bg-slate-200 rounded" />
+                      </div>
+                      <div className="h-3 w-20 bg-slate-100 rounded mb-4" />
+                      <div className="mt-auto pt-4 border-t border-slate-100 flex gap-2">
+                        <div className="h-8 w-full bg-slate-100 rounded-xl" />
+                        <div className="h-8 w-full bg-slate-100 rounded-xl" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredItems.length === 0 ? (
               <motion.div
@@ -1547,14 +1560,12 @@ export default function MenuPage() {
                           dietaryManualOverride: true,
                         })
                       }
-                      className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all ${
-                        editingItem.isVeg ? "bg-emerald-500" : "bg-rose-500"
-                      }`}
+                      className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all ${editingItem.isVeg ? "bg-emerald-500" : "bg-rose-500"
+                        }`}
                     >
                       <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                          editingItem.isVeg ? "translate-x-0.5" : "translate-x-6"
-                        }`}
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${editingItem.isVeg ? "translate-x-0.5" : "translate-x-6"
+                          }`}
                       />
                     </button>
                     <span className="text-[11px] font-bold text-slate-500">Non-Veg</span>

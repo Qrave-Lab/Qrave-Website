@@ -16,8 +16,8 @@ type Props = {
 export default function TableManager({ tables, onToggle, onRemove, onUpdateMeta }: Props) {
   const [pendingDelete, setPendingDelete] = React.useState<Table | null>(null);
   const [editingTable, setEditingTable] = React.useState<Table | null>(null);
-  const [editFloor, setEditFloor] = React.useState("Main Floor");
-  const [editCounter, setEditCounter] = React.useState("Counter A");
+  const [editFloor, setEditFloor] = React.useState("");
+  const [editCounter, setEditCounter] = React.useState("");
   const [floorFilter, setFloorFilter] = React.useState<string>("all");
 
   const floors = Array.from(new Set(tables.map((t) => (t.floor_name || "Main Floor").trim()).filter(Boolean))).sort();
@@ -27,121 +27,120 @@ export default function TableManager({ tables, onToggle, onRemove, onUpdateMeta 
   return (
     <>
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-        <h2 className="font-bold text-gray-900 flex items-center gap-2">
-          <Receipt className="w-5 h-5 text-gray-500" /> Floor Plan
-        </h2>
-        <Link
-          href="/staff/settings/tables/add"
-          className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center gap-1"
-        >
-          <Plus className="w-3 h-3" /> Add Table
-        </Link>
-      </div>
-
-      <div className="p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Show Floor</span>
-          <select
-            value={floorFilter}
-            onChange={(e) => setFloorFilter(e.target.value)}
-            className="min-w-40 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700"
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-gray-500" /> Floor Plan
+          </h2>
+          <Link
+            href="/staff/settings/tables/add"
+            className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center gap-1"
           >
-            <option value="all">All Floors</option>
-            {floors.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+            <Plus className="w-3 h-3" /> Add Table
+          </Link>
         </div>
 
-        <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2">
-          <div className="col-span-2">Table</div>
-          <div className="col-span-3">Floor</div>
-          <div className="col-span-3">Counter</div>
-          <div className="col-span-2 text-center">Status</div>
-          <div className="col-span-2"></div>
-        </div>
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Show Floor</span>
+            <select
+              value={floorFilter}
+              onChange={(e) => setFloorFilter(e.target.value)}
+              className="min-w-40 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700"
+            >
+              <option value="all">All Floors</option>
+              {floors.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {filteredTables.map((table) => (
-          <div
-            key={table.id ?? `table-${table.table_number}`}
-            className="grid grid-cols-12 gap-2 items-center p-2 rounded-xl border border-gray-100 bg-white hover:border-gray-300 transition-all shadow-sm"
-          >
-            <div className="col-span-2">
-              <span className="font-bold text-sm text-gray-900 px-1">
-                {table.table_number}
-              </span>
-            </div>
+          <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2">
+            <div className="col-span-2">Table</div>
+            <div className="col-span-3">Floor</div>
+            <div className="col-span-3">Counter</div>
+            <div className="col-span-2 text-center">Status</div>
+            <div className="col-span-2"></div>
+          </div>
 
-            <div className="col-span-3">
-              <span className="inline-flex rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700">
-                {table.floor_name || "Main Floor"}
-              </span>
-            </div>
-
-            <div className="col-span-3">
-              <span className="inline-flex rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700">
-                {table.counter_name || "Counter A"}
-              </span>
-            </div>
-
-            <div className="col-span-2 flex justify-center">
-              <button
-                onClick={() => onToggle(table.id)}
-                className={`relative w-10 h-6 rounded-full ${table.is_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
-
-              >
-                <span
-                  className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 ${
-                    table.is_enabled ? "translate-x-4" : "translate-x-0"
-
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="col-span-2 flex justify-end gap-1">
-              <button
-                onClick={() => {
-                  setEditingTable(table);
-                  setEditFloor(table.floor_name || "Main Floor");
-                  setEditCounter(table.counter_name || "Counter A");
-                }}
-                className="px-2 py-1 text-[10px] font-bold rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-              >
-                <span className="inline-flex items-center gap-1">
-                  <Edit2 className="w-3 h-3" /> Edit
+          {filteredTables.map((table) => (
+            <div
+              key={table.id ?? `table-${table.table_number}`}
+              className="grid grid-cols-12 gap-2 items-center p-2 rounded-xl border border-gray-100 bg-white hover:border-gray-300 transition-all shadow-sm"
+            >
+              <div className="col-span-2">
+                <span className="font-bold text-sm text-gray-900 px-1">
+                  {table.table_number}
                 </span>
-              </button>
-              <button
-                onClick={() => setPendingDelete(table)}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              </div>
+
+              <div className="col-span-3">
+                <span className="inline-flex rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700">
+                  {table.floor_name || "Main Floor"}
+                </span>
+              </div>
+
+              <div className="col-span-3">
+                <span className="inline-flex rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs font-medium text-gray-700">
+                  {table.counter_name || "Counter A"}
+                </span>
+              </div>
+
+              <div className="col-span-2 flex justify-center">
+                <button
+                  onClick={() => onToggle(table.id)}
+                  className={`relative w-10 h-6 rounded-full ${table.is_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
+
+                >
+                  <span
+                    className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 ${table.is_enabled ? "translate-x-4" : "translate-x-0"
+
+                      }`}
+                  />
+                </button>
+              </div>
+
+              <div className="col-span-2 flex justify-end gap-1">
+                <button
+                  onClick={() => {
+                    setEditingTable(table);
+                    setEditFloor(table.floor_name || "");
+                    setEditCounter(table.counter_name || "");
+                  }}
+                  className="px-2 py-1 text-[10px] font-bold rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Edit2 className="w-3 h-3" /> Edit
+                  </span>
+                </button>
+                <button
+                  onClick={() => setPendingDelete(table)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-
-        <datalist id="floor-options">
-          {floors.map((f) => (
-            <option key={f} value={f} />
           ))}
-        </datalist>
-        <datalist id="counter-options">
-          {counters.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
 
-        {filteredTables.length === 0 && (
-          <div className="py-10 text-center text-gray-400 text-sm">
-            No tables configured for this floor.
-          </div>
-        )}
-      </div>
+          <datalist id="floor-options">
+            {floors.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+          <datalist id="counter-options">
+            {counters.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+
+          {filteredTables.length === 0 && (
+            <div className="py-10 text-center text-gray-400 text-sm">
+              No tables configured for this floor.
+            </div>
+          )}
+        </div>
       </section>
       <ConfirmModal
         open={Boolean(pendingDelete)}
@@ -180,7 +179,8 @@ export default function TableManager({ tables, onToggle, onRemove, onUpdateMeta 
                   list="floor-options"
                   value={editFloor}
                   onChange={(e) => setEditFloor(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Main Floor, Rooftop"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
               </div>
               <div>
@@ -189,7 +189,8 @@ export default function TableManager({ tables, onToggle, onRemove, onUpdateMeta 
                   list="counter-options"
                   value={editCounter}
                   onChange={(e) => setEditCounter(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Counter A, Bar Section, VIP"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
@@ -201,7 +202,11 @@ export default function TableManager({ tables, onToggle, onRemove, onUpdateMeta 
                 </button>
                 <button
                   onClick={() => {
-                    onUpdateMeta(editingTable.id, editFloor, editCounter);
+                    onUpdateMeta(
+                      editingTable.id,
+                      editFloor.trim() || "Main Floor",
+                      editCounter.trim() || "Counter A"
+                    );
                     setEditingTable(null);
                   }}
                   className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white"

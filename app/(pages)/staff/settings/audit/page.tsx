@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import StaffSidebar from "@/app/components/StaffSidebar";
@@ -17,6 +17,100 @@ type AuditLog = {
   meta?: Record<string, any>;
   created_at: string;
 };
+
+function FormatAuditDetails({ log }: { log: AuditLog }) {
+  if (!log.meta || Object.keys(log.meta).length === 0) {
+    return <span className="text-slate-400">-</span>;
+  }
+
+  const { meta, action } = log;
+  const badges: React.ReactNode[] = [];
+
+  // Special handling for menu item updates to make it readable
+  if (action.startsWith("menu.item")) {
+    if (meta.name) {
+      badges.push(<span key="name" className="font-semibold text-slate-700">{meta.name}</span>);
+    }
+    if (meta.price_changed) {
+      badges.push(
+        <span key="price">
+          Price: <span className="line-through text-slate-400">₹{meta.previous_price}</span>{" "}
+          <span className="text-emerald-600 font-black">₹{meta.new_price}</span>
+        </span>
+      );
+    }
+    if (meta.archive_state_change) {
+      badges.push(
+        <span key="archived" className={meta.is_archived ? "text-rose-600 font-bold" : "text-emerald-600 font-bold"}>
+          {meta.is_archived ? "Archived" : "Unarchived"}
+        </span>
+      );
+    }
+    if ("is_out_of_stock" in meta && meta.is_out_of_stock !== meta.previous_out_of_stock) {
+      badges.push(
+        <span key="stock" className={meta.is_out_of_stock ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
+          {meta.is_out_of_stock ? "Marked Out of Stock" : "Marked In Stock"}
+        </span>
+      );
+    }
+  }
+
+  // General fallback for all other fields, ignoring noise
+  const ignoreKeys = [
+    "name", "price_changed", "previous_price", "new_price",
+    "archive_state_change", "is_archived", "previous_archived",
+    "previous_out_of_stock", "previous_chef", "previous_special"
+  ];
+
+  Object.entries(meta).forEach(([k, v], i) => {
+    if (ignoreKeys.includes(k)) return;
+    if (v === null || v === "") return;
+
+    // Ignore boolean flags that indicate NO change
+    if (typeof v === "boolean" && k.endsWith("_change") && !v) return;
+    // Also ignore false if it's an 'is_' flag without a clear update context
+    if (v === false && ["is_chef_special", "is_todays_special", "dietary_manual_override"].includes(k)) {
+      return;
+    }
+
+    // Format key name elegantly
+    const label = k.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+
+    // Skip showing boolean values if they are confusing, just show label if true
+    if (typeof v === "boolean") {
+      badges.push(
+        <span key={`f-${k}`} className="text-slate-600">
+          <span className="font-medium">{label}:</span> {v ? "Yes" : "No"}
+        </span>
+      );
+    } else {
+      badges.push(
+        <span key={`f-${k}`} className="text-slate-600">
+          <span className="font-medium">{label}:</span> {String(v)}
+        </span>
+      );
+    }
+  });
+
+  if (badges.length === 0) {
+    return <span className="text-slate-400 text-[10px] italic">No significant changes</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {badges.map((badge, idx) => (
+        <div key={idx} className="bg-slate-50 border border-slate-200 px-2 py-1 rounded-md text-[11px]">
+          {badge}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatLabel(str: string) {
+  if (!str) return "";
+  return str.replace(/[_.]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+}
 
 export default function AuditLogPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -101,11 +195,11 @@ export default function AuditLogPage() {
                           <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">
                             {new Date(log.created_at).toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 font-semibold text-slate-800">{log.action}</td>
-                          <td className="px-4 py-3 text-slate-600">{log.entity_type}</td>
-                          <td className="px-4 py-3 text-slate-600">{log.user_role || "unknown"}</td>
-                          <td className="px-4 py-3 text-xs text-slate-500 max-w-[520px]">
-                            <pre className="whitespace-pre-wrap break-words">{JSON.stringify(log.meta || {}, null, 0)}</pre>
+                          <td className="px-4 py-3 font-semibold text-slate-800">{formatLabel(log.action)}</td>
+                          <td className="px-4 py-3 text-slate-600">{formatLabel(log.entity_type)}</td>
+                          <td className="px-4 py-3 text-slate-600 capitalize">{log.user_role || "unknown"}</td>
+                          <td className="px-4 py-3 max-w-[500px]">
+                            <FormatAuditDetails log={log} />
                           </td>
                         </tr>
                       ))}

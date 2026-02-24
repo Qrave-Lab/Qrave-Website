@@ -15,6 +15,7 @@ type AdminMeResponse = {
   restaurant?: string;
   address?: string;
   phone?: string;
+  website?: string;
   currency?: string;
   tax_percent?: number;
   service_charge?: number;
@@ -120,6 +121,7 @@ export default function RestaurantProfilePage() {
     serviceCharge: 10,
     phone: "",
     phoneCountryCode: "+91",
+    website: "",
     logo_url: "",
     orderingEnabled: true,
     openTime: "",
@@ -148,6 +150,7 @@ export default function RestaurantProfilePage() {
         address: adminData.address || "",
         phone: parsedPhone.phone,
         phoneCountryCode: parsedPhone.countryCode,
+        website: adminData.website || "",
         currency: adminData.currency || "INR",
         taxPercent: adminData.tax_percent || 0,
         serviceCharge: adminData.service_charge || 0,
@@ -247,6 +250,7 @@ export default function RestaurantProfilePage() {
           address: restaurant.address,
           phone: restaurant.phone,
           phone_country_code: restaurant.phoneCountryCode,
+          website: restaurant.website || "",
           tax_percent: restaurant.taxPercent,
           service_charge: restaurant.serviceCharge,
           ordering_enabled: restaurant.orderingEnabled !== false,

@@ -12,7 +12,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Bike,
 } from "lucide-react";
 import { api } from "@/app/lib/api";
 
@@ -52,6 +53,7 @@ const sidebarItems: SidebarSection[] = [
     category: "Management",
     items: [
       { label: "Menu & Inventory", href: "/staff/menu", icon: Utensils, description: "Set Qty, 86 Items" },
+      { label: "Takeaway & Delivery", href: "/staff/takeaway", icon: Bike, description: "Walk-in & delivery orders" },
       { label: "Sales & Reports", href: "/staff/analytics", icon: BarChart3, description: "Daily/Monthly, CSV Export" },
     ]
   },
@@ -369,10 +371,16 @@ export default function StaffSidebar() {
         items: section.items.filter((item) => {
           const feature =
             item.href === "/staff" ? "floor" :
-            item.href === "/staff/menu" ? "menu" :
-            item.href === "/staff/analytics" ? "analytics" :
-            item.href === "/staff/settings" ? "settings" :
-            "";
+              item.href === "/staff/menu" ? "menu" :
+                item.href === "/staff/analytics" ? "analytics" :
+                  item.href === "/staff/settings" ? "settings" :
+                    item.href === "/staff/takeaway" ? "takeaway" :
+                      "";
+          // Takeaway is for cashier, manager, owner
+          if (item.href === "/staff/takeaway") {
+            const r = String(currentRole || "").toLowerCase();
+            return ["owner", "manager", "cashier"].includes(r);
+          }
           return feature ? hasFeatureAccess(currentRole, roleAccess, feature) : true;
         }),
       }))
@@ -391,7 +399,7 @@ export default function StaffSidebar() {
 
   return (
     <motion.div
-      initial={false} 
+      initial={false}
       animate={{ width: isCollapsed ? 80 : 260 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="h-screen bg-white border-r border-gray-200 flex flex-col relative z-[200] pointer-events-auto shrink-0"
@@ -410,9 +418,9 @@ export default function StaffSidebar() {
           )}
         </div>
         {!isCollapsed && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             className="ml-3 overflow-hidden whitespace-nowrap"
           >
             <h1 className="text-sm font-bold text-gray-900">{restaurantName}</h1>
@@ -458,22 +466,22 @@ export default function StaffSidebar() {
               {section.items.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
-                
+
                 return (
-                  <Link 
-                    key={item.href} 
+                  <Link
+                    key={item.href}
                     href={item.href}
-                    title={isCollapsed ? item.label : ""} 
+                    title={isCollapsed ? item.label : ""}
                     className={`group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
-                      ${isActive 
-                        ? "bg-gray-900 text-white shadow-sm" 
+                      ${isActive
+                        ? "bg-gray-900 text-white shadow-sm"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                       }
                       ${isCollapsed ? "justify-center px-0 py-3" : ""}
                     `}
                   >
                     <Icon className={`w-5 h-5 shrink-0 ${isActive ? "text-white" : "text-gray-500 group-hover:text-gray-900"}`} />
-                    
+
                     {!isCollapsed && (
                       <div className="flex-1 overflow-hidden whitespace-nowrap">
                         <span className="text-sm font-medium block">{item.label}</span>
@@ -495,17 +503,17 @@ export default function StaffSidebar() {
       <div className="p-4 border-t border-gray-100 space-y-2">
         {!isCollapsed && (
           <div className="bg-gray-50 rounded-lg p-3 mb-2 border border-gray-100 whitespace-nowrap overflow-hidden">
-             <div className="flex items-center gap-2 mb-2">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-bold text-gray-700">Quick Export</span>
-             </div>
-             <button className="w-full text-[10px] bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 font-medium py-1.5 rounded transition-colors">
-               Download Daily CSV
-             </button>
+            <div className="flex items-center gap-2 mb-2">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <span className="text-xs font-bold text-gray-700">Quick Export</span>
+            </div>
+            <button className="w-full text-[10px] bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 font-medium py-1.5 rounded transition-colors">
+              Download Daily CSV
+            </button>
           </div>
         )}
 
-        <button 
+        <button
           onClick={handleSignOut}
           disabled={isSigningOut}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors w-full
@@ -521,7 +529,7 @@ export default function StaffSidebar() {
         </button>
       </div>
 
-      <button 
+      <button
         onClick={toggleSidebar}
         className="absolute -right-3 top-20 bg-white border border-gray-200 text-gray-500 hover:text-gray-900 p-1 rounded-full shadow-sm hover:shadow-md transition-all z-[210]"
       >

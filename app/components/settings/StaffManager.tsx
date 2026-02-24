@@ -31,9 +31,10 @@ export default function StaffManager({ onRefresh }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [editFormLoading, setEditFormLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     email: "",
-    role: "waiter",
+    role: "",
     password: "",
   });
 
@@ -77,6 +78,8 @@ export default function StaffManager({ onRefresh }: Props) {
     setEditingId(staffId);
     setIsEditing(true);
     setShowPassword(false);
+    setEditFormLoading(true);
+    setEditForm({ email: "", role: "", password: "" });
     try {
       const detail = await api<StaffDetail>(`/api/admin/staffDetails/${staffId}`, {
         method: "GET",
@@ -90,6 +93,8 @@ export default function StaffManager({ onRefresh }: Props) {
       toast.error("Failed to load staff details");
       setIsEditing(false);
       setEditingId(null);
+    } finally {
+      setEditFormLoading(false);
     }
   };
 
@@ -145,12 +150,12 @@ export default function StaffManager({ onRefresh }: Props) {
       <div className="divide-y divide-slate-100">
         {staff.map((s) => (
           <div key={s.ID} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-all group">
-            <img 
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${s.Email}`} 
-              alt="avatar" 
+            <img
+              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${s.Email}`}
+              alt="avatar"
               className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 shrink-0"
             />
-            
+
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">
                 {s.Email.split('@')[0]}
@@ -164,7 +169,7 @@ export default function StaffManager({ onRefresh }: Props) {
               <span className="text-[10px] uppercase tracking-widest font-extrabold bg-slate-100 text-slate-500 px-2 py-1 rounded-md border border-slate-200">
                 {s.Role}
               </span>
-              
+
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => openEdit(s.ID)}
@@ -172,7 +177,7 @@ export default function StaffManager({ onRefresh }: Props) {
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
-                <button 
+                <button
                   onClick={() => setDeletingId(s.ID)}
                   className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"
                 >
@@ -227,57 +232,63 @@ export default function StaffManager({ onRefresh }: Props) {
               Update the existing details and save changes.
             </p>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
+            {editFormLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
               </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Role
-                </label>
-                <select
-                  value={editForm.role}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
-                >
-                  <option value="manager">Manager</option>
-                  <option value="kitchen">Chef</option>
-                  <option value="waiter">Waiter</option>
-                  <option value="cashier">Cashier</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  New Password (optional)
-                </label>
-                <div className="relative">
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Email
+                  </label>
                   <input
-                    type={showPassword ? "text" : "password"}
-                    value={editForm.password}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))}
-                    placeholder="Leave blank to keep current"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Role
+                  </label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                    <option value="manager">Manager</option>
+                    <option value="kitchen">Chef</option>
+                    <option value="waiter">Waiter</option>
+                    <option value="cashier">Cashier</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    New Password (optional)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={editForm.password}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))}
+                      placeholder="Leave blank to keep current"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="flex gap-3 mt-8">
               <button
@@ -291,7 +302,7 @@ export default function StaffManager({ onRefresh }: Props) {
               </button>
               <button
                 onClick={handleUpdate}
-                disabled={isSavingEdit}
+                disabled={isSavingEdit || editFormLoading}
                 className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {isSavingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
