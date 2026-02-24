@@ -21,7 +21,9 @@ import {
   UtensilsCrossed,
   LogOut,
   Trash2,
-  Printer
+  Printer,
+  ShoppingBag,
+  Bike
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -68,6 +70,14 @@ type ServiceCall = {
   type: ServiceCallType;
   createdAt: Date;
   status: ServiceCallStatus;
+};
+
+type TakeawaySummary = {
+  takeout_count: number;
+  delivery_count: number;
+  takeout_revenue: number;
+  delivery_revenue: number;
+  delivery_fee_total: number;
 };
 
 type TableFilter =
@@ -156,6 +166,7 @@ export default function StaffDashboardPage() {
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>([]);
   const [todaySales, setTodaySales] = useState<number>(0);
+  const [takeawaySummary, setTakeawaySummary] = useState<TakeawaySummary | null>(null);
   const [orderActionPending, setOrderActionPending] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -311,9 +322,10 @@ export default function StaffDashboardPage() {
     refreshLockRef.current = true;
     try {
       await refreshLiveData();
-      const [serviceRes, salesRes] = await Promise.all([
+      const [serviceRes, salesRes, takeawayRes] = await Promise.all([
         api<ServiceCallAPI[]>("/api/admin/service-calls"),
         api<{ total: number }>("/api/admin/sales/today"),
+        api<TakeawaySummary>("/api/admin/takeaway/summary"),
       ]);
       setServiceCalls(
         (serviceRes || []).map((c) => ({
@@ -326,6 +338,9 @@ export default function StaffDashboardPage() {
       );
       if (typeof salesRes?.total === "number") {
         setTodaySales(salesRes.total);
+      }
+      if (takeawayRes) {
+        setTakeawaySummary(takeawayRes);
       }
     } finally {
       refreshLockRef.current = false;
@@ -886,6 +901,22 @@ export default function StaffDashboardPage() {
               <span className="text-lg font-bold text-emerald-600 flex items-center gap-1">
                 ₹{totalSales.toLocaleString()}
               </span>
+              {takeawaySummary && (
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                    <ShoppingBag className="w-3 h-3 text-orange-400" />
+                    {takeawaySummary.takeout_count}
+                    <span className="text-gray-300">·</span>
+                    ₹{takeawaySummary.takeout_revenue.toLocaleString()}
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                    <Bike className="w-3 h-3 text-sky-400" />
+                    {takeawaySummary.delivery_count}
+                    <span className="text-gray-300">·</span>
+                    ₹{takeawaySummary.delivery_revenue.toLocaleString()}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col items-end pl-6">
               <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
