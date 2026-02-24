@@ -38,18 +38,38 @@ export type ThemeConfig = {
     waiter?: Record<string, boolean>;
     cashier?: Record<string, boolean>;
   };
-  preset?: "thai" | "indian" | "minimal" | "";
-  font_family?: string;
-  bg_image_url?: string;
-  bg_overlay_opacity?: number;
+  preset?: string;
+
+  // ── Typography ────────────────────────────────────────────────────────────
+  font_family?: string;      // body font (backward compat key)
+  heading_font?: string;     // separate heading font
+  font_size?: "sm" | "md" | "lg";
+
+  // ── Custom text ───────────────────────────────────────────────────────────
+  hero_title?: string;       // custom menu page title
+  hero_subtitle?: string;    // tagline / subtitle
+
+  // ── Layout ────────────────────────────────────────────────────────────────
+  layout?: "list" | "grid" | "compact";
+  image_style?: "none" | "small" | "large" | "full";
+  spacing?: "compact" | "normal" | "relaxed";
+  shadow?: "none" | "sm" | "md" | "lg";
   card_style?: "rounded" | "soft" | "sharp" | "";
   button_style?: "solid" | "outline" | "glass" | "";
+  section_icon?: string;
+
+  // ── Background ────────────────────────────────────────────────────────────
+  bg_image_url?: string;
+  bg_overlay_opacity?: number;
+  pattern_style?: "none" | "dots" | "grid" | "silk" | "chevron" | "waves" | "mandala" | "leaf" | "";
+
+  // ── Motif / Ornament ──────────────────────────────────────────────────────
   motif?: "thai" | "indian" | "minimal" | "custom" | "";
   ornament_level?: "off" | "subtle" | "bold" | "";
   header_style?: "classic" | "elegant" | "festival" | "";
-  pattern_style?: "none" | "silk" | "mandala" | "waves" | "leaf" | "";
-  section_icon?: string;
   icon_pack?: "auto" | "thai" | "indian" | "minimal" | "";
+
+  // ── Colors ────────────────────────────────────────────────────────────────
   colors?: {
     bg?: string;
     surface?: string;
@@ -57,5 +77,7 @@ export type ThemeConfig = {
     muted?: string;
     accent?: string;
     accent_text?: string;
+    header_bg?: string;
+    header_text?: string;
   };
 };

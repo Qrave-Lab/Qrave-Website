@@ -123,17 +123,38 @@ export default function ThemeSettingsPage() {
                   <h2 className="font-bold text-slate-900">Live Menu Preview</h2>
                   <p className="text-[11px] text-slate-500 mt-1">Real menu UI in phone frame. Updates instantly.</p>
                 </div>
-                <div className="p-4">
-                  <div className="mx-auto w-[300px]">
-                    <div className="relative bg-white rounded-[3rem] p-4 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.16)] border-[8px] border-slate-900 h-[600px] overflow-hidden">
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-900 rounded-b-2xl z-20" />
-                      <div className="relative z-10 w-full h-full rounded-[2rem] overflow-hidden bg-white">
+                <div className="flex justify-center py-6">
+                  {/* Phone shell */}
+                  <div className="relative mx-auto w-[300px]">
+                    {/* Left side buttons */}
+                    <div className="absolute -left-[6px] top-[88px] h-8 w-[5px] rounded-l-md bg-slate-700" />
+                    <div className="absolute -left-[6px] top-[132px] h-10 w-[5px] rounded-l-md bg-slate-700" />
+                    <div className="absolute -left-[6px] top-[180px] h-10 w-[5px] rounded-l-md bg-slate-700" />
+                    {/* Right side button */}
+                    <div className="absolute -right-[6px] top-[120px] h-14 w-[5px] rounded-r-md bg-slate-700" />
+
+                    {/* Phone body */}
+                    <div className="relative rounded-[2.8rem] border-[6px] border-slate-800 bg-slate-800 shadow-[0_40px_80px_-16px_rgba(0,0,0,0.45),0_0_0_1px_rgba(0,0,0,0.3)]" style={{ height: 636 }}>
+                      {/* Screen area */}
+                      <div className="relative h-full w-full overflow-hidden rounded-[2.2rem] bg-white">
+                        {/* Dynamic island */}
+                        <div className="absolute top-3 left-1/2 z-20 h-7 w-24 -translate-x-1/2 rounded-full bg-slate-900" />
+                        {/* Status bar */}
+                        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 pt-2 pb-1">
+                          <span className="text-[10px] font-semibold text-slate-900" style={{ paddingTop: 2 }}>9:41</span>
+                          <div className="flex items-center gap-1" style={{ paddingTop: 2 }}>
+                            <svg className="h-2.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0118 12.545m-1.284 4.002A4 4 0 0112 20a4 4 0 01-4-4m-3.544-3.455A10.95 10.95 0 016 12.545M2 8.82A15.937 15.937 0 0112 6c1.985 0 3.878.37 5.628 1.041" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="opacity-40"/></svg>
+                            <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="opacity-60"/></svg>
+                            <svg className="h-3 w-5" viewBox="0 0 24 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" strokeOpacity="0.35"/><rect x="1" y="1" width="17" height="10" rx="3" fill="currentColor" fillOpacity="0.9"/><path d="M23 4v4a2 2 0 000-4z" fill="currentColor" fillOpacity="0.4"/></svg>
+                          </div>
+                        </div>
+                        {/* iframe scaled to fill screen */}
                         <div
                           className="absolute left-1/2 top-0"
                           style={{
                             width: 390,
                             height: 844,
-                            transform: "translateX(-50%) scale(0.68)",
+                            transform: `translateX(-50%) scale(${288 / 390})`,
                             transformOrigin: "top center",
                           }}
                         >
@@ -143,6 +164,8 @@ export default function ThemeSettingsPage() {
                             className="w-[390px] h-[844px] border-0 bg-white"
                           />
                         </div>
+                        {/* Home indicator */}
+                        <div className="absolute bottom-2 left-1/2 z-20 h-[5px] w-28 -translate-x-1/2 rounded-full bg-slate-900/30" />
                       </div>
                     </div>
                   </div>
