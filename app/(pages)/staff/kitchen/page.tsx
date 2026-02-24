@@ -61,15 +61,16 @@ export default function KitchenDisplayPage() {
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const me = await api<{ role?: string }>("/api/admin/me", { method: "GET" });
+      const [me, res, capacity] = await Promise.all([
+        api<{ role?: string }>("/api/admin/me", { method: "GET" }),
+        api<{ orders: ActiveOrder[] }>("/api/admin/orders/active"),
+        api<{ is_paused?: boolean }>("/api/admin/kitchen/capacity"),
+      ]);
       const role = (me?.role || "").toLowerCase();
       if (!["owner", "manager", "kitchen"].includes(role)) {
         router.replace("/staff");
         return;
       }
-
-      const res = await api<{ orders: ActiveOrder[] }>("/api/admin/orders/active");
-      const capacity = await api<{ is_paused?: boolean }>("/api/admin/kitchen/capacity");
       setIsKitchenPaused(Boolean(capacity?.is_paused));
       const list = res?.orders || [];
       const nextIds = new Set<string>(list.map((o) => o.id || o.order_id || "").filter(Boolean));

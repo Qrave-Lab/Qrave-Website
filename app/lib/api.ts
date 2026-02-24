@@ -64,12 +64,50 @@ function getCsrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+// ─── Lightweight GET cache ──────────────────────────────────────────────────
+// Prevents duplicate network calls when navigating between pages or mounting
+// multiple components that all call the same endpoint (e.g. /api/admin/me).
+
+type CacheEntry = { data: unknown; expiresAt: number };
+const _cache = new Map<string, CacheEntry>();
+
+// TTL in ms for specific path prefixes (0 = no cache)
+const CACHE_TTLS: [string, number][] = [
+  ["/api/admin/me", 90_000],
+  ["/api/admin/menu", 60_000],
+  ["/api/admin/categories", 60_000],
+  ["/api/admin/tables", 60_000],
+  ["/api/admin/delivery/zones", 60_000],
+  ["/api/admin/kitchen/capacity", 30_000],
+  ["/api/admin/locations", 60_000],
+];
+
+function ttlFor(path: string): number {
+  for (const [prefix, ttl] of CACHE_TTLS) {
+    if (path.startsWith(prefix)) return ttl;
+  }
+  return 0;
+}
+
+/** Invalidate all cache entries whose key starts with `prefix`. */
+export function bustCache(prefix: string) {
+  for (const key of _cache.keys()) {
+    if (key.startsWith(prefix)) _cache.delete(key);
+  }
+}
+
+// Auto-bust on mutations: derive the base path (strip trailing id segments / query strings)
+function autoBust(path: string) {
+  const base = path.split("?")[0].replace(/\/[0-9a-f-]{36}(\/.+)?$/, "").replace(/\/[0-9]+$/, "");
+  bustCache(base);
+}
+
 export async function api<T>(
   path: string,
-  options: (RequestInit & { skipAuthRedirect?: boolean; suppressErrorLog?: boolean }) = {},
+  options: (RequestInit & { skipAuthRedirect?: boolean; suppressErrorLog?: boolean; noCache?: boolean }) = {},
   didRetry = false
 ): Promise<T> {
-  const { skipAuthRedirect = false, suppressErrorLog = false, ...requestOptions } = options;
+  const { skipAuthRedirect = false, suppressErrorLog = false, noCache = false, ...requestOptions } = options;
   let resolvedPath = path;
   if (
     typeof window !== "undefined" &&
@@ -86,13 +124,27 @@ export async function api<T>(
     resolvedPath.startsWith(route)
   );
 
+  const method = (requestOptions.method || "GET").toUpperCase();
+
+  // ── Cache read for GET requests ──────────────────────────────────────────
+  if (method === "GET" && !noCache && typeof window !== "undefined") {
+    const cached = _cache.get(resolvedPath);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data as T;
+    }
+  }
+
+  // ── Auto-bust cache on mutations ─────────────────────────────────────────
+  if (method !== "GET" && method !== "HEAD" && typeof window !== "undefined") {
+    autoBust(resolvedPath);
+  }
+
   const headerInit: Record<string, string> = {
     ...(requestOptions.headers as Record<string, string>),
   };
   if (!(requestOptions.body instanceof FormData) && !headerInit["Content-Type"]) {
     headerInit["Content-Type"] = "application/json";
   }
-  const method = (requestOptions.method || "GET").toUpperCase();
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrf = getCsrfToken();
     if (csrf) headerInit["X-CSRF-Token"] = csrf;
@@ -176,7 +228,15 @@ export async function api<T>(
   }
 
   try {
-    return JSON.parse(text) as T;
+    const data = JSON.parse(text) as T;
+    // Cache successful GET responses if TTL is configured
+    if (method === "GET" && !noCache && typeof window !== "undefined") {
+      const ttl = ttlFor(resolvedPath);
+      if (ttl > 0) {
+        _cache.set(resolvedPath, { data, expiresAt: Date.now() + ttl });
+      }
+    }
+    return data;
   } catch {
     console.warn("Non-JSON response received:", text);
     return {} as T;
