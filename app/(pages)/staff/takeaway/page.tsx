@@ -154,25 +154,10 @@ export default function TakeawayPage() {
     /* ─── Load data ─────────────────────────────────────────────────────── */
     const loadOrders = useCallback(async (sf = statusFilter) => {
         try {
-            const apiStatus = sf === "active" ? "pending" : sf === "all" ? "" : sf;
+            const apiStatus = sf === "all" ? "" : sf;
             const url = apiStatus ? `/api/admin/takeaway/orders?status=${apiStatus}` : "/api/admin/takeaway/orders";
             const res = await api<{ orders: TakeawayOrder[] }>(url);
-            let fetched = res?.orders || [];
-            // For "active" filter, show pending+preparing+ready
-            if (sf === "active") {
-                const allActiveRes = await Promise.all([
-                    api<{ orders: TakeawayOrder[] }>("/api/admin/takeaway/orders?status=preparing"),
-                    api<{ orders: TakeawayOrder[] }>("/api/admin/takeaway/orders?status=ready"),
-                ]);
-                fetched = [
-                    ...fetched,
-                    ...(allActiveRes[0]?.orders || []),
-                    ...(allActiveRes[1]?.orders || []),
-                ];
-                // Deduplicate
-                const seen = new Set<string>();
-                fetched = fetched.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
-            }
+            const fetched = res?.orders || [];
             setOrders(fetched.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
         } catch {
             // silent
@@ -183,7 +168,12 @@ export default function TakeawayPage() {
         let mounted = true;
         const init = async () => {
             try {
-                const me = await api<{ role?: string; tax_percent?: number }>("/api/admin/me");
+                const [me, menuRes, zonesRes, ordersRes] = await Promise.all([
+                    api<{ role?: string; tax_percent?: number }>("/api/admin/me"),
+                    api<{ items?: MenuItem[] }>("/api/admin/menu"),
+                    api<{ zones?: DeliveryZone[] }>("/api/admin/delivery/zones"),
+                    api<{ orders: TakeawayOrder[] }>("/api/admin/takeaway/orders?status=active"),
+                ]);
                 if (!mounted) return;
                 const r = (me?.role || "").toLowerCase();
                 if (!["owner", "manager", "cashier"].includes(r)) {
@@ -192,15 +182,11 @@ export default function TakeawayPage() {
                 }
                 setRole(r);
                 setTaxPercent(me?.tax_percent || 0);
-                const [menuRes, zonesRes] = await Promise.all([
-                    api<{ items?: MenuItem[] }>("/api/admin/menu"),
-                    api<{ zones?: DeliveryZone[] }>("/api/admin/delivery/zones"),
-                ]);
-                if (!mounted) return;
                 setMenuItems((menuRes as any)?.filter?.((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ??
                     (menuRes as any)?.items?.filter((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ?? []);
                 setZones(zonesRes?.zones || []);
-                await loadOrders();
+                const fetched = ordersRes?.orders || [];
+                setOrders(fetched.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
             } catch {
                 router.replace("/staff");
             } finally {
