@@ -7,7 +7,7 @@ import StaffSidebar from "@/app/components/StaffSidebar";
 
 type Props = {
     title: string;
-    description?: string;
+    description?: React.ReactNode;
     /** Optional action slot (save button, etc.) rendered on the right of the header */
     action?: React.ReactNode;
     /** Max width of the content area. Defaults to max-w-5xl */

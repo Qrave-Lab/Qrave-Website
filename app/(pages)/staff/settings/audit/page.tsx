@@ -146,8 +146,7 @@ export default function AuditPage() {
         l.action.toLowerCase().includes(q) ||
         l.entity_type.toLowerCase().includes(q) ||
         (l.user_role || "").toLowerCase().includes(q) ||
-        JSON.stringify(l.new_value || {}).toLowerCase().includes(q) ||
-        JSON.stringify(l.old_value || {}).toLowerCase().includes(q)
+        JSON.stringify(l.meta || {}).toLowerCase().includes(q)
     );
   }, [logs, query]);
 
