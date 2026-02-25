@@ -356,18 +356,6 @@ export default function OnboardingPage() {
         });
 
         if (mandate?.subscription_id) {
-          const syncBilling = async () => {
-            for (let i = 0; i < 4; i++) {
-              try {
-                await api("/api/admin/billing/sync", { method: "POST", suppressErrorLog: true });
-                return true;
-              } catch {
-                await new Promise((resolve) => setTimeout(resolve, 1200));
-              }
-            }
-            return false;
-          };
-
           const loadRazorpay = () =>
             new Promise<boolean>((resolve) => {
               if (window.Razorpay) return resolve(true);
@@ -392,7 +380,24 @@ export default function OnboardingPage() {
             name: data.name,
             description: "Setup Autopay (7-Day Free Trial - No Charge Yet)",
             handler: async function () {
-              await syncBilling();
+              // Best-effort sync after payment — always advance to step 7 regardless.
+              // skipAuthRedirect prevents a stale 401 from silently navigating away.
+              try {
+                for (let i = 0; i < 4; i++) {
+                  try {
+                    await api("/api/admin/billing/sync", {
+                      method: "POST",
+                      suppressErrorLog: true,
+                      skipAuthRedirect: true,
+                    });
+                    break;
+                  } catch {
+                    if (i < 3) await new Promise((r) => setTimeout(r, 1200));
+                  }
+                }
+              } catch {
+                // sync failed — account is created and payment done, still proceed
+              }
               toast.success("Autopay setup successful! Trial started.");
               setStep(7);
             },
@@ -423,7 +428,14 @@ export default function OnboardingPage() {
         } else if (e?.status === 503) {
           toast.error("Google signup is not configured yet.");
         } else if (e?.status === 502) {
-          toast.error("Failed to start payment mandate. Please try again.");
+          // mandate-link failed, but if signup already succeeded the account is created.
+          // Advance so the user can access their dashboard and set up billing later.
+          toast.error("Account created! Payment setup can be completed from your dashboard.");
+          setStep(7);
+        } else if (e?.status === 401) {
+          // Session issue post-signup — account exists, redirect to login with a clear message.
+          toast.error("Account created! Please log in to access your dashboard.");
+          router.push("/login");
         } else {
           toast.error(e.message || "Signup failed");
         }
