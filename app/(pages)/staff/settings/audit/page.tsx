@@ -80,7 +80,7 @@ function FormatAuditDetails({ log }: { log: AuditLog }) {
     }
     return (
       <div className="space-y-1">
-        {meta.name && <p className="text-xs font-semibold text-slate-700 mb-1">{fmt(meta.name)}</p>}
+        {!!meta.name && <p className="text-xs font-semibold text-slate-700 mb-1">{fmt(meta.name)}</p>}
         {rows.map((r) => (
           <div key={r.label} className="flex items-center gap-1 text-xs">
             <span className="w-28 text-slate-500">{r.label}:</span>
