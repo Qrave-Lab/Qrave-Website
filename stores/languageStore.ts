@@ -34,6 +34,10 @@ const translations: Record<Language, Record<string, string>> = {
         immersiveView: 'Swipe View',
         listView: 'List View',
         customise: 'Customise',
+        todaysSpecials: "Today's Specials",
+        chefSpecials: "Chef's Specials",
+        recommended: 'Recommended',
+        offerProducts: 'Offers',
     },
     hi: {
         menu: 'मेनू',
@@ -58,6 +62,10 @@ const translations: Record<Language, Record<string, string>> = {
         immersiveView: 'स्वाइप व्यू',
         listView: 'सूची दृश्य',
         customise: 'बदलाव करें',
+        todaysSpecials: 'आज की विशेष',
+        chefSpecials: 'शेफ की विशेष',
+        recommended: 'अनुशंसित',
+        offerProducts: 'ऑफर',
     },
     ml: {
         menu: 'മെനു',
@@ -82,6 +90,10 @@ const translations: Record<Language, Record<string, string>> = {
         immersiveView: 'സ്വൈപ്പ് വ്യൂ',
         listView: 'ലിസ്റ്റ് വ്യൂ',
         customise: 'മാറ്റം വരുത്തുക',
+        todaysSpecials: 'ഇന്നത്തെ സ്പെഷ്യൽ',
+        chefSpecials: 'ഷെഫ്‌സ് സ്പെഷ്യൽ',
+        recommended: 'ശുപാർശ',
+        offerProducts: 'ഓഫറുകൾ',
     },
 };
 

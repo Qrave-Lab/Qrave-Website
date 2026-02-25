@@ -1,3 +1,10 @@
+export type TaxConfig = {
+  mode?: "cgst_sgst" | "igst" | "utgst_cgst"; // cgst_sgst = intra-state (default), igst = inter-state
+  inclusive?: boolean;                          // prices already include tax
+  cess_enabled?: boolean;
+  cess_percent?: number;
+};
+
 export type Table = {
   id: string;
   table_number: number;
@@ -28,6 +35,8 @@ export type Restaurant = {
   openTime?: string;
   closeTime?: string;
   themeConfig?: ThemeConfig;
+  gstNumber?: string;
+  taxConfig?: TaxConfig;
 };
 
 export type ThemeConfig = {

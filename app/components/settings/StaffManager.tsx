@@ -9,13 +9,17 @@ import toast from "react-hot-toast";
 type StaffMember = {
   ID: string;
   Email: string;
+  Name?: string | null;
+  Phone?: string | null;
   Role: string;
 };
 
 type StaffDetail = {
-  id: string;
-  email: string;
-  role: string;
+  ID: string;
+  Email: string;
+  Name?: string | null;
+  Phone?: string | null;
+  Role: string;
 };
 
 type Props = {
@@ -34,6 +38,8 @@ export default function StaffManager({ onRefresh }: Props) {
   const [editFormLoading, setEditFormLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     email: "",
+    name: "",
+    phone: "",
     role: "",
     password: "",
   });
@@ -79,14 +85,17 @@ export default function StaffManager({ onRefresh }: Props) {
     setIsEditing(true);
     setShowPassword(false);
     setEditFormLoading(true);
-    setEditForm({ email: "", role: "", password: "" });
+      setEditForm({ email: "", name: "", phone: "", role: "", password: "" });
     try {
       const detail = await api<StaffDetail>(`/api/admin/staffDetails/${staffId}`, {
         method: "GET",
       });
+      const email = detail?.Email || "";
       setEditForm({
-        email: detail?.email || "",
-        role: detail?.role || "waiter",
+        email: email.includes('@internal.nologin') ? "" : email,
+        name: detail?.Name || "",
+        phone: detail?.Phone || "",
+        role: detail?.Role || "waiter",
         password: "",
       });
     } catch {
@@ -105,7 +114,9 @@ export default function StaffManager({ onRefresh }: Props) {
       await api(`/api/admin/staffDetails/${editingId}`, {
         method: "PUT",
         body: JSON.stringify({
-          email: editForm.email,
+          email: editForm.email || undefined,
+          name: editForm.name || undefined,
+          phone: editForm.phone || undefined,
           role: editForm.role,
           password: editForm.password,
         }),
@@ -158,16 +169,23 @@ export default function StaffManager({ onRefresh }: Props) {
 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">
-                {s.Email.split('@')[0]}
+                {s.Name || s.Email.split('@')[0]}
               </p>
               <p className="text-[11px] text-slate-500 truncate font-medium">
-                {s.Email}
+                {s.Phone ? `${s.Email.startsWith('staff.') ? '' : s.Email + ' · '}${s.Phone}` : (s.Email.startsWith('staff.') ? 'No login email' : s.Email)}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-[10px] uppercase tracking-widest font-extrabold bg-slate-100 text-slate-500 px-2 py-1 rounded-md border border-slate-200">
-                {s.Role}
+              <span className={`text-[10px] uppercase tracking-widest font-extrabold px-2 py-1 rounded-md border ${s.Role === "delivery_rider"
+                ? "bg-indigo-50 text-indigo-600 border-indigo-200"
+                : s.Role === "manager"
+                  ? "bg-violet-50 text-violet-600 border-violet-200"
+                  : s.Role === "kitchen"
+                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                    : "bg-slate-100 text-slate-500 border-slate-200"
+                }`}>
+                {s.Role === "delivery_rider" ? "Rider" : s.Role}
               </span>
 
               <div className="flex items-center gap-1">
@@ -240,12 +258,39 @@ export default function StaffManager({ onRefresh }: Props) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Email
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. John Doe"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Email <span className="text-slate-300 normal-case font-normal">(optional • used for login)</span>
                   </label>
                   <input
                     type="email"
                     value={editForm.email}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                    placeholder="Leave blank to keep current"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Phone <span className="text-slate-300 normal-case font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    placeholder="e.g. +91 98765 43210"
                     className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   />
                 </div>
@@ -263,6 +308,7 @@ export default function StaffManager({ onRefresh }: Props) {
                     <option value="kitchen">Chef</option>
                     <option value="waiter">Waiter</option>
                     <option value="cashier">Cashier</option>
+                    <option value="delivery_rider">Delivery Rider</option>
                   </select>
                 </div>
 

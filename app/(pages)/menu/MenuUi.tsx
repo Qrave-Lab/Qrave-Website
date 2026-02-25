@@ -52,9 +52,81 @@ const getRatingStyles = (rating: number) => {
   return { container: "bg-red-50 text-red-700 ring-1 ring-red-200/50", icon: "text-red-500 fill-red-500" };
 };
 
+// Hoisted outside the component so we can use it to pre-normalize the
+// initial state — prevents the first render from ever seeing raw sql.NullString
+// objects ({String,Valid}) leaking into JSX via useState(rawItems).
+const normalizeItem = (item: any) => {
+  const basePrice = Number(item.price || 0);
+  const variants = Array.isArray(item.variants)
+    ? item.variants.map((v: any) => {
+      const variantPrice = Number(v.price ?? 0);
+      return {
+        id: String(v.id),
+        name: resolve(v.name ?? v.label),
+        priceDelta:
+          typeof v.priceDelta === "number"
+            ? v.priceDelta
+            : variantPrice - basePrice,
+      };
+    })
+    : [];
+
+  const resolvedGlb = sanitizeModelUrl(item.modelGlb || item.arModelGlb);
+  const resolvedUsdz = sanitizeModelUrl(item.modelUsdz || item.arModelUsdz);
+
+  return {
+    ...item,
+    id: String(item.id),
+    name: resolve(item.name),
+    description: resolve(item.description),
+    categoryName: resolve(item.categoryName),
+    parentCategoryName: resolve(item.parentCategoryName),
+    price: basePrice,
+    offerPrice:
+      typeof item.offerPrice === "number"
+        ? Number(item.offerPrice)
+        : typeof item.offer_price === "number"
+          ? Number(item.offer_price)
+          : undefined,
+    offerLabel: resolve(item.offerLabel || item.offer_label),
+    isTodaysSpecial: Boolean(item.isTodaysSpecial ?? item.is_todays_special),
+    isChefSpecial: Boolean(item.isChefSpecial ?? item.is_chef_special),
+    specialNote: resolve(item.specialNote || item.special_note),
+    image: resolve(item.imageUrl) || item.image,
+    arModelGlb: resolvedGlb || null,
+    arModelUsdz: resolvedUsdz || null,
+    ingredients:
+      item.ingredients ||
+      item.ingredient_list ||
+      item.ingredientList ||
+      (Array.isArray(item.ingredientsStructured)
+        ? item.ingredientsStructured.map((x: any) => x?.name).filter(Boolean)
+        : []),
+    calories:
+      typeof item.calories === "number"
+        ? item.calories
+        : item.kcal || item.nutrition?.calories,
+    isVeg: Boolean(item.isVeg ?? item.is_veg ?? true),
+    allergens: Array.isArray(item.allergens)
+      ? item.allergens
+        .map((a: any) => String(a?.type || "").trim())
+        .filter(Boolean)
+      : [],
+    variants,
+  };
+};
+
 type ThemeConfig = {
-  preset?: "thai" | "indian" | "minimal" | "";
+  preset?: string;
   font_family?: string;
+  heading_font?: string;
+  font_size?: "sm" | "md" | "lg";
+  hero_title?: string;
+  hero_subtitle?: string;
+  layout?: "list" | "grid" | "compact";
+  image_style?: "none" | "small" | "large" | "full";
+  spacing?: "compact" | "normal" | "relaxed";
+  shadow?: "none" | "sm" | "md" | "lg";
   bg_image_url?: string;
   bg_overlay_opacity?: number;
   card_style?: "rounded" | "soft" | "sharp" | "";
@@ -62,7 +134,7 @@ type ThemeConfig = {
   motif?: "thai" | "indian" | "minimal" | "custom" | "";
   ornament_level?: "off" | "subtle" | "bold" | "";
   header_style?: "classic" | "elegant" | "festival" | "";
-  pattern_style?: "none" | "silk" | "mandala" | "waves" | "leaf" | "";
+  pattern_style?: "none" | "silk" | "mandala" | "waves" | "leaf" | "dots" | "grid" | "chevron" | "";
   section_icon?: string;
   icon_pack?: "auto" | "thai" | "indian" | "minimal" | "";
   colors?: {
@@ -72,12 +144,22 @@ type ThemeConfig = {
     muted?: string;
     accent?: string;
     accent_text?: string;
+    header_bg?: string;
+    header_text?: string;
   };
 };
 
 const DEFAULT_THEME: ThemeConfig = {
   preset: "",
   font_family: "'Inter', 'Segoe UI', sans-serif",
+  heading_font: "",
+  font_size: "md",
+  hero_title: "",
+  hero_subtitle: "",
+  layout: "list",
+  image_style: "small",
+  spacing: "normal",
+  shadow: "sm",
   bg_image_url: "",
   bg_overlay_opacity: 0.92,
   card_style: "rounded",
@@ -95,6 +177,8 @@ const DEFAULT_THEME: ThemeConfig = {
     muted: "#64748B",
     accent: "#0F172A",
     accent_text: "#FFFFFF",
+    header_bg: "#FFFFFF",
+    header_text: "#0F172A",
   },
 };
 
@@ -255,7 +339,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   previewRestaurantName,
   previewRestaurantLogoUrl,
 }) => {
-  const [menuItems, setMenuItems] = useState(initialMenu);
+  const [menuItems, setMenuItems] = useState(() =>
+    Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : []
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [isVegOnly, setIsVegOnly] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -288,7 +374,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     margin_aware: [],
   });
 
-  const { t, tContent, language, setLanguage } = useLanguageStore();
+  const { t, setLanguage } = useLanguageStore();
+
+  // Translation is disabled — always reset to English on mount
+  useEffect(() => { setLanguage('en'); }, []);
 
   const cart = useCartStore((state) => state.cart);
   const addItemStore = useCartStore((state) => state.addItem);
@@ -310,67 +399,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       setIsImmersive(true);
     }
   }, [orderingEnabled]);
-
-  const normalizeItem = (item: any) => {
-    const basePrice = Number(item.price || 0);
-    const variants = Array.isArray(item.variants)
-      ? item.variants.map((v: any) => {
-        const variantPrice = Number(v.price ?? 0);
-        return {
-          id: String(v.id),
-          name: resolve(v.name ?? v.label),
-          priceDelta:
-            typeof v.priceDelta === "number"
-              ? v.priceDelta
-              : variantPrice - basePrice,
-        };
-      })
-      : [];
-
-    const resolvedGlb = sanitizeModelUrl(item.modelGlb || item.arModelGlb);
-    const resolvedUsdz = sanitizeModelUrl(item.modelUsdz || item.arModelUsdz);
-
-    return {
-      ...item,
-      id: String(item.id),
-      name: resolve(item.name),
-      description: resolve(item.description),
-      categoryName: resolve(item.categoryName),
-      parentCategoryName: resolve(item.parentCategoryName),
-      price: basePrice,
-      offerPrice:
-        typeof item.offerPrice === "number"
-          ? Number(item.offerPrice)
-          : typeof item.offer_price === "number"
-            ? Number(item.offer_price)
-            : undefined,
-      offerLabel: resolve(item.offerLabel || item.offer_label),
-      isTodaysSpecial: Boolean(item.isTodaysSpecial ?? item.is_todays_special),
-      isChefSpecial: Boolean(item.isChefSpecial ?? item.is_chef_special),
-      specialNote: resolve(item.specialNote || item.special_note),
-      image: resolve(item.imageUrl) || item.image,
-      arModelGlb: resolvedGlb || null,
-      arModelUsdz: resolvedUsdz || null,
-      ingredients:
-        item.ingredients ||
-        item.ingredient_list ||
-        item.ingredientList ||
-        (Array.isArray(item.ingredientsStructured)
-          ? item.ingredientsStructured.map((x: any) => x?.name).filter(Boolean)
-          : []),
-      calories:
-        typeof item.calories === "number"
-          ? item.calories
-          : item.kcal || item.nutrition?.calories,
-      isVeg: Boolean(item.isVeg ?? item.is_veg ?? true),
-      allergens: Array.isArray(item.allergens)
-        ? item.allergens
-          .map((a: any) => String(a?.type || "").trim())
-          .filter(Boolean)
-        : [],
-      variants,
-    };
-  };
 
   useEffect(() => {
     const normalized = Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : [];
@@ -403,19 +431,8 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     };
   }, [previewMode]);
 
-  const translatedItems = useMemo(() => {
-    return menuItems.map((item: any) => ({
-      ...item,
-      name: tContent(item.name),
-      description: tContent(item.description),
-      categoryName: tContent(item.categoryName),
-      parentCategoryName: tContent(item.parentCategoryName),
-      variants: (item.variants || []).map((v: any) => ({
-        ...v,
-        name: tContent(v.name)
-      }))
-    }));
-  }, [menuItems, language, tContent]);
+  // Translation disabled — items displayed in their original language
+  const translatedItems = menuItems;
 
   useEffect(() => {
     const cats = Array.from(
@@ -598,6 +615,88 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   }, [previewMode]);
 
   const startTour = useCallback(() => {
+    const allSteps: { element?: string; popover: { title: string; description: string; side?: any; align?: any } }[] = [
+      {
+        popover: {
+          title: "👋 Welcome to Qrave!",
+          description: "Let us show you around. We have some amazing features to help you decide what to eat.",
+          side: "bottom",
+          align: "center",
+        },
+      },
+      {
+        element: ".ar-view-btn",
+        popover: {
+          title: "✨ View in AR",
+          description: "See it before you eat it! Tap this button to place a realistic 3D model of the dish right on your table.",
+          side: "left",
+          align: "center",
+        },
+      },
+      {
+        element: "#tour-search",
+        popover: {
+          title: "🔍 Search the menu",
+          description: "Looking for something specific? Type a dish name or keyword here to instantly find it.",
+          side: "bottom",
+        },
+      },
+      {
+        element: "#tour-veg-filter",
+        popover: {
+          title: "🥬 Veg-only filter",
+          description: "One tap to show only vegetarian dishes.",
+          side: "bottom",
+        },
+      },
+      {
+        element: "#tour-immersive",
+        popover: {
+          title: "📱 Immersive mode",
+          description: "Want larger images? Switch to the full-screen immersive view.",
+          side: "bottom",
+        },
+      },
+      {
+        element: "#tour-food-card",
+        popover: {
+          title: "🍽️ Add to cart",
+          description: "Use the + button to add items. You can also customise variants here.",
+          side: "top",
+        },
+      },
+      {
+        element: "#tour-waiter",
+        popover: {
+          title: "🔔 Call a waiter",
+          description: "Need help? Tap here to alert the staff.",
+          side: "left",
+        },
+      },
+      {
+        element: "#tour-water",
+        popover: {
+          title: "💧 Request water",
+          description: "Thirsty? Request water with a single tap.",
+          side: "left",
+        },
+      },
+      {
+        popover: {
+          title: "🎉 Ready to order?",
+          description: "Explore the menu and enjoy your meal! Tap the ? button anytime to replay this tour.",
+          side: "bottom",
+          align: "center",
+        },
+      },
+    ];
+
+    // Filter out steps whose target element isn't in the DOM right now
+    const steps = allSteps.filter((step) => {
+      if (!step.element) return true;
+      return !!document.querySelector(step.element);
+    });
+
     const driverObj = driver({
       showProgress: true,
       animate: true,
@@ -614,92 +713,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
         setTourReady(false);
         driverObj.destroy();
       },
-      steps: [
-        {
-          popover: {
-            title: "👋 Welcome to Qrave!",
-            description: "Let us show you around. We have some amazing features to help you decide what to eat.",
-            side: "bottom" as const,
-            align: "center" as const,
-          },
-        },
-        {
-          element: ".ar-view-btn",
-          popover: {
-            title: "✨ View in AR",
-            description: "See it before you eat it! Tap this button to place a realistic 3D model of the dish right on your table.",
-            side: "left" as const,
-            align: "center" as const,
-          },
-        },
-        {
-          element: "#tour-search",
-          popover: {
-            title: "🔍 Search the menu",
-            description: "Looking for something specific? Type a dish name or keyword here to instantly find it.",
-            side: "bottom" as const,
-          },
-        },
-        {
-          element: "#tour-veg-filter",
-          popover: {
-            title: "🥬 Veg-only filter",
-            description: "One tap to show only vegetarian dishes.",
-            side: "bottom" as const,
-          },
-        },
-        {
-          element: "#tour-language",
-          popover: {
-            title: "🌐 Switch language",
-            description: "Instantly translate the entire menu to your preferred language.",
-            side: "bottom" as const,
-          },
-        },
-        {
-          element: "#tour-immersive",
-          popover: {
-            title: "📱 Immersive mode",
-            description: "Want larger images? Switch to the full-screen immersive view.",
-            side: "bottom" as const,
-          },
-        },
-        {
-          element: "#tour-food-card",
-          popover: {
-            title: "🍽️ Add to cart",
-            description: "Use the + button to add items. You can also customize variants here.",
-            side: "top" as const,
-          },
-        },
-        {
-          element: "#tour-waiter",
-          popover: {
-            title: "🔔 Call a waiter",
-            description: "Need help? Tap here to alert the staff.",
-            side: "left" as const,
-          },
-        },
-        {
-          element: "#tour-water",
-          popover: {
-            title: "💧 Request water",
-            description: "Thirsty? Request water with a single tap.",
-            side: "left" as const,
-          },
-        },
-        {
-          popover: {
-            title: "🎉 Ready to order?",
-            description: "Explore the menu and enjoy your meal! You can revisit this tour anytime by clearing your browser data.",
-            side: "bottom" as const,
-            align: "center" as const,
-          },
-        },
-      ],
+      steps,
     });
     driverObj.drive();
-  }, []);
+  }, [hasArItems, orderingEnabled]);
 
   useEffect(() => {
     if (!tourReady) return;
@@ -758,13 +775,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       controller.abort();
     };
   }, [arItem?.arModelGlb]);
-
-  const toggleLanguage = () => {
-    const langs = ['en', 'hi', 'ml'] as const;
-    const currentIdx = langs.indexOf(language as any);
-    const nextIdx = (currentIdx + 1) % langs.length;
-    setLanguage(langs[nextIdx]);
-  };
 
   const handleArOpen = (item: any) => {
     setArModelError("");
@@ -881,8 +891,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
       {arItem && isBrowser &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-6">
-            <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden relative">
+          <div
+            onClick={(e) => { if (e.target === e.currentTarget) handleArClose(); }}
+            style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(15,23,42,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
+          >
+            <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden relative" style={{ position: "relative", zIndex: 10000 }}>
               <div className="p-5 border-b border-slate-100 flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-black text-slate-900">{arItem.name}</h2>
@@ -897,7 +910,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               </div>
 
               <div className="p-5 space-y-4">
-                <div className="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">
+                <div className="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden relative" style={{ contain: "strict", height: 280 }}>
                   {!modelViewerReady ? (
                     <div className="w-full h-[280px] flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100">
                       {modelViewerFailed ? "3D viewer failed to initialize" : "Loading 3D viewer..."}
@@ -988,12 +1001,16 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              id="tour-language"
-              onClick={toggleLanguage}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 font-bold text-xs uppercase hover:bg-slate-200 transition-colors"
+              onClick={() => {
+                localStorage.removeItem("qrave_tour_seen");
+                setTourReady(true);
+              }}
+              title="Replay tour"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 font-bold text-sm hover:bg-slate-200 transition-colors"
             >
-              {language}
+              ?
             </button>
+            {/* Language toggle disabled until translation is stable */}
             {orderingEnabled && (
               <button
                 id="tour-immersive"
@@ -1041,7 +1058,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-1 w-8 bg-emerald-500 rounded-full" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Offer Products</h2>
+                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('offerProducts')}</h2>
               </div>
               <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Original price is shown struck through, discounted price shown below.
@@ -1059,7 +1076,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                         ...item,
                         id: String(item.id),
                         name: item.name,
-                        description: item.offerLabel ? `${item.offerLabel}${item.specialNote ? ` • ${item.specialNote}` : ""}` : item.description,
+                        description: item.offerLabel ? `${item.offerLabel}${resolve(item.specialNote) ? ` • ${resolve(item.specialNote)}` : ""}` : resolve(item.description),
                         category: item.categoryName || "General",
                       }}
                       ratingStyles={getRatingStyles(item.rating)}
@@ -1077,23 +1094,55 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             </div>
           )}
 
-          {(todaySpecialItems.length > 0 || chefSpecialItems.length > 0) && (
+          {todaySpecialItems.length > 0 && (
             <div className="animate-in fade-in duration-500">
               <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-1 w-8 bg-amber-500 rounded-full" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Today&apos;s & Chef Specials</h2>
+                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('todaysSpecials')}</h2>
               </div>
               <div className="grid gap-6">
-                {[...todaySpecialItems, ...chefSpecialItems].slice(0, 6).map((item: any) => {
+                {todaySpecialItems.map((item: any) => {
                   const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                   const cartKey = getCartKey(item.id, currentVId);
                   const cartItem = cartState[cartKey];
                   const quantity = cartItem ? cartItem.quantity : 0;
                   return (
                     <FoodCard
-                      key={`special-${item.id}`}
-                      item={{ ...item, id: String(item.id), name: item.name, description: item.specialNote || item.description, category: item.categoryName || "General" }}
+                      key={`todays-${item.id}`}
+                      item={{ ...item, id: String(item.id), name: item.name, description: resolve(item.specialNote) || resolve(item.description), category: item.categoryName || "General" }}
+                      ratingStyles={getRatingStyles(item.rating)}
+                      selectedVariantId={currentVId}
+                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
+                      currentQty={quantity}
+                      onAdd={handleAdd}
+                      onRemove={handleRemove}
+                      onArClick={handleArOpen}
+                      orderingEnabled={orderingEnabled}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {chefSpecialItems.length > 0 && (
+            <div className="animate-in fade-in duration-500">
+              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-1 w-8 bg-orange-400 rounded-full" />
+                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('chefSpecials')}</h2>
+              </div>
+              <div className="grid gap-6">
+                {chefSpecialItems.map((item: any) => {
+                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
+                  const cartKey = getCartKey(item.id, currentVId);
+                  const cartItem = cartState[cartKey];
+                  const quantity = cartItem ? cartItem.quantity : 0;
+                  return (
+                    <FoodCard
+                      key={`chef-${item.id}`}
+                      item={{ ...item, id: String(item.id), name: item.name, description: resolve(item.specialNote) || resolve(item.description), category: item.categoryName || "General" }}
                       ratingStyles={getRatingStyles(item.rating)}
                       selectedVariantId={currentVId}
                       onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
@@ -1113,8 +1162,8 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             <div className="animate-in fade-in duration-500">
               <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
               <div className="flex items-center gap-3 mb-4">
-                <div className="h-1 w-8 bg-indigo-500 rounded-full" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">AI Upsell Picks</h2>
+                <div className="h-1 w-8 bg-violet-500 rounded-full" />
+                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('recommended')}</h2>
               </div>
               <div className="grid gap-6">
                 {recommendationItems.slice(0, 4).map((item: any) => {
@@ -1224,7 +1273,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       </main>
 
       {orderingEnabled && (
-        <div className="fixed right-4 sm:right-6 bottom-24 sm:bottom-28 z-[60] flex flex-col items-end gap-3">
+        <div className="fixed right-4 sm:right-6 bottom-24 sm:bottom-28 flex flex-col items-end gap-3" style={{ zIndex: 60 }}>
           <button
             id="tour-waiter"
             onClick={async () => {
@@ -1277,7 +1326,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
 
       {orderingEnabled && totalItems > 0 && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-4 sm:bottom-6 z-[65]">
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-4 sm:bottom-6" style={{ zIndex: 65 }}>
           <button
             onClick={() => {
               if (previewMode) return;

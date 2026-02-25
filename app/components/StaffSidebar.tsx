@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Utensils,
@@ -12,8 +12,12 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   FileSpreadsheet,
   Bike,
+  Check,
+  Loader2,
+  MapPin,
 } from "lucide-react";
 import { api } from "@/app/lib/api";
 
@@ -131,6 +135,8 @@ export default function StaffSidebar() {
     }
   });
   const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
+  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -173,6 +179,17 @@ export default function StaffSidebar() {
       isActive = false;
       window.removeEventListener("qrave:location-changed", onLocationChanged);
     };
+  }, []);
+
+  // Close location dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(e.target as Node)) {
+        setLocationDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   useEffect(() => {
@@ -307,52 +324,33 @@ export default function StaffSidebar() {
   const handleSwitchLocation = async (nextRestaurantId: string) => {
     if (!nextRestaurantId || nextRestaurantId === activeRestaurantId || isSwitchingLocation) return;
     setIsSwitchingLocation(true);
+    setLocationDropdownOpen(false);
+    // Optimistically update the display name right away
+    const nextLoc = locations.find((l) => l.restaurant_id === nextRestaurantId);
+    if (nextLoc) setRestaurantName(nextLoc.restaurant);
     try {
       await api("/api/admin/locations/switch", {
         method: "POST",
         body: JSON.stringify({ restaurant_id: nextRestaurantId }),
       });
-      setActiveRestaurantId(nextRestaurantId);
-      if (typeof window !== "undefined") {
-        const raw = localStorage.getItem(LOCATION_CACHE_KEY);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw) as {
-              locations?: LocationOption[];
-              locationLabels?: Record<string, string>;
-              activeRestaurantId?: string;
-            };
-            localStorage.setItem(
-              LOCATION_CACHE_KEY,
-              JSON.stringify({
-                locations: parsed.locations || locations,
-                locationLabels: parsed.locationLabels || locationLabels,
-                activeRestaurantId: nextRestaurantId,
-              })
-            );
-          } catch {
-            localStorage.setItem(
-              LOCATION_CACHE_KEY,
-              JSON.stringify({
-                locations,
-                locationLabels,
-                activeRestaurantId: nextRestaurantId,
-              })
-            );
-          }
-        }
-      }
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(ME_CACHE_KEY);
-        localStorage.removeItem("restaurant_name");
-        localStorage.removeItem("restaurant_logo_url");
-        localStorage.removeItem("session_id");
-        localStorage.removeItem("order_id");
-        localStorage.removeItem("table_number");
-        window.dispatchEvent(new Event("qrave:location-changed"));
-        router.replace("/staff");
-        router.refresh();
-      }
+      // Flush all per-session caches so the new branch loads cleanly
+      localStorage.setItem(
+        LOCATION_CACHE_KEY,
+        JSON.stringify({
+          locations,
+          locationLabels,
+          activeRestaurantId: nextRestaurantId,
+        })
+      );
+      localStorage.removeItem(ME_CACHE_KEY);
+      localStorage.removeItem("restaurant_name");
+      localStorage.removeItem("restaurant_logo_url");
+      localStorage.removeItem("session_id");
+      localStorage.removeItem("order_id");
+      localStorage.removeItem("table_number");
+      // Hard redirect — soft router.replace on the same route doesn't
+      // reliably flush server-component data after a session cookie change.
+      window.location.href = "/staff";
     } catch {
       setIsSwitchingLocation(false);
     }
@@ -402,7 +400,7 @@ export default function StaffSidebar() {
       initial={false}
       animate={{ width: isCollapsed ? 80 : 260 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="h-screen bg-white border-r border-gray-200 flex flex-col relative z-[200] pointer-events-auto shrink-0"
+      className="h-screen bg-white border-r border-gray-200 flex flex-col relative z-200 pointer-events-auto shrink-0"
     >
       <div className={`h-16 flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center" : "px-6"}`}>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 bg-white transition-all duration-300">
@@ -433,24 +431,72 @@ export default function StaffSidebar() {
       </div>
 
       {!isCollapsed && locations.length > 1 && (
-        <div className="px-4 py-3 border-b border-gray-100">
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-            Location
-          </label>
-          <select
-            value={activeRestaurantId}
-            disabled={isSwitchingLocation}
-            onChange={(e) => handleSwitchLocation(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
-          >
-            {locations.map((loc) => (
-              <option key={loc.restaurant_id} value={loc.restaurant_id}>
-                {locationLabels[loc.restaurant_id]
-                  ? `${loc.restaurant} - ${locationLabels[loc.restaurant_id]}`
-                  : loc.restaurant}
-              </option>
-            ))}
-          </select>
+        <div className="px-3 py-2.5 border-b border-gray-100" ref={locationDropdownRef}>
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 px-1">Branch</p>
+          <div className="relative">
+            <button
+              type="button"
+              disabled={isSwitchingLocation}
+              onClick={() => setLocationDropdownOpen((v) => !v)}
+              className="w-full flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 px-2.5 py-2 text-left transition-all disabled:opacity-60"
+            >
+              {isSwitchingLocation ? (
+                <Loader2 className="w-3.5 h-3.5 text-slate-400 shrink-0 animate-spin" />
+              ) : (
+                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
+              <span className="flex-1 text-xs font-semibold text-slate-700 truncate">
+                {(() => {
+                  const active = locations.find((l) => l.restaurant_id === activeRestaurantId);
+                  if (!active) return "Select branch";
+                  const lbl = locationLabels[active.restaurant_id];
+                  return lbl ? lbl : active.restaurant;
+                })()}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${locationDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            <AnimatePresence>
+              {locationDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute top-full left-0 right-0 mt-1 z-300 rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60 overflow-hidden"
+                >
+                  {locations.map((loc) => {
+                    const isActive = loc.restaurant_id === activeRestaurantId;
+                    const lbl = locationLabels[loc.restaurant_id];
+                    const display = lbl ? lbl : loc.restaurant;
+                    return (
+                      <button
+                        key={loc.restaurant_id}
+                        type="button"
+                        onClick={() => handleSwitchLocation(loc.restaurant_id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                          isActive ? "bg-slate-900 text-white" : "hover:bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <MapPin className={`w-3 h-3 shrink-0 ${isActive ? "text-white/60" : "text-slate-400"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[11px] font-semibold truncate ${isActive ? "text-white" : "text-slate-800"}`}>
+                            {loc.restaurant}
+                          </p>
+                          {lbl && (
+                            <p className={`text-[10px] truncate ${isActive ? "text-white/60" : "text-slate-400"}`}>
+                              {lbl}
+                            </p>
+                          )}
+                        </div>
+                        {isActive && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       )}
 
@@ -531,7 +577,7 @@ export default function StaffSidebar() {
 
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-20 bg-white border border-gray-200 text-gray-500 hover:text-gray-900 p-1 rounded-full shadow-sm hover:shadow-md transition-all z-[210]"
+        className="absolute -right-3 top-20 bg-white border border-gray-200 text-gray-500 hover:text-gray-900 p-1 rounded-full shadow-sm hover:shadow-md transition-all z-210"
       >
         {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>

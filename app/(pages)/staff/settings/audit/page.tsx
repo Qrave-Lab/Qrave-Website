@@ -1,127 +1,135 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ClipboardList } from "lucide-react";
-import Link from "next/link";
-import StaffSidebar from "@/app/components/StaffSidebar";
+import { ClipboardList } from "lucide-react";
 import { api } from "@/app/lib/api";
+import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
 import toast from "react-hot-toast";
 
 type AuditLog = {
   id: string;
   action: string;
   entity_type: string;
-  entity_id?: string;
-  user_id?: string;
-  user_role?: string;
-  meta?: Record<string, any>;
+  entity_id: string;
+  user_role: string;
+  user_name?: string | null;
   created_at: string;
+  meta: Record<string, unknown> | null;
 };
 
+function formatLabel(s: string) {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function fmt(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  return String(v);
+}
+
 function FormatAuditDetails({ log }: { log: AuditLog }) {
-  if (!log.meta || Object.keys(log.meta).length === 0) {
-    return <span className="text-slate-400">-</span>;
+  const meta = log.meta || {};
+
+  // Order status change
+  if (log.action === "order.status.updated") {
+    const from = fmt(meta.from_status);
+    const to = fmt(meta.to_status);
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">{formatLabel(from)}</span>
+        <span className="text-slate-400">→</span>
+        <span className="rounded bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">{formatLabel(to)}</span>
+      </div>
+    );
   }
 
-  const { meta, action } = log;
-  const badges: React.ReactNode[] = [];
+  // Order cancelled
+  if (log.action === "order.cancelled") {
+    return <span className="rounded bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-600">Order cancelled</span>;
+  }
 
-  // Special handling for menu item updates to make it readable
-  if (action.startsWith("menu.item")) {
-    if (meta.name) {
-      badges.push(<span key="name" className="font-semibold text-slate-700">{meta.name}</span>);
-    }
+  // Menu item updated
+  if (log.action === "menu.item.updated") {
+    const rows: { label: string; from: string; to: string }[] = [];
     if (meta.price_changed) {
-      badges.push(
-        <span key="price">
-          Price: <span className="line-through text-slate-400">₹{meta.previous_price}</span>{" "}
-          <span className="text-emerald-600 font-black">₹{meta.new_price}</span>
-        </span>
-      );
+      rows.push({ label: "Price", from: `₹${fmt(meta.previous_price)}`, to: `₹${fmt(meta.new_price)}` });
     }
     if (meta.archive_state_change) {
-      badges.push(
-        <span key="archived" className={meta.is_archived ? "text-rose-600 font-bold" : "text-emerald-600 font-bold"}>
-          {meta.is_archived ? "Archived" : "Unarchived"}
-        </span>
-      );
+      rows.push({
+        label: "Archived",
+        from: meta.previous_archived ? "Archived" : "Active",
+        to: meta.is_archived ? "Archived" : "Active",
+      });
     }
-    if ("is_out_of_stock" in meta && meta.is_out_of_stock !== meta.previous_out_of_stock) {
-      badges.push(
-        <span key="stock" className={meta.is_out_of_stock ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
-          {meta.is_out_of_stock ? "Marked Out of Stock" : "Marked In Stock"}
-        </span>
-      );
+    // detect any other boolean/value changes
+    const boolPairs: [string, string, string][] = [
+      ["is_out_of_stock", "Out of Stock", "In Stock"],
+      ["is_todays_special", "Today's Special ON", "Today's Special OFF"],
+      ["is_chef_special", "Chef Special ON", "Chef Special OFF"],
+    ];
+    for (const [key, onLabel, offLabel] of boolPairs) {
+      if (key in meta) {
+        rows.push({ label: formatLabel(key), from: "—", to: meta[key] ? onLabel : offLabel });
+      }
     }
+    if (meta.special_note !== undefined) {
+      rows.push({ label: "Special Note", from: "—", to: fmt(meta.special_note) });
+    }
+    if (!rows.length) {
+      rows.push({ label: "Item", from: "—", to: fmt(meta.name) });
+    }
+    return (
+      <div className="space-y-1">
+        {meta.name && <p className="text-xs font-semibold text-slate-700 mb-1">{fmt(meta.name)}</p>}
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center gap-1 text-xs">
+            <span className="w-28 text-slate-500">{r.label}:</span>
+            <span className="text-rose-500 line-through">{r.from}</span>
+            <span className="mx-1 text-slate-400">→</span>
+            <span className="font-medium text-emerald-700">{r.to}</span>
+          </div>
+        ))}
+      </div>
+    );
   }
 
-  // General fallback for all other fields, ignoring noise
-  const ignoreKeys = [
-    "name", "price_changed", "previous_price", "new_price",
-    "archive_state_change", "is_archived", "previous_archived",
-    "previous_out_of_stock", "previous_chef", "previous_special"
-  ];
-
-  Object.entries(meta).forEach(([k, v], i) => {
-    if (ignoreKeys.includes(k)) return;
-    if (v === null || v === "") return;
-
-    // Ignore boolean flags that indicate NO change
-    if (typeof v === "boolean" && k.endsWith("_change") && !v) return;
-    // Also ignore false if it's an 'is_' flag without a clear update context
-    if (v === false && ["is_chef_special", "is_todays_special", "dietary_manual_override"].includes(k)) {
-      return;
-    }
-
-    // Format key name elegantly
-    const label = k.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
-
-    // Skip showing boolean values if they are confusing, just show label if true
-    if (typeof v === "boolean") {
-      badges.push(
-        <span key={`f-${k}`} className="text-slate-600">
-          <span className="font-medium">{label}:</span> {v ? "Yes" : "No"}
-        </span>
-      );
-    } else {
-      badges.push(
-        <span key={`f-${k}`} className="text-slate-600">
-          <span className="font-medium">{label}:</span> {String(v)}
-        </span>
-      );
-    }
-  });
-
-  if (badges.length === 0) {
-    return <span className="text-slate-400 text-[10px] italic">No significant changes</span>;
+  // Menu item deleted
+  if (log.action === "menu.item.deleted") {
+    return (
+      <div className="text-xs text-slate-700">
+        <span className="font-semibold">{fmt(meta.name)}</span>
+        {meta.price !== undefined && (
+          <span className="ml-2 text-slate-500">@ ₹{fmt(meta.price)}</span>
+        )}
+      </div>
+    );
   }
 
+  // Generic fallback: show all meta key-value pairs
+  const entries = Object.entries(meta).filter(([, v]) => v !== null && v !== undefined && v !== "");
+  if (!entries.length) return <span className="text-slate-400 text-xs">—</span>;
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {badges.map((badge, idx) => (
-        <div key={idx} className="bg-slate-50 border border-slate-200 px-2 py-1 rounded-md text-[11px]">
-          {badge}
+    <div className="space-y-1">
+      {entries.map(([k, v]) => (
+        <div key={k} className="flex items-start gap-1 text-xs">
+          <span className="w-32 shrink-0 text-slate-500">{formatLabel(k)}:</span>
+          <span className="font-medium text-slate-700 break-all">{fmt(v)}</span>
         </div>
       ))}
     </div>
   );
 }
 
-function formatLabel(str: string) {
-  if (!str) return "";
-  return str.replace(/[_.]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
-}
-
-export default function AuditLogPage() {
-  const [isLoading, setIsLoading] = useState(true);
+export default function AuditPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await api<{ logs?: AuditLog[] }>("/api/admin/audit/logs?limit=200", { method: "GET" });
-        setLogs(res?.logs || []);
+        const data = await api<{ logs: AuditLog[] }>("/api/admin/audit/logs");
+        setLogs(data?.logs || []);
       } catch {
         toast.error("Failed to load audit logs");
       } finally {
@@ -131,86 +139,77 @@ export default function AuditLogPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return logs;
-    return logs.filter((l) => {
-      const txt = `${l.action} ${l.entity_type} ${l.user_role || ""} ${JSON.stringify(l.meta || {})}`.toLowerCase();
-      return txt.includes(q);
-    });
+    if (!query.trim()) return logs;
+    const q = query.toLowerCase();
+    return logs.filter(
+      (l) =>
+        l.action.toLowerCase().includes(q) ||
+        l.entity_type.toLowerCase().includes(q) ||
+        (l.user_role || "").toLowerCase().includes(q) ||
+        JSON.stringify(l.new_value || {}).toLowerCase().includes(q) ||
+        JSON.stringify(l.old_value || {}).toLowerCase().includes(q)
+    );
   }, [logs, query]);
 
   return (
-    <div className="flex h-screen w-full bg-[#f8fafc] text-slate-900 overflow-hidden">
-      <StaffSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Audit Logs</h1>
-            <p className="text-sm text-slate-500">Every critical action is tracked: price changes, archiving, order status updates, and cancellations.</p>
+    <SettingsPageLayout title="Audit Log" description="Every critical action is tracked: price changes, archiving, order status updates, and cancellations." maxWidth="max-w-[1400px]">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-slate-500" />
+            <h2 className="text-lg font-bold">Recent Events</h2>
           </div>
-          <Link
-            href="/staff/settings"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Link>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-[1400px] space-y-4">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5 text-slate-500" />
-                  <h2 className="text-lg font-bold">Recent Events</h2>
-                </div>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full max-w-sm rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Filter by action, role, metadata..."
-                />
-              </div>
-
-              {isLoading ? (
-                <div className="py-14 text-center text-sm text-slate-500">Loading logs...</div>
-              ) : filtered.length === 0 ? (
-                <div className="py-14 text-center text-sm text-slate-500">No logs found.</div>
-              ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Time</th>
-                        <th className="px-4 py-3 text-left">Action</th>
-                        <th className="px-4 py-3 text-left">Entity</th>
-                        <th className="px-4 py-3 text-left">Role</th>
-                        <th className="px-4 py-3 text-left">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((log) => (
-                        <tr key={log.id} className="border-t border-slate-100 align-top">
-                          <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">
-                            {new Date(log.created_at).toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-slate-800">{formatLabel(log.action)}</td>
-                          <td className="px-4 py-3 text-slate-600">{formatLabel(log.entity_type)}</td>
-                          <td className="px-4 py-3 text-slate-600 capitalize">{log.user_role || "unknown"}</td>
-                          <td className="px-4 py-3 max-w-[500px]">
-                            <FormatAuditDetails log={log} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full max-w-sm rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            placeholder="Filter by action, role, metadata..."
+          />
+        </div>
+        {isLoading ? (
+          <div className="py-14 text-center text-sm text-slate-500">Loading logs...</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-14 text-center text-sm text-slate-500">No logs found.</div>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 text-left">Time</th>
+                  <th className="px-4 py-3 text-left">Action</th>
+                  <th className="px-4 py-3 text-left">Entity</th>
+                  <th className="px-4 py-3 text-left">By</th>
+                  <th className="px-4 py-3 text-left">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((log) => (
+                  <tr key={log.id} className="border-t border-slate-100 align-top hover:bg-slate-50/60 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">
+                      {new Date(log.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-slate-800">{formatLabel(log.action)}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatLabel(log.entity_type)}</td>
+                    <td className="px-4 py-3">
+                      {log.user_name ? (
+                        <div>
+                          <p className="text-xs font-medium text-slate-800">{log.user_name}</p>
+                          <p className="text-xs text-slate-400 capitalize">{log.user_role || "unknown"}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500 capitalize">{log.user_role || "unknown"}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 max-w-[500px]">
+                      <FormatAuditDetails log={log} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </main>
-      </div>
-    </div>
+        )}
+      </section>
+    </SettingsPageLayout>
   );
 }

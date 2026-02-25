@@ -12,7 +12,8 @@ import {
   UserPlus,
   BadgeCheck,
   Loader2,
-  Save
+  Save,
+  Phone
 } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/app/lib/api";
@@ -31,6 +32,7 @@ const EditStaffPage = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     role: "waiter", 
   });
@@ -40,6 +42,7 @@ const EditStaffPage = () => {
     { id: "kitchen", label: "Chef" },
     { id: "waiter", label: "Waiter" },
     { id: "cashier", label: "Cashier" },
+    { id: "delivery_rider", label: "Delivery Rider" },
   ];
 
   useEffect(() => {
@@ -50,11 +53,13 @@ const EditStaffPage = () => {
             method: "GET" 
           });
           
+          const email = staffData.Email || "";
           setFormData({
-            name: staffData.name || "",
-            email: staffData.email || "",
+            name: staffData.Name || "",
+            email: email.includes('@internal.nologin') ? "" : email,
+            phone: staffData.Phone || "",
             password: "", 
-            role: staffData.role || "waiter",
+            role: staffData.Role || "waiter",
           });
         } 
       } catch (err) {
@@ -74,7 +79,9 @@ const EditStaffPage = () => {
       await api(`/api/admin/staffDetails/${userId}`, {
         method: "PUT",
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email || undefined,
+          name: formData.name || undefined,
+          phone: formData.phone || undefined,
           password: formData.password,
           role: formData.role,
         }),
@@ -125,7 +132,7 @@ const EditStaffPage = () => {
             
             <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Display Name (UI only)</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Display Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
@@ -134,11 +141,20 @@ const EditStaffPage = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Work Email</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Work Email <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input required type="email" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
-                  placeholder="email@work.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                  <input type="email" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
+                  placeholder="Leave blank to keep current" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="tel" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
+                  placeholder="+91 98765 43210" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
                 </div>
               </div>
 
@@ -186,7 +202,7 @@ const EditStaffPage = () => {
                   <p className="text-sm font-semibold text-indigo-400 uppercase tracking-widest">{formData.role}</p>
                 </div>
                 <div className="pt-4 border-t border-white/5 text-[10px] opacity-30 truncate">
-                  {formData.email || "user@workplace.com"}
+                  {formData.phone || formData.email || "user@workplace.com"}
                 </div>
               </div>
             </div>

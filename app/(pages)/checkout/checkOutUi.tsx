@@ -41,7 +41,20 @@ type CartLine = {
 
 type RecommendationItem = {
   id: string;
+  name?: string;
+  price?: number;
+  image_url?: string;
   reason?: string;
+};
+
+type AvailableCoupon = {
+  id: string;
+  name: string;
+  coupon_code: string;
+  discount_type: "percent" | "flat";
+  discount_value: number;
+  min_order_value?: number;
+  description?: string;
 };
 
 type ThemeConfig = {
@@ -100,6 +113,15 @@ const mergeTheme = (raw?: ThemeConfig | null): ThemeConfig => ({
   },
 });
 
+// Unwraps Go NullStr objects ({ String: "...", Valid: true }) that the backend
+// sends for nullable string fields. Without this, `item.imageUrl` is a truthy
+// object but NOT a valid URL string, so images never render.
+const resolve = (val: any): string => {
+  if (!val) return "";
+  if (typeof val === "object" && "String" in val) return val.String;
+  return String(val);
+};
+
 const CheckoutPage: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -131,6 +153,9 @@ const CheckoutPage: React.FC = () => {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCouponDiscount, setAppliedCouponDiscount] = useState(0);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [couponDrawerOpen, setCouponDrawerOpen] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
   const [myOrderIds, setMyOrderIds] = useState<Set<string>>(new Set());
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
@@ -274,10 +299,11 @@ const CheckoutPage: React.FC = () => {
                       : undefined,
                 offerLabel: i.offerLabel || i.offer_label,
                 variants,
+                // backend sends imageUrl as a NullStr {String,Valid} object — must use resolve()
                 image:
-                  i.image ||
-                  i.imageUrl ||
-                  "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
+                  resolve(i.imageUrl) ||
+                  resolve(i.image) ||
+                  "",
               };
             }) || [];
 
@@ -294,8 +320,14 @@ const CheckoutPage: React.FC = () => {
             ...(recoRes?.popular_with_this || []),
             ...(recoRes?.margin_aware || []),
           ];
-          const unique = Array.from(new Set(recos.map((r) => String(r.id)))).map((id) => ({ id }));
-          setRecommendations(unique.slice(0, 4));
+          // Preserve full recommendation data (id + image_url + name + price) — don't strip to just {id}
+          const seen = new Set<string>();
+          const unique = recos.filter((r) => {
+            if (seen.has(String(r.id))) return false;
+            seen.add(String(r.id));
+            return true;
+          }).slice(0, 4);
+          setRecommendations(unique);
         })
         .finally(() => {
           setIsCartReady(true);
@@ -548,12 +580,12 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  const handleApplyCoupon = async () => {
+  const handleApplyCoupon = async (explicitCode?: string) => {
     if (!currentOrderId) {
       toast.error("No active cart order");
       return;
     }
-    const code = couponCode.trim().toUpperCase();
+    const code = (explicitCode || couponCode).trim().toUpperCase();
     if (!code) {
       toast.error("Enter a coupon code");
       return;
@@ -563,7 +595,7 @@ const CheckoutPage: React.FC = () => {
       const res = await orderService.applyCoupon(currentOrderId, code);
       setAppliedCouponDiscount(Number(res?.discount || 0));
       setCouponCode(code);
-      toast.success("Coupon applied");
+      toast.success("Coupon applied!");
     } catch (e: any) {
       toast.error(e?.message || "Invalid coupon");
     } finally {
@@ -573,132 +605,141 @@ const CheckoutPage: React.FC = () => {
 
   const currentCartHasItems = lines.length > 0;
   const hasPlacedOrders = placedOrders.length > 0;
-  const recommendationItems = recommendations
-    .map((rec) => menuItems.find((m) => m.id === rec.id))
-    .filter(Boolean) as MenuItem[];
+  // Merge reco data with menuItems (reco has image_url/name/price from backend)
+  const recommendationItems = recommendations.map((rec) => {
+    const cached = menuItems.find((m) => m.id === String(rec.id));
+    return {
+      id: String(rec.id),
+      name: cached?.name || rec.name || "Item",
+      price: cached?.price ?? rec.price ?? 0,
+      offerPrice: cached?.offerPrice,
+      image: cached?.image || rec.image_url || "",
+    };
+  }).filter((r) => r.price > 0);
 
   return (
-    <div className="min-h-screen pb-36" style={themedAppStyle}>
+    <div className="min-h-screen pb-40" style={themedAppStyle}>
+      {/* ── Glassy Header ────────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-50 w-full backdrop-blur-md"
-        style={{ background: "color-mix(in srgb, var(--co-surface) 82%, transparent)" }}
+        className="sticky top-0 z-50 w-full border-b"
+        style={{
+          background: "color-mix(in srgb, var(--co-surface) 80%, transparent)",
+          borderColor: "color-mix(in srgb, var(--co-muted) 12%, transparent)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
       >
-        <div className="mx-auto flex max-w-lg items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-lg items-center justify-between px-5 py-3.5">
           <button
             onClick={() => router.back()}
-            className="group flex h-10 w-10 items-center justify-center rounded-full shadow-sm ring-1 transition-all active:scale-90"
-            style={themedSurfaceStyle}
+            className="flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90"
+            style={{ background: "color-mix(in srgb, var(--co-muted) 12%, transparent)" }}
           >
-            <ChevronLeft className="h-5 w-5 group-hover:opacity-80" style={{ color: "var(--co-text)" }} />
+            <ChevronLeft className="h-4 w-4" style={{ color: "var(--co-text)" }} />
           </button>
-          <div className="text-center">
-            <h1 className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: "var(--co-muted)" }}>
-              Checkout
-            </h1>
-            <div className="mt-1 flex items-center justify-center gap-2">
-              <div className="h-6 w-6 rounded-md overflow-hidden border shrink-0" style={themedSurfaceStyle}>
-                {restaurantLogoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={restaurantLogoUrl} alt={`${restaurantName} logo`} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center">
-                    {(restaurantName || "R").trim().slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+
+          <div className="flex items-center gap-2.5">
+            {restaurantLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={restaurantLogoUrl} alt="logo" className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <div className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-black" style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}>
+                {(restaurantName || "R").slice(0, 1).toUpperCase()}
               </div>
-              <p className="font-serif text-xl font-bold" style={{ color: "var(--co-text)" }}>
-                {restaurantName}
-              </p>
+            )}
+            <div>
+              <p className="text-xs font-black leading-none" style={{ color: "var(--co-text)" }}>{restaurantName}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: "var(--co-muted)" }}>Table {tableNumber}</p>
             </div>
           </div>
+
           <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[10px] font-bold shadow-lg"
-            style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+            className="rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest"
+            style={{ background: "color-mix(in srgb, var(--co-accent) 12%, transparent)", color: "var(--co-accent)" }}
           >
-            T-{tableNumber}
+            Checkout
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg px-6 pt-4">
+      <main className="mx-auto max-w-lg px-5 pt-5">
         {!currentCartHasItems && !hasPlacedOrders && !isSyncingAfterPlace ? (
-          <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-            <div className="relative mb-6">
-              <div className="absolute inset-0 animate-ping rounded-full bg-slate-100 opacity-75"></div>
-              <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-xl ring-1 ring-slate-100">
-                <UtensilsCrossed className="h-10 w-10 text-slate-300" />
+          /* ── Empty State ──────────────────────────────────────────── */
+          <div className="flex min-h-[65vh] flex-col items-center justify-center text-center gap-6">
+            <div className="relative">
+              <div className="h-32 w-32 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--co-accent) 8%, transparent)" }}>
+                <UtensilsCrossed className="h-14 w-14" style={{ color: "color-mix(in srgb, var(--co-accent) 40%, transparent)" }} />
               </div>
+              <div className="absolute -bottom-2 -right-2 text-3xl">🍽️</div>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900">Your cart is empty</h2>
-            <p className="mt-2 max-w-[240px] text-sm leading-relaxed text-slate-500">
-              Your table is ready, but your plate is empty. Let's fix that!
-            </p>
+            <div>
+              <h2 className="text-2xl font-black" style={{ color: "var(--co-text)" }}>Your cart is empty</h2>
+              <p className="mt-2 text-sm leading-relaxed max-w-[220px] mx-auto" style={{ color: "var(--co-muted)" }}>
+                Your table is set. Pick something delicious!
+              </p>
+            </div>
             <button
               onClick={() => router.push("/menu")}
-              className="mt-10 flex items-center gap-2 rounded-2xl bg-slate-900 px-10 py-4 text-sm font-bold text-white shadow-2xl transition-all active:scale-95"
+              className="rounded-2xl px-10 py-4 text-sm font-bold shadow-xl transition-all active:scale-95"
+              style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
             >
-              Browse Menu
+              Browse Menu →
             </button>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
+
+            {/* ── Previous Orders ─────────────────────────────────────── */}
             {hasPlacedOrders && (
               <section>
-                <div className="mb-4 flex items-end justify-between px-1">
-                  <h2 className="text-xl font-bold text-slate-900">Previous Orders</h2>
-                </div>
+                <p className="mb-3 text-[10px] font-black uppercase tracking-widest px-1" style={{ color: "var(--co-muted)" }}>
+                  Previous Orders
+                </p>
                 <div className="space-y-3">
                   {placedOrders.map((order) => (
-                    <div key={order.id} className="rounded-3xl border p-4 shadow-sm" style={themedSurfaceStyle}>
+                    <div key={order.id} className="rounded-2xl border overflow-hidden" style={themedSurfaceStyle}>
                       <div
-                        className="mb-3 flex items-center justify-between border-b border-dashed pb-2"
-                        style={{ borderColor: "color-mix(in srgb, var(--co-muted) 25%, transparent)" }}
+                        className="flex items-center justify-between px-4 py-2.5"
+                        style={{ background: "color-mix(in srgb, var(--co-muted) 6%, transparent)", borderBottom: "1px solid color-mix(in srgb, var(--co-muted) 12%, transparent)" }}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                            Order #{order.id.slice(0, 4)}
-                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>#{order.id.slice(0, 6).toUpperCase()}</span>
                           <span
-                            className={`text-[10px] font-bold uppercase tracking-widest ${order.status === "accepted" ? "text-green-500" : ""}`}
-                            style={order.status !== "accepted" ? { color: "var(--co-muted)" } : undefined}
+                            className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
+                            style={{
+                              background: order.status === "accepted" || order.status === "served" ? "rgba(16,185,129,0.12)" : "color-mix(in srgb, var(--co-muted) 10%, transparent)",
+                              color: order.status === "accepted" || order.status === "served" ? "#059669" : "var(--co-muted)",
+                            }}
                           >
                             {order.status}
                           </span>
                         </div>
                         {order.status === "pending" && (
-                          <button
-                            onClick={() => handleCancelOrder(order.id)}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-rose-700"
-                          >
-                            Cancel Order
+                          <button onClick={() => handleCancelOrder(order.id)} className="rounded-lg px-2.5 py-1 text-[10px] font-bold text-rose-600" style={{ background: "rgba(239,68,68,0.08)" }}>
+                            Cancel
                           </button>
                         )}
                       </div>
-                      <div className="space-y-2">
+                      <div className="px-4 py-3 space-y-2">
                         {order.items.map((item, idx) => {
                           const menuItem = menuItems.find((m) => m.id === item.menu_item_id);
                           const variant = menuItem?.variants?.find((v) => v.id === item.variant_id);
                           const variantLabel = variant?.name || variant?.label;
-                          const name = menuItem
-                            ? variantLabel
-                              ? `${menuItem.name} (${variantLabel})`
-                              : menuItem.name
-                            : "Unknown Item";
-
+                          const name = menuItem ? (variantLabel ? `${menuItem.name} · ${variantLabel}` : menuItem.name) : "Unknown Item";
                           return (
-                            <div key={`${order.id}-${idx}`} className="flex justify-between text-sm">
-                              <span className="text-slate-600">
-                                <span className="font-bold text-slate-900">{item.quantity}x</span> {name}
+                            <div key={`${order.id}-${idx}`} className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="flex-none h-5 w-5 rounded text-[10px] font-black flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--co-accent) 10%, transparent)", color: "var(--co-accent)" }}>
+                                  {item.quantity}
+                                </span>
+                                <span className="text-sm truncate" style={{ color: "var(--co-text)" }}>{name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-sm font-bold" style={{ color: "var(--co-text)" }}>₹{item.price * item.quantity}</span>
                                 {order.status === "pending" && (
-                                  <button
-                                    onClick={() => handleCancelOrderItem(order.id, item.menu_item_id, item.variant_id)}
-                                    className="ml-2 text-[10px] font-bold uppercase tracking-widest text-rose-600 hover:underline"
-                                  >
-                                    Cancel 1
-                                  </button>
+                                  <button onClick={() => handleCancelOrderItem(order.id, item.menu_item_id, item.variant_id)} className="text-[10px] font-bold text-rose-500 hover:underline">✕</button>
                                 )}
-                              </span>
-                              <span className="font-bold text-slate-900">₹{item.price * item.quantity}</span>
+                              </div>
                             </div>
                           );
                         })}
@@ -709,64 +750,70 @@ const CheckoutPage: React.FC = () => {
               </section>
             )}
 
+            {/* ── Your Selection ───────────────────────────────────────── */}
             {currentCartHasItems && (
               <section>
-                <div className="mb-4 flex items-end justify-between px-1">
+                <div className="flex items-center justify-between mb-3 px-1">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900">Your Selection</h2>
-                    <p className="text-xs font-medium text-slate-400">{lines.length} items added</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Your Selection</p>
+                    <p className="text-lg font-black" style={{ color: "var(--co-text)" }}>{lines.length} {lines.length === 1 ? "item" : "items"}</p>
                   </div>
                   {!isWaitingConfirmation && (
                     <button
                       onClick={clearCart}
-                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50"
+                      className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold text-rose-500 transition-all active:scale-95"
+                      style={{ background: "rgba(239,68,68,0.08)" }}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      <span>RESET</span>
+                      <Trash2 className="h-3 w-3" /> Clear
                     </button>
                   )}
                 </div>
-
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {lines.map((line) => (
-                    <div key={line.key} className="flex gap-4 rounded-3xl border p-3 shadow-sm transition-all hover:shadow-md" style={themedSurfaceStyle}>
-                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-                        <img
-                          src={line.item.image}
-                          alt={line.item.name}
-                          className="h-full w-full object-cover"
-                        />
+                    <div key={line.key} className="flex gap-3 rounded-2xl p-3 transition-all" style={themedSurfaceStyle}>
+                      <div className="h-[72px] w-[72px] shrink-0 rounded-xl overflow-hidden relative">
+                        {line.item.image ? (
+                          <img
+                            src={line.item.image}
+                            alt={line.item.name}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              const p = e.currentTarget.parentElement;
+                              if (p) {
+                                p.style.background = "linear-gradient(135deg,#667eea,#764ba2)";
+                                p.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:1.5rem'>🍽️</div>";
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-2xl" style={{ background: "linear-gradient(135deg,#667eea,#764ba2)" }}>🍽️</div>
+                        )}
                       </div>
-
-                      <div className="flex flex-1 flex-col justify-between py-0.5">
+                      <div className="flex flex-1 flex-col justify-between min-w-0 py-0.5">
                         <div className="flex items-start justify-between gap-2">
-                          <h3 className="line-clamp-1 text-sm font-bold text-slate-800">
-                            {line.item.name}
-                          </h3>
-                          <span className="text-sm font-black text-slate-900">
-                            ₹{line.lineTotal}
-                          </span>
+                          <p className="text-sm font-bold leading-snug line-clamp-2" style={{ color: "var(--co-text)" }}>{line.item.name}</p>
+                          <p className="text-sm font-black shrink-0" style={{ color: "var(--co-text)" }}>₹{line.lineTotal}</p>
                         </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">
-                            ₹{line.unitPrice} / unit
-                          </span>
-
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-[11px]" style={{ color: "var(--co-muted)" }}>₹{line.unitPrice} each</p>
                           {!isWaitingConfirmation && (
-                            <div className="flex items-center gap-3 rounded-full bg-slate-50 p-1 ring-1 ring-slate-200/50">
+                            <div
+                              className="flex items-center rounded-full overflow-hidden border"
+                              style={{ borderColor: "color-mix(in srgb, var(--co-muted) 18%, transparent)" }}
+                            >
                               <button
                                 onClick={() => decrementItem(line.item.id, line.variantId)}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition-transform active:scale-75"
+                                className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
+                                style={{ color: "var(--co-text)", background: "color-mix(in srgb, var(--co-muted) 8%, transparent)" }}
                               >
                                 <Minus className="h-3 w-3" />
                               </button>
-                              <span className="w-4 text-center text-xs font-bold text-slate-900">
-                                {line.quantity}
-                              </span>
+                              <span className="w-8 text-center text-xs font-black" style={{ color: "var(--co-text)" }}>{line.quantity}</span>
                               <button
                                 onClick={() => addItem(line.item.id, line.variantId, line.unitPrice)}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white shadow-md transition-transform active:scale-75"
+                                className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
+                                style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
                               >
                                 <Plus className="h-3 w-3" />
                               </button>
@@ -780,144 +827,268 @@ const CheckoutPage: React.FC = () => {
               </section>
             )}
 
+            {/* ── AI Recommendations ───────────────────────────────────── */}
             {recommendationItems.length > 0 && (
               <section>
-                <div className="mb-3 px-1">
-                  <h2 className="text-lg font-bold text-slate-900">AI Upsell Suggestions</h2>
-                  <p className="text-xs text-slate-500">Popular pairings and high-value picks</p>
+                <div className="flex items-end justify-between mb-3 px-1">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-accent)" }}>✦ You might also like</p>
+                    <p className="text-base font-black" style={{ color: "var(--co-text)" }}>Pair it perfectly</p>
+                  </div>
+                  <p className="text-[11px]" style={{ color: "var(--co-muted)" }}>{recommendationItems.length} picks</p>
                 </div>
-                <div className="space-y-2">
-                  {recommendationItems.map((item) => (
-                    <div key={`reco-${item.id}`} className="flex items-center justify-between rounded-2xl border p-3" style={themedSurfaceStyle}>
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-12 w-12 overflow-hidden rounded-xl bg-slate-100">
-                          <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                <div className="-mx-5 px-5">
+                  <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+                    {recommendationItems.map((item) => (
+                      <div
+                        key={`reco-${item.id}`}
+                        className="flex-none w-40 rounded-2xl overflow-hidden"
+                        style={{ ...themedSurfaceStyle, border: "1px solid color-mix(in srgb, var(--co-muted) 15%, transparent)" }}
+                      >
+                        <div className="h-28 relative overflow-hidden">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                const t = e.currentTarget;
+                                t.style.display = "none";
+                                const p = t.parentElement;
+                                if (p) {
+                                  p.style.background = "linear-gradient(135deg,#667eea,#764ba2)";
+                                  p.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:2.25rem'>🍽️</div>";
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "linear-gradient(135deg,#667eea,#764ba2)" }}>🍽️</div>
+                          )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-slate-900">{item.name}</p>
-                          <p className="text-xs text-slate-500">₹{item.offerPrice ?? item.price}</p>
+                        <div className="p-3">
+                          <p className="truncate text-xs font-bold" style={{ color: "var(--co-text)" }}>{item.name}</p>
+                          <p className="text-[11px] mt-0.5 font-semibold" style={{ color: "var(--co-muted)" }}>₹{item.offerPrice ?? item.price}</p>
+                          <button
+                            onClick={() => addItem(item.id, "", Number(item.offerPrice ?? item.price))}
+                            className="mt-2.5 w-full rounded-xl py-1.5 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
+                            style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                          >
+                            + Add
+                          </button>
                         </div>
                       </div>
-                      <button
-                        onClick={() => addItem(item.id, "", Number(item.offerPrice ?? item.price))}
-                        className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white"
-                        style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </section>
             )}
 
-            <section className="overflow-hidden rounded-3xl p-6 shadow-sm ring-1" style={themedSurfaceStyle}>
-              <div className="mb-4 flex items-center gap-2">
-                <ReceiptText className="h-4 w-4 text-slate-400" />
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
-                  Bill Summary
-                </h3>
-              </div>
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-200 p-3">
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Coupon Code</p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      placeholder="Enter code"
-                      className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    />
-                    <button
-                      onClick={handleApplyCoupon}
-                      disabled={isApplyingCoupon || !currentOrderId || !currentCartHasItems}
-                      className="h-10 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white disabled:opacity-60"
-                    >
-                      {isApplyingCoupon ? "Applying..." : "Apply"}
-                    </button>
+            {/* ── Coupons & Offers ─────────────────────────────────────── */}
+            <section
+              className="rounded-2xl overflow-hidden"
+              style={{ ...themedSurfaceStyle, border: "1.5px dashed color-mix(in srgb, var(--co-accent) 35%, transparent)" }}
+            >
+              <button
+                type="button"
+                onClick={async () => {
+                  const next = !couponDrawerOpen;
+                  setCouponDrawerOpen(next);
+                  if (next && availableCoupons.length === 0) {
+                    setCouponsLoading(true);
+                    try {
+                      const res = await api<{ offers?: AvailableCoupon[]; coupons?: AvailableCoupon[] }>("/api/customer/offers");
+                      setAvailableCoupons(res?.coupons || []);
+                    } catch { /* silent */ } finally {
+                      setCouponsLoading(false);
+                    }
+                  }
+                }}
+                className="flex w-full items-center justify-between px-4 py-3.5"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🏷️</span>
+                  <div className="text-left">
+                    <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--co-accent)" }}>Coupons &amp; Offers</p>
+                    {couponDiscount > 0 ? (
+                      <p className="text-sm font-bold text-emerald-600">✓ ₹{couponDiscount} saved!</p>
+                    ) : (
+                      <p className="text-sm font-medium" style={{ color: "var(--co-muted)" }}>View available deals</p>
+                    )}
                   </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Subtotal</span>
-                  <span className="font-bold text-slate-700">₹{subtotal}</span>
+                <ChevronRight className={`h-4 w-4 transition-transform duration-300 ${couponDrawerOpen ? "rotate-90" : ""}`} style={{ color: "var(--co-muted)" }} />
+              </button>
+
+              {couponDrawerOpen && (
+                <div className="border-t px-4 pb-4 pt-4 space-y-4" style={{ borderColor: "color-mix(in srgb, var(--co-accent) 20%, transparent)" }}>
+                  {couponsLoading ? (
+                    <div className="flex items-center justify-center py-5 gap-2" style={{ color: "var(--co-muted)" }}>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs font-medium">Finding deals…</span>
+                    </div>
+                  ) : availableCoupons.length > 0 ? (
+                    <div>
+                      <p className="mb-2.5 text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Available Offers</p>
+                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                        {availableCoupons.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setCouponCode(c.coupon_code);
+                              setCouponDrawerOpen(false);
+                              handleApplyCoupon(c.coupon_code);
+                            }}
+                            className="flex-none w-48 text-left rounded-2xl overflow-hidden transition-all active:scale-95"
+                            style={{
+                              border: `2px solid ${couponCode === c.coupon_code ? "var(--co-accent)" : "color-mix(in srgb, var(--co-muted) 18%, transparent)"}`,
+                              background: "var(--co-surface)",
+                            }}
+                          >
+                            <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, var(--co-accent), color-mix(in srgb, var(--co-accent) 60%, #818cf8))" }} />
+                            <div className="p-3.5">
+                              <p className="text-[11px] font-black uppercase tracking-[0.15em]" style={{ color: "var(--co-accent)" }}>{c.coupon_code}</p>
+                              <p className="mt-1.5 text-base font-black" style={{ color: "var(--co-text)" }}>
+                                {c.discount_type === "percent" ? `${c.discount_value}% OFF` : `₹${c.discount_value} OFF`}
+                              </p>
+                              <p className="mt-0.5 text-[10px] leading-snug line-clamp-2" style={{ color: "var(--co-muted)" }}>{c.description || c.name}</p>
+                              {c.min_order_value ? <p className="mt-1 text-[9px] font-semibold" style={{ color: "var(--co-muted)" }}>Min order ₹{c.min_order_value}</p> : null}
+                              <div className="mt-3 rounded-xl py-2 text-center text-[10px] font-black uppercase tracking-wider" style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}>
+                                Tap to Claim
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-center text-xs py-3" style={{ color: "var(--co-muted)" }}>No active offers right now.</p>
+                  )}
+                  <div>
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-wider" style={{ color: "var(--co-muted)" }}>Have a code?</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder="ENTER CODE"
+                        className="h-11 flex-1 rounded-xl border px-4 text-sm font-bold uppercase tracking-widest focus:outline-none focus:ring-2 placeholder:font-normal placeholder:lowercase placeholder:tracking-normal"
+                        style={{
+                          borderColor: "color-mix(in srgb, var(--co-muted) 20%, transparent)",
+                          background: "color-mix(in srgb, var(--co-muted) 5%, transparent)",
+                          color: "var(--co-text)",
+                        }}
+                      />
+                      <button
+                        onClick={() => handleApplyCoupon()}
+                        disabled={isApplyingCoupon || !currentOrderId || !currentCartHasItems}
+                        className="h-11 rounded-xl px-5 text-xs font-black uppercase tracking-wider disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center"
+                        style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                      >
+                        {isApplyingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              )}
+            </section>
+
+            {/* ── Bill Summary ──────────────────────────────────────────── */}
+            <section className="rounded-2xl overflow-hidden p-5" style={themedSurfaceStyle}>
+              <div className="flex items-center gap-2 mb-4">
+                <ReceiptText className="h-4 w-4" style={{ color: "var(--co-muted)" }} />
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Bill Summary</p>
+              </div>
+              <div className="space-y-3">
+                {hasPlacedOrders && previousOrdersTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span style={{ color: "var(--co-muted)" }}>Previous orders</span>
+                    <span className="font-semibold" style={{ color: "var(--co-text)" }}>₹{previousOrdersTotal}</span>
+                  </div>
+                )}
+                {currentCartHasItems && (
+                  <div className="flex justify-between text-sm">
+                    <span style={{ color: "var(--co-muted)" }}>Current cart</span>
+                    <span className="font-semibold" style={{ color: "var(--co-text)" }}>₹{cartSubtotal}</span>
+                  </div>
+                )}
                 {couponDiscount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-emerald-600">Coupon discount</span>
-                    <span className="font-bold text-emerald-700">-₹{couponDiscount}</span>
+                    <span className="text-emerald-600 font-medium">Coupon ({couponCode})</span>
+                    <span className="font-bold text-emerald-600">−₹{couponDiscount}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Taxes (GST 5%)</span>
-                  <span className="font-bold text-slate-700">₹{tax}</span>
-                </div>
-                <div className="border-t border-dashed border-slate-200 pt-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-base font-bold text-slate-900">Payable Amount</span>
-                    <span className="text-xl font-black text-slate-900">₹{grandTotal}</span>
-                  </div>
+                  <span style={{ color: "var(--co-muted)" }}>GST (5%)</span>
+                  <span className="font-semibold" style={{ color: "var(--co-text)" }}>₹{tax}</span>
                 </div>
               </div>
+              <div className="mt-4 pt-4 flex items-center justify-between border-t" style={{ borderColor: "color-mix(in srgb, var(--co-muted) 15%, transparent)", borderStyle: "dashed" }}>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Grand Total</p>
+                  <p className="text-2xl font-black mt-0.5" style={{ color: "var(--co-text)" }}>₹{grandTotal}</p>
+                </div>
+                {couponDiscount > 0 && (
+                  <div className="rounded-xl px-3 py-1.5 text-xs font-black text-emerald-700" style={{ background: "rgba(16,185,129,0.1)" }}>
+                    💰 ₹{couponDiscount} saved
+                  </div>
+                )}
+              </div>
             </section>
+
           </div>
         )}
       </main>
 
+      {/* ── Sticky Bottom Bar ─────────────────────────────────────────── */}
       {(currentCartHasItems || hasPlacedOrders) && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-[60] p-6 pb-8"
-          style={{ background: "linear-gradient(to top, var(--co-surface), color-mix(in srgb, var(--co-surface) 90%, transparent), transparent)" }}
+          className="fixed bottom-0 left-0 right-0 z-[60] px-5 pb-8 pt-4"
+          style={{ background: "linear-gradient(to top, var(--co-bg) 60%, transparent)" }}
         >
-          <div className="mx-auto flex max-w-md items-center gap-4">
-            <div className="hidden flex-col sm:flex">
-              <span className="text-[10px] font-bold uppercase text-slate-400">Grand Total</span>
-              <span className="text-lg font-black text-slate-900">₹{grandTotal}</span>
-            </div>
-
+          <div className="mx-auto max-w-lg">
             {!currentCartHasItems && hasPlacedOrders ? (
-              <div className="flex flex-1 gap-3">
+              <div className="flex gap-3">
                 <button
                   onClick={() => router.push("/menu")}
-                  className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-xl ring-1 transition-all active:scale-95"
-                  style={themedSurfaceStyle}
+                  className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-sm transition-all active:scale-95 border"
+                  style={{ ...themedSurfaceStyle, color: "var(--co-text)" }}
                 >
-                  Add More Items
+                  + Add Items
                 </button>
                 <button
-                  onClick={() => toast.success("Bill Requested!")}
+                  onClick={() => toast.success("Bill requested!")}
                   className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-xl transition-all active:scale-95"
                   style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
                 >
-                  Get Bill
+                  Request Bill
                 </button>
               </div>
             ) : (
               <button
                 onClick={handlePlaceOrder}
                 disabled={isPlacingOrder || isWaitingConfirmation}
-                className={`relative flex h-14 flex-1 items-center justify-center overflow-hidden rounded-2xl font-bold text-white transition-all active:scale-[0.98] ${isWaitingConfirmation ? "bg-amber-500 shadow-amber-200 shadow-lg" : "bg-slate-900 disabled:opacity-80 shadow-2xl"
-                  }`}
-                style={!isWaitingConfirmation ? { background: "var(--co-accent)", color: "var(--co-accent-text)" } : undefined}
+                className="relative flex h-14 w-full items-center justify-between overflow-hidden rounded-2xl px-6 font-bold shadow-2xl transition-all active:scale-[0.98] disabled:opacity-80"
+                style={isWaitingConfirmation ? { background: "#F59E0B", color: "#fff" } : { background: "var(--co-accent)", color: "var(--co-accent-text)" }}
               >
                 {isWaitingConfirmation ? (
-                  <div className="flex items-center gap-3">
+                  <div className="flex w-full items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Waiting for confirmation...</span>
+                    <span>Waiting for confirmation…</span>
                   </div>
                 ) : isPlacingOrder || isSyncingAfterPlace ? (
-                  <div className="flex items-center gap-3">
+                  <div className="flex w-full items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{isSyncingAfterPlace ? "Updating orders..." : "Processing..."}</span>
+                    <span>{isSyncingAfterPlace ? "Updating…" : "Processing…"}</span>
                   </div>
                 ) : (
-                  <div className="flex w-full items-center justify-between px-6">
-                    <div className="flex flex-col items-start sm:hidden">
-                      <span className="text-[8px] uppercase text-white/50">Total</span>
-                      <span className="text-sm">₹{grandTotal}</span>
+                  <>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest opacity-70 leading-none">Total</p>
+                      <p className="text-base font-black leading-tight">₹{grandTotal}</p>
                     </div>
-                    <span className="flex-1 text-center">Place Order</span>
-                    <ChevronRight className="h-5 w-5 opacity-50" />
-                  </div>
+                    <span className="text-sm font-black uppercase tracking-widest">Place Order</span>
+                    <ChevronRight className="h-5 w-5 opacity-60" />
+                  </>
                 )}
               </button>
             )}

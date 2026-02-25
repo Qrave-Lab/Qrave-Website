@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import StaffSidebar from "@/app/components/StaffSidebar";
+import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
 import TableManager from "@/app/components/settings/TableManager";
 import { api } from "@/app/lib/api";
 import type { Table } from "@/app/components/settings/types";
@@ -67,31 +67,19 @@ export default function FloorPlanPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 text-slate-900">
-      <StaffSidebar />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-6xl space-y-4">
-          <button
-            onClick={() => router.push("/staff/settings")}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Settings
-          </button>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-24">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-            </div>
-          ) : (
-            <TableManager
-              tables={tables}
-              onToggle={toggleTable}
-              onRemove={removeTable}
-              onUpdateMeta={updateTableMeta}
-            />
-          )}
+    <SettingsPageLayout title="Floor Plan" description="Manage your tables and seating layout." maxWidth="max-w-6xl">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
         </div>
-      </main>
-    </div>
+      ) : (
+        <TableManager
+          tables={tables}
+          onToggle={toggleTable}
+          onRemove={removeTable}
+          onUpdateMeta={updateTableMeta}
+        />
+      )}
+    </SettingsPageLayout>
   );
 }

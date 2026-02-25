@@ -50,5 +50,5 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  return <>{children}</>;
+  return <div className="admin-ui">{children}</div>;
 }
