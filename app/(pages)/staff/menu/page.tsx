@@ -377,7 +377,7 @@ export default function MenuPage() {
         const form = new FormData();
         form.append("file", file);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 45000);
+        const timeout = setTimeout(() => controller.abort(), 120000);
         let res: any;
         try {
           res = await authFetch(
@@ -421,9 +421,13 @@ export default function MenuPage() {
       return;
     }
 
+    // Optimistically clear the UI right away.
     setEditingItem({ ...editingItem, modelGlb: "", modelUsdz: "" });
     setModelPreviewError("");
-    toast.success("3D model removed. Click Save Changes to persist.");
+    // Fire the DELETE in the background so S3 + DB are cleaned up immediately.
+    authFetch(`/api/admin/menu/item/model?item_id=${editingItem.id}`, { method: "DELETE" })
+      .then(() => toast.success("3D model removed"))
+      .catch(() => toast.error("Failed to remove 3D model from server. Please try saving again."));
   };
 
   const handleDeleteItem = async () => {
