@@ -140,16 +140,23 @@ type KitchenTicketInput = {
   orderId: string;
   tableCode: string;
   placedAt: string;
+  orderNumber?: number | null;
+  dailyOrderNumber?: number | null;
   items: Array<{ name: string; qty: number }>;
 };
 
 export async function printKitchenTicket(input: KitchenTicketInput): Promise<void> {
+  const orderRef = input.dailyOrderNumber
+    ? `#${input.dailyOrderNumber} (today)`
+    : input.orderId.slice(0, 8).toUpperCase();
+
   const body = [
     "QRAVE - KITCHEN TICKET",
     "------------------------------",
-    `Order: ${input.orderId.slice(0, 8).toUpperCase()}`,
-    `Table: ${input.tableCode}`,
-    `Time : ${input.placedAt}`,
+    `Order : ${orderRef}`,
+    ...(input.orderNumber ? [`Seq   : #${input.orderNumber} overall`] : []),
+    `Table : ${input.tableCode}`,
+    `Time  : ${input.placedAt}`,
     "------------------------------",
     ...input.items.map((i) => `${String(i.qty).padStart(2, " ")} x ${i.name}`),
     "------------------------------",
@@ -161,6 +168,7 @@ export async function printKitchenTicket(input: KitchenTicketInput): Promise<voi
 type BillTicketInput = {
   tableCode: string;
   printedAt: string;
+  orderRefs?: Array<{ dailyOrderNumber?: number | null; orderNumber?: number | null }>;
   items: Array<{ name: string; qty: number; amount: number }>;
   total: number;
 };
@@ -173,15 +181,22 @@ export async function printBillTicket(input: BillTicketInput): Promise<void> {
     return `${left}${" ".repeat(pad)}${right}`;
   });
 
+  // Build compact order reference line
+  const orderNums = (input.orderRefs || [])
+    .filter((r) => r.dailyOrderNumber)
+    .map((r) => `#${r.dailyOrderNumber}`)
+    .join(", ");
+
   const body = [
     "QRAVE - CUSTOMER BILL",
     "------------------------------",
-    `Table: ${input.tableCode}`,
-    `Time : ${input.printedAt}`,
+    `Table : ${input.tableCode}`,
+    ...(orderNums ? [`Orders: ${orderNums}`] : []),
+    `Time  : ${input.printedAt}`,
     "------------------------------",
     ...lines,
     "------------------------------",
-    `TOTAL: ${input.total.toFixed(2)}`,
+    `TOTAL : ${input.total.toFixed(2)}`,
     "------------------------------",
     "Thank you!",
   ].join("\n");

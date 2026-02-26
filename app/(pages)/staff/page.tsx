@@ -59,6 +59,8 @@ type PendingOrder = {
   quantity: number;
   orderedAt: Date;
   status: OrderStatus;
+  orderNumber?: number | null;
+  dailyOrderNumber?: number | null;
 };
 
 type ServiceCallType = "waiter" | "water" | "help";
@@ -114,6 +116,8 @@ type ActiveOrder = {
   session_id: string;
   table_id: string;
   table_number: number;
+  order_number?: number | null;
+  daily_order_number?: number | null;
   items: ActiveOrderItem[];
 };
 
@@ -255,6 +259,8 @@ export default function StaffDashboardPage() {
           quantity: item.quantity,
           orderedAt: new Date(order.created_at),
           status: mappedStatus,
+          orderNumber: order.order_number,
+          dailyOrderNumber: order.daily_order_number,
         });
       }
     }
@@ -636,8 +642,10 @@ export default function StaffDashboardPage() {
 
     const tableOrders = activeOrders.filter((o) => o.table_id === table.id);
     const billItems: Array<{ name: string; qty: number; amount: number }> = [];
+    const orderRefs: Array<{ dailyOrderNumber?: number | null; orderNumber?: number | null }> = [];
     let total = 0;
     for (const order of tableOrders) {
+      orderRefs.push({ dailyOrderNumber: order.daily_order_number, orderNumber: order.order_number });
       for (const item of order.items || []) {
         const lineTotal = item.price * item.quantity;
         total += lineTotal;
@@ -655,6 +663,7 @@ export default function StaffDashboardPage() {
       await printBillTicket({
         tableCode: table.tableCode,
         printedAt: new Date().toLocaleString(),
+        orderRefs,
         items: billItems,
         total,
       });
@@ -685,6 +694,8 @@ export default function StaffDashboardPage() {
         orderId,
         tableCode: `T${source.table_number}`,
         placedAt: new Date(source.created_at).toLocaleString(),
+        orderNumber: source.order_number,
+        dailyOrderNumber: source.daily_order_number,
         items: (source.items || []).map((i) => ({
           name: i.variant_label ? `${i.menu_item_name} (${i.variant_label})` : i.menu_item_name,
           qty: i.quantity,
@@ -1375,6 +1386,9 @@ export default function StaffDashboardPage() {
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-700">{order.tableCode}</span>
+                              {order.dailyOrderNumber != null && (
+                                <span className="font-bold text-xs text-orange-600">#{order.dailyOrderNumber}</span>
+                              )}
                               <span className="text-[10px] text-gray-400 font-medium">{getTimeAgo(order.orderedAt)}</span>
                             </div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'cooking' ? 'bg-blue-100 text-blue-700' : delayed ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -1405,7 +1419,7 @@ export default function StaffDashboardPage() {
                                   disabled={Boolean(orderActionPending[order.orderId])}
                                   className="flex-1 bg-rose-50 hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100"
                                 >
-                                  {orderActionPending[order.orderId] ? "Updating..." : "Reject"}
+                                  {orderActionPending[order.orderId] ? "Updating..." : "Cancel"}
                                 </button>
                                 <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-indigo-100 inline-flex items-center gap-1">
                                   <Printer className="w-3.5 h-3.5" /> KOT

@@ -262,7 +262,7 @@ export const orderService = {
   },
 
   finalizeOrder: (orderId: string) => {
-    return api("/api/customer/orders/finalize", {
+    return api<{ order_number?: number; daily_order_number?: number }>("/api/customer/orders/finalize", {
       method: "POST",
       body: JSON.stringify({ order_id: orderId }),
     });

@@ -37,6 +37,8 @@ export type Order = {
   }[];
   status: string;
   createdAt: string;
+  order_number?: number | null;
+  daily_order_number?: number | null;
 };
 
 type CartState = {

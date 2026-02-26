@@ -26,6 +26,8 @@ type ActiveOrder = {
   session_id: string;
   table_id: string;
   table_number: number;
+  order_number?: number | null;
+  daily_order_number?: number | null;
   items: ActiveOrderItem[];
 };
 
@@ -267,7 +269,14 @@ export default function KitchenDisplayPage() {
                 <div className={`mb-3 flex items-center justify-between rounded-lg border px-2.5 py-2 ${tag.headerClass}`}>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-orange-600">Table T{order.table_number}</p>
-                    <p className="mt-1 text-xs text-slate-500">Order #{id.slice(0, 8)}</p>
+                    {order.daily_order_number ? (
+                      <p className="mt-1 text-sm font-black text-slate-800">
+                        Order <span className="text-orange-600">#{order.daily_order_number}</span>
+                        {order.order_number && <span className="text-[10px] font-medium text-slate-400 ml-1">(#{order.order_number} overall)</span>}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-500">Order #{id.slice(0, 8)}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <div className={`rounded-lg px-2 py-1 text-xs font-black ${tag.className}`}>

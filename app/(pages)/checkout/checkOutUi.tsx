@@ -148,6 +148,7 @@ const CheckoutPage: React.FC = () => {
   const [isSyncingAfterPlace, setIsSyncingAfterPlace] = useState(false);
   const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [lastPlacedNums, setLastPlacedNums] = useState<{ orderNumber: number; dailyOrderNumber: number } | null>(null);
   const [isSeparateBill, setIsSeparateBill] = useState(false);
   const [isTableOccupied, setIsTableOccupied] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -509,9 +510,11 @@ const CheckoutPage: React.FC = () => {
 
   const cartSubtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
 
-  const previousOrdersTotal = placedOrders.reduce((acc, order) => {
-    return acc + order.items.reduce((s, i) => s + (i.price * i.quantity), 0);
-  }, 0);
+  const previousOrdersTotal = placedOrders
+    .filter((o) => o.status !== "cancelled")
+    .reduce((acc, order) => {
+      return acc + order.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+    }, 0);
 
   const subtotal = cartSubtotal + previousOrdersTotal;
   const couponDiscount = Math.min(appliedCouponDiscount, cartSubtotal);
@@ -530,8 +533,13 @@ const CheckoutPage: React.FC = () => {
         toast.error("Session expired");
         return;
       }
-      await orderService.finalizeOrder(orderId);
-      toast.success("Order placed!");
+      const finalizeRes = await orderService.finalizeOrder(orderId);
+      const orderNumber = finalizeRes?.order_number ?? null;
+      const dailyOrderNumber = finalizeRes?.daily_order_number ?? null;
+      if (orderNumber && dailyOrderNumber) {
+        setLastPlacedNums({ orderNumber, dailyOrderNumber });
+      }
+      toast.success(dailyOrderNumber ? `Order #${dailyOrderNumber} placed!` : "Order placed!");
 
       const prevIds: string[] = JSON.parse(localStorage.getItem("my_order_ids") || "[]");
       if (!prevIds.includes(orderId)) prevIds.push(orderId);
@@ -692,27 +700,78 @@ const CheckoutPage: React.FC = () => {
             {/* ── Previous Orders ─────────────────────────────────────── */}
             {hasPlacedOrders && (
               <section>
+                {/* success nudge after the most recent placement */}
+                {lastPlacedNums && (
+                  <div
+                    className="mb-3 flex items-center gap-3 rounded-2xl px-4 py-3"
+                    style={{ background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.25)" }}
+                  >
+                    <span className="text-xl">✅</span>
+                    <div>
+                      <p className="text-sm font-black text-emerald-700">
+                        Order&nbsp;
+                        <span className="text-base">#{lastPlacedNums.dailyOrderNumber}</span>
+                        &nbsp;placed!
+                      </p>
+                      <p className="text-[10px] text-emerald-600 mt-0.5">
+                        All-time order #{lastPlacedNums.orderNumber} · Kitchen is on it!
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <p className="mb-3 text-[10px] font-black uppercase tracking-widest px-1" style={{ color: "var(--co-muted)" }}>
                   Previous Orders
                 </p>
                 <div className="space-y-3">
-                  {placedOrders.map((order) => (
-                    <div key={order.id} className="rounded-2xl border overflow-hidden" style={themedSurfaceStyle}>
+                  {placedOrders.map((order) => {
+                    const isCancelled = order.status === "cancelled";
+                    const isCompleted = order.status === "completed" || order.status === "served";
+                    const isAccepted = order.status === "accepted" || order.status === "preparing" || order.status === "ready";
+
+                    const statusBg = isCancelled
+                      ? "rgba(239,68,68,0.10)"
+                      : isAccepted || isCompleted
+                        ? "rgba(16,185,129,0.12)"
+                        : "color-mix(in srgb, var(--co-muted) 10%, transparent)";
+                    const statusColor = isCancelled
+                      ? "#dc2626"
+                      : isAccepted || isCompleted
+                        ? "#059669"
+                        : "var(--co-muted)";
+
+                    return (
+                    <div key={order.id} className="rounded-2xl border overflow-hidden" style={{
+                      ...themedSurfaceStyle,
+                      borderColor: isCancelled ? "rgba(239,68,68,0.25)" : undefined,
+                      opacity: isCancelled ? 0.75 : 1,
+                    }}>
                       <div
                         className="flex items-center justify-between px-4 py-2.5"
                         style={{ background: "color-mix(in srgb, var(--co-muted) 6%, transparent)", borderBottom: "1px solid color-mix(in srgb, var(--co-muted) 12%, transparent)" }}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>#{order.id.slice(0, 6).toUpperCase()}</span>
+                          {/* Daily order number badge */}
+                          {order.daily_order_number ? (
+                            <span
+                              className="rounded-lg px-2 py-0.5 text-xs font-black"
+                              style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                            >
+                              #{order.daily_order_number}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>#{order.id.slice(0, 6).toUpperCase()}</span>
+                          )}
                           <span
                             className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
-                            style={{
-                              background: order.status === "accepted" || order.status === "served" ? "rgba(16,185,129,0.12)" : "color-mix(in srgb, var(--co-muted) 10%, transparent)",
-                              color: order.status === "accepted" || order.status === "served" ? "#059669" : "var(--co-muted)",
-                            }}
+                            style={{ background: statusBg, color: statusColor }}
                           >
-                            {order.status}
+                            {isCancelled ? "Cancelled" : order.status}
                           </span>
+                          {order.order_number && (
+                            <span className="text-[9px] font-semibold" style={{ color: "var(--co-muted)" }}>
+                              #{order.order_number} overall
+                            </span>
+                          )}
                         </div>
                         {order.status === "pending" && (
                           <button onClick={() => handleCancelOrder(order.id)} className="rounded-lg px-2.5 py-1 text-[10px] font-bold text-rose-600" style={{ background: "rgba(239,68,68,0.08)" }}>
@@ -721,13 +780,16 @@ const CheckoutPage: React.FC = () => {
                         )}
                       </div>
                       <div className="px-4 py-3 space-y-2">
+                        {isCancelled && (
+                          <p className="text-[10px] font-semibold text-rose-500 mb-1">This order was cancelled.</p>
+                        )}
                         {order.items.map((item, idx) => {
                           const menuItem = menuItems.find((m) => m.id === item.menu_item_id);
                           const variant = menuItem?.variants?.find((v) => v.id === item.variant_id);
                           const variantLabel = variant?.name || variant?.label;
                           const name = menuItem ? (variantLabel ? `${menuItem.name} · ${variantLabel}` : menuItem.name) : "Unknown Item";
                           return (
-                            <div key={`${order.id}-${idx}`} className="flex items-center justify-between gap-3">
+                            <div key={`${order.id}-${idx}`} className="flex items-center justify-between gap-3" style={{ opacity: isCancelled ? 0.6 : 1 }}>
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="flex-none h-5 w-5 rounded text-[10px] font-black flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--co-accent) 10%, transparent)", color: "var(--co-accent)" }}>
                                   {item.quantity}
@@ -745,7 +807,8 @@ const CheckoutPage: React.FC = () => {
                         })}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             )}

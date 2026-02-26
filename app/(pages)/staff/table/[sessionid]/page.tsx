@@ -68,6 +68,8 @@ type ActiveOrder = {
   session_id: string;
   table_id: string;
   table_number: number;
+  order_number?: number | null;
+  daily_order_number?: number | null;
   items: ActiveOrderItem[];
 };
 
@@ -534,12 +536,16 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                     const config = statusConfig(item.status);
                     const isCancelled = item.status === 'cancelled';
                     const isFirstRow = firstRowByOrder[item.orderId] === item.id;
+                    const orderForItem = orders.find((o) => o.id === item.orderId);
 
                     return (
                       <tr key={item.id} className={`group hover:bg-gray-50/50 transition-colors ${isCancelled ? 'opacity-50 print:hidden' : ''}`}>
                         <td className="py-4 px-4 text-gray-400 font-medium">{index + 1}</td>
                         <td className="py-4 px-4">
                           <span className={`font-semibold text-gray-900 block ${isCancelled ? 'line-through' : ''}`}>{item.name}</span>
+                          {isFirstRow && orderForItem?.daily_order_number != null && (
+                            <span className="text-[10px] text-orange-600 font-bold">Order #{orderForItem.daily_order_number}</span>
+                          )}
                         </td>
                         <td className="py-4 px-4 text-center text-gray-600 font-medium">{item.quantity}</td>
                         <td className="py-4 px-4 text-right text-gray-600">₹{item.rate}</td>
