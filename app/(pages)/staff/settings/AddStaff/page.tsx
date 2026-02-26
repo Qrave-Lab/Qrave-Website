@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, BadgeCheck, Loader2, Phone } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, BadgeCheck, Loader2, Phone, MapPin } from "lucide-react";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
 import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
@@ -15,17 +15,37 @@ const roles = [
   { id: "delivery_rider", label: "Delivery Rider" },
 ];
 
+type BranchInfo = { restaurant_id: string; restaurant: string };
+
 const AddStaffPage = () => {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [ownerBranches, setOwnerBranches] = useState<BranchInfo[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", password: "", role: "waiter" });
 
   useEffect(() => {
     (async () => {
-      try { const data = await api<{ restaurant_id?: string; id?: string }>("/api/admin/me", { method: "GET" }); setRestaurantId(data.restaurant_id || data.id || null); }
-      catch { toast.error("Authentication error"); }
+      try {
+        const data = await api<{ restaurant_id?: string; id?: string; role?: string }>("/api/admin/me", { method: "GET" });
+        const currentId = data.restaurant_id || data.id || null;
+        setRestaurantId(currentId);
+        if ((data.role || "").toLowerCase() === "owner") {
+          try {
+            const branches = await api<BranchInfo[]>("/api/admin/owner/branches", { method: "GET" });
+            const list = branches || [];
+            setOwnerBranches(list);
+            // Default to the currently active branch
+            setSelectedBranchId(currentId || list[0]?.restaurant_id || "");
+          } catch {
+            // single branch or error — ignore
+          }
+        }
+      } catch {
+        toast.error("Authentication error");
+      }
     })();
   }, []);
 
@@ -38,12 +58,13 @@ const AddStaffPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!restaurantId) { toast.error("Connecting to server..."); return; }
+    const targetBranch = ownerBranches.length > 1 ? selectedBranchId : restaurantId;
+    if (!targetBranch) { toast.error("Connecting to server..."); return; }
     const pwError = validatePassword(formData.password);
     if (pwError) { toast.error(pwError); return; }
     setIsSaving(true);
     try {
-      await api(`/api/admin/restaurants/${restaurantId}/staff`, { method: "POST", body: JSON.stringify({ name: formData.name || undefined, email: formData.email || undefined, phone: formData.phone || undefined, password: formData.password, role: formData.role }) });
+      await api(`/api/admin/restaurants/${targetBranch}/staff`, { method: "POST", body: JSON.stringify({ name: formData.name || undefined, email: formData.email || undefined, phone: formData.phone || undefined, password: formData.password, role: formData.role }) });
       toast.success("Staff member created successfully");
       router.push("/staff/settings/team"); router.refresh();
     } catch (err: unknown) {
@@ -93,6 +114,24 @@ const AddStaffPage = () => {
               ))}
             </div>
           </div>
+
+          {/* Branch selector — only visible to owners with 2+ branches */}
+          {ownerBranches.length > 1 && (
+            <div className="space-y-1 pt-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <MapPin className="w-3 h-3" /> Assign to Branch
+              </label>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none"
+              >
+                {ownerBranches.map((b) => (
+                  <option key={b.restaurant_id} value={b.restaurant_id}>{b.restaurant}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-5 flex flex-col gap-6">

@@ -40,21 +40,22 @@ export default function LoginPage() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
-  const resolvePostLoginRoute = useCallback(async (): Promise<string> => {
+  const resolvePostLoginRoute = useCallback(async (): Promise<{ route: string; role: string }> => {
     try {
       const me = await api<{ role?: string }>("/api/admin/me", { method: "GET" });
       const role = (me?.role || "").toLowerCase();
-      if (role === "kitchen") return "/staff/kitchen";
-      if (role === "cashier") return "/staff/cashier";
-      return "/staff";
+      if (role === "kitchen") return { route: "/staff/kitchen", role };
+      if (role === "cashier") return { route: "/staff/cashier", role };
+      return { route: "/staff", role };
     } catch {
-      return "/staff";
+      return { route: "/staff", role: "" };
     }
   }, []);
 
   const routeAfterLogin = useCallback(async () => {
-    const nextRoute = await resolvePostLoginRoute();
-    if (nextRoute !== "/staff") {
+    const { route: nextRoute, role } = await resolvePostLoginRoute();
+    // Non-owners go directly to their route — no branch picker
+    if (nextRoute !== "/staff" || role !== "owner") {
       router.push(nextRoute);
       return;
     }

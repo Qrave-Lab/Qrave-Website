@@ -430,7 +430,7 @@ export default function StaffSidebar() {
         )}
       </div>
 
-      {!isCollapsed && locations.length > 1 && (
+      {!isCollapsed && locations.length > 1 && currentRole.toLowerCase() === "owner" && (
         <div className="px-3 py-2.5 border-b border-gray-100" ref={locationDropdownRef}>
           <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 px-1">Branch</p>
           <div className="relative">
