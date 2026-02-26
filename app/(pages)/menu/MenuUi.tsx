@@ -920,10 +920,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       key={`${arItem.id || arItem.name}-${arModelRenderKey}`}
                       ref={modelViewerRef}
                       src={sanitizeModelUrl(arItem.arModelGlb)}
+                      ios-src={sanitizeModelUrl(arItem.arModelUsdz) || undefined}
                       alt={arItem.name}
                       auto-rotate
                       ar
-                      ar-modes="scene-viewer webxr"
+                      ar-modes="quick-look scene-viewer webxr"
                       ar-scale="fixed"
                       disable-zoom
                       interaction-prompt="none"

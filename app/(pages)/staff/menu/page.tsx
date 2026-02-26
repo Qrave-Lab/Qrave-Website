@@ -393,7 +393,7 @@ export default function MenuPage() {
         setEditingItem({
           ...editingItem,
           modelGlb: res.model_glb || "",
-          modelUsdz: "",
+          modelUsdz: res.model_usdz || "",
         });
         setModelPreviewError("");
         toast.dismiss(uploadToastId);
@@ -1981,10 +1981,11 @@ export default function MenuPage() {
                               <model-viewer
                                 key={editingItem.modelGlb || editingItem.modelUsdz}
                                 src={normalizeAssetUrl(editingItem.modelGlb)}
+                                ios-src={normalizeAssetUrl(editingItem.modelUsdz) || undefined}
                                 alt={editingItem.name || "3D model"}
                                 auto-rotate
                                 ar
-                                ar-modes="scene-viewer webxr"
+                                ar-modes="quick-look scene-viewer webxr"
                                 ar-scale="fixed"
                                 disable-zoom
                                 interaction-prompt="none"
