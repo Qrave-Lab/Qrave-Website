@@ -179,3 +179,18 @@ select option {
   font-weight: 500;
   color: #0f172a;
 }
+
+/* ── Marquee Animation ─────────────────────── */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
