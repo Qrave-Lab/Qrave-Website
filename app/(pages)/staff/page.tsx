@@ -41,6 +41,7 @@ type StaffTable = {
   tableCode: string;
   restaurantName: string;
   isOccupied: boolean;
+  isEnabled?: boolean;
   activeSessionId?: string;
   currentTotal?: number;
   itemsCount?: number;
@@ -293,7 +294,7 @@ export default function StaffDashboardPage() {
       });
     }
 
-    return tablesApi.filter((t) => t.is_enabled).map((t) => {
+    return tablesApi.map((t) => {
       const occ = occupancyByTable.get(t.table_number);
       const meta = totalsByTable.get(t.table_number);
       return {
@@ -305,6 +306,7 @@ export default function StaffDashboardPage() {
         currentTotal: meta?.total,
         itemsCount: meta?.count,
         seatedAt: occ?.seatedAt,
+        isEnabled: t.is_enabled,
       } as StaffTable;
     });
   };
@@ -1038,6 +1040,7 @@ export default function StaffDashboardPage() {
               )}
               {filteredTables.map((table) => {
                 const isFree = !table.isOccupied;
+                const isDisabled = table.isEnabled === false;
                 const seatedMinutes = getMinutesDiff(table.seatedAt);
                 const longSit = table.isOccupied && seatedMinutes > 90;
                 const isBillRequested = table.billStatus === "bill_requested";
@@ -1046,13 +1049,15 @@ export default function StaffDashboardPage() {
                 const activeOrdersForTable = orders.filter((o) => o.tableCode === table.tableCode && (o.status === "pending" || o.status === "cooking")).length;
 
                 let statusBar = "bg-gray-200";
-                if (!isFree && isBillRequested) statusBar = "bg-indigo-400";
+                if (isDisabled) statusBar = "bg-gray-200";
+                else if (!isFree && isBillRequested) statusBar = "bg-indigo-400";
                 else if (!isFree && isPaid) statusBar = "bg-emerald-400";
                 else if (!isFree && longSit) statusBar = "bg-rose-400";
                 else if (!isFree) statusBar = "bg-emerald-500";
 
                 let cardStyle = "bg-white border-gray-200 shadow-sm hover:shadow-md";
-                if (isFree) cardStyle = "bg-gray-50 border-gray-200 border-dashed";
+                if (isDisabled) cardStyle = "bg-gray-50/60 border-gray-200 border-dashed opacity-60";
+                else if (isFree) cardStyle = "bg-gray-50 border-gray-200 border-dashed";
                 else if (isBillRequested) cardStyle = "bg-indigo-50/40 border-indigo-200 shadow-sm";
                 else if (longSit) cardStyle = "bg-rose-50/40 border-rose-200 shadow-sm";
 
@@ -1141,13 +1146,24 @@ export default function StaffDashboardPage() {
                             </div>
                           </div>
                         ) : (
+                          isDisabled ? (
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                              Disabled
+                            </span>
+                          ) : (
                           <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                             Free
                           </span>
+                          )
                         )}
                       </div>
 
-                      {isFree ? (
+                      {isDisabled ? (
+                        <div className="flex flex-col items-center justify-center py-6 opacity-40">
+                          <XCircle className="w-7 h-7 mb-1.5" />
+                          <span className="text-xs font-semibold">Not in use</span>
+                        </div>
+                      ) : isFree ? (
                         <div className="flex flex-col items-center justify-center py-6 opacity-25">
                           <UtensilsCrossed className="w-7 h-7 mb-1.5" />
                           <span className="text-xs font-semibold">Available</span>
