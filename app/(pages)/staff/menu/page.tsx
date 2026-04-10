@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -19,6 +20,11 @@ import {
   Calendar,
   ChefHat,
   Loader2,
+  History,
+  Flame,
+  Clock3,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import StaffSidebar from "@/app/components/StaffSidebar";
@@ -38,6 +44,7 @@ type Allergen =
   | "Shellfish";
 type AllergenConfidence = "contains" | "may_contain" | "trace";
 type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+type SpiceLevel = "none" | "mild" | "medium" | "hot";
 
 const ALLERGEN_LIST: Allergen[] = [
   "Dairy",
@@ -104,8 +111,18 @@ type MenuItem = {
   modelUsdz: string;
   description: string;
   calories: number | null;
+  foodCost: number;
+  estimatedPrepMinutes: number | null;
   isVeg: boolean;
   dietaryManualOverride: boolean;
+  spiceLevel: SpiceLevel;
+  isBestSeller: boolean;
+  isNew: boolean;
+  pairWithItemIds: string[];
+  publishAt: string;
+  unpublishAt: string;
+  scheduledPrice: number | null;
+  scheduledPriceEffectiveAt: string;
   ingredientsStructured: StructuredIngredient[];
   modifierGroups: ModifierGroup[];
   allergens: { type: Allergen; confidence: AllergenConfidence }[];
@@ -118,6 +135,38 @@ type CategoryOption = {
   name: string;
   parent_id?: string | null;
   parent_name?: string | null;
+  sort_order?: number;
+  banner_image_url?: string;
+  available_days?: DayOfWeek[];
+  available_time_start?: string | null;
+  available_time_end?: string | null;
+  active_from?: string | null;
+  active_until?: string | null;
+  is_seasonal?: boolean;
+};
+
+type MenuHealthItem = {
+  id: string;
+  name: string;
+  category_name: string;
+  price: number;
+  food_cost: number;
+  order_count: number;
+  out_of_stock_events: number;
+  missing_image: boolean;
+  missing_model: boolean;
+  missing_category: boolean;
+  missing_allergens: boolean;
+  is_archived: boolean;
+  hidden_but_linked: boolean;
+};
+
+type MenuVersion = {
+  id: string;
+  created_at: string;
+  created_by?: string | null;
+  source: string;
+  snapshot?: Partial<MenuItem>;
 };
 
 type BranchOption = {
@@ -136,6 +185,21 @@ const normalizeAssetUrl = (value: string): string => {
   return raw;
 };
 
+const toDateTimeLocal = (value: string | null | undefined) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+};
+
+const fromDateTimeLocal = (value: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+};
+
 export const authFetch = async (url: string, options: RequestInit = {}) => {
   return await api(url, {
     ...options,
@@ -146,6 +210,7 @@ export const authFetch = async (url: string, options: RequestInit = {}) => {
 };
 
 export default function MenuPage() {
+  const router = useRouter();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [role, setRole] = useState<string>("");
   const [currentRestaurantId, setCurrentRestaurantId] = useState<string>("");
@@ -172,7 +237,7 @@ export default function MenuPage() {
   const [editingSubcategoryName, setEditingSubcategoryName] = useState("");
   const [isRenamingSubcategory, setIsRenamingSubcategory] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState<
-    "general" | "variants" | "assets" | "ingredients" | "modifiers" | "availability"
+    "general" | "variants" | "assets" | "ingredients" | "modifiers" | "availability" | "history"
   >("general");
   const [loading, setLoading] = useState(true);
   const [modelViewerReady, setModelViewerReady] = useState(false);
@@ -183,6 +248,10 @@ export default function MenuPage() {
     onConfirm: () => Promise<void>;
   }>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [healthItems, setHealthItems] = useState<MenuHealthItem[]>([]);
+  const [loadingHealth, setLoadingHealth] = useState(false);
+  const [itemHistory, setItemHistory] = useState<MenuVersion[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
@@ -190,6 +259,7 @@ export default function MenuPage() {
   useEffect(() => {
     refreshMenu();
     refreshCategories();
+    refreshHealth();
     refreshMe();
   }, []);
 
@@ -296,10 +366,39 @@ export default function MenuPage() {
         isOutOfStock: item.isOutOfStock ?? item.is_out_of_stock ?? false,
         isTodaysSpecial: item.isTodaysSpecial ?? item.is_todays_special ?? false,
         isChefSpecial: item.isChefSpecial ?? item.is_chef_special ?? false,
+        isBestSeller: item.isBestSeller ?? item.is_best_seller ?? false,
+        isNew: item.isNew ?? item.is_new ?? false,
+        spiceLevel: (item.spiceLevel ?? item.spice_level ?? "none") as SpiceLevel,
         specialNote:
           typeof item.specialNote === "object"
             ? item.specialNote?.String ?? ""
             : item.specialNote ?? item.special_note ?? "",
+        foodCost:
+          typeof item.foodCost === "number"
+            ? item.foodCost
+            : typeof item.food_cost === "number"
+              ? item.food_cost
+              : 0,
+        estimatedPrepMinutes:
+          typeof item.estimatedPrepMinutes === "number"
+            ? item.estimatedPrepMinutes
+            : typeof item.estimated_prep_minutes === "number"
+              ? item.estimated_prep_minutes
+              : null,
+        pairWithItemIds: Array.isArray(item.pairWithItemIds ?? item.pair_with_item_ids)
+          ? (item.pairWithItemIds ?? item.pair_with_item_ids).map(String)
+          : [],
+        publishAt: toDateTimeLocal(item.publishAt ?? item.publish_at ?? ""),
+        unpublishAt: toDateTimeLocal(item.unpublishAt ?? item.unpublish_at ?? ""),
+        scheduledPrice:
+          typeof item.scheduledPrice === "number"
+            ? item.scheduledPrice
+            : typeof item.scheduled_price === "number"
+              ? item.scheduled_price
+              : null,
+        scheduledPriceEffectiveAt: toDateTimeLocal(
+          item.scheduledPriceEffectiveAt ?? item.scheduled_price_effective_at ?? ""
+        ),
         ingredientsStructured: item.ingredientsStructured || [],
         modifierGroups: item.modifier_groups || item.modifierGroups || [],
       }));
@@ -317,6 +416,33 @@ export default function MenuPage() {
       setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const refreshHealth = async () => {
+    try {
+      setLoadingHealth(true);
+      const data = await authFetch("/api/admin/menu/health");
+      setHealthItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setHealthItems([]);
+    } finally {
+      setLoadingHealth(false);
+    }
+  };
+
+  const refreshHistory = async (itemId: string) => {
+    if (!itemId) return;
+    try {
+      setLoadingHistory(true);
+      const data = await authFetch(`/api/admin/menu/item/history?item_id=${itemId}`);
+      setItemHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setItemHistory([]);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -442,7 +568,7 @@ export default function MenuPage() {
           });
           toast.success("Product deleted");
           setModalMode(null);
-          refreshMenu(true);
+          Promise.all([refreshMenu(true), refreshHealth()]);
         } catch (err: any) {
           toast.error(err?.message || "Delete failed");
         }
@@ -467,7 +593,7 @@ export default function MenuPage() {
       });
     }
     setSelectedItems(new Set());
-    refreshMenu(true);
+    Promise.all([refreshMenu(true), refreshHealth()]);
   };
 
   const handleBulkDelete = async () => {
@@ -491,7 +617,7 @@ export default function MenuPage() {
           }
 
           setSelectedItems(new Set());
-          refreshMenu(true);
+          Promise.all([refreshMenu(true), refreshHealth()]);
 
           if (failed === 0) {
             toast.success(`${ids.length} product(s) deleted`);
@@ -533,7 +659,12 @@ export default function MenuPage() {
     try {
       await authFetch("/api/admin/menu/category", {
         method: "POST",
-        body: JSON.stringify({ name: trimmed, parent_id: parentId }),
+        body: JSON.stringify({
+          name: trimmed,
+          parent_id: parentId,
+          sort_order: getSubcategories(parentId).length,
+          available_days: DAYS,
+        }),
       });
       setNewSubcategoryName("");
       toast.success("Subcategory added");
@@ -600,6 +731,14 @@ export default function MenuPage() {
         body: JSON.stringify({
           category_id: editingSubcategoryId,
           name: trimmed,
+          sort_order: current.sort_order ?? 0,
+          banner_image_url: current.banner_image_url || "",
+          available_days: current.available_days || DAYS,
+          available_time_start: current.available_time_start || "",
+          available_time_end: current.available_time_end || "",
+          active_from: current.active_from || "",
+          active_until: current.active_until || "",
+          is_seasonal: current.is_seasonal || false,
         }),
       });
       toast.success("Subcategory renamed");
@@ -612,6 +751,103 @@ export default function MenuPage() {
     }
   };
 
+  const buildItemPayload = (item: MenuItem, overrides: Partial<MenuItem> = {}) => {
+    const next = { ...item, ...overrides };
+    return {
+      category_id: next.categoryId || undefined,
+      name: next.name,
+      price: next.price,
+      description: next.description || "",
+      calories: next.calories,
+      food_cost: next.foodCost ?? 0,
+      estimated_prep_minutes: next.estimatedPrepMinutes,
+      is_veg: next.isVeg,
+      dietary_manual_override: next.dietaryManualOverride,
+      image_url: next.imageUrl || "",
+      model_glb: next.modelGlb || "",
+      model_usdz: next.modelUsdz || "",
+      available_days: next.availableDays || [],
+      is_archived: next.isArchived,
+      is_out_of_stock: next.isOutOfStock,
+      is_todays_special: next.isTodaysSpecial,
+      is_chef_special: next.isChefSpecial,
+      is_best_seller: next.isBestSeller,
+      is_new: next.isNew,
+      spice_level: next.spiceLevel || "none",
+      pair_with_item_ids: next.pairWithItemIds || [],
+      publish_at: next.publishAt ? fromDateTimeLocal(next.publishAt) : "",
+      unpublish_at: next.unpublishAt ? fromDateTimeLocal(next.unpublishAt) : "",
+      scheduled_price: next.scheduledPrice,
+      scheduled_price_effective_at: next.scheduledPriceEffectiveAt
+        ? fromDateTimeLocal(next.scheduledPriceEffectiveAt)
+        : "",
+      special_note: next.specialNote || "",
+    };
+  };
+
+  const moveCategory = async (category: CategoryOption, direction: -1 | 1) => {
+    const siblings = categories
+      .filter((c) => (c.parent_id || "") === (category.parent_id || ""))
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const index = siblings.findIndex((c) => c.id === category.id);
+    const swapWith = siblings[index + direction];
+    if (!swapWith) return;
+    try {
+      await Promise.all([
+        authFetch("/api/admin/menu/category", {
+          method: "PUT",
+          body: JSON.stringify({
+            category_id: category.id,
+            name: category.name,
+            sort_order: swapWith.sort_order ?? index + direction,
+            banner_image_url: category.banner_image_url || "",
+            available_days: category.available_days || DAYS,
+            available_time_start: category.available_time_start || "",
+            available_time_end: category.available_time_end || "",
+            active_from: category.active_from || "",
+            active_until: category.active_until || "",
+            is_seasonal: category.is_seasonal || false,
+          }),
+        }),
+        authFetch("/api/admin/menu/category", {
+          method: "PUT",
+          body: JSON.stringify({
+            category_id: swapWith.id,
+            name: swapWith.name,
+            sort_order: category.sort_order ?? index,
+            banner_image_url: swapWith.banner_image_url || "",
+            available_days: swapWith.available_days || DAYS,
+            available_time_start: swapWith.available_time_start || "",
+            available_time_end: swapWith.available_time_end || "",
+            active_from: swapWith.active_from || "",
+            active_until: swapWith.active_until || "",
+            is_seasonal: swapWith.is_seasonal || false,
+          }),
+        }),
+      ]);
+      toast.success("Category order updated");
+      refreshCategories();
+    } catch {
+      toast.error("Failed to reorder category");
+    }
+  };
+
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!editingItem?.id) return;
+    try {
+      await authFetch("/api/admin/menu/item/restore", {
+        method: "POST",
+        body: JSON.stringify({ version_id: versionId }),
+      });
+      toast.success("Version restored");
+      await Promise.all([refreshMenu(true), refreshHealth(), refreshHistory(editingItem.id)]);
+      const refreshed = items.find((item) => item.id === editingItem.id);
+      if (refreshed) setEditingItem(refreshed);
+    } catch (err: any) {
+      toast.error(err?.message || "Restore failed");
+    }
+  };
+
   const updateOutOfStock = async (item: MenuItem, isOutOfStock: boolean) => {
     const snapshot = items;
     setItems((prev) =>
@@ -621,24 +857,7 @@ export default function MenuPage() {
     try {
       await authFetch(`/api/admin/menu/item?item_id=${item.id}`, {
         method: "PUT",
-        body: JSON.stringify({
-          category_id: item.categoryId || undefined,
-          name: item.name,
-          price: item.price,
-          description: item.description || "",
-          calories: item.calories,
-          is_veg: item.isVeg,
-          dietary_manual_override: item.dietaryManualOverride,
-          image_url: item.imageUrl || "",
-          model_glb: item.modelGlb || "",
-          model_usdz: item.modelUsdz || "",
-          available_days: item.availableDays || [],
-          is_archived: item.isArchived,
-          is_out_of_stock: isOutOfStock,
-          is_todays_special: item.isTodaysSpecial,
-          is_chef_special: item.isChefSpecial,
-          special_note: item.specialNote || "",
-        }),
+        body: JSON.stringify(buildItemPayload(item, { isOutOfStock })),
       });
     } catch (err) {
       setItems(snapshot);
@@ -660,29 +879,12 @@ export default function MenuPage() {
           if (!item) return Promise.resolve();
           return authFetch(`/api/admin/menu/item?item_id=${id}`, {
             method: "PUT",
-            body: JSON.stringify({
-              category_id: item.categoryId || undefined,
-              name: item.name,
-              price: item.price,
-              description: item.description || "",
-              calories: item.calories,
-              is_veg: item.isVeg,
-              dietary_manual_override: item.dietaryManualOverride,
-              image_url: item.imageUrl || "",
-              model_glb: item.modelGlb || "",
-              model_usdz: item.modelUsdz || "",
-              available_days: item.availableDays || [],
-              is_archived: item.isArchived,
-              is_out_of_stock: isOutOfStock,
-              is_todays_special: item.isTodaysSpecial,
-              is_chef_special: item.isChefSpecial,
-              special_note: item.specialNote || "",
-            }),
+            body: JSON.stringify(buildItemPayload(item, { isOutOfStock })),
           });
         })
       );
       setSelectedItems(new Set());
-      refreshMenu(true);
+      Promise.all([refreshMenu(true), refreshHealth()]);
     } catch (err) {
       setItems(snapshot);
       toast.error("Bulk update failed");
@@ -716,24 +918,7 @@ export default function MenuPage() {
 
       await authFetch(`/api/admin/menu/item?item_id=${itemId}`, {
         method: "PUT",
-        body: JSON.stringify({
-          category_id: categoryId,
-          name: editingItem.name,
-          price: editingItem.price,
-          description: editingItem.description,
-          calories: editingItem.calories,
-          is_veg: editingItem.isVeg,
-          dietary_manual_override: editingItem.dietaryManualOverride,
-          image_url: editingItem.imageUrl,
-          model_glb: editingItem.modelGlb,
-          model_usdz: editingItem.modelUsdz,
-          available_days: editingItem.availableDays,
-          is_archived: editingItem.isArchived,
-          is_out_of_stock: editingItem.isOutOfStock,
-          is_todays_special: editingItem.isTodaysSpecial,
-          is_chef_special: editingItem.isChefSpecial,
-          special_note: editingItem.specialNote || "",
-        }),
+        body: JSON.stringify(buildItemPayload({ ...editingItem, categoryId })),
       });
 
       await authFetch(`/api/admin/menu/item/ingredients?item_id=${itemId}`, {
@@ -801,7 +986,7 @@ export default function MenuPage() {
 
       setModalMode(null);
       toast.success("Edits Saved Successfully");
-      refreshMenu(true);
+      Promise.all([refreshMenu(true), refreshHealth()]);
     } catch (err) {
       console.error(err);
       toast.error("Save failed");
@@ -842,10 +1027,6 @@ export default function MenuPage() {
           typeof res?.estimated_calories === "number"
             ? Number(res.estimated_calories)
             : editingItem.calories,
-        isVeg:
-          typeof res?.is_veg === "boolean"
-            ? Boolean(res.is_veg)
-            : editingItem.isVeg,
         allergens: nextAllergens,
       });
       toast.success("AI suggestions applied");
@@ -869,7 +1050,7 @@ export default function MenuPage() {
             method: "POST",
             body: JSON.stringify({ source_branch_id: sourceBranchId }),
           });
-          await Promise.all([refreshCategories(), refreshMenu(true)]);
+          await Promise.all([refreshCategories(), refreshMenu(true), refreshHealth()]);
           toast.success("Menu copied from selected branch");
         } catch (err: any) {
           toast.error(err?.message || "Failed to copy menu");
@@ -915,7 +1096,7 @@ export default function MenuPage() {
       const syncedCount = Number(res?.synced_branches || 0);
       toast.success(`Menu synced to ${syncedCount} branch${syncedCount === 1 ? "" : "es"}`);
       setShowSyncModal(false);
-      await Promise.all([refreshCategories(), refreshMenu(true)]);
+      await Promise.all([refreshCategories(), refreshMenu(true), refreshHealth()]);
     } catch (err: any) {
       toast.error(err?.message || "Failed to sync menu");
     } finally {
@@ -1036,8 +1217,18 @@ export default function MenuPage() {
                   modelUsdz: "",
                   description: "",
                   calories: null,
+                  foodCost: 0,
+                  estimatedPrepMinutes: null,
                   isVeg: true,
                   dietaryManualOverride: false,
+                  spiceLevel: "none",
+                  isBestSeller: false,
+                  isNew: true,
+                  pairWithItemIds: [],
+                  publishAt: "",
+                  unpublishAt: "",
+                  scheduledPrice: null,
+                  scheduledPriceEffectiveAt: "",
                   ingredientsStructured: [],
                   modifierGroups: [],
                   allergens: [],
@@ -1045,6 +1236,7 @@ export default function MenuPage() {
                   updatedBy: "Staff",
                 });
                 setEditingParentId(defaultParentId);
+                setItemHistory([]);
                 setModalMode("add");
                 setActiveModalTab("general");
               }}
@@ -1118,6 +1310,25 @@ export default function MenuPage() {
                 </div>
               </div>
             )}
+            <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                    Menu Health
+                  </p>
+                  <h2 className="mt-1 text-lg font-black text-slate-900">
+                    View health insights on a dedicated page
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push("/staff/menu/health")}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800"
+                >
+                  Open Menu Health
+                </button>
+              </div>
+            </div>
             <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">
@@ -1307,6 +1518,22 @@ export default function MenuPage() {
                                 </span>
                                 <button
                                   type="button"
+                                  onClick={() => moveCategory(cat, -1)}
+                                  className="h-8 w-8 rounded-lg text-slate-500 hover:bg-white border border-slate-200 flex items-center justify-center"
+                                  title="Move up"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveCategory(cat, 1)}
+                                  className="h-8 w-8 rounded-lg text-slate-500 hover:bg-white border border-slate-200 flex items-center justify-center"
+                                  title="Move down"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => startRenameSubcategory(cat)}
                                   className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
                                 >
@@ -1392,8 +1619,18 @@ export default function MenuPage() {
                         modelUsdz: "",
                         description: "",
                         calories: null,
+                        foodCost: 0,
+                        estimatedPrepMinutes: null,
                         isVeg: true,
                         dietaryManualOverride: false,
+                        spiceLevel: "none",
+                        isBestSeller: false,
+                        isNew: true,
+                        pairWithItemIds: [],
+                        publishAt: "",
+                        unpublishAt: "",
+                        scheduledPrice: null,
+                        scheduledPriceEffectiveAt: "",
                         ingredientsStructured: [],
                         modifierGroups: [],
                         allergens: [],
@@ -1401,6 +1638,7 @@ export default function MenuPage() {
                         updatedBy: "Staff",
                       });
                       setEditingParentId(defaultParentId);
+                      setItemHistory([]);
                       setModalMode("add");
                       setActiveModalTab("general");
                     }}
@@ -1448,6 +1686,7 @@ export default function MenuPage() {
                             const category = categories.find((c) => c.id === item.categoryId);
                             const parentId = category?.parent_id || category?.id || "";
                             setEditingParentId(parentId);
+                            refreshHistory(item.id);
                             setModalMode("edit");
                           }}
                           className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm transition-colors"
@@ -1470,7 +1709,7 @@ export default function MenuPage() {
                           ₹{item.price}
                         </span>
                       </div>
-                      {(item.isTodaysSpecial || item.isChefSpecial) && (
+                      {(item.isTodaysSpecial || item.isChefSpecial || item.isBestSeller || item.isNew || item.spiceLevel !== "none") && (
                         <div className="mb-2 flex flex-wrap gap-1.5">
                           {item.isTodaysSpecial && (
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
@@ -1480,6 +1719,21 @@ export default function MenuPage() {
                           {item.isChefSpecial && (
                             <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-700">
                               Chef
+                            </span>
+                          )}
+                          {item.isBestSeller && (
+                            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-violet-700">
+                              Best Seller
+                            </span>
+                          )}
+                          {item.isNew && (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                              New
+                            </span>
+                          )}
+                          {item.spiceLevel !== "none" && (
+                            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                              {item.spiceLevel}
                             </span>
                           )}
                         </div>
@@ -1503,6 +1757,11 @@ export default function MenuPage() {
                           >
                             {item.isOutOfStock ? "Out of Stock" : "In Stock"}
                           </button>
+                          {item.estimatedPrepMinutes ? (
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {item.estimatedPrepMinutes} min
+                            </span>
+                          ) : null}
                           <div className="flex -space-x-1">
                             {item.allergens.slice(0, 3).map((a) => (
                               <div
@@ -1591,6 +1850,7 @@ export default function MenuPage() {
                   { id: "assets", label: "Media & 3D" },
                   { id: "ingredients", label: "Ingredients" },
                   { id: "availability", label: "Availability" },
+                  { id: "history", label: "Version History" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1692,6 +1952,41 @@ export default function MenuPage() {
                             }
                             className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
                             placeholder="e.g. 320"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Food Cost (₹)
+                          </label>
+                          <input
+                            type="number"
+                            value={editingItem.foodCost ?? 0}
+                            onChange={(e) =>
+                              setEditingItem({
+                                ...editingItem,
+                                foodCost: e.target.value === "" ? 0 : Number(e.target.value),
+                              })
+                            }
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Prep Time (mins)
+                          </label>
+                          <input
+                            type="number"
+                            value={editingItem.estimatedPrepMinutes ?? ""}
+                            onChange={(e) =>
+                              setEditingItem({
+                                ...editingItem,
+                                estimatedPrepMinutes: e.target.value === "" ? null : Number(e.target.value),
+                              })
+                            }
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                            placeholder="e.g. 15"
                           />
                         </div>
 
@@ -1829,6 +2124,69 @@ export default function MenuPage() {
                             className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
                             placeholder="Special note (e.g., Only today, limited quantity)"
                           />
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-indigo-700 mb-3">
+                          Merchandising
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
+                            <input
+                              type="checkbox"
+                              checked={editingItem.isBestSeller}
+                              onChange={(e) => setEditingItem({ ...editingItem, isBestSeller: e.target.checked })}
+                            />
+                            Best Seller
+                          </label>
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
+                            <input
+                              type="checkbox"
+                              checked={editingItem.isNew}
+                              onChange={(e) => setEditingItem({ ...editingItem, isNew: e.target.checked })}
+                            />
+                            New Item
+                          </label>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                              Spice Level
+                            </label>
+                            <select
+                              value={editingItem.spiceLevel}
+                              onChange={(e) => setEditingItem({ ...editingItem, spiceLevel: e.target.value as SpiceLevel })}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold"
+                            >
+                              <option value="none">None</option>
+                              <option value="mild">Mild</option>
+                              <option value="medium">Medium</option>
+                              <option value="hot">Hot</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                              Pair With
+                            </label>
+                            <select
+                              multiple
+                              value={editingItem.pairWithItemIds}
+                              onChange={(e) =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  pairWithItemIds: Array.from(e.target.selectedOptions).map((option) => option.value),
+                                })
+                              }
+                              className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            >
+                              {items.filter((item) => item.id !== editingItem.id).map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2455,6 +2813,57 @@ export default function MenuPage() {
 
                 {activeModalTab === "availability" && (
                   <div className="space-y-8">
+                    <div className="bg-indigo-50/60 p-8 rounded-3xl border border-indigo-100">
+                      <h4 className="text-sm font-black uppercase tracking-widest text-indigo-700 mb-6 flex items-center gap-2">
+                        <Clock3 className="w-4 h-4" /> Scheduled Publishing
+                      </h4>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Publish At
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={editingItem.publishAt}
+                            onChange={(e) => setEditingItem({ ...editingItem, publishAt: e.target.value })}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Unpublish At
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={editingItem.unpublishAt}
+                            onChange={(e) => setEditingItem({ ...editingItem, unpublishAt: e.target.value })}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Scheduled Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            value={editingItem.scheduledPrice ?? ""}
+                            onChange={(e) => setEditingItem({ ...editingItem, scheduledPrice: e.target.value === "" ? null : Number(e.target.value) })}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Price Effective At
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={editingItem.scheduledPriceEffectiveAt}
+                            onChange={(e) => setEditingItem({ ...editingItem, scheduledPriceEffectiveAt: e.target.value })}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
                     <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                       <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
                         <Box className="w-4 h-4" /> Stock Status
@@ -2513,6 +2922,65 @@ export default function MenuPage() {
                           );
                         })}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeModalTab === "history" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-black uppercase tracking-widest text-slate-400">
+                          Saved Versions
+                        </h4>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Restore previous price, availability, scheduling, and merchandising states.
+                        </p>
+                      </div>
+                      {!!editingItem.id && (
+                        <button
+                          type="button"
+                          onClick={() => refreshHistory(editingItem.id)}
+                          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                        >
+                          Refresh
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      {!editingItem.id ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                          Save this product once to start tracking versions.
+                        </div>
+                      ) : loadingHistory ? (
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                          Loading history...
+                        </div>
+                      ) : itemHistory.length === 0 ? (
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                          No saved versions yet.
+                        </div>
+                      ) : (
+                        itemHistory.map((version) => (
+                          <div key={version.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3">
+                            <div>
+                              <div className="text-sm font-semibold text-slate-900">
+                                {new Date(version.created_at).toLocaleString()}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {version.created_by || "System"} • {version.source.replaceAll("_", " ")}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreVersion(version.id)}
+                              className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                            >
+                              Restore
+                            </button>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 )}

@@ -106,7 +106,23 @@ const normalizeItem = (item: any) => {
       typeof item.calories === "number"
         ? item.calories
         : item.kcal || item.nutrition?.calories,
+    estimatedPrepMinutes:
+      typeof item.estimatedPrepMinutes === "number"
+        ? item.estimatedPrepMinutes
+        : typeof item.estimated_prep_minutes === "number"
+          ? item.estimated_prep_minutes
+          : null,
     isVeg: Boolean(item.isVeg ?? item.is_veg ?? true),
+    isBestseller: Boolean(item.isBestSeller ?? item.is_best_seller),
+    isNew: Boolean(item.isNew ?? item.is_new),
+    spiceLevel: resolve(item.spiceLevel || item.spice_level || "none"),
+    isSpicy: resolve(item.spiceLevel || item.spice_level || "none") !== "none",
+    spiceLabel: resolve(item.spiceLevel || item.spice_level || "none"),
+    pairWithItemIds: Array.isArray(item.pairWithItemIds ?? item.pair_with_item_ids)
+      ? (item.pairWithItemIds ?? item.pair_with_item_ids).map(String)
+      : [],
+    publishAt: resolve(item.publishAt || item.publish_at),
+    unpublishAt: resolve(item.unpublishAt || item.unpublish_at),
     allergens: Array.isArray(item.allergens)
       ? item.allergens
         .map((a: any) => String(a?.type || "").trim())
@@ -402,8 +418,23 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
   useEffect(() => {
     const normalized = Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : [];
-    setMenuItems(normalized);
-    setHasArItems(normalized.some((i: any) => Boolean(i.arModelGlb)));
+    const now = Date.now();
+    const visible = normalized.filter((item: any) => {
+      const publishAt = item.publishAt ? new Date(item.publishAt).getTime() : null;
+      const unpublishAt = item.unpublishAt ? new Date(item.unpublishAt).getTime() : null;
+      if (publishAt && publishAt > now) return false;
+      if (unpublishAt && unpublishAt <= now) return false;
+      return true;
+    });
+    const names = new Map(visible.map((item: any) => [String(item.id), item.name]));
+    const enriched = visible.map((item: any) => ({
+      ...item,
+      pairWithNames: Array.isArray(item.pairWithItemIds)
+        ? item.pairWithItemIds.map((id: string) => names.get(String(id))).filter(Boolean)
+        : [],
+    }));
+    setMenuItems(enriched);
+    setHasArItems(enriched.some((i: any) => Boolean(i.arModelGlb)));
   }, [initialMenu]);
 
   useEffect(() => {

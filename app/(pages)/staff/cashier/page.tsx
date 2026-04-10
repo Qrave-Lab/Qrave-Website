@@ -126,9 +126,17 @@ export default function CashierPage() {
   const markPaidAndClose = async (sessionId: string) => {
     setClosingSessionId(sessionId);
     try {
+      await api(`/api/admin/payments/status`, {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionId,
+          status: "paid",
+          payment_mode: "cash",
+          reason: "cashier_close",
+        }),
+      });
       await api(`/api/admin/sessions/${sessionId}/end`, {
         method: "POST",
-        body: JSON.stringify({ mark_paid: true, payment_mode: "cash" }),
       });
       toast.success("Marked paid and closed table");
       await refresh();

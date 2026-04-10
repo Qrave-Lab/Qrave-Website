@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type MouseEvent } from 'react';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 
@@ -8,6 +8,66 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const rafRef = useRef<number>(0);
+  const scrollAnimRef = useRef<number>(0);
+
+  const animateScrollTo = (targetY: number, durationMs = 900) => {
+    const startY = window.scrollY;
+    const distance = targetY - startY;
+    const startTime = performance.now();
+
+    const easeInOutCubic = (t: number) => {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    if (scrollAnimRef.current) {
+      cancelAnimationFrame(scrollAnimRef.current);
+      scrollAnimRef.current = 0;
+    }
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / durationMs, 1);
+      const eased = easeInOutCubic(progress);
+      window.scrollTo(0, Math.round(startY + distance * eased));
+
+      if (progress < 1) {
+        scrollAnimRef.current = requestAnimationFrame(step);
+      } else {
+        scrollAnimRef.current = 0;
+      }
+    };
+
+    scrollAnimRef.current = requestAnimationFrame(step);
+  };
+
+  const scrollToHash = (hash: string) => {
+    const id = hash.replace('#', '').trim();
+    if (!id) return;
+
+    const element = document.getElementById(id);
+    if (!element) return;
+
+    const nav = document.querySelector('[data-landing-nav="true"]') as HTMLElement | null;
+    const navHeight = nav?.offsetHeight ?? 88;
+    const top = element.getBoundingClientRect().top + window.scrollY - navHeight - 18;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reducedMotion) {
+      window.scrollTo({ top, behavior: 'auto' });
+      return;
+    }
+
+    animateScrollTo(top, 950);
+  };
+
+  const handleSectionLinkClick = (e: MouseEvent<HTMLAnchorElement>, hash: string) => {
+    if (window.location.pathname !== '/') return;
+
+    e.preventDefault();
+    setMobileMenuOpen(false);
+    window.history.replaceState(null, '', hash);
+    scrollToHash(hash);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,13 +82,9 @@ const Navbar = () => {
     const handleHashScroll = () => {
       const hash = window.location.hash;
       if (hash) {
-        const id = hash.replace('#', '');
-        const element = document.getElementById(id);
-        if (element) {
-          setTimeout(() => {
-            element.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-        }
+        setTimeout(() => {
+          scrollToHash(hash);
+        }, 80);
       }
     };
 
@@ -40,6 +96,7 @@ const Navbar = () => {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('hashchange', handleHashScroll);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
     };
   }, []);
 
@@ -47,6 +104,7 @@ const Navbar = () => {
 
   return (
     <nav
+      data-landing-nav="true"
       className={`fixed z-50 transition-all duration-300 ease-out will-change-transform left-1/2 -translate-x-1/2 ${isScrolled
         ? 'top-4 w-[95%] max-w-[1100px] rounded-[2rem] border bg-white/95 backdrop-blur-md border-gray-100 shadow-md py-0'
         : 'top-0 w-full max-w-7xl rounded-none border-transparent bg-transparent shadow-none py-2'
@@ -71,6 +129,7 @@ const Navbar = () => {
               <Link
                 href="/#features"
                 className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
+                onClick={(e) => handleSectionLinkClick(e, '#features')}
               >
                 Features
               </Link>
@@ -78,6 +137,7 @@ const Navbar = () => {
               <Link
                 href="/#pricing"
                 className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
+                onClick={(e) => handleSectionLinkClick(e, '#pricing')}
               >
                 Pricing
               </Link>
@@ -85,12 +145,14 @@ const Navbar = () => {
               <Link
                 href="/#about"
                 className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
+                onClick={(e) => handleSectionLinkClick(e, '#about')}
               >
                 About Us
               </Link>
               <Link
                 href="/#demo"
                 className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
+                onClick={(e) => handleSectionLinkClick(e, '#demo')}
               >
                 Contact Us
               </Link>
@@ -125,28 +187,28 @@ const Navbar = () => {
               <Link
                 href="/#features"
                 className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => handleSectionLinkClick(e, '#features')}
               >
                 Features
               </Link>
               <Link
                 href="/#pricing"
                 className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => handleSectionLinkClick(e, '#pricing')}
               >
                 Pricing
               </Link>
               <Link
                 href="/#about"
                 className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => handleSectionLinkClick(e, '#about')}
               >
                 About Us
               </Link>
               <Link
                 href="/#demo"
                 className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => handleSectionLinkClick(e, '#demo')}
               >
                 Contact Us
               </Link>

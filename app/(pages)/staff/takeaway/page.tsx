@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
+import { normalizePaymentMode, paymentStatusLabel } from "@/app/lib/payment-status";
 import toast from "react-hot-toast";
 
 /* ─── Types ────────────────────────────────────────────────────────────── */
@@ -63,8 +64,10 @@ type TakeawayOrderItem = {
 
 type TakeawayOrder = {
     id: string;
-    order_type: "takeout" | "delivery";
+    order_type: "takeout" | "delivery" | "dine_in_reception";
+    table_number?: number;
     status: string;
+    payment_status?: "unpaid" | "partially_paid" | "paid" | "refunded" | "voided";
     customer_name?: string;
     customer_phone?: string;
     delivery_address?: string;
@@ -78,6 +81,26 @@ type TakeawayOrder = {
     created_at: string;
     items: TakeawayOrderItem[];
 };
+
+type PaymentMode = "cash" | "card" | "upi" | "online" | "later";
+
+const RECEPTION_PREFIX = "[RECEPTION_DINEIN]";
+
+const extractReceptionTable = (order: Pick<TakeawayOrder, "order_type" | "notes" | "table_number">): number | null => {
+    if (typeof order.table_number === "number" && Number.isFinite(order.table_number)) return order.table_number;
+    const raw = String(order.notes || "");
+    const m = raw.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : null;
+};
+
+const isReceptionDineInOrder = (order: Pick<TakeawayOrder, "order_type" | "notes">): boolean => {
+    if (order.order_type === "dine_in_reception") return true;
+    const raw = String(order.notes || "");
+    return order.order_type === "takeout" && raw.includes(RECEPTION_PREFIX);
+};
+
 
 const STATUS_META: Record<string, { label: string; color: string; dot: string }> = {
     pending: { label: "Pending", color: "bg-amber-100 text-amber-800 border-amber-200", dot: "bg-amber-500" },
@@ -142,12 +165,13 @@ export default function TakeawayPage() {
     const [taxPercent, setTaxPercent] = useState<number>(0);
 
     // New order form
-    const [orderType, setOrderType] = useState<"takeout" | "delivery">("takeout");
+    const [orderType, setOrderType] = useState<"takeout" | "delivery" | "dine_in_reception">("takeout");
+    const [tableNumber, setTableNumber] = useState("");
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [deliveryAddress, setDeliveryAddress] = useState("");
     const [selectedZone, setSelectedZone] = useState<DeliveryZone | null>(null);
-    const [paymentMode, setPaymentMode] = useState("cash");
+    const [paymentMode, setPaymentMode] = useState<PaymentMode>("later");
     const [notes, setNotes] = useState("");
     const [cart, setCart] = useState<CartItem[]>([]);
 
@@ -231,11 +255,12 @@ export default function TakeawayPage() {
 
     const resetForm = () => {
         setOrderType("takeout");
+        setTableNumber("");
         setCustomerName("");
         setCustomerPhone("");
         setDeliveryAddress("");
         setSelectedZone(null);
-        setPaymentMode("cash");
+        setPaymentMode("later");
         setNotes("");
         setCart([]);
         setSearchMenu("");
@@ -246,33 +271,88 @@ export default function TakeawayPage() {
     const handleSubmit = async () => {
         if (cart.length === 0) { toast.error("Add at least one item"); return; }
         if (orderType === "delivery" && !deliveryAddress.trim()) { toast.error("Delivery address required"); return; }
+        if (orderType === "dine_in_reception") {
+            const tn = Number(tableNumber);
+            if (!Number.isFinite(tn) || tn <= 0) {
+                toast.error("Table number is required for reception dine-in");
+                return;
+            }
+        }
         setIsCreating(true);
         try {
+            const normalizedNotes = notes?.trim() || "";
+            const receptionNote =
+                orderType === "dine_in_reception"
+                    ? `${RECEPTION_PREFIX} T${Number(tableNumber)}${normalizedNotes ? ` ${normalizedNotes}` : ""}`
+                    : normalizedNotes;
+
+            const payload = {
+                order_type: orderType,
+                table_number: orderType === "dine_in_reception" ? Number(tableNumber) : null,
+                customer_name: customerName || null,
+                customer_phone: customerPhone || null,
+                delivery_address: orderType === "delivery" ? deliveryAddress : null,
+                delivery_zone: orderType === "delivery" ? selectedZone?.name ?? null : null,
+                delivery_fee: deliveryFee,
+                payment_mode: normalizePaymentMode(paymentMode),
+                notes: receptionNote || null,
+                items: cart.map(c => ({
+                    menu_item_id: c.menuItemId,
+                    menu_item_name: c.menuItemName,
+                    variant_label: c.variantLabel ?? null,
+                    quantity: c.quantity,
+                    unit_price: c.unitPrice,
+                })),
+            };
+
             await api("/api/admin/takeaway/orders", {
                 method: "POST",
-                body: JSON.stringify({
-                    order_type: orderType,
-                    customer_name: customerName || null,
-                    customer_phone: customerPhone || null,
-                    delivery_address: orderType === "delivery" ? deliveryAddress : null,
-                    delivery_zone: orderType === "delivery" ? selectedZone?.name ?? null : null,
-                    delivery_fee: deliveryFee,
-                    payment_mode: paymentMode,
-                    notes: notes || null,
-                    items: cart.map(c => ({
-                        menu_item_id: c.menuItemId,
-                        menu_item_name: c.menuItemName,
-                        variant_label: c.variantLabel ?? null,
-                        quantity: c.quantity,
-                        unit_price: c.unitPrice,
-                    })),
-                }),
+                body: JSON.stringify(payload),
             });
             toast.success("Order created!");
             resetForm();
             await loadOrders();
         } catch (err: any) {
-            toast.error(err?.message || "Failed to create order");
+            const msg = String(err?.message || "");
+            const needsCompatRetry =
+                orderType === "dine_in_reception" &&
+                msg.includes("order_type must be 'takeout' or 'delivery'");
+
+            if (needsCompatRetry) {
+                try {
+                    const normalizedNotes = notes?.trim() || "";
+                    const compatNote = `${RECEPTION_PREFIX} T${Number(tableNumber)}${normalizedNotes ? ` ${normalizedNotes}` : ""}`;
+                    await api("/api/admin/takeaway/orders", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            order_type: "takeout",
+                            table_number: null,
+                            customer_name: customerName || null,
+                            customer_phone: customerPhone || null,
+                            delivery_address: null,
+                            delivery_zone: null,
+                            delivery_fee: 0,
+                            payment_mode: normalizePaymentMode(paymentMode),
+                            notes: compatNote,
+                            items: cart.map(c => ({
+                                menu_item_id: c.menuItemId,
+                                menu_item_name: c.menuItemName,
+                                variant_label: c.variantLabel ?? null,
+                                quantity: c.quantity,
+                                unit_price: c.unitPrice,
+                            })),
+                        }),
+                    });
+                    toast.success("Order created (compat mode)");
+                    resetForm();
+                    await loadOrders();
+                    return;
+                } catch (retryErr: any) {
+                    toast.error(retryErr?.message || "Failed to create order");
+                }
+            } else {
+                toast.error(err?.message || "Failed to create order");
+            }
         } finally {
             setIsCreating(false);
         }
@@ -381,9 +461,15 @@ export default function TakeawayPage() {
                                                         </span>
                                                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${order.order_type === "delivery"
                                                             ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                                                            : "bg-slate-50 text-slate-600 border-slate-200"
+                                                            : isReceptionDineInOrder(order)
+                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                : "bg-slate-50 text-slate-600 border-slate-200"
                                                             }`}>
-                                                            {order.order_type === "delivery" ? "🛵 Delivery" : "📦 Takeout"}
+                                                            {order.order_type === "delivery"
+                                                                ? "🛵 Delivery"
+                                                                : isReceptionDineInOrder(order)
+                                                                    ? `🍽 Reception Dine-In${extractReceptionTable(order) ? ` · T${extractReceptionTable(order)}` : ""}`
+                                                                    : "📦 Takeout"}
                                                         </span>
                                                     </div>
                                                     <p className="text-[10px] text-slate-400 mt-1.5">
@@ -394,7 +480,7 @@ export default function TakeawayPage() {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-lg font-black text-slate-900">{fmtCur(order.total)}</p>
-                                                    <p className="text-[10px] text-slate-400">{order.payment_mode?.toUpperCase() || "CASH"}</p>
+                                                    <p className="text-[10px] text-slate-400">{paymentStatusLabel(order.payment_status, order.payment_mode)}</p>
                                                 </div>
                                             </div>
 
@@ -507,8 +593,8 @@ export default function TakeawayPage() {
                             {/* Order type */}
                             <div>
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Order Type</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {(["takeout", "delivery"] as const).map(t => (
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(["takeout", "delivery", "dine_in_reception"] as const).map(t => (
                                         <button
                                             key={t}
                                             onClick={() => { setOrderType(t); setSelectedZone(null); }}
@@ -517,12 +603,27 @@ export default function TakeawayPage() {
                                                 : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                                                 }`}
                                         >
-                                            {t === "takeout" ? <Package className="w-4 h-4" /> : <Bike className="w-4 h-4" />}
-                                            {t === "takeout" ? "Takeout" : "Delivery"}
+                                            {t === "takeout" ? <Package className="w-4 h-4" /> : t === "delivery" ? <Bike className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                                            {t === "takeout" ? "Takeout" : t === "delivery" ? "Delivery" : "Reception"}
                                         </button>
                                     ))}
                                 </div>
                             </div>
+
+                            {orderType === "dine_in_reception" && (
+                                <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1.5">Table Number *</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={tableNumber}
+                                        onChange={(e) => setTableNumber(e.target.value)}
+                                        placeholder="e.g. 12"
+                                        className="w-full px-3 py-2.5 text-sm bg-white border border-emerald-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 transition-all"
+                                    />
+                                    <p className="text-[11px] text-emerald-700 font-semibold">Reception-assisted dine-in order. Food will be billed as table service.</p>
+                                </div>
+                            )}
 
                             {/* Customer details */}
                             <div className="grid grid-cols-2 gap-3">
@@ -698,6 +799,7 @@ export default function TakeawayPage() {
                                         onChange={e => setPaymentMode(e.target.value)}
                                         className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-50 focus:border-indigo-400 transition-all"
                                     >
+                                        <option value="later">Mark Later</option>
                                         <option value="cash">Cash</option>
                                         <option value="card">Card</option>
                                         <option value="upi">UPI</option>

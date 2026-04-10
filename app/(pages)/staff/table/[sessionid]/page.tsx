@@ -267,21 +267,19 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     setIsProcessing(true);
     try {
       for (const o of orders) {
-        if (o.status === "completed") continue;
-        if (o.status !== "served") {
+        if (o.status !== "completed" && o.status !== "served") {
           throw new Error("All orders must be served before closing.");
         }
-        const bd = await getBreakdown(o.id);
-        await api("/api/payments/pay", {
-          method: "POST",
-          body: JSON.stringify({
-            order_id: o.id,
-            restaurant_id: restaurantId,
-            amount: bd?.Total,
-            mode: paymentMethod,
-          }),
-        });
       }
+      await api("/api/admin/payments/status", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionid,
+          status: "paid",
+          payment_mode: paymentMethod,
+          reason: "table_checkout",
+        }),
+      });
       await api(`/api/admin/sessions/${sessionid}/end`, { method: "POST" });
       await refreshOrders();
       setIsCheckoutOpen(false);

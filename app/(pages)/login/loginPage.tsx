@@ -15,6 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { api } from "@/app/lib/api";
+import AuthSplitLayout from "@/app/components/auth/AuthSplitLayout";
 
 declare global {
   interface Window {
@@ -38,7 +39,8 @@ export default function LoginPage() {
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  const googleClientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "").trim();
+  const hasValidGoogleClientId = /^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(googleClientId);
 
   const resolvePostLoginRoute = useCallback(async (): Promise<{ route: string; role: string }> => {
     try {
@@ -144,7 +146,7 @@ export default function LoginPage() {
   );
 
   useEffect(() => {
-    if (!googleClientId) return;
+    if (!hasValidGoogleClientId) return;
 
     let cancelled = false;
     const scriptId = "google-identity-services";
@@ -188,7 +190,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [googleClientId, handleGoogleCredential]);
+  }, [googleClientId, handleGoogleCredential, hasValidGoogleClientId]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,189 +234,148 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden relative selection:bg-indigo-100">
-      <motion.div 
-        className="pointer-events-none fixed inset-0 z-0"
-        animate={{
-          background: `radial-gradient(1000px at ${mousePos.x}px ${mousePos.y}px, rgba(79, 70, 229, 0.08), transparent 80%)`
-        }}
-      />
-
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-100/50 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-100/50 rounded-full blur-[120px]" />
-
-      <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
-        <div className="max-w-xl w-full p-12">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="space-y-12"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-2xl shadow-indigo-200">
-                <Sparkles className="w-7 h-7 text-white fill-current" />
+    <>
+      <AuthSplitLayout
+        headingLine1="Your restaurant,"
+        headingHighlight="digitized."
+        description="Manage orders, staff, and customer experiences from one single dashboard."
+        stats={[
+          { value: "1.2k+", label: "Orders Syncing" },
+          { value: "99.9%", label: "Uptime" },
+        ]}
+        left={
+          <div className="w-full max-w-md mx-auto space-y-10">
+          <header className="space-y-3">
+            <button 
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2 text-slate-400 hover:text-[#ECA918] transition-all group mb-10"
+            >
+              <div className="p-2 rounded-full group-hover:bg-[#FFC529]/20 transition-colors">
+                <ArrowLeft size={18} />
               </div>
-              <span className="text-3xl font-bold text-slate-900 tracking-tighter uppercase">Qrave</span>
-            </div>
-            
-            <div className="space-y-6">
-              <h1 className="text-7xl font-bold text-slate-900 leading-[1] tracking-tight">
-                Your restaurant, <br />
-                <span className="text-indigo-600">digitized.</span>
-              </h1>
-              <p className="text-slate-500 text-xl font-medium leading-relaxed max-w-md">
-                Manage orders, staff, and customer experiences from one dashboard.
-              </p>
-            </div>
-
-            <div className="flex gap-6 pt-4">
-              {[
-                { label: "Orders Syncing", val: "1.2k+" },
-                { label: "Uptime", val: "99.9%" }
-              ].map((stat, i) => (
-                <div key={i} className="px-8 py-6 rounded-[32px] bg-white/60 backdrop-blur-md border border-white shadow-sm">
-                  <div className="text-3xl font-bold text-slate-900">{stat.val}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      <div className="w-full lg:w-[700px] relative z-20 flex items-center justify-center p-6 md:p-16">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white rounded-[48px] p-8 md:p-14 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] border border-slate-100 relative"
-        >
-          <div className="space-y-10">
-            <header className="space-y-2">
-              <button 
-                onClick={() => router.push("/")}
-                className="flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all group mb-8"
-              >
-                <div className="p-2 rounded-full group-hover:bg-indigo-50 transition-colors">
-                  <ArrowLeft size={18} />
-                </div>
-                <span className="text-[11px] font-bold uppercase tracking-widest">Home</span>
-              </button>
-              <h2 className="text-5xl font-bold text-slate-900 tracking-tight">Login</h2>
-              <p className="text-slate-500 font-medium text-lg">Enter your details below.</p>
-            </header>
-
-            <form onSubmit={handleLogin} className="space-y-6">
-              {googleClientId && (
-                <div className="space-y-3">
-                  <div ref={googleButtonRef} className="min-h-[44px] flex justify-center" />
-                  {!googleReady && (
-                    <div className="text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Loading Google sign-in...
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3">
-                    <div className="h-px flex-1 bg-slate-100" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">or</span>
-                    <div className="h-px flex-1 bg-slate-100" />
-                  </div>
-                </div>
-              )}
-              {!googleClientId && (
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-bold uppercase tracking-wider text-center">
-                  Google login hidden: set <code className="font-black">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> and restart frontend.
-                </div>
-              )}
-
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
-                  <div className="relative group">
-                    <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                    <input 
-                      type="email" 
-                      required
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if(error) setError(null);
-                      }}
-                      placeholder="name@restaurant.com"
-                      className="w-full pl-16 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-[24px] focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-bold text-slate-900 placeholder:text-slate-300"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center px-1">
-                    <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Password</label>
-                    <button
-                      type="button"
-                      onClick={() => router.push("/forgot-password")}
-                      className="text-[11px] font-bold text-indigo-600 hover:underline uppercase tracking-widest"
-                    >
-                      Forgot?
-                    </button>
-                  </div>
-                  <div className="relative group">
-                    <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                    <input 
-                      type={showPassword ? "text" : "password"}
-                      required
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if(error) setError(null);
-                      }}
-                      placeholder="••••••••"
-                      className="w-full pl-16 pr-16 py-5 bg-slate-50 border-2 border-transparent rounded-[24px] focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-bold text-slate-900 placeholder:text-slate-300"
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-indigo-600"
-                    >
-                      {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
-                    </button>
-                  </div>
-                </div>
+              <span className="text-[11px] font-bold uppercase tracking-widest">Home</span>
+            </button>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-[#FFC529] flex items-center justify-center shadow-lg shadow-[#FFC529]/40 border border-[#ECA918]/20">
+                <Sparkles className="w-5 h-5 text-black fill-current" />
               </div>
+              <span className="text-xl font-bold tracking-tighter uppercase">Qrave</span>
+            </div>
+            <h2 className="text-4xl font-bold tracking-tight">Welcome back</h2>
+            <p className="text-slate-500 font-medium">Log in to manage your restaurant.</p>
+          </header>
 
-              <AnimatePresence mode="wait">
-                {error && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }} 
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 overflow-hidden"
-                  >
-                    <AlertCircle size={18} className="shrink-0" />
-                    <span className="text-[12px] font-bold uppercase tracking-tight">{error}</span>
-                  </motion.div>
+          <form onSubmit={handleLogin} className="space-y-6">
+            {hasValidGoogleClientId && (
+              <div className="space-y-3">
+                <div ref={googleButtonRef} className="min-h-[44px] flex justify-center" />
+                {!googleReady && (
+                  <div className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Loading Google sign-in...
+                  </div>
                 )}
-              </AnimatePresence>
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-100" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">or</span>
+                  <div className="h-px flex-1 bg-slate-100" />
+                </div>
+              </div>
+            )}
+            {!hasValidGoogleClientId && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-bold uppercase tracking-wider text-center">
+                Google login hidden: set <code className="font-black">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>.
+              </div>
+            )}
 
-              <button 
-                type="submit" 
-                disabled={isLoading || isGoogleLoading}
-                className="w-full py-6 rounded-[24px] bg-indigo-600 text-white font-bold text-xs uppercase tracking-[0.3em] shadow-lg hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Login"}
-              </button>
-            </form>
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
+                <div className="relative group">
+                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#ECA918] transition-colors" />
+                  <input 
+                    type="email" 
+                    required
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if(error) setError(null);
+                    }}
+                    placeholder="name@restaurant.com"
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 outline-none transition-all font-bold placeholder:text-slate-300"
+                  />
+                </div>
+              </div>
 
-            <footer className="pt-4 text-center">
-              <span className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em]">New here?</span>
-              <button 
-                onClick={() => router.push("/onboarding")} 
-                className="ml-2 text-indigo-600 font-bold text-[11px] uppercase tracking-[0.2em] hover:underline"
-              >
-                Create Account
-              </button>
-            </footer>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Password</label>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/forgot-password")}
+                    className="text-[11px] font-bold text-[#ECA918] hover:text-[#C58B0E] hover:underline uppercase tracking-widest"
+                  >
+                    Forgot?
+                  </button>
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#ECA918] transition-colors" />
+                  <input 
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if(error) setError(null);
+                    }}
+                    placeholder="••••••••"
+                    className="w-full pl-14 pr-14 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 outline-none transition-all font-bold placeholder:text-slate-300"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#ECA918]"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 overflow-hidden"
+                >
+                  <AlertCircle size={18} className="shrink-0" />
+                  <span className="text-[12px] font-bold uppercase tracking-tight">{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button 
+              type="submit" 
+              disabled={isLoading || isGoogleLoading}
+              className="w-full py-5 rounded-2xl bg-[#FFC529] font-bold text-sm uppercase tracking-widest shadow-[0_4px_20px_rgba(255,197,41,0.3)] hover:shadow-[0_8px_25px_rgba(255,197,41,0.45)] hover:bg-[#ECA918] transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed border border-[#FFC529]/10"
+            >
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Login"}
+            </button>
+          </form>
+
+          <footer className="pt-2 text-center">
+            <span className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em]">New here?</span>
+            <button 
+              onClick={() => router.push("/onboarding")} 
+              className="ml-2 text-[#ECA918] font-bold text-[11px] uppercase tracking-[0.2em] hover:text-[#C58B0E] hover:underline transition-colors"
+            >
+              Create Account
+            </button>
+          </footer>
           </div>
-        </motion.div>
-      </div>
+        }
+      />
 
       <AnimatePresence>
         {showBranchPicker && (
@@ -441,7 +402,7 @@ export default function LoginPage() {
                     onClick={() => setSelectedBranchId(branch.id)}
                     className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all ${
                       selectedBranchId === branch.id
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        ? "border-[#FFC529] bg-[#FFC529]/10 text-[#1F2127]"
                         : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -453,7 +414,7 @@ export default function LoginPage() {
                 <button
                   onClick={handleConfirmBranchSelection}
                   disabled={!selectedBranchId || isSelectingBranch}
-                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  className="rounded-xl bg-[#FFC529] px-6 py-3 text-sm font-bold text-[#1F2127] shadow-[0_4px_15px_rgba(255,197,41,0.2)] hover:bg-[#ECA918] disabled:opacity-60"
                 >
                   {isSelectingBranch ? "Opening..." : "Open Dashboard"}
                 </button>
@@ -470,6 +431,6 @@ export default function LoginPage() {
           -webkit-font-smoothing: antialiased;
         }
       `}</style>
-    </div>
+    </>
   );
 }

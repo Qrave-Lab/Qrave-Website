@@ -603,9 +603,19 @@ export default function StaffDashboardPage() {
     if (!tableToFree.activeSessionId) return;
 
     try {
+      if (markPaid) {
+        await api(`/api/admin/payments/status`, {
+          method: "POST",
+          body: JSON.stringify({
+            session_id: tableToFree.activeSessionId,
+            status: "paid",
+            payment_mode: "cash",
+            reason: "staff_free_table",
+          }),
+        });
+      }
       await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
         method: "POST",
-        body: JSON.stringify(markPaid ? { mark_paid: true, payment_mode: "cash" } : {}),
       });
     } catch (err: any) {
       const status = err?.status;
@@ -675,9 +685,18 @@ export default function StaffDashboardPage() {
       return;
     }
 
+    await api(`/api/admin/payments/status`, {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: table.activeSessionId,
+        status: "paid",
+        payment_mode: "cash",
+        reason: "printed_bill_close",
+      }),
+    });
+
     await api(`/api/admin/sessions/${table.activeSessionId}/end`, {
       method: "POST",
-      body: JSON.stringify({ mark_paid: true, payment_mode: "cash" }),
     });
 
     toast.success("Bill printed and table closed");

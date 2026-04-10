@@ -183,7 +183,11 @@ export async function api<T>(
     const isBillingPath = resolvedPath.startsWith("/api/admin/billing/");
     const isMePath = resolvedPath === "/api/admin/me";
     if (isAdminPath && !isBillingPath && !isMePath) {
-      window.location.href = "/staff/settings/subscription";
+      const isAlreadyOnSubscription =
+        window.location.pathname === "/staff/settings/subscription";
+      if (!isAlreadyOnSubscription) {
+        window.location.href = "/staff/settings/subscription";
+      }
       throw new Error("Subscription required. Please reactivate your plan.");
     }
   }

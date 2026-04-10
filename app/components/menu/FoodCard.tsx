@@ -30,6 +30,10 @@ type MenuItem = {
   isOutOfStock?: boolean;
   isBestseller?: boolean;
   isSpicy?: boolean;
+  isNew?: boolean;
+  spiceLabel?: string;
+  estimatedPrepMinutes?: number | null;
+  pairWithNames?: string[];
   variants?: Variant[];
 };
 
@@ -200,13 +204,16 @@ const FoodCard: React.FC<FoodCardProps> = ({
             </button>
           )}
           {/* Badges */}
-          {(item.isBestseller || item.isSpicy) && (
+          {(item.isBestseller || item.isSpicy || item.isNew) && (
             <div className="absolute bottom-2 left-2 flex gap-1">
               {item.isBestseller && (
                 <span className="text-[9px] font-bold text-amber-700 bg-amber-50/95 px-1.5 py-0.5 rounded-full">{t("bestseller")}</span>
               )}
+              {item.isNew && (
+                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50/95 px-1.5 py-0.5 rounded-full">New</span>
+              )}
               {item.isSpicy && (
-                <span className="text-[9px] font-bold text-red-600 bg-red-50/95 px-1.5 py-0.5 rounded-full">🌶</span>
+                <span className="text-[9px] font-bold text-red-600 bg-red-50/95 px-1.5 py-0.5 rounded-full">{item.spiceLabel || "Spicy"}</span>
               )}
             </div>
           )}
@@ -214,6 +221,20 @@ const FoodCard: React.FC<FoodCardProps> = ({
         <div className="p-3 flex flex-col flex-1">
           <h3 className="font-semibold text-slate-900 text-sm leading-snug line-clamp-2 mb-1">{item.name}</h3>
           <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2 flex-1 mb-2">{item.description}</p>
+          {(item.estimatedPrepMinutes || item.pairWithNames?.length) && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {item.estimatedPrepMinutes ? (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600">
+                  {item.estimatedPrepMinutes} min
+                </span>
+              ) : null}
+              {item.pairWithNames?.slice(0, 2).map((name) => (
+                <span key={name} className="rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-700">
+                  Pairs with {name}
+                </span>
+              ))}
+            </div>
+          )}
           {visibleVariants.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
               {visibleVariants.map((v) => (
@@ -282,11 +303,21 @@ const FoodCard: React.FC<FoodCardProps> = ({
                       {t("bestseller")}
                     </span>
                   )}
-                  {item.isSpicy && (
-                    <span className="text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      🌶 {t("spicy")}
+                  {item.isNew && (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      New
                     </span>
                   )}
+                  {item.isSpicy && (
+                    <span className="text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      🌶 {item.spiceLabel || t("spicy")}
+                    </span>
+                  )}
+                  {item.estimatedPrepMinutes ? (
+                    <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {item.estimatedPrepMinutes} min
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <div className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border shrink-0 ${ratingStyles.container}`}>
@@ -306,6 +337,11 @@ const FoodCard: React.FC<FoodCardProps> = ({
                   Allergens: {item.allergens.slice(0, 3).join(", ")}
                 </span>
               ) : null}
+              {item.pairWithNames?.slice(0, 2).map((name) => (
+                <span key={name} className="text-[10px] font-semibold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">
+                  Pairs with {name}
+                </span>
+              ))}
             </div>
             {visibleVariants.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">

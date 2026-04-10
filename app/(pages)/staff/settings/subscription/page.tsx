@@ -8,6 +8,8 @@ import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
 declare global { interface Window { Razorpay?: any } }
 
+const BILLING_UPDATED_EVENT = "qrave:billing-updated";
+
 type BillingStatus = {
   provider?: string; plan?: string; status?: string; trial_ends_at?: string | null;
   grace_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null;
@@ -27,11 +29,15 @@ export default function SubscriptionSettingsPage() {
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const refresh = async () => {
+  const refresh = async (): Promise<BillingStatus | null> => {
     try {
       const [data, me] = await Promise.all([api<BillingStatus>("/api/admin/billing/status", { method: "GET" }), api<{ role?: string }>("/api/admin/me", { method: "GET" })]);
       setBilling(data); setRole(String(me?.role || "")); setSelectedPlan(data?.plan === "yearly_5500" ? "yearly_5500" : "monthly_499");
-    } catch { setStatusMessage({ type: "error", text: "Failed to load subscription details." }); } finally { setLoading(false); }
+      return data || null;
+    } catch {
+      setStatusMessage({ type: "error", text: "Failed to load subscription details." });
+      return null;
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { (async () => { try { await api("/api/admin/billing/sync", { method: "POST", suppressErrorLog: true }); } catch { } await refresh(); })(); }, []);
@@ -40,16 +46,25 @@ export default function SubscriptionSettingsPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("payment") !== "success") return;
     (async () => {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 20; i++) {
         try {
-          await api("/api/admin/billing/sync", { method: "POST", suppressErrorLog: true }); await refresh();
-          setStatusMessage({ type: "success", text: "Payment successful. Subscription updated." });
-          params.delete("payment");
-          window.history.replaceState({}, "", `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`);
-          return;
-        } catch { await new Promise(r => setTimeout(r, 1000)); }
+          await api("/api/admin/billing/sync", { method: "POST", suppressErrorLog: true }).catch(() => {});
+          const latest = await refresh();
+          const raw = String(latest?.status || "").toLowerCase();
+          const hasPaidCycle = Boolean(latest?.last_payment_at) || Boolean(latest?.current_period_end);
+          if (raw === "active" || hasPaidCycle) {
+            setStatusMessage({ type: "success", text: "Payment successful. Subscription updated." });
+            window.dispatchEvent(new Event(BILLING_UPDATED_EVENT));
+            params.delete("payment");
+            window.history.replaceState({}, "", `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`);
+            return;
+          }
+        } catch {
+          // Keep retrying while payment/webhook finalization catches up.
+        }
+        await new Promise(r => setTimeout(r, 1500));
       }
-      setStatusMessage({ type: "error", text: "Payment completed, but status sync is delayed. Refresh in a few seconds." });
+      setStatusMessage({ type: "error", text: "Payment completed, but backend confirmation is still processing. Please wait 20-30 seconds and refresh." });
     })();
   }, []);
 
@@ -109,7 +124,7 @@ export default function SubscriptionSettingsPage() {
       if (res?.subscription_id) {
         const loaded = await loadRazorpay();
         if (!loaded) { if (res?.short_url) { window.location.assign(res.short_url); return; } setStatusMessage({ type: "error", text: "Payment gateway failed to load." }); return; }
-        const rzp = new window.Razorpay({ key: res.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_SIQgCgfhNqKSFT", subscription_id: res.subscription_id, name: "Qrave", description: "Reactivate subscription", redirect: true, callback_url: `${window.location.origin}/staff/settings/subscription?payment=success`, handler: async function () { await syncBilling(); await refresh(); setStatusMessage({ type: "success", text: "Subscription reactivated successfully." }); }, theme: { color: "#4f46e5" } });
+        const rzp = new window.Razorpay({ key: res.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_SIQgCgfhNqKSFT", subscription_id: res.subscription_id, name: "Qrave", description: "Reactivate subscription", redirect: true, callback_url: `${window.location.origin}/staff/settings/subscription?payment=success`, handler: async function () { await syncBilling(); await refresh(); window.dispatchEvent(new Event(BILLING_UPDATED_EVENT)); setStatusMessage({ type: "success", text: "Subscription reactivated successfully." }); }, theme: { color: "#4f46e5" } });
         rzp.on("payment.failed", (r: any) => setStatusMessage({ type: "error", text: r?.error?.description || "Payment failed." }));
         try { rzp.open(); } catch { if (res?.short_url) { window.location.assign(res.short_url); return; } setStatusMessage({ type: "error", text: "Unable to open payment gateway." }); }
         return;
@@ -140,10 +155,23 @@ export default function SubscriptionSettingsPage() {
               <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">{isInactive ? "Subscription required" : "Manage billing"}</p>
               <p className="text-xs font-semibold text-slate-500 mt-1">{isInactive ? "Choose a plan and authorize autopay to unlock all features again." : "Cancel anytime. If payment fails without cancellation, a 3-day grace period is applied."}</p>
             </div>
-            {role === "owner" && billing?.status !== "canceled" && billing?.status !== "expired" && (
-              <button type="button" onClick={handleCancel} disabled={canceling} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 text-xs font-bold disabled:opacity-60">
-                {canceling ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Cancel Subscription
-              </button>
+            {role === "owner" && (
+              <div className="flex w-full sm:w-auto items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleReactivate}
+                  disabled={reactivating}
+                  className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold disabled:opacity-60"
+                >
+                  {reactivating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {isInactive ? "Pay & Reactivate" : "Pay Now"}
+                </button>
+                {billing?.status !== "canceled" && billing?.status !== "expired" && (
+                  <button type="button" onClick={handleCancel} disabled={canceling} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 text-xs font-bold disabled:opacity-60">
+                    {canceling ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Cancel Subscription
+                  </button>
+                )}
+              </div>
             )}
           </div>
           {isInactive && (

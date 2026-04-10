@@ -72,6 +72,7 @@ const sidebarItems: SidebarSection[] = [
 const ME_CACHE_KEY = "staff_sidebar_me_cache_v1";
 const LOCATION_CACHE_KEY = "staff_sidebar_locations_cache_v1";
 const PROFILE_UPDATED_EVENT = "qrave:profile-updated";
+const BILLING_UPDATED_EVENT = "qrave:billing-updated";
 
 function hasFeatureAccess(role: string, roleAccess: RoleAccessConfig | null, feature: string): boolean {
   const r = String(role || "").toLowerCase();
@@ -282,8 +283,13 @@ export default function StaffSidebar() {
       }
     };
     fetchBilling();
+    const onBillingUpdated = () => {
+      fetchBilling();
+    };
+    window.addEventListener(BILLING_UPDATED_EVENT, onBillingUpdated);
     return () => {
       isActive = false;
+      window.removeEventListener(BILLING_UPDATED_EVENT, onBillingUpdated);
     };
   }, []);
 
