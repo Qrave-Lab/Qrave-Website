@@ -796,7 +796,7 @@ export default function TakeawayPage() {
                                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Payment Mode</label>
                                     <select
                                         value={paymentMode}
-                                        onChange={e => setPaymentMode(e.target.value)}
+                                        onChange={e => setPaymentMode(e.target.value as PaymentMode)}
                                         className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-50 focus:border-indigo-400 transition-all"
                                     >
                                         <option value="later">Mark Later</option>
