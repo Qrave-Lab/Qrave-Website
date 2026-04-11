@@ -19,6 +19,7 @@ const getSectionLabel = (pathname: string) => {
   if (pathname.startsWith("/login")) return "Login";
   if (pathname.startsWith("/onboarding")) return "Sign In";
   if (pathname.startsWith("/forgot-password")) return "Sign In";
+  if (pathname.startsWith("/staff/menu/health")) return "Insights";
   if (pathname.startsWith("/staff/menu")) return "Menu";
   if (pathname.startsWith("/staff/analytics")) return "Analytics";
   if (pathname.startsWith("/staff/settings/qr-codes")) return "Settings";

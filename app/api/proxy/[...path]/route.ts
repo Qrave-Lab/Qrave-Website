@@ -13,6 +13,12 @@ function resolveBackendBase(request: NextRequest): string {
   return `http://${hostname}:9090`;
 }
 
+function resolveLocalBackendBase(request: NextRequest): string {
+  const host = request.headers.get("host") || "localhost:3000";
+  const hostname = host.split(":")[0] || "localhost";
+  return `http://${hostname}:9090`;
+}
+
 async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
   const backendBase = resolveBackendBase(request);
@@ -38,7 +44,19 @@ async function proxy(request: NextRequest, ctx: { params: Promise<{ path: string
       cache: "no-store",
     };
 
-    const upstream = await fetch(target, init);
+    let upstream = await fetch(target, init);
+
+    // In development, configured NEXT_PUBLIC_API_URL may point to a stale remote backend.
+    // Retry against local :9090 when upstream responds 404 so local feature routes still work.
+    if (
+      upstream.status === 404 &&
+      process.env.NODE_ENV !== "production" &&
+      process.env.NEXT_PUBLIC_API_URL
+    ) {
+      const localBase = resolveLocalBackendBase(request);
+      const localTarget = `${localBase}/${joinedPath}${request.nextUrl.search}`;
+      upstream = await fetch(localTarget, init);
+    }
 
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, key) => {

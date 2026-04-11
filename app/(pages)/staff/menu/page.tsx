@@ -1310,25 +1310,6 @@ export default function MenuPage() {
                 </div>
               </div>
             )}
-            <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                    Menu Health
-                  </p>
-                  <h2 className="mt-1 text-lg font-black text-slate-900">
-                    View health insights on a dedicated page
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => router.push("/staff/menu/health")}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800"
-                >
-                  Open Menu Health
-                </button>
-              </div>
-            </div>
             <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">

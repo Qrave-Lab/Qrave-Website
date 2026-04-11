@@ -3,6 +3,23 @@ const API_BASE =
     ? "/api/proxy"
     : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:9090");
 
+function shouldRetryViaLocalBackend(path: string, status: number, message: string): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  const isLocalHost = host === "localhost" || host === "127.0.0.1";
+  if (!isLocalHost) return false;
+  if (status !== 404) return false;
+  const msg = (message || "").toLowerCase();
+  if (!msg.includes("404 page not found")) return false;
+  return path.startsWith("/api/") || path.startsWith("/auth/");
+}
+
+function localBackendBase(): string {
+  if (typeof window === "undefined") return "http://localhost:9090";
+  const host = window.location.hostname || "localhost";
+  return `http://${host}:9090`;
+}
+
 const PUBLIC_ROUTES = [
   "/auth/login",
   "/auth/signup",
@@ -105,7 +122,8 @@ function autoBust(path: string) {
 export async function api<T>(
   path: string,
   options: (RequestInit & { skipAuthRedirect?: boolean; suppressErrorLog?: boolean; noCache?: boolean }) = {},
-  didRetry = false
+  didRetry = false,
+  forcedBase?: string
 ): Promise<T> {
   const { skipAuthRedirect = false, suppressErrorLog = false, noCache = false, ...requestOptions } = options;
   let resolvedPath = path;
@@ -153,7 +171,8 @@ export async function api<T>(
   let res: Response;
 
   try {
-    res = await fetch(`${API_BASE}${resolvedPath}`, {
+    const base = forcedBase || API_BASE;
+    res = await fetch(`${base}${resolvedPath}`, {
       ...requestOptions,
       headers: new Headers(headerInit),
       credentials: "include",
@@ -203,6 +222,10 @@ export async function api<T>(
 
     if (!message) {
       message = res.statusText?.trim() || `Request failed (${res.status})`;
+    }
+
+    if (!forcedBase && shouldRetryViaLocalBackend(resolvedPath, res.status, message)) {
+      return api<T>(path, options, didRetry, localBackendBase());
     }
 
     const isKnownError =

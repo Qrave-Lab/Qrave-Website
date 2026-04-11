@@ -120,6 +120,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [role, setRole] = useState<string>("");
+  const [roleAccess, setRoleAccess] = useState<Record<string, Record<string, boolean>> | null>(null);
   const [currency, setCurrency] = useState<string>("INR");
   const [locations, setLocations] = useState<LocationOption[]>([]);
   const [locationLabels, setLocationLabels] = useState<Record<string, string>>({});
@@ -156,6 +157,7 @@ export default function SettingsPage() {
         }
 
         setRole(nextRole);
+        setRoleAccess(roleAccess || null);
         setCurrency(String(adminData.currency || "INR"));
         setLocations(locRes?.locations || []);
         setLocationLabels(byId);
@@ -196,17 +198,24 @@ export default function SettingsPage() {
   const addBranchLocked = role === "owner" && !isPremiumPlan && branchCount >= 1;
 
   const isOwnerOrManager = role === "owner" || role === "manager";
+  const canAccess = (feature: string, fallback: boolean) => {
+    if (role === "owner") return true;
+    if (!role || !roleAccess) return fallback;
+    const allowed = roleAccess?.[role]?.[feature];
+    if (typeof allowed === "boolean") return allowed;
+    return fallback;
+  };
 
   const cards: NavCard[] = [
-    { title: "Restaurant Profile", subtitle: "Brand details, logo, hours, phone, taxes", href: "/staff/settings/profile", icon: Store, show: isOwnerOrManager },
-    { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt, show: isOwnerOrManager },
-    { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users, show: isOwnerOrManager },
-    { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer, show: isOwnerOrManager },
-    { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette, show: isOwnerOrManager },
-    { title: "Offers & Coupons", subtitle: "Create deals, promo codes, and item discounts", href: "/staff/settings/offers", icon: TicketPercent, show: isOwnerOrManager },
-    { title: "Delivery Zones", subtitle: "Configure delivery areas and fees by distance", href: "/staff/settings/delivery-zones", icon: Bike, show: isOwnerOrManager },
-    { title: "Kitchen Capacity", subtitle: "Auto-throttle, ETA, and category load limits", href: "/staff/settings/kitchen", icon: ChefHat, show: isOwnerOrManager },
-    { title: "Audit Logs", subtitle: "Track critical actions across staff and system", href: "/staff/settings/audit", icon: ClipboardList, show: isOwnerOrManager },
+    { title: "Restaurant Profile", subtitle: "Brand details, logo, hours, phone, taxes", href: "/staff/settings/profile", icon: Store, show: canAccess("profile", isOwnerOrManager) },
+    { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt, show: canAccess("floor_plan", isOwnerOrManager) },
+    { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users, show: canAccess("team", isOwnerOrManager) },
+    { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer, show: canAccess("devices", isOwnerOrManager) },
+    { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette, show: canAccess("theme", isOwnerOrManager) },
+    { title: "Offers & Coupons", subtitle: "Create deals, promo codes, and item discounts", href: "/staff/settings/offers", icon: TicketPercent, show: canAccess("offers", isOwnerOrManager) },
+    { title: "Delivery Zones", subtitle: "Configure delivery areas and fees by distance", href: "/staff/settings/delivery-zones", icon: Bike, show: canAccess("delivery", isOwnerOrManager) },
+    { title: "Kitchen Capacity", subtitle: "Auto-throttle, ETA, and category load limits", href: "/staff/settings/kitchen", icon: ChefHat, show: canAccess("kitchen_capacity", isOwnerOrManager) },
+    { title: "Audit Logs", subtitle: "Track critical actions across staff and system", href: "/staff/settings/audit", icon: ClipboardList, show: canAccess("audit", isOwnerOrManager) },
     {
       title: "Add New Branch",
       subtitle: "Create another branch/location",
@@ -219,7 +228,7 @@ export default function SettingsPage() {
     { title: "Role Access Control", subtitle: "Set feature access per staff role", href: "/staff/settings/access-control", icon: Users, show: role === "owner" },
     { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
     { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
-    { title: "Feedback & Issues", subtitle: "Report bugs, request features, or share thoughts about Qrave", href: "/staff/settings/feedback", icon: MessageSquare, show: true },
+    { title: "Feedback & Issues", subtitle: "Report bugs, request features, or share thoughts about Qrave", href: "/staff/settings/feedback", icon: MessageSquare, show: canAccess("feedback", true) },
   ];
 
   return (

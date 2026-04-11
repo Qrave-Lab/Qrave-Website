@@ -7,7 +7,23 @@ import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
 import { api } from "@/app/lib/api";
 
 type RoleKey = "manager" | "kitchen" | "waiter" | "cashier";
-type FeatureKey = "floor" | "menu" | "analytics" | "settings";
+type FeatureKey =
+  | "floor"
+  | "menu"
+  | "takeaway"
+  | "analytics"
+  | "insights"
+  | "settings"
+  | "profile"
+  | "floor_plan"
+  | "team"
+  | "devices"
+  | "theme"
+  | "offers"
+  | "delivery"
+  | "kitchen_capacity"
+  | "audit"
+  | "feedback";
 type RoleAccess = Record<RoleKey, Record<FeatureKey, boolean>>;
 
 const ROLES: { key: RoleKey; label: string }[] = [
@@ -16,14 +32,95 @@ const ROLES: { key: RoleKey; label: string }[] = [
 ];
 const FEATURES: { key: FeatureKey; label: string }[] = [
   { key: "floor", label: "Floor & Tables" }, { key: "menu", label: "Menu & Inventory" },
-  { key: "analytics", label: "Sales & Reports" }, { key: "settings", label: "Settings" },
+  { key: "takeaway", label: "Takeaway & Delivery" },
+  { key: "analytics", label: "Sales & Reports" },
+  { key: "insights", label: "Insights" },
+  { key: "settings", label: "Settings" },
+  { key: "profile", label: "Restaurant Profile" },
+  { key: "floor_plan", label: "Floor Plan" },
+  { key: "team", label: "Team Members" },
+  { key: "devices", label: "Devices & QR" },
+  { key: "theme", label: "Theme Studio" },
+  { key: "offers", label: "Offers & Coupons" },
+  { key: "delivery", label: "Delivery Zones" },
+  { key: "kitchen_capacity", label: "Kitchen Capacity" },
+  { key: "audit", label: "Audit Logs" },
+  { key: "feedback", label: "Feedback & Issues" },
 ];
 
 const defaultRoleAccess = (): RoleAccess => ({
-  manager: { floor: true, menu: true, analytics: true, settings: true },
-  kitchen: { floor: true, menu: false, analytics: false, settings: false },
-  waiter: { floor: true, menu: false, analytics: false, settings: false },
-  cashier: { floor: true, menu: false, analytics: true, settings: false },
+  manager: {
+    floor: true,
+    menu: true,
+    takeaway: true,
+    analytics: true,
+    insights: true,
+    settings: true,
+    profile: true,
+    floor_plan: true,
+    team: true,
+    devices: true,
+    theme: true,
+    offers: true,
+    delivery: true,
+    kitchen_capacity: true,
+    audit: true,
+    feedback: true,
+  },
+  kitchen: {
+    floor: true,
+    menu: false,
+    takeaway: false,
+    analytics: false,
+    insights: false,
+    settings: false,
+    profile: false,
+    floor_plan: false,
+    team: false,
+    devices: false,
+    theme: false,
+    offers: false,
+    delivery: false,
+    kitchen_capacity: false,
+    audit: false,
+    feedback: false,
+  },
+  waiter: {
+    floor: true,
+    menu: false,
+    takeaway: false,
+    analytics: false,
+    insights: false,
+    settings: false,
+    profile: false,
+    floor_plan: false,
+    team: false,
+    devices: false,
+    theme: false,
+    offers: false,
+    delivery: false,
+    kitchen_capacity: false,
+    audit: false,
+    feedback: false,
+  },
+  cashier: {
+    floor: true,
+    menu: false,
+    takeaway: true,
+    analytics: true,
+    insights: true,
+    settings: false,
+    profile: false,
+    floor_plan: false,
+    team: false,
+    devices: false,
+    theme: false,
+    offers: false,
+    delivery: false,
+    kitchen_capacity: false,
+    audit: false,
+    feedback: false,
+  },
 });
 
 function normalizeRoleAccess(raw: any): RoleAccess {
@@ -102,16 +199,25 @@ export default function AccessControlPage() {
     >
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="p-5">
-          <div className="grid grid-cols-6 gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-            <div className="col-span-2">Role</div>
-            {FEATURES.map((f) => <div key={f.key} className="col-span-1 text-center">{f.label}</div>)}
-          </div>
-          <div className="space-y-2">
+          <p className="mb-3 text-xs text-slate-500">Control exactly which staff roles can access each feature.</p>
+          <div className="overflow-x-auto">
+            <div className="min-w-[1800px] space-y-2">
+              <div
+                className="grid gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2"
+                style={{ gridTemplateColumns: `minmax(180px, 2fr) repeat(${FEATURES.length}, minmax(100px, 1fr))` }}
+              >
+                <div>Role</div>
+                {FEATURES.map((f) => <div key={f.key} className="text-center">{f.label}</div>)}
+              </div>
             {ROLES.map((r) => (
-              <div key={r.key} className="grid grid-cols-6 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                <div className="col-span-2"><p className="text-sm font-semibold text-slate-800">{r.label}</p></div>
+              <div
+                key={r.key}
+                className="grid items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                style={{ gridTemplateColumns: `minmax(180px, 2fr) repeat(${FEATURES.length}, minmax(100px, 1fr))` }}
+              >
+                <div><p className="text-sm font-semibold text-slate-800">{r.label}</p></div>
                 {FEATURES.map((f) => (
-                  <div key={f.key} className="col-span-1 flex justify-center">
+                  <div key={f.key} className="flex justify-center">
                     <button onClick={() => toggle(r.key, f.key)} className={`h-6 w-12 rounded-full transition-all ${roleAccess[r.key][f.key] ? "bg-emerald-500" : "bg-slate-300"}`} aria-label={`${r.label} ${f.label}`}>
                       <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${roleAccess[r.key][f.key] ? "translate-x-6" : "translate-x-0.5"}`} />
                     </button>
@@ -119,6 +225,7 @@ export default function AccessControlPage() {
                 ))}
               </div>
             ))}
+            </div>
           </div>
         </div>
       </section>

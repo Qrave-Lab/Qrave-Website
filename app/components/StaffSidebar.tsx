@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Utensils,
   BarChart3,
+  Lightbulb,
   Settings,
   LogOut,
   ChevronLeft,
@@ -62,8 +63,15 @@ const sidebarItems: SidebarSection[] = [
     ]
   },
   {
+    category: "Insights",
+    items: [
+      { label: "Menu Health", href: "/staff/menu/health", icon: Lightbulb, description: "Quality, gaps, and trends" },
+    ]
+  },
+  {
     category: "System",
     items: [
+      { label: "Operations Control", href: "/staff/operations", icon: FileSpreadsheet, description: "Feature flags and rollout governance" },
       { label: "Settings", href: "/staff/settings", icon: Settings },
     ]
   }
@@ -376,6 +384,7 @@ export default function StaffSidebar() {
           const feature =
             item.href === "/staff" ? "floor" :
               item.href === "/staff/menu" ? "menu" :
+                item.href === "/staff/menu/health" ? "insights" :
                 item.href === "/staff/analytics" ? "analytics" :
                   item.href === "/staff/settings" ? "settings" :
                     item.href === "/staff/takeaway" ? "takeaway" :
@@ -506,7 +515,7 @@ export default function StaffSidebar() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-6">
+      <div className={`flex-1 overflow-y-auto py-6 flex flex-col ${isCollapsed ? "gap-2" : "gap-6"}`}>
         {visibleSections.map((section, idx) => (
           <div key={idx} className={isCollapsed ? "px-2 text-center" : "px-4"}>
             {!isCollapsed && (
@@ -516,7 +525,10 @@ export default function StaffSidebar() {
             )}
             <div className="space-y-1">
               {section.items.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href === "/staff/menu" && pathname.startsWith("/staff/menu/") && !pathname.startsWith("/staff/menu/health")) ||
+                  (item.href === "/staff/settings" && pathname.startsWith("/staff/settings/"));
                 const Icon = item.icon;
 
                 return (
