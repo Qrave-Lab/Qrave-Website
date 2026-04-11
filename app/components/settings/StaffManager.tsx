@@ -288,7 +288,7 @@ export default function StaffManager({ onRefresh }: Props) {
 
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <span className={`text-[10px] uppercase tracking-widest font-extrabold px-2 py-1 rounded-md border ${s.Role === "delivery_rider"
-                ? "bg-indigo-50 text-indigo-600 border-indigo-200"
+                ? "bg-slate-50 text-[#FFC529] border-[#FFC529]"
                 : s.Role === "manager"
                   ? "bg-violet-50 text-violet-600 border-violet-200"
                   : s.Role === "kitchen"
@@ -397,7 +397,7 @@ export default function StaffManager({ onRefresh }: Props) {
                     value={editForm.name}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g. John Doe"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529]"
                   />
                 </div>
 
@@ -410,7 +410,7 @@ export default function StaffManager({ onRefresh }: Props) {
                     value={editForm.email}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
                     placeholder="Leave blank to keep current"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529]"
                   />
                 </div>
 
@@ -423,7 +423,7 @@ export default function StaffManager({ onRefresh }: Props) {
                     value={editForm.phone}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
                     placeholder="e.g. +91 98765 43210"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529]"
                   />
                 </div>
 
@@ -434,7 +434,7 @@ export default function StaffManager({ onRefresh }: Props) {
                   <select
                     value={editForm.role}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] bg-white"
                   >
                     <option value="manager">Manager</option>
                     <option value="kitchen">Chef</option>
@@ -454,7 +454,7 @@ export default function StaffManager({ onRefresh }: Props) {
                       value={editForm.password}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))}
                       placeholder="Leave blank to keep current"
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529]"
                     />
                     <button
                       type="button"
@@ -481,7 +481,7 @@ export default function StaffManager({ onRefresh }: Props) {
               <button
                 onClick={handleUpdate}
                 disabled={isSavingEdit || editFormLoading}
-                className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                className="flex-1 py-3 rounded-xl bg-[#FFC529] text-gray-900 font-bold text-sm hover:brightness-95 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {isSavingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>

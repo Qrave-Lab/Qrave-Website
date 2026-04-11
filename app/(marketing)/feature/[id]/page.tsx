@@ -101,7 +101,7 @@ const featureData: Record<string, any> = {
                 title: 'Profitability Matrix Categorization',
                 description: 'We automatically map your menu onto a Boston Consulting Group matrix. Instantly identify your Stars (high profit, high volume) and your Dogs (low profit, low volume) to optimize your offerings.',
                 image: '/landing/photo-1551288049-bebda4e38f71-f8d3f6af.webp',
-                color: 'bg-indigo-50/50',
+                color: 'bg-slate-50/50',
                 benefits: ['Menu engineering made automatic', 'Identify invisible profit leaks', 'Data-driven pricing decisions']
             },
             {
@@ -213,7 +213,7 @@ const featureData: Record<string, any> = {
                 title: 'Waiter Sales Leaderboards',
                 description: 'See exactly who is driving your revenue. Track average ticket sizes, upsell success rates, and total sales by server. Use the data to incentivize staff with bonuses.',
                 image: '/landing/photo-1556740758-90de374c12ad-f6f48948.webp',
-                color: 'bg-indigo-50/50',
+                color: 'bg-slate-50/50',
                 benefits: ['Identify top upsellers', 'Gamify staff performance', 'Track tip averages by employee']
             },
             {

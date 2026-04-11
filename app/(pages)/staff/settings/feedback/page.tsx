@@ -19,7 +19,7 @@ interface FeedbackEntry {
 }
 
 const TYPE_LABELS: Record<FeedbackType, string> = { bug: "Bug Report", feature_request: "Feature Request", general: "General Feedback", performance: "Performance Issue", ux: "UX / Design" };
-const TYPE_COLORS: Record<FeedbackType, string> = { bug: "bg-rose-100 text-rose-700", feature_request: "bg-indigo-100 text-indigo-700", general: "bg-slate-100 text-slate-600", performance: "bg-amber-100 text-amber-700", ux: "bg-purple-100 text-purple-700" };
+const TYPE_COLORS: Record<FeedbackType, string> = { bug: "bg-rose-100 text-rose-700", feature_request: "bg-indigo-100 text-gray-900", general: "bg-slate-100 text-slate-600", performance: "bg-amber-100 text-amber-700", ux: "bg-purple-100 text-purple-700" };
 const PRIORITY_COLORS: Record<Priority, string> = { low: "bg-slate-100 text-slate-500", medium: "bg-blue-100 text-blue-700", high: "bg-orange-100 text-orange-700", critical: "bg-red-100 text-red-700" };
 const STATUS_COLORS: Record<FeedbackStatus, string> = { open: "bg-yellow-100 text-yellow-700", acknowledged: "bg-blue-100 text-blue-700", resolved: "bg-emerald-100 text-emerald-700", wont_fix: "bg-slate-100 text-slate-500" };
 const STATUS_LABELS: Record<FeedbackStatus, string> = { open: "Open", acknowledged: "Acknowledged", resolved: "Resolved", wont_fix: "Won't Fix" };
@@ -41,7 +41,7 @@ function FeedbackCard({ item }: { item: FeedbackEntry }) {
         <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(item.created_at)}</span>
       </div>
       <h3 className="mt-3 text-sm font-bold text-slate-800">{item.title}</h3>
-      <button onClick={() => setExpanded((v) => !v)} className="mt-2 flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+      <button onClick={() => setExpanded((v) => !v)} className="mt-2 flex items-center gap-1 text-xs font-medium text-[#FFC529] hover:text-indigo-800 transition-colors">
         {expanded ? "Hide details" : "Show details"}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
       </button>
@@ -87,7 +87,7 @@ export default function FeedbackPage() {
   return (
     <SettingsPageLayout title="Feedback & Issues" description="Report bugs, request features, or share thoughts about Qrave." maxWidth="max-w-3xl">
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-5 text-base font-bold text-slate-900 flex items-center gap-2"><Send className="h-4 w-4 text-indigo-500" />Submit New Feedback</h2>
+        <h2 className="mb-5 text-base font-bold text-slate-900 flex items-center gap-2"><Send className="h-4 w-4 text-[#FFC529]" />Submit New Feedback</h2>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -116,7 +116,7 @@ export default function FeedbackPage() {
             />
             <p className="mt-1 text-right text-xs text-slate-400">{description.length}/5000</p>
           </div>
-          <button type="submit" disabled={submitting || !title.trim() || !description.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="submit" disabled={submitting || !title.trim() || !description.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFC529] px-4 py-3 text-sm font-bold text-gray-900 shadow-sm transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60">
             {submitted ? (<><CheckCircle2 className="h-4 w-4" />Submitted!</>) : submitting ? "Submitting…" : (<><Send className="h-4 w-4" />Submit Feedback</>)}
           </button>
         </form>

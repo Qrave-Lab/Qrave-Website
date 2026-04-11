@@ -94,7 +94,7 @@ export default function OffersSettingsPage() {
             <div><label className="mb-1.5 block text-xs font-semibold text-slate-600">Max Coupon Redemptions (optional)</label><input type="number" min={1} value={maxRedemptions} onChange={(e) => setMaxRedemptions(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="Leave empty for unlimited" /></div>
           </div>
         </div>
-        <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-3 text-sm text-indigo-700">{offerExplainText}</div>
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-3 text-sm text-gray-900">{offerExplainText}</div>
         {scope === "selected_items" && (
           <div className="mt-4 rounded-2xl border border-slate-200 p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -113,7 +113,7 @@ export default function OffersSettingsPage() {
             </div>
           </div>
         )}
-        <button disabled={isSaving} onClick={handleCreate} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">
+        <button disabled={isSaving} onClick={handleCreate} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#FFC529] px-4 py-2.5 text-sm font-bold text-gray-900 hover:brightness-95 disabled:opacity-60">
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Add Offer
         </button>
       </section>

@@ -353,7 +353,7 @@ export default function StaffOperationsControlPage() {
                 <button
                   type="button"
                   onClick={exportCsv}
-                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#FFC529] px-3 py-2 text-sm font-semibold text-gray-900 hover:brightness-95"
                 >
                   <Download className="h-4 w-4" /> Export Flags CSV
                 </button>
@@ -369,7 +369,7 @@ export default function StaffOperationsControlPage() {
             <button
               onClick={() => setActiveTab('inventory')}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activeTab === 'inventory' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                activeTab === 'inventory' ? 'bg-[#FFC529] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Advanced Inventory
@@ -377,7 +377,7 @@ export default function StaffOperationsControlPage() {
             <button
               onClick={() => setActiveTab('crm')}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activeTab === 'crm' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                activeTab === 'crm' ? 'bg-[#FFC529] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               CRM & Loyalty
@@ -385,7 +385,7 @@ export default function StaffOperationsControlPage() {
             <button
               onClick={() => setActiveTab('flags')}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activeTab === 'flags' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                activeTab === 'flags' ? 'bg-[#FFC529] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Configuration & Permissions
@@ -582,7 +582,7 @@ export default function StaffOperationsControlPage() {
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Points Balance</p>
-                    <p className="mt-1 text-2xl font-bold text-emerald-700">{crmOverview.total_points_balance}</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{crmOverview.total_points_balance}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ledger 24h</p>
@@ -590,11 +590,11 @@ export default function StaffOperationsControlPage() {
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Birthdays Today</p>
-                    <p className="mt-1 text-2xl font-bold text-indigo-700">{crmOverview.birthday_due_count}</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{crmOverview.birthday_due_count}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Anniversaries Today</p>
-                    <p className="mt-1 text-2xl font-bold text-fuchsia-700">{crmOverview.anniversary_due_count}</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{crmOverview.anniversary_due_count}</p>
                   </article>
                 </div>
 
@@ -655,7 +655,7 @@ export default function StaffOperationsControlPage() {
                             type="button"
                             onClick={() => void sendBirthdayCampaign()}
                             disabled={sendingCampaign}
-                            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                            className="rounded-md bg-[#FFC529] px-3 py-1.5 text-xs font-semibold text-gray-900 hover:brightness-95 disabled:opacity-50"
                           >
                             {sendingCampaign ? "Sending..." : "Send Birthday Campaign"}
                           </button>

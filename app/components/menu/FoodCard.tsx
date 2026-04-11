@@ -48,7 +48,7 @@ interface FoodCardProps {
   selectedVariantId?: string;
   onVariantChange?: (variantId: string) => void;
   orderingEnabled?: boolean;
-  layout?: "list" | "grid" | "compact";
+  layout?: "list" | "grid" | "compact" | "magazine";
 }
 
 const FoodCard: React.FC<FoodCardProps> = ({
@@ -112,6 +112,66 @@ const FoodCard: React.FC<FoodCardProps> = ({
     )
   );
 
+  // ─── MAGAZINE layout ─────────────────────────────────────────────────────────
+  if (layout === "magazine") {
+    return (
+      <div className={`rounded-3xl overflow-hidden bg-white shadow-xl shadow-slate-200/50 flex flex-col border border-slate-100 ${!isAvailable ? "opacity-60" : ""}`}>
+        <div className="relative w-full aspect-[4/3] bg-slate-100 shrink-0">
+          {!imageLoaded && <div className="absolute inset-0 bg-slate-200 animate-pulse" />}
+          <img
+            src={item.image}
+            alt={item.name}
+            className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            onLoad={() => setImageLoaded(true)}
+          />
+          <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+            {item.isBestseller && <span className="bg-amber-500 text-amber-950 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-widest shadow-lg">Bestseller</span>}
+            {item.isNew && <span className="bg-emerald-500 text-emerald-950 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-widest shadow-lg">New</span>}
+          </div>
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-transparent pt-12 pb-5 px-5 flex flex-col justify-end">
+             <h3 className="font-serif text-2xl sm:text-3xl font-black text-white leading-tight mb-1 drop-shadow-md">{item.name}</h3>
+             <div className="flex items-center gap-3">
+                <div className="bg-white/20 backdrop-blur-md px-2 py-0.5 rounded flex items-center">
+                  <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-green-400" : "bg-red-400"}`} />
+                </div>
+                {item.rating > 0 && (
+                  <span className="text-yellow-400 font-bold text-sm tracking-wide flex items-center gap-1 drop-shadow-md"><Star className="w-4 h-4 fill-current"/> {item.rating}</span>
+                )}
+                {item.calories && <span className="text-white/80 font-medium text-xs tracking-wide">{item.calories} kcal</span>}
+             </div>
+          </div>
+        </div>
+        <div className="p-5 flex flex-col">
+          <p className="text-sm text-slate-600 leading-relaxed font-medium mb-4">{item.description}</p>
+          
+          {visibleVariants.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {visibleVariants.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => onVariantChange?.(v.id)}
+                  className={`px-3 py-1 rounded-lg border text-xs font-bold transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529] shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+                >
+                  {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mt-auto">
+             <div className="flex flex-col">
+                {displayBaseWithoutDiscount > displayPrice && (
+                  <span className="text-xs text-slate-400 font-bold line-through">₹{displayBaseWithoutDiscount}</span>
+                )}
+                <span className="text-2xl font-black text-slate-900 tracking-tight">₹{displayPrice}</span>
+             </div>
+             <AddButton />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ─── COMPACT layout ─────────────────────────────────────────────────────────
   if (layout === "compact") {
     return (
@@ -150,7 +210,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
                 <button
                   key={v.id}
                   onClick={() => onVariantChange?.(v.id)}
-                  className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold transition-all ${activeVariantId === v.id ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200"}`}
+                  className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529]" : "bg-white text-slate-600 border-slate-200"}`}
                 >
                   {v.name}
                 </button>
@@ -241,7 +301,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
                 <button
                   key={v.id}
                   onClick={() => onVariantChange?.(v.id)}
-                  className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold transition-all ${activeVariantId === v.id ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200"}`}
+                  className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529]" : "bg-white text-slate-700 border-slate-200"}`}
                 >
                   {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
                 </button>
@@ -349,7 +409,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
                   <button
                     key={v.id}
                     onClick={() => onVariantChange?.(v.id)}
-                    className={`px-2 py-1 rounded-full border text-[10px] font-medium transition-all ${activeVariantId === v.id ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200"}`}
+                    className={`px-2 py-1 rounded-full border text-[10px] font-medium transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529]" : "bg-white text-slate-700 border-slate-200"}`}
                   >
                     {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
                   </button>

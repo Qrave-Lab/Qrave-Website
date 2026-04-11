@@ -982,7 +982,7 @@ export default function OnboardingPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 px-6 mb-8 overflow-hidden">
-                  {["Starters", "Mains", "Drinks"].map((cat, i) => (<div key={i} className={`px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest ${i === 0 ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-400"}`}>{cat}</div>))}
+                  {["Starters", "Mains", "Drinks"].map((cat, i) => (<div key={i} className={`px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest ${i === 0 ? "bg-[#FFC529] text-gray-900 font-bold" : "bg-slate-50 text-slate-400"}`}>{cat}</div>))}
                 </div>
                 <div className="flex-1 px-6 space-y-6">
                   {[1, 2, 3].map((_, i) => (

@@ -139,7 +139,7 @@ type ThemeConfig = {
   font_size?: "sm" | "md" | "lg";
   hero_title?: string;
   hero_subtitle?: string;
-  layout?: "list" | "grid" | "compact";
+  layout?: "list" | "grid" | "compact" | "magazine";
   image_style?: "none" | "small" | "large" | "full";
   spacing?: "compact" | "normal" | "relaxed";
   shadow?: "none" | "sm" | "md" | "lg";
@@ -880,6 +880,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const sectionIcon = (activeTheme.section_icon || "•").trim() || "•";
   const assetPack = useMemo(() => getThemeAssetPack(activeTheme), [activeTheme]);
   const iconPack = useMemo(() => resolveIconPack(activeTheme), [activeTheme]);
+  const layoutGridClass = activeTheme.layout === "grid" ? "grid grid-cols-2 gap-4" : activeTheme.layout === "compact" || activeTheme.layout === "magazine" ? "flex flex-col gap-4" : "grid gap-6";
   const themeStyle = {
     ["--qr-bg" as string]: activeTheme.colors?.bg || "#F8FAFC",
     ["--qr-surface" as string]: activeTheme.colors?.surface || "#FFFFFF",
@@ -1047,7 +1048,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               <button
                 id="tour-immersive"
                 onClick={() => setIsImmersive(!isImmersive)}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-200 transition-transform active:scale-95"
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#FFC529] text-gray-900 shadow font-bold-lg shadow-slate-200 transition-transform active:scale-95"
               >
                 <Smartphone size={16} />
               </button>
@@ -1095,7 +1096,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Original price is shown struck through, discounted price shown below.
               </p>
-              <div className="grid gap-6">
+              <div className={layoutGridClass}>
                 {offerItems.slice(0, 8).map((item: any) => {
                   const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                   const cartKey = getCartKey(item.id, currentVId);
@@ -1119,6 +1120,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       onRemove={handleRemove}
                       onArClick={handleArOpen}
                       orderingEnabled={orderingEnabled}
+                      layout={activeTheme.layout as any}
                     />
                   );
                 })}
@@ -1133,7 +1135,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                 <div className="h-1 w-8 bg-amber-500 rounded-full" />
                 <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('todaysSpecials')}</h2>
               </div>
-              <div className="grid gap-6">
+              <div className={layoutGridClass}>
                 {todaySpecialItems.map((item: any) => {
                   const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                   const cartKey = getCartKey(item.id, currentVId);
@@ -1151,6 +1153,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       onRemove={handleRemove}
                       onArClick={handleArOpen}
                       orderingEnabled={orderingEnabled}
+                      layout={activeTheme.layout as any}
                     />
                   );
                 })}
@@ -1165,7 +1168,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                 <div className="h-1 w-8 bg-orange-400 rounded-full" />
                 <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('chefSpecials')}</h2>
               </div>
-              <div className="grid gap-6">
+              <div className={layoutGridClass}>
                 {chefSpecialItems.map((item: any) => {
                   const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                   const cartKey = getCartKey(item.id, currentVId);
@@ -1183,6 +1186,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       onRemove={handleRemove}
                       onArClick={handleArOpen}
                       orderingEnabled={orderingEnabled}
+                      layout={activeTheme.layout as any}
                     />
                   );
                 })}
@@ -1197,7 +1201,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                 <div className="h-1 w-8 bg-violet-500 rounded-full" />
                 <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('recommended')}</h2>
               </div>
-              <div className="grid gap-6">
+              <div className={layoutGridClass}>
                 {recommendationItems.slice(0, 4).map((item: any) => {
                   const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                   const cartKey = getCartKey(item.id, currentVId);
@@ -1215,6 +1219,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       onRemove={handleRemove}
                       onArClick={handleArOpen}
                       orderingEnabled={orderingEnabled}
+                      layout={activeTheme.layout as any}
                     />
                   );
                 })}
@@ -1262,7 +1267,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               {subcat}
                             </h3>
                           </div>
-                          <div className="grid gap-6">
+                          <div className={layoutGridClass}>
                             {subItems.map((item: any, itemIdx: number) => {
                               const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
                               const cartKey = getCartKey(item.id, currentVId);
@@ -1288,6 +1293,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                                     onRemove={handleRemove}
                                     onArClick={handleArOpen}
                                     orderingEnabled={orderingEnabled}
+                                    layout={activeTheme.layout as any}
                                   />
                                 </div>
                               );
@@ -1507,8 +1513,8 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
         .qr-theme-root :global(.border-slate-200), .qr-theme-root :global(.border-slate-100) { border-color: color-mix(in oklab, var(--qr-text), #fff 85%) !important; }
         .qr-theme-root :global(.shadow-slate-200), .qr-theme-root :global(.shadow-slate-400) { box-shadow: 0 10px 24px color-mix(in oklab, var(--qr-accent), transparent 78%) !important; }
         .qr-theme-root :global(.bg-emerald-500), .qr-theme-root :global(.bg-emerald-600) { background-color: var(--qr-accent) !important; }
-        .qr-theme-root :global(.text-emerald-500), .qr-theme-root :global(.text-emerald-600), .qr-theme-root :global(.text-indigo-600) { color: var(--qr-accent) !important; }
-        .qr-theme-root :global(.border-emerald-500), .qr-theme-root :global(.border-indigo-500) { border-color: var(--qr-accent) !important; }
+        .qr-theme-root :global(.text-emerald-500), .qr-theme-root :global(.text-emerald-600) { color: var(--qr-accent) !important; }
+        .qr-theme-root :global(.border-emerald-500) { border-color: var(--qr-accent) !important; }
         .qr-theme-radius-rounded :global(.rounded-2xl), .qr-theme-radius-rounded :global(.rounded-xl) { border-radius: 1rem !important; }
         .qr-theme-radius-soft :global(.rounded-2xl), .qr-theme-radius-soft :global(.rounded-xl) { border-radius: 1.4rem !important; }
         .qr-theme-radius-sharp :global(.rounded-2xl), .qr-theme-radius-sharp :global(.rounded-xl) { border-radius: 0.35rem !important; }

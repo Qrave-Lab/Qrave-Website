@@ -100,6 +100,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [taxPercent, setTaxPercent] = useState<number>(5);
   const [servicePercent, setServicePercent] = useState<number>(0);
   const [serviceCalls, setServiceCalls] = useState<any[]>([]);
+  const [isTakeaway, setIsTakeaway] = useState(false);
 
   const [showRelocate, setShowRelocate] = useState(false);
   const [tables, setTables] = useState<{ id: string; table_number: number; is_enabled: boolean }[]>([]);
@@ -137,11 +138,67 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   }, [items, taxPercent, servicePercent]);
 
   const loadBillData = async () => {
-    const [billRes, me, calls] = await Promise.all([
-      api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`),
-      api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number; service_charge?: number }>("/api/admin/me"),
-      api<any[]>(`/api/admin/service-calls`),
-    ]);
+    let initialBillRes: AdminBillResponse | null = null;
+    let me: any = null;
+    let calls: any[] = [];
+    
+    try {
+      const [resB, resM, resC] = await Promise.all([
+        api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`),
+        api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number; service_charge?: number }>("/api/admin/me"),
+        api<any[]>(`/api/admin/service-calls`),
+      ]);
+      initialBillRes = resB;
+      me = resM;
+      calls = resC;
+      setIsTakeaway(false);
+    } catch {
+      // Fallback: Check if it's a takeaway/reception order
+      const [takeawayRes, resM, resC] = await Promise.all([
+        api<{ orders: any[] }>("/api/admin/takeaway/orders?status=active").catch(() => ({ orders: [] })),
+        api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number; service_charge?: number }>("/api/admin/me"),
+        api<any[]>(`/api/admin/service-calls`),
+      ]);
+      me = resM;
+      calls = resC;
+      
+      const tw = (takeawayRes?.orders || []).find((o: any) => o.id === sessionid);
+      if (tw) {
+        setIsTakeaway(true);
+        let tableNum = parseInt(String(tw.table_number || ""), 10);
+        const notes = String(tw.notes || "");
+        if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
+           const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+           if (m) tableNum = parseInt(m[1], 10);
+        }
+        
+        initialBillRes = {
+           sessions: [{ session_id: tw.id, table_id: "", table_number: tableNum || 0 }],
+           orders: [{
+              id: tw.id,
+              status: tw.status === "pending" || tw.status === "preparing" ? "accepted" : tw.status,
+              created_at: tw.created_at,
+              session_id: tw.id,
+              table_id: "",
+              table_number: tableNum || 0,
+              order_number: tw.order_number,
+              daily_order_number: tw.daily_order_number,
+              items: (tw.items || []).map((i: any) => ({
+                 menu_item_id: i.menu_item_id || "",
+                 variant_id: i.variant_id || "",
+                 quantity: i.quantity || 1,
+                 price: i.unit_price || 0,
+                 menu_item_name: i.menu_item_name || "",
+                 variant_label: i.variant_label || null
+              }))
+           }]
+        } as AdminBillResponse;
+      } else {
+        throw new Error("Session not found");
+      }
+    }
+
+    const billRes = initialBillRes;
 
     const nextOrders = (billRes?.orders || []) as ActiveOrder[];
     setOrders(nextOrders);
@@ -227,9 +284,11 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     setOrders((curr) => curr.map((o) => (o.id === orderId ? { ...o, status } : o)));
     setItems((curr) => curr.map((it) => (it.orderId === orderId ? { ...it, status } : it)));
     try {
-      await api(`/api/admin/orders/${orderId}/status`, {
+      const targetStatus = isTakeaway && status === "served" ? "completed" : status;
+      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
+      await api(url, {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: targetStatus }),
       });
       await refreshOrders();
     } catch {
@@ -271,16 +330,29 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           throw new Error("All orders must be served before closing.");
         }
       }
-      await api("/api/admin/payments/status", {
-        method: "POST",
-        body: JSON.stringify({
-          session_id: sessionid,
-          status: "paid",
-          payment_mode: paymentMethod,
-          reason: "table_checkout",
-        }),
-      });
-      await api(`/api/admin/sessions/${sessionid}/end`, { method: "POST" });
+      
+      if (isTakeaway) {
+         await api(`/api/admin/takeaway/orders/${sessionid}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({
+               status: "completed",
+               payment_status: "paid",
+               payment_mode: paymentMethod,
+            }),
+         });
+      } else {
+         await api("/api/admin/payments/status", {
+            method: "POST",
+            body: JSON.stringify({
+               session_id: sessionid,
+               status: "paid",
+               payment_mode: paymentMethod,
+               reason: "table_checkout",
+            }),
+         });
+         await api(`/api/admin/sessions/${sessionid}/end`, { method: "POST" });
+      }
+      
       await refreshOrders();
       setIsCheckoutOpen(false);
     } finally {

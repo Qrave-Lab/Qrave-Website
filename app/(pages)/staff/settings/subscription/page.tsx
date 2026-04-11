@@ -134,14 +134,14 @@ export default function SubscriptionSettingsPage() {
     } catch (e: any) { setStatusMessage({ type: "error", text: e?.message || "Failed to start payment authorization." }); } finally { setReactivating(false); }
   };
 
-  if (loading) return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>;
+  if (loading) return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-[#FFC529]" /></div>;
 
   return (
     <SettingsPageLayout title="Subscription" description="Manage your billing plan. Includes a 7-day free trial." maxWidth="max-w-3xl">
-      <section className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-indigo-100 bg-indigo-50/50 flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-indigo-600" />
-          <h2 className="font-bold text-indigo-700">Manage Subscription</h2>
+      <section className="bg-white rounded-2xl border border-[#FFC529] shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center gap-2">
+          <CreditCard className="w-5 h-5 text-[#FFC529]" />
+          <h2 className="font-bold text-gray-900">Manage Subscription</h2>
         </div>
         <div className="p-6 space-y-6">
           {statusMessage && <div className={`rounded-lg border px-3 py-2 text-xs font-semibold ${statusMessage.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>{statusMessage.text}</div>}
@@ -161,7 +161,7 @@ export default function SubscriptionSettingsPage() {
                   type="button"
                   onClick={handleReactivate}
                   disabled={reactivating}
-                  className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold disabled:opacity-60"
+                  className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-[#FFC529] hover:brightness-95 text-gray-900 px-4 py-2 text-xs font-bold disabled:opacity-60"
                 >
                   {reactivating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {isInactive ? "Pay & Reactivate" : "Pay Now"}
@@ -175,17 +175,17 @@ export default function SubscriptionSettingsPage() {
             )}
           </div>
           {isInactive && (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-3">
-              <p className="text-[11px] font-black uppercase tracking-widest text-indigo-700">Reactivate Subscription</p>
+            <div className="rounded-xl border border-[#FFC529] bg-slate-50/50 p-4 space-y-3">
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-900">Reactivate Subscription</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {(["monthly_499", "yearly_5500"] as const).map((p) => (
-                  <button key={p} type="button" onClick={() => setSelectedPlan(p)} className={`rounded-xl border px-4 py-3 text-left ${selectedPlan === p ? "border-indigo-500 bg-white" : "border-indigo-200 bg-indigo-50/40"}`}>
+                  <button key={p} type="button" onClick={() => setSelectedPlan(p)} className={`rounded-xl border px-4 py-3 text-left ${selectedPlan === p ? "border-[#FFC529] bg-white" : "border-[#FFC529] bg-slate-50/40"}`}>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{p === "monthly_499" ? "Monthly" : "Yearly"}</p>
                     <p className="text-base font-black text-slate-900 mt-1">{p === "monthly_499" ? "₹499 / month" : "₹5,500 / year"}</p>
                   </button>
                 ))}
               </div>
-              <button type="button" onClick={handleReactivate} disabled={reactivating} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold disabled:opacity-60">
+              <button type="button" onClick={handleReactivate} disabled={reactivating} className="inline-flex items-center gap-2 rounded-lg bg-[#FFC529] hover:brightness-95 text-gray-900 px-4 py-2 text-xs font-bold disabled:opacity-60">
                 {reactivating ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Reactivate Subscription
               </button>
             </div>

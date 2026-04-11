@@ -55,12 +55,12 @@ export default function DeliveryZonesPage() {
     };
 
     const renderForm = (isNew: boolean) => (
-        <div className="bg-indigo-50/40 border border-indigo-100 rounded-2xl p-5 space-y-4">
+        <div className="bg-slate-50/40 border border-slate-200 rounded-2xl p-5 space-y-4">
             <h3 className="text-sm font-black text-slate-900">{isNew ? "Add New Zone" : "Edit Zone"}</h3>
             <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Zone Name *</label>
-                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. City Centre, Zone A, 0–3 km" className="w-full px-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-50 focus:border-indigo-400 transition-all" />
+                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. City Centre, Zone A, 0–3 km" className="w-full px-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-50 focus:border-[#FFC529] transition-all" />
                 </div>
                 <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5"><MapPin className="w-3 h-3 inline mr-1" />Distance (km)</label>
@@ -76,7 +76,7 @@ export default function DeliveryZonesPage() {
                 </div>
             </div>
             <div className="flex gap-2 pt-1">
-                <button onClick={() => saveZone(isNew)} disabled={isSaving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                <button onClick={() => saveZone(isNew)} disabled={isSaving} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FFC529] text-gray-900 text-sm font-bold hover:brightness-95 transition-colors disabled:opacity-50">
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}{isSaving ? "Saving..." : "Save Zone"}
                 </button>
                 <button onClick={cancelEdit} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
@@ -92,7 +92,7 @@ export default function DeliveryZonesPage() {
             description="Configure delivery areas and fees based on distance or zone name."
             maxWidth="max-w-2xl"
             action={!showAdd && !editingId ? (
-                <button onClick={startAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors">
+                <button onClick={startAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FFC529] text-gray-900 text-sm font-bold hover:brightness-95 transition-colors">
                     <Plus className="w-4 h-4" /> Add Zone
                 </button>
             ) : undefined}
@@ -107,7 +107,7 @@ export default function DeliveryZonesPage() {
                             <Bike className="w-10 h-10 mx-auto mb-3 opacity-30" />
                             <p className="font-bold text-slate-600">No delivery zones yet</p>
                             <p className="text-sm mt-1">Add zones with different fees for each delivery area.</p>
-                            <button onClick={startAdd} className="mt-4 flex items-center gap-2 mx-auto px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors">
+                            <button onClick={startAdd} className="mt-4 flex items-center gap-2 mx-auto px-5 py-2.5 rounded-xl bg-[#FFC529] text-gray-900 text-sm font-bold hover:brightness-95 transition-colors">
                                 <Plus className="w-4 h-4" /> Add First Zone
                             </button>
                         </div>
@@ -117,7 +117,7 @@ export default function DeliveryZonesPage() {
                                 {editingId === zone.id ? renderForm(false) : (
                                     <div className="flex items-center justify-between py-3 px-4 border border-slate-100 rounded-xl hover:border-slate-200 transition-colors">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center"><Bike className="w-5 h-5 text-indigo-500" /></div>
+                                            <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center"><Bike className="w-5 h-5 text-[#FFC529]" /></div>
                                             <div>
                                                 <p className="text-sm font-bold text-slate-900">{zone.name}</p>
                                                 <div className="flex items-center gap-3 mt-0.5">
@@ -127,7 +127,7 @@ export default function DeliveryZonesPage() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <span className="text-base font-black text-indigo-600">₹{zone.fee}</span>
+                                            <span className="text-base font-black text-[#FFC529]">₹{zone.fee}</span>
                                             <button onClick={() => startEdit(zone)} className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">Edit</button>
                                             <button onClick={() => deleteZone(zone.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors"><Trash2 className="w-4 h-4" /></button>
                                         </div>

@@ -43,6 +43,7 @@ type StaffTable = {
   isOccupied: boolean;
   isEnabled?: boolean;
   activeSessionId?: string;
+  isTakeaway?: boolean;
   currentTotal?: number;
   itemsCount?: number;
   guests?: number;
@@ -120,6 +121,7 @@ type ActiveOrder = {
   order_number?: number | null;
   daily_order_number?: number | null;
   items: ActiveOrderItem[];
+  is_takeaway?: boolean;
 };
 
 type ActiveOrdersResponse = {
@@ -275,7 +277,7 @@ export default function StaffDashboardPage() {
     return [normalized, ...ordersList.filter((o) => (o.id || o.order_id) !== orderId)];
   };
 
-  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[]) => {
+  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[], takeawayOrdersList: any[] = []) => {
     const occupancyByTable = new Map<number, { sessionId: string; seatedAt?: Date }>();
     for (const s of sessionsList) {
       occupancyByTable.set(s.table_number, {
@@ -284,45 +286,111 @@ export default function StaffDashboardPage() {
       });
     }
 
-    const totalsByTable = new Map<number, { total: number; count: number }>();
+    const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string }>();
     for (const order of ordersList) {
-      const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0 };
+      const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0, sessionId: order.session_id };
       const orderTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       totalsByTable.set(order.table_number, {
         total: existing.total + orderTotal,
         count: existing.count + order.items.reduce((sum, i) => sum + i.quantity, 0),
+        sessionId: order.session_id || existing.sessionId,
       });
+    }
+
+    for (const tw of takeawayOrdersList) {
+      if (tw.status === "completed" || tw.status === "cancelled") continue;
+      
+      let tableNum = parseInt(String(tw.table_number || ""), 10);
+      
+      const notes = String(tw.notes || "");
+      if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
+        const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+        if (m) tableNum = parseInt(m[1], 10);
+      }
+      
+      if (!isNaN(tableNum) && tableNum > 0) {
+         const existing = totalsByTable.get(tableNum) || { total: 0, count: 0, sessionId: tw.id };
+         const orderTotal = Number(tw.total) || 0;
+         const orderCount = Array.isArray(tw.items) ? tw.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) : 1;
+         totalsByTable.set(tableNum, {
+           total: existing.total + orderTotal,
+           count: existing.count + orderCount,
+           sessionId: existing.sessionId || tw.id,
+         });
+      }
     }
 
     return tablesApi.map((t) => {
       const occ = occupancyByTable.get(t.table_number);
       const meta = totalsByTable.get(t.table_number);
+      const hasActiveOrders = Boolean(meta && meta.count > 0);
       return {
         id: t.id,
         tableCode: `T${t.table_number}`,
         restaurantName: "",
-        isOccupied: Boolean(occ),
-        activeSessionId: occ?.sessionId,
+        isOccupied: Boolean(occ) || hasActiveOrders,
+        activeSessionId: occ?.sessionId || meta?.sessionId,
+        isTakeaway: !occ && hasActiveOrders,
         currentTotal: meta?.total,
         itemsCount: meta?.count,
-        seatedAt: occ?.seatedAt,
+        seatedAt: occ?.seatedAt || (hasActiveOrders ? new Date() : undefined),
         isEnabled: t.is_enabled,
       } as StaffTable;
     });
   };
 
   const refreshLiveData = async () => {
-    const [tablesRes, ordersRes, sessionsRes] = await Promise.all([
+    const [tablesRes, ordersRes, sessionsRes, takeawayRes] = await Promise.all([
       api<TableAPI[]>("/api/admin/tables"),
       api<ActiveOrdersResponse>("/api/admin/orders/active"),
       api<ActiveSessionsResponse>("/api/admin/sessions/active"),
+      api<{ orders: any[] }>("/api/admin/takeaway/orders?status=active").catch(() => ({ orders: [] })),
     ]);
 
-    const ordersList = ordersRes?.orders || [];
+    let ordersList = ordersRes?.orders || [];
     const sessionsList = sessionsRes?.sessions || [];
+    const takeawayOrdersList = takeawayRes?.orders || [];
+    const tablesApi = tablesRes || [];
+
+    // Inject Dine-in Takeaway orders as active POS orders
+    for (const tw of takeawayOrdersList) {
+      if (tw.status === "completed" || tw.status === "cancelled") continue;
+      
+      let tableNum = parseInt(String(tw.table_number || ""), 10);
+      const notes = String(tw.notes || "");
+      if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
+        const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+        if (m) tableNum = parseInt(m[1], 10);
+      }
+      
+      if (!isNaN(tableNum) && tableNum > 0) {
+        const matchingTable = tablesApi.find(t => t.table_number === tableNum);
+        ordersList.push({
+          id: tw.id,
+          order_id: tw.id,
+          status: "accepted", // Receptionist added orders are automatically accepted
+          created_at: tw.created_at,
+          session_id: tw.id, // using order id as fake session proxy
+          table_id: matchingTable ? matchingTable.id : "",
+          table_number: tableNum,
+          order_number: tw.order_number || null,
+          daily_order_number: tw.daily_order_number || null,
+          items: (tw.items || []).map((i: any) => ({
+            menu_item_id: i.menu_item_id || "",
+            variant_id: i.variant_id || "",
+            quantity: i.quantity || 1,
+            price: i.unit_price || 0,
+            menu_item_name: i.menu_item_name || "",
+            variant_label: i.variant_label || null,
+          })),
+          is_takeaway: true
+        });
+      }
+    }
+
     setActiveOrders(ordersList);
     setOrders(buildPendingOrders(ordersList));
-    setTables(buildTables(tablesRes || [], ordersList, sessionsList));
+    setTables(buildTables(tablesApi, ordersList, sessionsList, takeawayOrdersList));
   };
 
   const refreshDashboard = async () => {
@@ -535,7 +603,9 @@ export default function StaffDashboardPage() {
     setOrders(buildPendingOrders(next));
     setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
-      await api(`/api/admin/orders/${orderId}/status`, {
+      const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
+      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
+      await api(url, {
         method: "PATCH",
         body: JSON.stringify({ status: "accepted" }),
       });
@@ -559,9 +629,13 @@ export default function StaffDashboardPage() {
     setOrders(buildPendingOrders(next));
     setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
-      await api(`/api/admin/orders/${orderId}/status`, {
+      const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
+      // For takeaways, "served" often maps to "completed" if it's the final step
+      const targetStatus = isTakeaway ? "completed" : "served";
+      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
+      await api(url, {
         method: "PATCH",
-        body: JSON.stringify({ status: "served" }),
+        body: JSON.stringify({ status: targetStatus }),
       });
       refreshLiveData().catch(() => { });
     } catch {
@@ -583,7 +657,9 @@ export default function StaffDashboardPage() {
     setOrders(buildPendingOrders(next));
     setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
-      await api(`/api/admin/orders/${orderId}/status`, {
+      const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
+      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
+      await api(url, {
         method: "PATCH",
         body: JSON.stringify({ status: "cancelled" }),
       });
@@ -926,27 +1002,34 @@ export default function StaffDashboardPage() {
           </div>
 
           <div className="flex items-center gap-6 divide-x divide-gray-100">
-            <div className="flex flex-col items-end pr-6">
-              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-                Today's Sales
-              </span>
-              <span className="text-lg font-bold text-emerald-600 flex items-center gap-1">
-                ₹{totalSales.toLocaleString()}
-              </span>
+            <div className="flex items-center gap-6 pr-6">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-0.5">
+                  Today's Sales
+                </span>
+                <span className="text-xl font-black text-emerald-600 tabular-nums">
+                  ₹{totalSales.toLocaleString()}
+                </span>
+              </div>
+              
               {takeawaySummary && (
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                    <ShoppingBag className="w-3 h-3 text-orange-400" />
-                    {takeawaySummary.takeout_count}
-                    <span className="text-gray-300">·</span>
-                    ₹{takeawaySummary.takeout_revenue.toLocaleString()}
-                  </span>
-                  <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                    <Bike className="w-3 h-3 text-sky-400" />
-                    {takeawaySummary.delivery_count}
-                    <span className="text-gray-300">·</span>
-                    ₹{takeawaySummary.delivery_revenue.toLocaleString()}
-                  </span>
+                <div className="flex flex-col gap-1 border-l border-gray-100 pl-6 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-orange-50 p-1 rounded">
+                      <ShoppingBag className="w-3.5 h-3.5 text-orange-500" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 w-4 text-center">{takeawaySummary.takeout_count}</span>
+                    <span className="text-[10px] text-gray-300">•</span>
+                    <span className="text-xs font-bold text-gray-600">₹{takeawaySummary.takeout_revenue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-sky-50 p-1 rounded">
+                      <Bike className="w-3.5 h-3.5 text-sky-500" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 w-4 text-center">{takeawaySummary.delivery_count}</span>
+                    <span className="text-[10px] text-gray-300">•</span>
+                    <span className="text-xs font-bold text-gray-600">₹{takeawaySummary.delivery_revenue.toLocaleString()}</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -981,7 +1064,7 @@ export default function StaffDashboardPage() {
                   <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Bill Requests</span>
                   <div className="text-2xl font-bold text-gray-900 mt-1">{billRequestedCount}</div>
                 </div>
-                <div className={`p-2 rounded-lg ${billRequestedCount > 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-50 text-gray-400'}`}>
+                <div className={`p-2 rounded-lg ${billRequestedCount > 0 ? 'bg-slate-50 text-[#FFC529]' : 'bg-gray-50 text-gray-400'}`}>
                   <Receipt className="w-5 h-5" />
                 </div>
               </div>
@@ -1077,7 +1160,7 @@ export default function StaffDashboardPage() {
                 let cardStyle = "bg-white border-gray-200 shadow-sm hover:shadow-md";
                 if (isDisabled) cardStyle = "bg-gray-50/60 border-gray-200 border-dashed opacity-60";
                 else if (isFree) cardStyle = "bg-gray-50 border-gray-200 border-dashed";
-                else if (isBillRequested) cardStyle = "bg-indigo-50/40 border-indigo-200 shadow-sm";
+                else if (isBillRequested) cardStyle = "bg-slate-50/40 border-[#FFC529] shadow-sm";
                 else if (longSit) cardStyle = "bg-rose-50/40 border-rose-200 shadow-sm";
 
                 return (
@@ -1105,7 +1188,7 @@ export default function StaffDashboardPage() {
                         {table.isOccupied ? (
                           <div className="flex items-center gap-1.5">
                             {isBillRequested && (
-                              <span className="flex items-center gap-0.5 bg-indigo-100 text-indigo-700 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
+                              <span className="flex items-center gap-0.5 bg-indigo-100 text-gray-900 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
                                 <Receipt className="w-2.5 h-2.5" /> Bill
                               </span>
                             )}
@@ -1456,7 +1539,7 @@ export default function StaffDashboardPage() {
                                 >
                                   {orderActionPending[order.orderId] ? "Updating..." : "Cancel"}
                                 </button>
-                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-indigo-100 inline-flex items-center gap-1">
+                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-slate-50 hover:bg-indigo-100 text-gray-900 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1">
                                   <Printer className="w-3.5 h-3.5" /> KOT
                                 </button>
                               </>
@@ -1469,7 +1552,7 @@ export default function StaffDashboardPage() {
                                 >
                                   {orderActionPending[order.orderId] ? "Updating..." : "Mark Served"}
                                 </button>
-                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-indigo-100 inline-flex items-center gap-1">
+                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-slate-50 hover:bg-indigo-100 text-gray-900 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1">
                                   <Printer className="w-3.5 h-3.5" /> KOT
                                 </button>
                               </div>

@@ -1149,7 +1149,7 @@ export default function MenuPage() {
                 <select
                   value={sourceBranchId}
                   onChange={(e) => setSourceBranchId(e.target.value)}
-                  className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 outline-none focus:border-indigo-400"
+                  className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 outline-none focus:border-[#FFC529]"
                 >
                   <option value="">Copy menu from branch...</option>
                   {branchOptionsForImport.map((branch) => (
@@ -1169,7 +1169,7 @@ export default function MenuPage() {
                 <button
                   type="button"
                   onClick={openSyncModal}
-                  className="h-8 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white hover:bg-indigo-700"
+                  className="h-8 rounded-lg bg-[#FFC529] px-3 text-xs font-bold text-gray-900 hover:brightness-95"
                 >
                   Sync Menu
                 </button>
@@ -1240,7 +1240,7 @@ export default function MenuPage() {
                 setModalMode("add");
                 setActiveModalTab("general");
               }}
-              className="bg-indigo-600 text-white px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-indigo-200 hover:bg-indigo-700 transition-all"
+              className="bg-[#FFC529] text-gray-900 px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-[#FFC529]/30 hover:brightness-95 transition-all"
             >
               <Plus className="w-4 h-4" /> New Product
             </button>
@@ -1254,7 +1254,7 @@ export default function MenuPage() {
                 <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
-                      <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                      <Plus className="w-3.5 h-3.5 text-[#FFC529]" />
                     </div>
                     <span className="text-xs font-bold text-slate-700 tracking-tight">
                       Add Subcategory
@@ -1263,7 +1263,7 @@ export default function MenuPage() {
                   <button
                     type="button"
                     onClick={() => setShowSubcategoryManager(true)}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                    className="text-[11px] font-semibold text-[#FFC529] hover:text-indigo-800 hover:underline transition-colors"
                   >
                     Manage Names →
                   </button>
@@ -1272,7 +1272,7 @@ export default function MenuPage() {
                   <select
                     value={newSubcategoryParentId || parentCategories[0]?.id || ""}
                     onChange={(e) => setNewSubcategoryParentId(e.target.value)}
-                    className="h-10 px-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all min-w-[140px]"
+                    className="h-10 px-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all min-w-[140px]"
                   >
                     {parentCategories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
@@ -1284,7 +1284,7 @@ export default function MenuPage() {
                     value={newSubcategoryName}
                     onChange={(e) => setNewSubcategoryName(e.target.value)}
                     placeholder="e.g. Pizzas, Burgers, Chinese"
-                    className="flex-1 h-10 px-4 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-slate-300"
+                    className="flex-1 h-10 px-4 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all placeholder:text-slate-300"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         createSubcategory(
@@ -1302,7 +1302,7 @@ export default function MenuPage() {
                       )
                     }
                     disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
-                    className="h-10 px-5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                    className="h-10 px-5 rounded-xl text-xs font-bold bg-[#FFC529] text-gray-900 hover:brightness-95 shadow-sm shadow-[#FFC529]/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add
@@ -1318,7 +1318,7 @@ export default function MenuPage() {
                       key={cat}
                       onClick={() => setActiveTab(cat as any)}
                       className={`px-5 py-2 rounded-lg text-xs font-bold capitalize transition-all ${activeTab === cat
-                        ? "bg-slate-900 text-white"
+                        ? "bg-[#FFC529] text-gray-900 font-bold"
                         : "text-slate-500 hover:text-slate-900"
                         }`}
                     >
@@ -1339,7 +1339,7 @@ export default function MenuPage() {
                     className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-2 transition-colors"
                   >
                     {selectedItems.size === filteredItems.length ? (
-                      <CheckSquare className="w-4 h-4 text-indigo-600" />
+                      <CheckSquare className="w-4 h-4 text-[#FFC529]" />
                     ) : (
                       <Square className="w-4 h-4" />
                     )}
@@ -1348,13 +1348,13 @@ export default function MenuPage() {
                 )}
               </div>
               <div className="relative min-w-[300px] group">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#FFC529] transition-colors" />
                 <input
                   type="text"
                   placeholder="Search menu..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 outline-none transition-all shadow-sm"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-yellow-50 focus:border-[#FFC529] outline-none transition-all shadow-sm"
                 />
               </div>
             </div>
@@ -1451,7 +1451,7 @@ export default function MenuPage() {
                         <select
                           value={newSubcategoryParentId || parentCategories[0]?.id || ""}
                           onChange={(e) => setNewSubcategoryParentId(e.target.value)}
-                          className="w-full h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-50 transition-all"
+                          className="w-full h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-yellow-50 transition-all"
                         >
                           {parentCategories.map((cat) => (
                             <option key={cat.id} value={cat.id}>
@@ -1623,7 +1623,7 @@ export default function MenuPage() {
                       setModalMode("add");
                       setActiveModalTab("general");
                     }}
-                    className="mt-8 bg-indigo-600 text-white px-8 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                    className="mt-8 bg-[#FFC529] text-gray-900 px-8 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 hover:brightness-95 transition-all shadow-lg shadow-indigo-100"
                   >
                     <Plus className="w-5 h-5" /> Add First Product
                   </button>
@@ -1635,7 +1635,7 @@ export default function MenuPage() {
                   <div
                     key={item.id}
                     className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${selectedItems.has(item.id)
-                      ? "border-indigo-600 ring-4 ring-indigo-600/10"
+                      ? "border-[#FFC529] ring-4 ring-indigo-600/10"
                       : "border-slate-200 hover:shadow-xl hover:shadow-slate-200/50"
                       }`}
                   >
@@ -1645,7 +1645,7 @@ export default function MenuPage() {
                         className="absolute top-3 left-3 z-10 p-1 rounded-md bg-white/90 backdrop-blur shadow-sm transition-transform active:scale-90"
                       >
                         {selectedItems.has(item.id) ? (
-                          <CheckSquare className="w-5 h-5 text-indigo-600" />
+                          <CheckSquare className="w-5 h-5 text-[#FFC529]" />
                         ) : (
                           <Square className="w-5 h-5 text-slate-300" />
                         )}
@@ -1670,13 +1670,13 @@ export default function MenuPage() {
                             refreshHistory(item.id);
                             setModalMode("edit");
                           }}
-                          className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm transition-colors"
+                          className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-[#FFC529] shadow-sm transition-colors"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                       </div>
                       {item.modelGlb && (
-                        <div className="absolute bottom-3 left-3 bg-indigo-600 text-white p-1.5 rounded-lg shadow-lg">
+                        <div className="absolute bottom-3 left-3 bg-[#FFC529] text-gray-900 p-1.5 rounded-lg shadow-lg">
                           <Box className="w-3.5 h-3.5" />
                         </div>
                       )}
@@ -1698,7 +1698,7 @@ export default function MenuPage() {
                             </span>
                           )}
                           {item.isChefSpecial && (
-                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-900">
                               Chef
                             </span>
                           )}
@@ -1837,7 +1837,7 @@ export default function MenuPage() {
                     key={tab.id}
                     onClick={() => setActiveModalTab(tab.id as any)}
                     className={`px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${activeModalTab === tab.id
-                      ? "border-indigo-600 text-indigo-600"
+                      ? "border-[#FFC529] text-[#FFC529]"
                       : "border-transparent text-slate-400 hover:text-slate-600"
                       }`}
                   >
@@ -1862,7 +1862,7 @@ export default function MenuPage() {
                               name: e.target.value,
                             })
                           }
-                          className="w-full text-lg font-bold border-b-2 border-slate-100 focus:border-indigo-600 outline-none pb-2 transition-all"
+                          className="w-full text-lg font-bold border-b-2 border-slate-100 focus:border-[#FFC529] outline-none pb-2 transition-all"
                           placeholder="e.g. Signature Truffle Burger"
                         />
                       </div>
@@ -1874,7 +1874,7 @@ export default function MenuPage() {
                           <button
                             type="button"
                             onClick={handleAIAssist}
-                            className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 hover:bg-indigo-100"
+                            className="rounded-lg border border-[#FFC529] bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 hover:bg-indigo-100"
                           >
                             AI Improve
                           </button>
@@ -1887,7 +1887,7 @@ export default function MenuPage() {
                               description: e.target.value,
                             })
                           }
-                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm min-h-[120px] outline-none focus:ring-4 focus:ring-indigo-50 transition-all"
+                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm min-h-[120px] outline-none focus:ring-4 focus:ring-yellow-50 transition-all"
                           placeholder="Describe taste, texture, and presentation..."
                         />
                       </div>
@@ -1910,7 +1910,7 @@ export default function MenuPage() {
                                       : parseFloat(e.target.value),
                                 })
                               }
-                              className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all pl-8"
+                              className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all pl-8"
                             />
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
                               ₹
@@ -1931,7 +1931,7 @@ export default function MenuPage() {
                                 calories: e.target.value === "" ? null : Number(e.target.value),
                               })
                             }
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
                             placeholder="e.g. 320"
                           />
                         </div>
@@ -1949,7 +1949,7 @@ export default function MenuPage() {
                                 foodCost: e.target.value === "" ? 0 : Number(e.target.value),
                               })
                             }
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
                           />
                         </div>
 
@@ -1966,7 +1966,7 @@ export default function MenuPage() {
                                 estimatedPrepMinutes: e.target.value === "" ? null : Number(e.target.value),
                               })
                             }
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all"
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
                             placeholder="e.g. 15"
                           />
                         </div>
@@ -1988,7 +1988,7 @@ export default function MenuPage() {
                                   categoryId: nextCategoryId,
                                 });
                               }}
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none cursor-pointer"
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                             >
                               {parentCategories.map((cat) => (
                                 <option key={cat.id} value={cat.id}>
@@ -2027,7 +2027,7 @@ export default function MenuPage() {
                                   categoryId: e.target.value,
                                 })
                               }
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none cursor-pointer"
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                             >
                               {subcategoryOptions.length > 0 ? (
                                 subcategoryOptions.map((cat) => (
@@ -2108,12 +2108,12 @@ export default function MenuPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-indigo-700 mb-3">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-gray-900 mb-3">
                           Merchandising
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#FFC529] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
                             <input
                               type="checkbox"
                               checked={editingItem.isBestSeller}
@@ -2121,7 +2121,7 @@ export default function MenuPage() {
                             />
                             Best Seller
                           </label>
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#FFC529] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
                             <input
                               type="checkbox"
                               checked={editingItem.isNew}
@@ -2202,7 +2202,7 @@ export default function MenuPage() {
                                   });
                                 }}
                                 className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold transition-all ${active
-                                  ? "bg-indigo-600 border-indigo-600 text-white"
+                                  ? "bg-[#FFC529] border-[#FFC529] text-gray-900"
                                   : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
                                   }`}
                               >
@@ -2280,20 +2280,20 @@ export default function MenuPage() {
                           if (!editingItem.modelGlb && !editingItem.modelUsdz)
                             modelInputRef.current?.click();
                         }}
-                        className={`group relative aspect-video bg-indigo-50/30 border-2 border-dashed border-indigo-100 rounded-3xl flex flex-col items-center justify-center transition-all ${editingItem.modelGlb || editingItem.modelUsdz
+                        className={`group relative aspect-video bg-slate-50/30 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center transition-all ${editingItem.modelGlb || editingItem.modelUsdz
                           ? "cursor-default"
-                          : "cursor-pointer hover:bg-indigo-50"
+                          : "cursor-pointer hover:bg-slate-50"
                           }`}
                       >
                         {editingItem.modelGlb || editingItem.modelUsdz ? (
-                          <div className="w-full h-full overflow-hidden rounded-3xl border border-indigo-100 bg-white">
+                          <div className="w-full h-full overflow-hidden rounded-3xl border border-slate-200 bg-white">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 modelInputRef.current?.click();
                               }}
-                              className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-indigo-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 shadow-sm"
+                              className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 shadow-sm"
                             >
                               Replace
                             </button>
@@ -2312,7 +2312,7 @@ export default function MenuPage() {
                               target="_blank"
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute top-3 left-3 z-20 rounded-lg bg-white/95 border border-indigo-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 shadow-sm"
+                              className="absolute top-3 left-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 shadow-sm"
                             >
                               Open File
                             </a>
@@ -2348,7 +2348,7 @@ export default function MenuPage() {
                               />
                             )}
                             <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
-                              <div className="inline-flex items-center gap-2 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-700 border border-indigo-100">
+                              <div className="inline-flex items-center gap-2 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 border border-slate-200">
                                 <Box className="w-3.5 h-3.5" />
                                 3D Preview
                               </div>
@@ -2374,12 +2374,12 @@ export default function MenuPage() {
 
                 {activeModalTab === "ingredients" && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                    <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-200">
                       <div>
                         <h4 className="text-sm font-bold text-indigo-900">
                           Structured Ingredients
                         </h4>
-                        <p className="text-[11px] text-indigo-600 font-medium">
+                        <p className="text-[11px] text-[#FFC529] font-medium">
                           Define components for accurate tracking and costing.
                         </p>
                       </div>
@@ -2398,7 +2398,7 @@ export default function MenuPage() {
                             ],
                           })
                         }
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-sm"
+                        className="bg-[#FFC529] text-gray-900 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:brightness-95 transition-all shadow-sm"
                       >
                         <Plus className="w-4 h-4" /> Add Ingredient
                       </button>
@@ -2418,7 +2418,7 @@ export default function MenuPage() {
                         {editingItem.ingredientsStructured.map((ing, idx) => (
                           <div
                             key={ing.id}
-                            className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-2xl group hover:border-indigo-200 transition-all"
+                            className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-2xl group hover:border-[#FFC529] transition-all"
                           >
                             <div className="flex-1 grid grid-cols-12 gap-4">
                               <div className="col-span-6 space-y-1">
@@ -2426,7 +2426,7 @@ export default function MenuPage() {
                                   Ingredient Name
                                 </span>
                                 <input
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-indigo-600 pb-1"
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#FFC529] pb-1"
                                   value={ing.name}
                                   onChange={(e) => {
                                     const list = [
@@ -2447,7 +2447,7 @@ export default function MenuPage() {
                                 </span>
                                 <input
                                   type="number"
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-indigo-600 pb-1"
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#FFC529] pb-1"
                                   value={ing.quantity || ""}
                                   onFocus={(e) => e.target.select()}
                                   onChange={(e) => {
@@ -2481,7 +2481,7 @@ export default function MenuPage() {
                                       ingredientsStructured: list,
                                     });
                                   }}
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-indigo-600 pb-1"
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#FFC529] pb-1"
                                 >
                                   <option value="g">Grams (g)</option>
                                   <option value="ml">Milliliters (ml)</option>
@@ -2530,7 +2530,7 @@ export default function MenuPage() {
                             ],
                           })
                         }
-                        className="text-indigo-600 font-bold text-xs bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
+                        className="text-[#FFC529] font-bold text-xs bg-slate-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
                       >
                         + Add Variant
                       </button>
@@ -2547,7 +2547,7 @@ export default function MenuPage() {
                                 Size / Variant Label
                               </span>
                               <input
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#FFC529] pb-1"
                                 value={v.label}
                                 onChange={(e) => {
                                   const newList = [...editingItem.variants];
@@ -2563,7 +2563,7 @@ export default function MenuPage() {
                               </span>
                               <input
                                 type="number"
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#FFC529] pb-1"
                                 value={v.price || ""}
                                 onChange={(e) => {
                                   const newList = [...editingItem.variants];
@@ -2578,7 +2578,7 @@ export default function MenuPage() {
                               </span>
                               <input
                                 type="number"
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-indigo-600 pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#FFC529] pb-1"
                                 value={v.stockCount ?? ""}
                                 placeholder="Unlimited"
                                 onChange={(e) => {
@@ -2631,7 +2631,7 @@ export default function MenuPage() {
                             ],
                           })
                         }
-                        className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+                        className="rounded-xl bg-[#FFC529] px-4 py-2 text-xs font-bold text-gray-900 hover:brightness-95"
                       >
                         + Add Group
                       </button>
@@ -2794,8 +2794,8 @@ export default function MenuPage() {
 
                 {activeModalTab === "availability" && (
                   <div className="space-y-8">
-                    <div className="bg-indigo-50/60 p-8 rounded-3xl border border-indigo-100">
-                      <h4 className="text-sm font-black uppercase tracking-widest text-indigo-700 mb-6 flex items-center gap-2">
+                    <div className="bg-slate-50/60 p-8 rounded-3xl border border-slate-200">
+                      <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 mb-6 flex items-center gap-2">
                         <Clock3 className="w-4 h-4" /> Scheduled Publishing
                       </h4>
                       <div className="grid gap-4 md:grid-cols-2">
@@ -2894,7 +2894,7 @@ export default function MenuPage() {
                                 });
                               }}
                               className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-black uppercase transition-all border-2 ${active
-                                ? "bg-indigo-600 border-indigo-600 text-white shadow-lg"
+                                ? "bg-[#FFC529] border-[#FFC529] text-gray-900 shadow-lg"
                                 : "bg-white border-slate-100 text-slate-300 hover:border-slate-200"
                                 }`}
                             >
@@ -2955,7 +2955,7 @@ export default function MenuPage() {
                             <button
                               type="button"
                               onClick={() => handleRestoreVersion(version.id)}
-                              className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                              className="rounded-xl border border-[#FFC529] bg-slate-50 px-3 py-2 text-xs font-bold text-gray-900 hover:bg-indigo-100"
                             >
                               Restore
                             </button>
@@ -3063,7 +3063,7 @@ export default function MenuPage() {
                       setSyncSourceBranchId(nextSource);
                       setSyncTargetBranchIds((prev) => prev.filter((id) => id !== nextSource));
                     }}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50"
                   >
                     <option value="">Select source branch...</option>
                     {branches.map((branch) => (
@@ -3091,7 +3091,7 @@ export default function MenuPage() {
                           type="checkbox"
                           checked={syncTargetBranchIds.includes(branch.restaurant_id)}
                           onChange={() => toggleSyncTargetBranch(branch.restaurant_id)}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          className="h-4 w-4 rounded border-slate-300 text-[#FFC529] focus:ring-yellow-500"
                         />
                       </label>
                     ))}
@@ -3111,7 +3111,7 @@ export default function MenuPage() {
                   type="button"
                   onClick={handleConfirmSync}
                   disabled={isSyncingMenu || !syncSourceBranchId || syncTargetBranchIds.length === 0}
-                  className="h-9 rounded-lg bg-indigo-600 px-4 text-xs font-bold text-white disabled:opacity-50"
+                  className="h-9 rounded-lg bg-[#FFC529] px-4 text-xs font-bold text-gray-900 disabled:opacity-50"
                 >
                   {isSyncingMenu ? "Syncing..." : "Confirm Sync"}
                 </button>

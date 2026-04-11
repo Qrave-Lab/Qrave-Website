@@ -167,7 +167,7 @@ export default function BranchManager() {
         ) : (
           <Link
             href="/staff/settings/branches/add"
-            className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-slate-800 flex items-center gap-1"
+            className="text-xs bg-[#FFC529] text-gray-900 px-3 py-1.5 rounded-lg font-bold hover:brightness-95 flex items-center gap-1"
           >
             <Plus className="w-3 h-3" /> New Branch
           </Link>
@@ -232,7 +232,7 @@ export default function BranchManager() {
                   <option value="cashier">Cashier</option>
                 </select>
               </div>
-              <button disabled={isBusy} onClick={assignStaff} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+              <button disabled={isBusy} onClick={assignStaff} className="inline-flex items-center gap-1 rounded-lg bg-[#FFC529] px-3 py-2 text-xs font-bold text-gray-900 disabled:opacity-50">
                 <UserPlus className="w-3 h-3" /> Assign
               </button>
 

@@ -490,7 +490,7 @@ export default function StaffSidebar() {
                         type="button"
                         onClick={() => handleSwitchLocation(loc.restaurant_id)}
                         className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-                          isActive ? "bg-slate-900 text-white" : "hover:bg-slate-50 text-slate-700"
+                          isActive ? "bg-[#FFC529] text-gray-900 font-bold" : "hover:bg-slate-50 text-slate-700"
                         }`}
                       >
                         <MapPin className={`w-3 h-3 shrink-0 ${isActive ? "text-white/60" : "text-slate-400"}`} />

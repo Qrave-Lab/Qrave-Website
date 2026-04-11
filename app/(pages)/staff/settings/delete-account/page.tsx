@@ -60,7 +60,7 @@ export default function DeleteAccountPage() {
   };
 
   if (loading) {
-    return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>;
+    return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-[#FFC529]" /></div>;
   }
 
   if (role !== "owner") {

@@ -37,7 +37,7 @@ function VisualPicker<T extends string>({
           onClick={() => onChange(opt.value)}
           className={`relative flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-semibold transition-all ${
             value === opt.value
-              ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+              ? "border-slate-900 bg-[#FFC529] text-gray-900 shadow-sm font-semibold"
               : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
           }`}
         >
@@ -336,7 +336,7 @@ function TypographyTab({
               key={f.value}
               type="button"
               onClick={() => setField("font_family", f.value)}
-              className={`flex w-full items-center gap-3 px-3 py-2 text-left transition ${i > 0 ? "border-t border-slate-100" : ""} ${active ? "bg-slate-900 text-white" : "hover:bg-slate-50"}`}
+              className={`flex w-full items-center gap-3 px-3 py-2 text-left transition ${i > 0 ? "border-t border-slate-100" : ""} ${active ? "bg-[#FFC529] text-gray-900 font-bold" : "hover:bg-slate-50"}`}
             >
               <span className="w-6 shrink-0 text-base" style={{ fontFamily: f.value }}>Aa</span>
               <div className="min-w-0 flex-1">
@@ -427,13 +427,14 @@ function LayoutTab({
       <SectionLabel>Menu layout</SectionLabel>
       <VisualPicker
         options={[
-          { value: "list",    label: "List" },
-          { value: "grid",    label: "Grid" },
-          { value: "compact", label: "Compact" },
+          { value: "list",     label: "List" },
+          { value: "grid",     label: "Grid" },
+          { value: "compact",  label: "Compact" },
+          { value: "magazine", label: "Magazine" },
         ]}
         value={theme.layout ?? "list"}
         onChange={(v) => setField("layout", v)}
-        cols={3}
+        cols={4}
       />
 
       <SectionLabel>Item images</SectionLabel>

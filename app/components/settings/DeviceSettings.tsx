@@ -202,7 +202,7 @@ export default function DeviceSettings() {
                 type="button"
                 onClick={() => testProfile(p)}
                 disabled={isTestingId === p.id}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[#FFC529] bg-slate-50 text-gray-900 text-xs font-bold disabled:opacity-60"
               >
                 <TestTube2 className="w-3.5 h-3.5" />
                 {isTestingId === p.id ? "Testing..." : "Test"}

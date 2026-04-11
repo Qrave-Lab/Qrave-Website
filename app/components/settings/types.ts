@@ -59,7 +59,7 @@ export type ThemeConfig = {
   hero_subtitle?: string;    // tagline / subtitle
 
   // ── Layout ────────────────────────────────────────────────────────────────
-  layout?: "list" | "grid" | "compact";
+  layout?: "list" | "grid" | "compact" | "magazine";
   image_style?: "none" | "small" | "large" | "full";
   spacing?: "compact" | "normal" | "relaxed";
   shadow?: "none" | "sm" | "md" | "lg";

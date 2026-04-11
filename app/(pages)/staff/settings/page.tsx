@@ -250,7 +250,7 @@ export default function SettingsPage() {
               value={activeRestaurantId}
               disabled={isSwitchingLocation}
               onChange={(e) => switchLocationFromSettings(e.target.value)}
-              className="min-w-[320px] rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+              className="min-w-[320px] rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20 disabled:opacity-60"
             >
               {locations.map((loc) => (
                 <option key={loc.restaurant_id} value={loc.restaurant_id}>

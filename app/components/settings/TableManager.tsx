@@ -108,7 +108,7 @@ export default function TableManager({ tables, onToggle, onRemove, onUpdateMeta 
                     setEditFloor(table.floor_name || "");
                     setEditCounter(table.counter_name || "");
                   }}
-                  className="px-2 py-1 text-[10px] font-bold rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                  className="px-2 py-1 text-[10px] font-bold rounded-md border border-[#FFC529] text-[#FFC529] hover:bg-slate-50"
                 >
                   <span className="inline-flex items-center gap-1">
                     <Edit2 className="w-3 h-3" /> Edit

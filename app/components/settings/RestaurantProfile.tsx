@@ -50,7 +50,7 @@ function TimePickerField({
 
   const update = (h: number, m: number, p: "AM" | "PM") => onChange(to24(h, m, p));
   const selectClass =
-    "h-10 rounded-lg border border-slate-200 bg-slate-50/30 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer";
+    "h-10 rounded-lg border border-slate-200 bg-slate-50/30 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] transition-all cursor-pointer";
 
   return (
     <div>
@@ -145,7 +145,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
   const previewTotal = (inclusive ? PREVIEW_BASE : PREVIEW_BASE + taxAmount) + cessAmount + serviceAmount;
 
   const fmtPreview = (n: number) => `₹${n.toFixed(2)}`;
-  const inputCls = "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900";
+  const inputCls = "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900";
 
 
   return (
@@ -171,7 +171,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                   <ImageIcon className="w-8 h-8 text-slate-300" />
                 )}
               </div>
-              <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-90 border-2 border-white">
+              <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#FFC529] hover:brightness-95 text-gray-900 rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-90 border-2 border-white">
                 {isUploading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
@@ -208,7 +208,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                 value={data.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 placeholder="The Golden Bistro"
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 font-medium text-slate-900"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 font-medium text-slate-900"
               />
             </div>
           </div>
@@ -223,7 +223,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
               value={data.address}
               onChange={(e) => handleChange("address", e.target.value)}
               placeholder="123 Gourmet Ave, Food City"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
             />
           </div>
 
@@ -236,7 +236,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
               value={data.website || ""}
               onChange={(e) => handleChange("website", e.target.value)}
               placeholder="https://yourrestaurant.com"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
             />
           </div>
 
@@ -248,7 +248,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
               <select
                 value={data.phoneCountryCode}
                 onChange={(e) => handleChange("phoneCountryCode", e.target.value)}
-                className="w-[130px] border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+                className="w-[130px] border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
               >
                 {PHONE_COUNTRY_CODES.map((opt) => (
                   <option key={opt.code} value={opt.code}>
@@ -265,7 +265,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                 }}
                 placeholder={PHONE_RULES[data.phoneCountryCode]?.example || "Business contact number"}
                 inputMode="tel"
-                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-slate-50/30 text-slate-900"
+                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
               />
             </div>
             {data.phone.trim() && !PHONE_RULES[data.phoneCountryCode]?.pattern.test(data.phone.trim()) && (
@@ -321,7 +321,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                     handleChange("taxPercent", slab);
                   }}
                   className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!customSlab && (data.taxPercent ?? 0) === slab
-                    ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                    ? "bg-[#FFC529] text-gray-900 border-[#FFC529] shadow-sm"
                     : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
                     }`}
                 >
@@ -332,7 +332,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                 type="button"
                 onClick={() => setCustomSlab(true)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${customSlab
-                  ? "bg-slate-900 text-white border-slate-900"
+                  ? "bg-[#FFC529] text-gray-900 border-[#FFC529]"
                   : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
                   }`}
               >
@@ -352,7 +352,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                       if (v !== "") handleChange("taxPercent", Number(v));
                     }}
                     onBlur={() => { if (taxInput === "") { setTaxInput("0"); handleChange("taxPercent", 0); } }}
-                    className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none bg-slate-50"
+                    className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50"
                     placeholder="0"
                   />
                   <span className="text-xs text-slate-400 font-bold">%</span>
@@ -439,7 +439,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                       if (v !== "") handleTaxConfigChange("cess_percent", Number(v));
                     }}
                     onBlur={() => { if (cessInput === "") { setCessInput("0"); handleTaxConfigChange("cess_percent", 0); } }}
-                    className="w-28 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none bg-slate-50/30 text-slate-900"
+                    className="w-28 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50/30 text-slate-900"
                   />
                   <span className="text-sm text-slate-400 font-bold">%</span>
                 </div>
@@ -463,7 +463,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                   if (v !== "") handleChange("serviceCharge", Number(v));
                 }}
                 onBlur={() => { if (serviceInput === "") { setServiceInput("0"); handleChange("serviceCharge", 0); } }}
-                className="w-28 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none bg-slate-50/30 text-slate-900"
+                className="w-28 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50/30 text-slate-900"
               />
               <span className="text-sm text-slate-400 font-bold">%</span>
             </div>

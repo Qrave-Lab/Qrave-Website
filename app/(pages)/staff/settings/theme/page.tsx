@@ -43,7 +43,7 @@ export default function ThemeSettingsPage() {
     } catch { toast.error("Background upload failed"); return ""; } finally { setUploadingBg(false); }
   };
 
-  if (loading) return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>;
+  if (loading) return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-[#FFC529]" /></div>;
 
   return (
     <SettingsPageLayout
