@@ -25,6 +25,8 @@ import {
   Clock3,
   ArrowUp,
   ArrowDown,
+  GripVertical,
+  Sparkles,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import StaffSidebar from "@/app/components/StaffSidebar";
@@ -1250,65 +1252,90 @@ export default function MenuPage() {
         <main className="flex-1 overflow-y-auto p-8 bg-[#F8F9FB]">
           <div className="max-w-7xl mx-auto">
             {canManageCategories && (
-              <div className="mb-6 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
-                      <Plus className="w-3.5 h-3.5 text-[#FFC529]" />
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-8 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="px-6 py-4 bg-gradient-to-r from-slate-50/80 to-white border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-[#FFC529]/10 flex items-center justify-center border border-[#FFC529]/20">
+                      <Sparkles className="w-4 h-4 text-[#FFC529]" />
                     </div>
-                    <span className="text-xs font-bold text-slate-700 tracking-tight">
-                      Add Subcategory
-                    </span>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-800 tracking-tight">Expand Your Menu</h2>
+                      <p className="text-[10px] font-medium text-slate-400">Create a new sub-category for your items</p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowSubcategoryManager(true)}
-                    className="text-[11px] font-semibold text-[#FFC529] hover:text-indigo-800 hover:underline transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-[#FFC529] hover:bg-[#FFC529]/5 transition-all group"
                   >
-                    Manage Names →
+                    <span>Manage Categories</span>
+                    <ArrowUp className="w-3 h-3 rotate-45 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                   </button>
                 </div>
-                <div className="px-5 py-4 flex flex-col sm:flex-row items-stretch gap-3">
-                  <select
-                    value={newSubcategoryParentId || parentCategories[0]?.id || ""}
-                    onChange={(e) => setNewSubcategoryParentId(e.target.value)}
-                    className="h-10 px-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all min-w-[140px]"
-                  >
-                    {parentCategories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={newSubcategoryName}
-                    onChange={(e) => setNewSubcategoryName(e.target.value)}
-                    placeholder="e.g. Pizzas, Burgers, Chinese"
-                    className="flex-1 h-10 px-4 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all placeholder:text-slate-300"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        createSubcategory(
-                          newSubcategoryName,
-                          newSubcategoryParentId || parentCategories[0]?.id || ""
-                        );
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={() =>
-                      createSubcategory(
-                        newSubcategoryName,
-                        newSubcategoryParentId || parentCategories[0]?.id || ""
-                      )
-                    }
-                    disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
-                    className="h-10 px-5 rounded-xl text-xs font-bold bg-[#FFC529] text-gray-900 hover:brightness-95 shadow-sm shadow-[#FFC529]/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add
-                  </button>
+                
+                <div className="p-6">
+                  <div className="flex flex-col md:flex-row items-center gap-4">
+                    <div className="w-full md:w-64">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Parent Section</label>
+                      <div className="relative group">
+                        <select
+                          value={newSubcategoryParentId || parentCategories[0]?.id || ""}
+                          onChange={(e) => setNewSubcategoryParentId(e.target.value)}
+                          className="w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl appearance-none outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all cursor-pointer group-hover:bg-slate-100/50"
+                        >
+                          {parentCategories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <ArrowDown className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 w-full">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sub-Category Name</label>
+                      <div className="relative group">
+                        <input
+                          value={newSubcategoryName}
+                          onChange={(e) => setNewSubcategoryName(e.target.value)}
+                          placeholder="e.g. Classic Burgers, Craft Pizzas..."
+                          className="w-full h-12 px-5 text-sm font-medium bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all placeholder:text-slate-300 group-hover:bg-slate-100/50"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              createSubcategory(
+                                newSubcategoryName,
+                                newSubcategoryParentId || parentCategories[0]?.id || ""
+                              );
+                            }
+                          }}
+                        />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                           <button
+                            onClick={() =>
+                              createSubcategory(
+                                newSubcategoryName,
+                                newSubcategoryParentId || parentCategories[0]?.id || ""
+                              )
+                            }
+                            disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
+                            className="h-9 px-5 rounded-xl text-[11px] font-bold bg-[#FFC529] text-gray-900 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-[#FFC529]/20 transition-all disabled:opacity-40 disabled:scale-100 flex items-center gap-2"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Quick Add</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             )}
             <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
               <div className="flex items-center gap-4">
@@ -1461,74 +1488,106 @@ export default function MenuPage() {
                         </select>
                       </div>
 
-                      <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-                        {getSubcategories(
-                          newSubcategoryParentId || parentCategories[0]?.id || ""
-                        ).map((cat) => (
-                          <div
-                            key={cat.id}
-                            className="flex items-center gap-2 p-2 rounded-xl border border-slate-100 bg-slate-50"
-                          >
+                      <div className="max-h-[400px] overflow-y-auto space-y-2.5 pr-1 py-1 custom-scrollbar">
+                        <motion.div className="space-y-2.5">
+                          {getSubcategories(
+                            newSubcategoryParentId || parentCategories[0]?.id || ""
+                          ).map((cat, idx) => (
+                            <motion.div
+                              key={cat.id}
+                              layout
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ 
+                                layout: { type: "spring", stiffness: 300, damping: 30 },
+                                opacity: { duration: 0.2 }
+                              }}
+                              className="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 bg-white hover:border-[#FFC529]/30 hover:shadow-md hover:shadow-slate-100 transition-all group"
+                            >
+                            <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors">
+                              <GripVertical className="w-4 h-4" />
+                            </div>
+
                             {editingSubcategoryId === cat.id ? (
-                              <>
+                              <div className="flex-1 flex flex-col gap-2">
                                 <input
+                                  autoFocus
                                   value={editingSubcategoryName}
                                   onChange={(e) => setEditingSubcategoryName(e.target.value)}
-                                  className="flex-1 h-8 px-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-300"
+                                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-[#FFC529] rounded-xl outline-none focus:ring-4 focus:ring-[#FFC529]/10 transition-all font-semibold"
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") renameSubcategory();
+                                    if (e.key === "Escape") cancelRenameSubcategory();
+                                  }}
                                 />
-                                <button
-                                  type="button"
-                                  onClick={renameSubcategory}
-                                  disabled={isRenamingSubcategory}
-                                  className="h-8 px-2 rounded-lg text-[10px] font-bold bg-slate-900 text-white disabled:opacity-60"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelRenameSubcategory}
-                                  className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-500"
-                                >
-                                  Cancel
-                                </button>
-                              </>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={renameSubcategory}
+                                    disabled={isRenamingSubcategory}
+                                    className="px-3 h-8 rounded-lg text-[10px] font-bold bg-[#FFC529] text-gray-900 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                                  >
+                                    Apply Changes
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelRenameSubcategory}
+                                    className="px-3 h-8 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
                             ) : (
                               <>
-                                <span className="flex-1 text-xs font-semibold text-slate-700">
-                                  {cat.name}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => moveCategory(cat, -1)}
-                                  className="h-8 w-8 rounded-lg text-slate-500 hover:bg-white border border-slate-200 flex items-center justify-center"
-                                  title="Move up"
-                                >
-                                  <ArrowUp className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moveCategory(cat, 1)}
-                                  className="h-8 w-8 rounded-lg text-slate-500 hover:bg-white border border-slate-200 flex items-center justify-center"
-                                  title="Move down"
-                                >
-                                  <ArrowDown className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => startRenameSubcategory(cat)}
-                                  className="h-8 px-2 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
-                                >
-                                  Rename
-                                </button>
+                                <div className="flex-1 flex flex-col">
+                                  <span className="text-[13px] font-bold text-slate-700 leading-tight">
+                                    {cat.name}
+                                  </span>
+                                  <span className="text-[10px] font-medium text-slate-400 capitalize">
+                                    Position: {((cat as any).sort_order ?? 0) + 1}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={() => moveCategory(cat, -1)}
+                                    className="h-8 w-8 rounded-lg text-slate-400 hover:text-[#FFC529] hover:bg-[#FFC529]/10 flex items-center justify-center transition-colors"
+                                    title="Move up"
+                                  >
+                                    <ArrowUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => moveCategory(cat, 1)}
+                                    className="h-8 w-8 rounded-lg text-slate-400 hover:text-[#FFC529] hover:bg-[#FFC529]/10 flex items-center justify-center transition-colors"
+                                    title="Move down"
+                                  >
+                                    <ArrowDown className="w-3.5 h-3.5" />
+                                  </button>
+                                  <div className="w-px h-4 bg-slate-100 mx-1" />
+                                  <button
+                                    type="button"
+                                    onClick={() => startRenameSubcategory(cat)}
+                                    className="h-8 px-3 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
                               </>
                             )}
-                          </div>
-                        ))}
+                          </motion.div>
+                          ))}
+                        </motion.div>
                         {getSubcategories(
                           newSubcategoryParentId || parentCategories[0]?.id || ""
                         ).length === 0 && (
-                            <div className="text-xs text-slate-400 py-4 text-center">
-                              No subcategories for selected parent
+                            <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                                <Box className="w-6 h-6 text-[#FFC529]" />
+                              </div>
+                              <p className="text-[14px] font-bold text-slate-600 mb-1">Empty Category</p>
+                              <p className="text-[12px] text-slate-400">Add subcategories to organize your items better.</p>
                             </div>
                           )}
                       </div>
@@ -1632,11 +1691,15 @@ export default function MenuPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredItems.map((item) => (
-                  <div
+                  <motion.div
                     key={item.id}
-                    className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${selectedItems.has(item.id)
-                      ? "border-[#FFC529] ring-4 ring-indigo-600/10"
-                      : "border-slate-200 hover:shadow-xl hover:shadow-slate-200/50"
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileHover={{ y: -4 }}
+                    className={`group bg-white rounded-[28px] border transition-all duration-500 flex flex-col relative overflow-hidden ${selectedItems.has(item.id)
+                      ? "border-[#FFC529] ring-8 ring-[#FFC529]/5 px-[1px] py-[1px]"
+                      : "border-slate-100 hover:shadow-2xl hover:shadow-[#FFC529]/10"
                       }`}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
@@ -1660,7 +1723,7 @@ export default function MenuPage() {
                           <ImageIcon className="w-10 h-10" />
                         </div>
                       )}
-                      <div className="absolute top-3 right-3 flex gap-2">
+                      <div className="absolute top-3 right-3 flex gap-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                         <button
                           onClick={() => {
                             setEditingItem(item);
@@ -1670,7 +1733,7 @@ export default function MenuPage() {
                             refreshHistory(item.id);
                             setModalMode("edit");
                           }}
-                          className="p-2 bg-white/90 backdrop-blur-md rounded-lg text-slate-600 hover:text-[#FFC529] shadow-sm transition-colors"
+                          className="p-2.5 bg-white shadow-xl rounded-xl text-slate-600 hover:text-[#FFC529] border border-slate-50 transition-all active:scale-90"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -1690,53 +1753,56 @@ export default function MenuPage() {
                           ₹{item.price}
                         </span>
                       </div>
-                      {(item.isTodaysSpecial || item.isChefSpecial || item.isBestSeller || item.isNew || item.spiceLevel !== "none") && (
-                        <div className="mb-2 flex flex-wrap gap-1.5">
+                      {(item.isTodaysSpecial || item.isChefSpecial || item.isBestSeller || item.isNew || (item.spiceLevel && item.spiceLevel !== "none")) && (
+                        <div className="mb-3 flex flex-wrap gap-1.5">
                           {item.isTodaysSpecial && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
-                              Today
+                            <span className="rounded-lg bg-amber-50 border border-amber-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600">
+                              Specials
                             </span>
                           )}
                           {item.isChefSpecial && (
-                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-900">
-                              Chef
+                            <span className="rounded-lg bg-indigo-50 border border-indigo-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-600">
+                              Signature
                             </span>
                           )}
                           {item.isBestSeller && (
-                            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-violet-700">
-                              Best Seller
+                            <span className="rounded-lg bg-[#FFC529]/10 border border-[#FFC529]/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-gray-800">
+                              Bestseller
                             </span>
                           )}
                           {item.isNew && (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                            <span className="rounded-lg bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-600">
                               New
                             </span>
                           )}
-                          {item.spiceLevel !== "none" && (
-                            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
-                              {item.spiceLevel}
+                          {item.spiceLevel && item.spiceLevel !== "none" && (
+                            <span className="rounded-lg bg-rose-50 border border-rose-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-600 flex items-center gap-1">
+                              <Flame className="w-2.5 h-2.5" /> {item.spiceLevel}
                             </span>
                           )}
                         </div>
                       )}
-                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-4">
-                        {item.specialNote || item.description || "No description provided."}
+                      <p className="text-[12px] font-medium text-slate-400 line-clamp-2 leading-snug mb-4">
+                        {item.specialNote || item.description || "Freshly prepared for you."}
                       </p>
                       <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                          {item.parentCategoryName
-                            ? `${item.parentCategoryName} • ${item.categoryName || "General"}`
-                            : item.categoryName || "Uncategorized"}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-slate-300">
+                            Category
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-500 truncate max-w-[100px]">
+                            {item.categoryName || "General"}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateOutOfStock(item, !item.isOutOfStock)}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${item.isOutOfStock
-                              ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${item.isOutOfStock
+                              ? "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 active:scale-95"
+                              : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 active:scale-95"
                               }`}
                           >
-                            {item.isOutOfStock ? "Out of Stock" : "In Stock"}
+                            {item.isOutOfStock ? "Out of Stock" : "Active"}
                           </button>
                           {item.estimatedPrepMinutes ? (
                             <span className="text-[10px] font-bold text-slate-500">
@@ -1757,8 +1823,8 @@ export default function MenuPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                    </motion.div>
+                  ))}
               </div>
             )}
           </div>
