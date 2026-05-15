@@ -8,7 +8,7 @@ export function PrintButton({ sessionId }: { sessionId?: string }) {
     if (typeof window !== "undefined") {
       if (sessionId) {
         try {
-          await api(`/api/admin/sessions/${sessionId}/end`, { method: "POST" });
+          await api(`/api/admin/sessions/${sessionId}/end`, { method: "POST", suppressErrorLog: true });
         } catch {
           // best effort
         }

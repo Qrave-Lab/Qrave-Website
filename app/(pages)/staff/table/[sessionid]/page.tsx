@@ -143,8 +143,10 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     let calls: any[] = [];
     
     try {
+      if (isTakeaway) throw new Error("Known Takeaway Order - Skip to Fallback");
+
       const [resB, resM, resC] = await Promise.all([
-        api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`),
+        api<AdminBillResponse>(`/api/admin/bills/session/${sessionid}`, { suppressErrorLog: true }),
         api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number; service_charge?: number }>("/api/admin/me"),
         api<any[]>(`/api/admin/service-calls`),
       ]);
@@ -153,9 +155,9 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       calls = resC;
       setIsTakeaway(false);
     } catch {
-      // Fallback: Check if it's a takeaway/reception order
+      // Fallback: Check if it's a takeaway/reception order, searching all statuses so we don't drop completed orders
       const [takeawayRes, resM, resC] = await Promise.all([
-        api<{ orders: any[] }>("/api/admin/takeaway/orders?status=active").catch(() => ({ orders: [] })),
+        api<{ orders: any[] }>("/api/admin/takeaway/orders").catch(() => ({ orders: [] })),
         api<{ restaurant?: string; address?: string | null; restaurant_id?: string; tax_percent?: number; service_charge?: number }>("/api/admin/me"),
         api<any[]>(`/api/admin/service-calls`),
       ]);
@@ -176,7 +178,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
            sessions: [{ session_id: tw.id, table_id: "", table_number: tableNum || 0 }],
            orders: [{
               id: tw.id,
-              status: tw.status === "pending" || tw.status === "preparing" ? "accepted" : tw.status,
+              status: tw.status === "pending" || tw.status === "preparing" ? "accepted" : tw.status === "ready" ? "served" : tw.status,
               created_at: tw.created_at,
               session_id: tw.id,
               table_id: "",
@@ -284,7 +286,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     setOrders((curr) => curr.map((o) => (o.id === orderId ? { ...o, status } : o)));
     setItems((curr) => curr.map((it) => (it.orderId === orderId ? { ...it, status } : it)));
     try {
-      const targetStatus = isTakeaway && status === "served" ? "completed" : status;
+      const targetStatus = isTakeaway && status === "served" ? "ready" : status;
       const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
       await api(url, {
         method: "PATCH",
@@ -350,7 +352,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                reason: "table_checkout",
             }),
          });
-         await api(`/api/admin/sessions/${sessionid}/end`, { method: "POST" });
+         await Promise.all(billSessionIds.map((id) => api(`/api/admin/sessions/${id}/end`, { method: "POST", suppressErrorLog: true }).catch(() => {})));
       }
       
       await refreshOrders();
@@ -558,163 +560,168 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           </div>
         )}
 
-        {/* === BILL CONTENT === */}
-        <div className="p-8">
-          {/* Header Section */}
-          <header className="flex flex-col sm:flex-row items-start justify-between gap-6 mb-8">
-            <div className="print:hidden"> 
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">{bill?.restaurantName || "Restaurant"}</h1>
-              <p className="text-sm text-gray-500 mt-1 font-medium">{bill?.restaurantAddress}</p>
-            </div>
-            
-            <div className="w-full sm:w-auto flex justify-between sm:block text-right space-y-1">
-              <div className="inline-flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 print:border-none print:px-0">
-                <Receipt className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-mono font-semibold text-gray-700">{bill?.billNumber || "BILL-"}</span>
-              </div>
-              <p className="text-xs text-gray-500 font-medium">
-                {(bill?.createdAt || new Date()).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
-              </p>
-              {isPaid && (
-                  <div className="print:block hidden mt-2 border-2 border-gray-900 px-2 py-1 inline-block">
-                      <span className="font-black text-xl">PAID</span>
-                  </div>
-              )}
-            </div>
-          </header>
+        {/* === MAIN CONTENT (Two Pane Layout) === */}
+        <div className="flex flex-col lg:flex-row items-start font-sans pb-10 print:pb-0">
+          
+          {/* THERMAL RECEIPT UI */}
+          <div className="w-full lg:w-[380px] bg-white sm:border-r border-gray-200 relative pb-6 font-mono text-gray-800 print:w-full print:border-none print:max-w-none shrink-0">
+             <div className="p-8 flex flex-col">
+                <div className="text-center mb-6">
+                   <h1 className="text-2xl font-black tracking-tighter uppercase text-black">{bill?.restaurantName || "Restaurant"}</h1>
+                   {bill?.restaurantAddress && <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1.5 leading-relaxed">{bill.restaurantAddress}</p>}
+                </div>
+                
+                <div className="border-t-[1.5px] border-dashed border-gray-300 py-3 mb-3 text-[11px] font-bold flex justify-between uppercase tracking-wider text-black">
+                   <div className="space-y-1">
+                     <p>Bill: {bill?.billNumber || "BILL-"}</p>
+                     <p>Table: {bill?.tableCode || "T-"}</p>
+                   </div>
+                   <div className="text-right space-y-1">
+                     <p>{(bill?.createdAt || new Date()).toLocaleDateString("en-IN")}</p>
+                     <p>{(bill?.createdAt || new Date()).toLocaleTimeString("en-IN", {hour: '2-digit', minute:'2-digit'})}</p>
+                   </div>
+                </div>
 
-          <hr className="border-dashed border-gray-200 mb-6" />
+                <div className="border-t-[1.5px] border-dashed border-gray-300 border-b-[1.5px] py-2 mb-4 flex text-[12px] font-black uppercase tracking-widest text-black">
+                   <div className="w-7/12">Item</div>
+                   <div className="w-2/12 text-center">Qty</div>
+                   <div className="w-3/12 text-right">Amt</div>
+                </div>
 
-          {/* Table */}
-          <section className="mb-8">
-            <div className="overflow-hidden rounded-lg border border-gray-200 print:border-none">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50/80 border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[11px]">
-                    <th className="text-left py-3 px-4 font-semibold w-12">#</th>
-                    <th className="text-left py-3 px-4 font-semibold">Item Details</th>
-                    <th className="text-center py-3 px-4 font-semibold w-20">Qty</th>
-                    <th className="text-right py-3 px-4 font-semibold w-24">Rate</th>
-                    <th className="text-right py-3 px-4 font-semibold w-28">Amount</th>
-                    <th className="text-left py-3 px-4 font-semibold w-32 print:hidden">Status</th>
-                    <th className="text-right py-3 px-4 font-semibold w-40 print:hidden">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {items.map((item, index) => {
-                    const amount = item.quantity * item.rate;
-                    const config = statusConfig(item.status);
-                    const isCancelled = item.status === 'cancelled';
-                    const isFirstRow = firstRowByOrder[item.orderId] === item.id;
-                    const orderForItem = orders.find((o) => o.id === item.orderId);
+                <div className="space-y-4 mb-6">
+                   {items.map((item) => (
+                      <div key={item.id} className={`flex text-xs ${item.status === 'cancelled' ? 'line-through text-gray-400' : 'text-black font-bold'}`}>
+                         <div className="w-7/12 pr-2 whitespace-pre-wrap leading-tight">
+                             {item.name}
+                         </div>
+                         <div className="w-2/12 text-center">{item.quantity}</div>
+                         <div className="w-3/12 text-right">₹{(item.quantity * item.rate).toFixed(2)}</div>
+                      </div>
+                   ))}
+                </div>
 
-                    return (
-                      <tr key={item.id} className={`group hover:bg-gray-50/50 transition-colors ${isCancelled ? 'opacity-50 print:hidden' : ''}`}>
-                        <td className="py-4 px-4 text-gray-400 font-medium">{index + 1}</td>
-                        <td className="py-4 px-4">
-                          <span className={`font-semibold text-gray-900 block ${isCancelled ? 'line-through' : ''}`}>{item.name}</span>
-                          {isFirstRow && orderForItem?.daily_order_number != null && (
-                            <span className="text-[10px] text-orange-600 font-bold">Order #{orderForItem.daily_order_number}</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4 text-center text-gray-600 font-medium">{item.quantity}</td>
-                        <td className="py-4 px-4 text-right text-gray-600">₹{item.rate}</td>
-                        <td className="py-4 px-4 text-right font-bold text-gray-900">₹{amount}</td>
+                <div className="border-t-[1.5px] border-dashed border-gray-300 pt-4 space-y-2 text-[11px] font-bold uppercase tracking-wider text-gray-600">
+                    <div className="flex justify-between">
+                       <span>Subtotal</span>
+                       <span className="text-black">₹{subtotal.toFixed(2)}</span>
+                    </div>
+                    {serviceCharge > 0 && (
+                      <div className="flex justify-between">
+                         <span>Service ({servicePercent}%)</span>
+                         <span className="text-black">₹{serviceCharge.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {tax > 0 && (
+                      <div className="flex justify-between">
+                         <span>Taxes ({taxPercent}%)</span>
+                         <span className="text-black">₹{tax.toFixed(2)}</span>
+                      </div>
+                    )}
+                </div>
 
-                        <td className="py-4 px-4 print:hidden">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${config.className}`}>
-                            {config.icon}{config.label}
+                <div className="border-t-[1.5px] border-black mt-4 pt-4 flex justify-between items-center text-xl font-black uppercase tracking-widest text-black">
+                    <span>Total Due</span>
+                    <span>₹{total.toFixed(2)}</span>
+                </div>
+                
+                {isPaid && (
+                   <div className="mt-8 text-center border-[3px] rounded-md border-black text-black py-2.5 text-xl font-black uppercase tracking-widest print:block shadow-sm">
+                      ** PAID **
+                   </div>
+                )}
+                
+                <div className="mt-10 text-center text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                   *** Thank you, visit again! ***
+                </div>
+             </div>
+          </div>
+
+          {/* INTERACTIVE STAFF ACTIONS (Screen Only) */}
+          <div className="flex-1 w-full p-6 print:hidden bg-gray-50/50 min-h-full space-y-6">
+             <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Order Management</h3>
+                <span className="text-xs font-semibold text-gray-500">{items.length} total items</span>
+             </div>
+             
+             <div className="grid gap-3">
+               {items.map((item, index) => {
+                  const amount = item.quantity * item.rate;
+                  const config = statusConfig(item.status);
+                  const isCancelled = item.status === 'cancelled';
+                  const isFirstRow = firstRowByOrder[item.orderId] === item.id;
+                  const orderForItem = orders.find((o) => o.id === item.orderId);
+
+                  return (
+                    <div key={item.id} className={`bg-white rounded-xl p-4 border border-gray-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-opacity ${isCancelled ? 'opacity-50' : ''}`}>
+                       
+                       <div className="flex items-start gap-4">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 font-black flex items-center justify-center shrink-0 text-sm">
+                             {index + 1}
+                          </div>
+                          <div>
+                             <h4 className={`font-bold text-gray-900 ${isCancelled ? 'line-through text-gray-500' : ''}`}>{item.name}</h4>
+                             <div className="text-xs text-gray-500 font-medium mt-1 flex items-center gap-3">
+                                <span className="bg-gray-100 px-2 py-0.5 rounded-md">Qty: {item.quantity}</span>
+                                <span>₹{(item.rate).toFixed(2)}</span>
+                                {isFirstRow && orderForItem?.daily_order_number != null && (
+                                   <span className="text-orange-600 font-bold ml-1">KOT #{orderForItem.daily_order_number}</span>
+                                )}
+                             </div>
+                          </div>
+                       </div>
+                       
+                       <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${config.className}`}>
+                             {config.icon}{config.label}
                           </span>
-                        </td>
-
-                        <td className="py-4 px-4 text-right print:hidden">
+                          
                           {!isPaid && isFirstRow && (
-                            <div className="flex justify-end items-center gap-2">
-                              {(item.status === "pending" ||
-                                item.status === "accepted" ||
-                                item.status === "preparing" ||
-                                item.status === "ready") && (
-                                <> 
-                                  {item.status === "pending" && (
-                                  <button
-                                    onClick={() => updateOrderStatus(item.orderId, "accepted")}
-                                    className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-semibold transition-all"
-                                  >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    Accept Order
-                                  </button>
-                                  )}
-                                  <button
-                                    onClick={() => cancelOrder(item.orderId)}
-                                    className="p-1.5 rounded-md text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"
-                                    title="Cancel order"
-                                  >
-                                    <XCircle className="w-4 h-4" />
-                                  </button>
-                                </>
-                              )}
-                              {(item.status === "accepted" ||
-                                item.status === "preparing" ||
-                                item.status === "ready") && (
-                                <button
-                                  onClick={() => updateOrderStatus(item.orderId, "served")}
-                                  className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700 shadow-sm transition-colors"
-                                >
-                                  Mark Served
-                                </button>
-                              )}
-                            </div>
+                             <div className="flex gap-2">
+                                {(item.status === "pending" || item.status === "accepted" || item.status === "preparing" || item.status === "ready") && (
+                                   <>
+                                      {item.status === "pending" && (
+                                         <button
+                                           onClick={() => updateOrderStatus(item.orderId, "accepted")}
+                                           className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold transition-all"
+                                         >
+                                           Accept
+                                         </button>
+                                      )}
+                                      <button
+                                        onClick={() => cancelOrder(item.orderId)}
+                                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"
+                                        title="Cancel order"
+                                      >
+                                        <XCircle className="w-4 h-4" />
+                                      </button>
+                                   </>
+                                )}
+                                {(item.status === "accepted" || item.status === "preparing" || item.status === "ready") && (
+                                   <button
+                                     onClick={() => updateOrderStatus(item.orderId, "served")}
+                                     className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-bold hover:bg-gray-800 shadow-md transition-all"
+                                   >
+                                     Serve
+                                   </button>
+                                )}
+                             </div>
                           )}
-                          {!isPaid &&
-                            (item.status === "pending" ||
-                              item.status === "accepted" ||
-                              item.status === "preparing" ||
-                              item.status === "ready") && (
-                              <button
-                                onClick={() => cancelOrderItem(item)}
-                                className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-rose-700"
-                                title="Cancel this item"
-                              >
-                                Cancel 1
-                              </button>
-                            )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* Totals Section */}
-          <section className="flex flex-col items-end">
-            <div className="w-full sm:w-72 bg-gray-50 rounded-xl p-5 border border-gray-100 print:bg-transparent print:border-none print:p-0">
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span className="font-medium">₹{subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Service Charge ({servicePercent}%)</span>
-                  <span className="font-medium">₹{serviceCharge.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Tax ({taxPercent}%)</span>
-                  <span className="font-medium">₹{tax.toFixed(2)}</span>
-                </div>
-                <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
-                  <span className="text-base font-bold text-gray-900">Total Bill</span>
-                  <span className="text-xl font-bold text-gray-900">₹{total.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <footer className="mt-12 text-center text-xs text-gray-400 print:mt-8">
-            <p>Thank you for dining at {bill?.restaurantName || "Restaurant"}</p>
-            {isPaid && <p className="mt-1 font-mono uppercase">** PAID VIA {paymentMethod?.toUpperCase()} **</p>}
-          </footer>
+                          {!isPaid && !isFirstRow && (item.status === "pending" || item.status === "accepted" || item.status === "preparing" || item.status === "ready") && (
+                             <button
+                               onClick={() => cancelOrderItem(item)}
+                               className="px-2 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all text-xs font-bold"
+                               title="Cancel this item"
+                             >
+                               Remove
+                             </button>
+                          )}
+                       </div>
+                       
+                    </div>
+                  );
+               })}
+             </div>
+          </div>
         </div>
 
         {/* === CHECKOUT MODAL (Overlay) === */}

@@ -289,7 +289,7 @@ export default function KitchenDisplayPage() {
                   </div>
                 </div>
                 {(order.estimated_prep_minutes || order.estimated_ready_at) && (
-                  <div className="mb-3 rounded-lg border border-[#FFC529] bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-gray-900">
+                  <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700">
                     ETA {order.estimated_prep_minutes ? `${order.estimated_prep_minutes}m` : "--"}
                     {order.estimated_ready_at ? ` • Ready by ${new Date(order.estimated_ready_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                   </div>
@@ -314,7 +314,7 @@ export default function KitchenDisplayPage() {
                 <button
                   onClick={() => markReady(id)}
                   disabled={markingId === id}
-                  className="mt-3 w-full rounded-lg bg-[#FFC529] px-3 py-2.5 text-xs font-black uppercase tracking-wider text-gray-900 hover:brightness-95 disabled:opacity-70"
+                  className="mt-3 w-full rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-black uppercase tracking-wider text-white hover:bg-slate-800 disabled:opacity-70"
                 >
                   {markingId === id ? "Updating..." : "Mark Ready"}
                 </button>

@@ -73,7 +73,7 @@ export default function MenuHealthPage() {
               <button
                 type="button"
                 onClick={() => router.push("/staff")}
-                className="mt-4 rounded-xl bg-[#FFC529] px-4 py-2 text-xs font-bold text-gray-900 hover:brightness-95"
+                className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800"
               >
                 Go to Dashboard
               </button>
@@ -154,7 +154,7 @@ export default function MenuHealthPage() {
                 <div key={card.label} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-500">{card.label}</span>
-                    <card.icon className="h-4 w-4 text-[#FFC529]" />
+                    <card.icon className="h-4 w-4 text-indigo-500" />
                   </div>
                   <div className="mt-3 text-2xl font-black text-slate-900">{loading ? "..." : card.value}</div>
                 </div>

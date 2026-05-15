@@ -172,7 +172,7 @@ export default function AccessControlPage() {
     } catch { toast.error("Failed to save access controls"); } finally { setIsSaving(false); }
   };
 
-  if (isLoading) return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="h-8 w-8 animate-spin text-[#FFC529]" /></div>;
+  if (isLoading) return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>;
 
   if (role !== "owner") {
     return (
