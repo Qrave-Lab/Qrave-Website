@@ -16,6 +16,8 @@ type AdminMeResponse = {
   theme_config?: Restaurant["themeConfig"];
   gst_number?: string;
   tax_config?: Restaurant["taxConfig"];
+  reservation_deposit_required?: boolean;
+  reservation_deposit_amount?: number;
 };
 
 const PHONE_COUNTRY_CODES = ["+91", "+1", "+44", "+61", "+65", "+971"];
@@ -73,7 +75,7 @@ export default function RestaurantProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isRemovingLogo, setIsRemovingLogo] = useState(false);
-  const [restaurant, setRestaurant] = useState<Restaurant>({ name: "", address: "", currency: "INR", taxPercent: 5, serviceCharge: 10, phone: "", phoneCountryCode: "+91", website: "", logo_url: "", orderingEnabled: true, openTime: "", closeTime: "", themeConfig: {}, gstNumber: "", taxConfig: {} });
+  const [restaurant, setRestaurant] = useState<Restaurant>({ name: "", address: "", currency: "INR", taxPercent: 5, serviceCharge: 10, phone: "", phoneCountryCode: "+91", website: "", logo_url: "", orderingEnabled: true, openTime: "", closeTime: "", themeConfig: {}, gstNumber: "", taxConfig: {}, reservationDepositRequired: false, reservationDepositAmount: 0 });
   const [initialRestaurant, setInitialRestaurant] = useState<Restaurant | null>(null);
 
   const fetchData = async () => {
@@ -84,7 +86,7 @@ export default function RestaurantProfilePage() {
       if (nextRole && nextRole !== "owner") { const allowed = roleAccess?.[nextRole]?.settings; if (allowed === false) { toast.error("Settings access disabled for your role"); router.replace("/staff"); return; } }
       const logoVersionSuffix = adminData.logo_version ? `?v=${adminData.logo_version}` : "";
       const parsedPhone = splitE164Phone(adminData.phone);
-      const restObj: Restaurant = { name: adminData.restaurant || "", address: adminData.address || "", phone: parsedPhone.phone, phoneCountryCode: parsedPhone.countryCode, website: adminData.website || "", currency: adminData.currency || "INR", taxPercent: adminData.tax_percent || 0, serviceCharge: adminData.service_charge || 0, orderingEnabled: adminData.ordering_enabled !== false, logo_url: adminData.logo_url ? `${adminData.logo_url}${logoVersionSuffix}` : "", openTime: adminData.open_time || "", closeTime: adminData.close_time || "", themeConfig: adminData.theme_config || {}, gstNumber: adminData.gst_number || "", taxConfig: adminData.tax_config || {} };
+      const restObj: Restaurant = { name: adminData.restaurant || "", address: adminData.address || "", phone: parsedPhone.phone, phoneCountryCode: parsedPhone.countryCode, website: adminData.website || "", currency: adminData.currency || "INR", taxPercent: adminData.tax_percent || 0, serviceCharge: adminData.service_charge || 0, orderingEnabled: adminData.ordering_enabled !== false, logo_url: adminData.logo_url ? `${adminData.logo_url}${logoVersionSuffix}` : "", openTime: adminData.open_time || "", closeTime: adminData.close_time || "", themeConfig: adminData.theme_config || {}, gstNumber: adminData.gst_number || "", taxConfig: adminData.tax_config || {}, reservationDepositRequired: adminData.reservation_deposit_required || false, reservationDepositAmount: adminData.reservation_deposit_amount || 0 };
       setRestaurant(restObj); setInitialRestaurant(restObj);
     } catch { toast.error("Failed to load restaurant profile"); } finally { setIsLoading(false); }
   };
@@ -120,7 +122,7 @@ export default function RestaurantProfilePage() {
     if (!validatePhone(restaurant.phoneCountryCode, restaurant.phone)) { toast.error("Phone number is invalid"); return; }
     setIsSaving(true);
     try {
-      await api("/api/admin/update-details", { method: "PATCH", body: JSON.stringify({ name: restaurant.name, address: restaurant.address, phone: restaurant.phone, phone_country_code: restaurant.phoneCountryCode, website: restaurant.website || "", tax_percent: restaurant.taxPercent, service_charge: restaurant.serviceCharge, ordering_enabled: restaurant.orderingEnabled !== false, open_time: restaurant.openTime || "", close_time: restaurant.closeTime || "", gst_number: restaurant.gstNumber || "", tax_config: restaurant.taxConfig && Object.keys(restaurant.taxConfig).length > 0 ? restaurant.taxConfig : null }) });
+      await api("/api/admin/update-details", { method: "PATCH", body: JSON.stringify({ name: restaurant.name, address: restaurant.address, phone: restaurant.phone, phone_country_code: restaurant.phoneCountryCode, website: restaurant.website || "", tax_percent: restaurant.taxPercent, service_charge: restaurant.serviceCharge, ordering_enabled: restaurant.orderingEnabled !== false, open_time: restaurant.openTime || "", close_time: restaurant.closeTime || "", gst_number: restaurant.gstNumber || "", tax_config: restaurant.taxConfig && Object.keys(restaurant.taxConfig).length > 0 ? restaurant.taxConfig : null, reservation_deposit_required: restaurant.reservationDepositRequired || false, reservation_deposit_amount: restaurant.reservationDepositAmount || 0 }) });
       await fetchData(); toast.success("Profile updated successfully");
     } catch { toast.error("Failed to save changes"); } finally { setIsSaving(false); }
   };

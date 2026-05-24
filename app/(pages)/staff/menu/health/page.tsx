@@ -63,22 +63,27 @@ export default function MenuHealthPage() {
 
   if (accessDenied) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="flex">
-          <StaffSidebar />
-          <main className="flex-1 p-8">
+      <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
+        <StaffSidebar />
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-gray-900">Access Denied</h2>
+            </div>
+          </header>
+          <div className="flex-1 overflow-y-auto p-8 relative">
             <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h1 className="text-xl font-black text-slate-900">Insights Access Disabled</h1>
               <p className="mt-2 text-sm text-slate-600">Your role does not currently have access to Menu Health insights.</p>
               <button
                 type="button"
                 onClick={() => router.push("/staff")}
-                className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800"
+                className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 cursor-pointer"
               >
                 Go to Dashboard
               </button>
             </div>
-          </main>
+          </div>
         </div>
       </div>
     );
@@ -120,34 +125,42 @@ export default function MenuHealthPage() {
   }, [items]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="flex">
-        <StaffSidebar />
-        <main className="flex-1 p-8">
-          <div className="mx-auto max-w-7xl">
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => router.push("/staff/menu")}
-                  className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Menu Health</p>
-                  <h1 className="text-2xl font-black text-slate-900">Gaps to fix before service</h1>
-                </div>
+    <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
+      <StaffSidebar />
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => router.push("/staff/menu")}
+              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100 cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-gray-900">Menu Health & Diagnostics</h2>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                  Gaps to fix before service.
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={refresh}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Refresh
-              </button>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={refresh}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-8 relative">
+          <div className="mx-auto max-w-7xl">
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {cards.map((card) => (
@@ -248,7 +261,7 @@ export default function MenuHealthPage() {
               </table>
             </div>
           </div>
-        </main>
+        </div>
       </div>
     </div>
   );

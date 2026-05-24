@@ -1,8 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAFAF7;
+  --foreground: #0F1117;
+
+  /* ─── QRAVE BRAND PALETTE ─── */
+  --qrave-saffron:        #E8900A;
+  --qrave-saffron-light:  #FEF3C7;
+  --qrave-saffron-dark:   #B45309;
+  --qrave-obsidian:       #0F1117;
+  --qrave-parchment:      #FAFAF7;
+  --qrave-slate:          #6B7280;
+
+  --qrave-surface:        #FAFAF7;
+  --qrave-surface-card:   #FFFFFF;
+  --qrave-surface-dim:    #F3F3EF;
+  --qrave-border:         #E8E8E3;
+
+  --qrave-dark-surface:   #0F1117;
+  --qrave-dark-card:      #1A1D26;
+  --qrave-dark-panel:     #141720;
+  --qrave-dark-border:    #252830;
+
+  --qrave-success:        #10B981;
+  --qrave-error:          #EF4444;
+  --qrave-info:           #3B82F6;
+  --qrave-warning:        #E8900A;
+
+  --qrave-text-primary:   #0F1117;
+  --qrave-text-secondary: #6B7280;
+  --qrave-text-muted:     #9CA3AF;
+  --qrave-text-inverse:   #FAFAF7;
 }
 
 @theme inline {
@@ -10,13 +38,159 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Brand core & scales */
+  --color-qrave-saffron: #E8900A;
+  --color-qrave-saffron-50: #FFFBF0;
+  --color-qrave-saffron-100: #FEF3C7;
+  --color-qrave-saffron-200: #FDE68A;
+  --color-qrave-saffron-300: #FCD34D;
+  --color-qrave-saffron-400: #FBBF24;
+  --color-qrave-saffron-500: #E8900A;
+  --color-qrave-saffron-600: #D97706;
+  --color-qrave-saffron-700: #B45309;
+  --color-qrave-saffron-800: #92400E;
+  --color-qrave-saffron-900: #78350F;
+
+  --color-qrave-obsidian: #0F1117;
+  --color-qrave-obsidian-50: #F8F9FA;
+  --color-qrave-obsidian-100: #E9ECEF;
+  --color-qrave-obsidian-200: #CED4DA;
+  --color-qrave-obsidian-300: #9CA3AF;
+  --color-qrave-obsidian-400: #6B7280;
+  --color-qrave-obsidian-600: #374151;
+  --color-qrave-obsidian-700: #1F2937;
+  --color-qrave-obsidian-800: #161B25;
+  --color-qrave-obsidian-900: #0F1117;
+  --color-qrave-obsidian-950: #080A0E;
+
+  --color-qrave-parchment: #FAFAF7;
+  --color-qrave-slate: #6B7280;
+
+  /* Overrides for standard Tailwind color scales with Qrave Brand Saffron */
+  --color-amber-50: #FFFBF0;
+  --color-amber-100: #FEF3C7;
+  --color-amber-200: #FDE68A;
+  --color-amber-300: #FCD34D;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #E8900A;
+  --color-amber-600: #D97706;
+  --color-amber-700: #B45309;
+  --color-amber-800: #92400E;
+  --color-amber-900: #78350F;
+  --color-amber-950: #4c1d05;
+
+  --color-orange-50: #FFFBF0;
+  --color-orange-100: #FEF3C7;
+  --color-orange-200: #FDE68A;
+  --color-orange-300: #FCD34D;
+  --color-orange-400: #FBBF24;
+  --color-orange-500: #E8900A;
+  --color-orange-600: #D97706;
+  --color-orange-700: #B45309;
+  --color-orange-800: #92400E;
+  --color-orange-900: #78350F;
+  --color-orange-950: #4c1d05;
+
+  --color-yellow-50: #FFFBF0;
+  --color-yellow-100: #FEF3C7;
+  --color-yellow-200: #FDE68A;
+  --color-yellow-300: #FCD34D;
+  --color-yellow-400: #FBBF24;
+  --color-yellow-500: #E8900A;
+  --color-yellow-600: #D97706;
+  --color-yellow-700: #B45309;
+  --color-yellow-800: #92400E;
+  --color-yellow-900: #78350F;
+  --color-yellow-950: #4c1d05;
+
+  /* Overrides for standard Tailwind color scales with Qrave Brand Obsidian */
+  --color-slate-50: #F8F9FA;
+  --color-slate-100: #E9ECEF;
+  --color-slate-200: #CED4DA;
+  --color-slate-300: #9CA3AF;
+  --color-slate-400: #6B7280;
+  --color-slate-500: #4B5563;
+  --color-slate-600: #374151;
+  --color-slate-700: #1F2937;
+  --color-slate-800: #161B25;
+  --color-slate-900: #0F1117;
+  --color-slate-950: #080A0E;
+
+  --color-gray-50: #F8F9FA;
+  --color-gray-100: #E9ECEF;
+  --color-gray-200: #CED4DA;
+  --color-gray-300: #9CA3AF;
+  --color-gray-400: #6B7280;
+  --color-gray-500: #4B5563;
+  --color-gray-600: #374151;
+  --color-gray-700: #1F2937;
+  --color-gray-800: #161B25;
+  --color-gray-900: #0F1117;
+  --color-gray-950: #080A0E;
+
+  --color-zinc-50: #F8F9FA;
+  --color-zinc-100: #E9ECEF;
+  --color-zinc-200: #CED4DA;
+  --color-zinc-300: #9CA3AF;
+  --color-zinc-400: #6B7280;
+  --color-zinc-500: #4B5563;
+  --color-zinc-600: #374151;
+  --color-zinc-700: #1F2937;
+  --color-zinc-800: #161B25;
+  --color-zinc-900: #0F1117;
+  --color-zinc-950: #080A0E;
+
+  --color-neutral-50: #F8F9FA;
+  --color-neutral-100: #E9ECEF;
+  --color-neutral-200: #CED4DA;
+  --color-neutral-300: #9CA3AF;
+  --color-neutral-400: #6B7280;
+  --color-neutral-500: #4B5563;
+  --color-neutral-600: #374151;
+  --color-neutral-700: #1F2937;
+  --color-neutral-800: #161B25;
+  --color-neutral-900: #0F1117;
+  --color-neutral-950: #080A0E;
+
+  /* Surfaces & borders (light mode) */
+  --color-qrave-surface-page: #FAFAF7;
+  --color-qrave-surface-card: #FFFFFF;
+  --color-qrave-surface-dim: #F3F3EF;
+  --color-qrave-border-light: #E8E8E3;
+
+  /* Surfaces & borders (dark mode) */
+  --color-qrave-dark-page: #0F1117;
+  --color-qrave-dark-card: #1A1D26;
+  --color-qrave-dark-panel: #141720;
+  --color-qrave-dark-border: #252830;
+
+  /* Semantic utilities */
+  --color-qrave-success: #10B981;
+  --color-qrave-success-bg: #ECFDF5;
+  --color-qrave-success-text: #065F46;
+  --color-qrave-error: #EF4444;
+  --color-qrave-error-bg: #FEF2F2;
+  --color-qrave-error-text: #991B1B;
+  --color-qrave-info: #3B82F6;
+  --color-qrave-info-bg: #EFF6FF;
+  --color-qrave-info-text: #1E40AF;
+  --color-qrave-warning: #E8900A;
+  --color-qrave-warning-bg: #FEF3C7;
+  --color-qrave-warning-text: #92400E;
+
+  /* Text colors */
+  --color-qrave-text-primary: #0F1117;
+  --color-qrave-text-secondary: #6B7280;
+  --color-qrave-text-muted: #9CA3AF;
+  --color-qrave-text-inverse: #FAFAF7;
 }
 
 /* ── Suppress OS dark-mode bleed into admin light UI ── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #ffffff;
-    --foreground: #171717;
+    --background: #FAFAF7;
+    --foreground: #0F1117;
   }
 }
 

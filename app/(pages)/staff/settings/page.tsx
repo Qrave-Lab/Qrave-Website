@@ -1,28 +1,28 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { api } from "@/app/lib/api";
 import {
-  AlertTriangle,
-  ArrowRight,
-  Bike,
-  ClipboardList,
-  ChefHat,
-  CreditCard,
-  Globe,
-  MessageSquare,
-  TicketPercent,
-  Palette,
-  PlusCircle,
-  Printer,
-  Receipt,
-  Store,
-  Users,
+    AlertTriangle,
+    ArrowRight,
+    Bike,
+    ChefHat,
+    ClipboardList,
+    CreditCard,
+    Globe,
+    MessageSquare,
+    Palette,
+    PlusCircle,
+    Printer,
+    Receipt,
+    Store,
+    TicketPercent,
+    Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import StaffSidebar from "../../../components/StaffSidebar";
-import { api } from "@/app/lib/api";
 
 type AdminMeResponse = {
   role?: string;
@@ -52,7 +52,14 @@ type NavCard = {
   disabledHint?: string;
 };
 
-function SettingsNavCard({ title, subtitle, href, icon: Icon, disabled, disabledHint }: NavCard) {
+function SettingsNavCard({
+  title,
+  subtitle,
+  href,
+  icon: Icon,
+  disabled,
+  disabledHint,
+}: NavCard) {
   const content = (
     <div className="flex items-start justify-between gap-4">
       <div className="flex items-start gap-4">
@@ -61,9 +68,13 @@ function SettingsNavCard({ title, subtitle, href, icon: Icon, disabled, disabled
         </div>
         <div>
           <p className="text-base font-bold text-slate-900">{title}</p>
-          <p className="mt-1 text-sm text-slate-500 leading-relaxed">{subtitle}</p>
+          <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+            {subtitle}
+          </p>
           {disabled && disabledHint ? (
-            <p className="mt-1.5 text-xs font-semibold text-amber-700">{disabledHint}</p>
+            <p className="mt-1.5 text-xs font-semibold text-amber-700">
+              {disabledHint}
+            </p>
           ) : null}
         </div>
       </div>
@@ -98,7 +109,10 @@ function SettingsHubSkeleton() {
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 9 }).map((_, idx) => (
-          <div key={idx} className="rounded-3xl border border-slate-200 bg-white p-6">
+          <div
+            key={idx}
+            className="rounded-3xl border border-slate-200 bg-white p-6"
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="h-11 w-11 rounded-2xl bg-slate-100" />
@@ -120,10 +134,15 @@ export default function SettingsPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [role, setRole] = useState<string>("");
-  const [roleAccess, setRoleAccess] = useState<Record<string, Record<string, boolean>> | null>(null);
+  const [roleAccess, setRoleAccess] = useState<Record<
+    string,
+    Record<string, boolean>
+  > | null>(null);
   const [currency, setCurrency] = useState<string>("INR");
   const [locations, setLocations] = useState<LocationOption[]>([]);
-  const [locationLabels, setLocationLabels] = useState<Record<string, string>>({});
+  const [locationLabels, setLocationLabels] = useState<Record<string, string>>(
+    {},
+  );
   const [activeRestaurantId, setActiveRestaurantId] = useState<string>("");
   const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
   const [planCode, setPlanCode] = useState<string>("monthly_499");
@@ -134,9 +153,17 @@ export default function SettingsPage() {
       try {
         const [adminData, locRes, branchRes, billingRes] = await Promise.all([
           api<AdminMeResponse>("/api/admin/me", { method: "GET" }),
-          api<{ active_restaurant_id?: string; locations?: LocationOption[] }>("/api/admin/locations", { method: "GET" }),
-          api<{ branches?: BranchMeta[] }>("/api/admin/branches?include_archived=0", { method: "GET" }),
-          api<{ plan?: string }>("/api/admin/billing/status", { method: "GET" }),
+          api<{ active_restaurant_id?: string; locations?: LocationOption[] }>(
+            "/api/admin/locations",
+            { method: "GET" },
+          ),
+          api<{ branches?: BranchMeta[] }>(
+            "/api/admin/branches?include_archived=0",
+            { method: "GET" },
+          ),
+          api<{ plan?: string }>("/api/admin/billing/status", {
+            method: "GET",
+          }),
         ]);
 
         const nextRole = String(adminData.role || "").toLowerCase();
@@ -173,7 +200,12 @@ export default function SettingsPage() {
   }, [router]);
 
   const switchLocationFromSettings = async (nextRestaurantId: string) => {
-    if (!nextRestaurantId || nextRestaurantId === activeRestaurantId || isSwitchingLocation) return;
+    if (
+      !nextRestaurantId ||
+      nextRestaurantId === activeRestaurantId ||
+      isSwitchingLocation
+    )
+      return;
     setIsSwitchingLocation(true);
     try {
       await api("/api/admin/locations/switch", {
@@ -195,7 +227,8 @@ export default function SettingsPage() {
     normalizedPlan === "monthly_1499" ||
     normalizedPlan === "yearly_10999" ||
     normalizedPlan === "yearly_14999";
-  const addBranchLocked = role === "owner" && !isPremiumPlan && branchCount >= 1;
+  const addBranchLocked =
+    role === "owner" && !isPremiumPlan && branchCount >= 1;
 
   const isOwnerOrManager = role === "owner" || role === "manager";
   const canAccess = (feature: string, fallback: boolean) => {
@@ -207,15 +240,69 @@ export default function SettingsPage() {
   };
 
   const cards: NavCard[] = [
-    { title: "Restaurant Profile", subtitle: "Brand details, logo, hours, phone, taxes", href: "/staff/settings/profile", icon: Store, show: canAccess("profile", isOwnerOrManager) },
-    { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt, show: canAccess("floor_plan", isOwnerOrManager) },
-    { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users, show: canAccess("team", isOwnerOrManager) },
-    { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: Printer, show: canAccess("devices", isOwnerOrManager) },
-    { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette, show: canAccess("theme", isOwnerOrManager) },
-    { title: "Offers & Coupons", subtitle: "Create deals, promo codes, and item discounts", href: "/staff/settings/offers", icon: TicketPercent, show: canAccess("offers", isOwnerOrManager) },
-    { title: "Delivery Zones", subtitle: "Configure delivery areas and fees by distance", href: "/staff/settings/delivery-zones", icon: Bike, show: canAccess("delivery", isOwnerOrManager) },
-    { title: "Kitchen Capacity", subtitle: "Auto-throttle, ETA, and category load limits", href: "/staff/settings/kitchen", icon: ChefHat, show: canAccess("kitchen_capacity", isOwnerOrManager) },
-    { title: "Audit Logs", subtitle: "Track critical actions across staff and system", href: "/staff/settings/audit", icon: ClipboardList, show: canAccess("audit", isOwnerOrManager) },
+    {
+      title: "Restaurant Profile",
+      subtitle: "Brand details, logo, hours, phone, taxes",
+      href: "/staff/settings/profile",
+      icon: Store,
+      show: canAccess("profile", isOwnerOrManager),
+    },
+    {
+      title: "Floor Plan",
+      subtitle: "Manage tables, floors, and counters",
+      href: "/staff/settings/floor-plan",
+      icon: Receipt,
+      show: canAccess("floor_plan", isOwnerOrManager),
+    },
+    {
+      title: "Team Members",
+      subtitle: "Add, edit, and remove staff access",
+      href: "/staff/settings/team",
+      icon: Users,
+      show: canAccess("team", isOwnerOrManager),
+    },
+    {
+      title: "Devices & QR",
+      subtitle: "POS printers and table QR tools",
+      href: "/staff/settings/devices",
+      icon: Printer,
+      show: canAccess("devices", isOwnerOrManager),
+    },
+    {
+      title: "Theme Studio",
+      subtitle: "Customize customer menu visuals",
+      href: "/staff/settings/theme",
+      icon: Palette,
+      show: canAccess("theme", isOwnerOrManager),
+    },
+    {
+      title: "Offers & Coupons",
+      subtitle: "Create deals, promo codes, and item discounts",
+      href: "/staff/settings/offers",
+      icon: TicketPercent,
+      show: canAccess("offers", isOwnerOrManager),
+    },
+    {
+      title: "Delivery Zones",
+      subtitle: "Configure delivery areas and fees by distance",
+      href: "/staff/settings/delivery-zones",
+      icon: Bike,
+      show: canAccess("delivery", isOwnerOrManager),
+    },
+    {
+      title: "Kitchen Capacity",
+      subtitle: "Auto-throttle, ETA, and category load limits",
+      href: "/staff/settings/kitchen",
+      icon: ChefHat,
+      show: canAccess("kitchen_capacity", isOwnerOrManager),
+    },
+    {
+      title: "Audit Logs",
+      subtitle: "Track critical actions across staff and system",
+      href: "/staff/settings/audit",
+      icon: ClipboardList,
+      show: canAccess("audit", isOwnerOrManager),
+    },
     {
       title: "Add New Branch",
       subtitle: "Create another branch/location",
@@ -223,12 +310,38 @@ export default function SettingsPage() {
       icon: PlusCircle,
       show: role === "owner",
       disabled: addBranchLocked,
-      disabledHint: addBranchLocked ? "To add more branches, upgrade plan" : undefined,
+      disabledHint: addBranchLocked
+        ? "To add more branches, upgrade plan"
+        : undefined,
     },
-    { title: "Role Access Control", subtitle: "Set feature access per staff role", href: "/staff/settings/access-control", icon: Users, show: role === "owner" },
-    { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
-    { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
-    { title: "Feedback & Issues", subtitle: "Report bugs, request features, or share thoughts about Qrave", href: "/staff/settings/feedback", icon: MessageSquare, show: canAccess("feedback", true) },
+    {
+      title: "Role Access Control",
+      subtitle: "Set feature access per staff role",
+      href: "/staff/settings/access-control",
+      icon: Users,
+      show: role === "owner",
+    },
+    {
+      title: "Subscription",
+      subtitle: "Manage plan and billing status",
+      href: "/staff/settings/subscription",
+      icon: CreditCard,
+      show: role === "owner",
+    },
+    {
+      title: "Delete Account",
+      subtitle: "Permanent account deletion",
+      href: "/staff/settings/delete-account",
+      icon: AlertTriangle,
+      show: role === "owner",
+    },
+    {
+      title: "Feedback & Issues",
+      subtitle: "Report bugs, request features, or share thoughts about Qrave",
+      href: "/staff/settings/feedback",
+      icon: MessageSquare,
+      show: canAccess("feedback", true),
+    },
   ];
 
   return (
@@ -270,8 +383,12 @@ export default function SettingsPage() {
             ) : (
               <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="mb-5">
-                  <h2 className="text-lg font-bold text-slate-900">Manage Settings</h2>
-                  <p className="text-sm text-slate-500">Open a section to manage it in its own page.</p>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Manage Settings
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Open a section to manage it in its own page.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {cards

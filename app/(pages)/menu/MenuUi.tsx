@@ -807,10 +807,86 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     };
   }, [arItem?.arModelGlb]);
 
+  const [arScale, setArScale] = useState<string>("1 1 1");
+  const [selectedArModifiers, setSelectedArModifiers] = useState<Set<string>>(new Set());
+  const [selectedArVariantId, setSelectedArVariantId] = useState<string>("default");
+
+  useEffect(() => {
+    const viewer = modelViewerRef.current;
+    if (!viewer || !viewer.model) return;
+
+    try {
+      viewer.model.materials.forEach((material: any) => {
+        const name = material.name.toLowerCase();
+        
+        if (name.includes("cheese")) {
+          if (selectedArModifiers.has("Extra Cheese") || selectedArModifiers.has("Cheese")) {
+            material.pbrMetallicRoughness.setBaseColorFactor([0.98, 0.75, 0.15, 1.0]); 
+            material.pbrMetallicRoughness.setRoughnessFactor(0.15); 
+          } else {
+            material.pbrMetallicRoughness.setBaseColorFactor([0.9, 0.7, 0.2, 1.0]);
+            material.pbrMetallicRoughness.setRoughnessFactor(0.4);
+          }
+        }
+        
+        if (name.includes("sauce") || name.includes("ketchup")) {
+          if (selectedArModifiers.has("Extra Sauce") || selectedArModifiers.has("Sauce")) {
+            material.pbrMetallicRoughness.setBaseColorFactor([0.7, 0.05, 0.05, 1.0]); 
+            material.pbrMetallicRoughness.setRoughnessFactor(0.05); 
+            material.pbrMetallicRoughness.setMetallicFactor(0.1);
+          } else {
+            material.pbrMetallicRoughness.setBaseColorFactor([0.5, 0.1, 0.1, 1.0]);
+            material.pbrMetallicRoughness.setRoughnessFactor(0.3);
+          }
+        }
+      });
+    } catch (err) {
+      console.warn("Failed to apply scene graph modifications:", err);
+    }
+  }, [selectedArModifiers, arItem, arModelRenderKey]);
+
+  useEffect(() => {
+    if (!arItem) return;
+    const currentVariant = arItem.variants?.find((v: any) => v.id === selectedArVariantId);
+    
+    const viewer = modelViewerRef.current;
+    const cachedX = viewer?.getAttribute("data-base-scale-x");
+    const cachedY = viewer?.getAttribute("data-base-scale-y");
+    const cachedZ = viewer?.getAttribute("data-base-scale-z");
+    
+    const baseScaleX = cachedX ? parseFloat(cachedX) : 1.0;
+    const baseScaleY = cachedY ? parseFloat(cachedY) : 1.0;
+    const baseScaleZ = cachedZ ? parseFloat(cachedZ) : 1.0;
+    
+    let variantYMultiplier = 1.0;
+    if (currentVariant) {
+      const name = (currentVariant.name || "").toLowerCase();
+      if (name.includes("triple") || name.includes("jumbo") || name.includes("xl")) {
+        variantYMultiplier = 1.55;
+      } else if (name.includes("double") || name.includes("large") || name.includes("big")) {
+        variantYMultiplier = 1.3;
+      }
+    }
+    
+    setArScale(`${baseScaleX} ${baseScaleY * variantYMultiplier} ${baseScaleZ}`);
+  }, [selectedArVariantId, arItem]);
+
   const handleArOpen = (item: any) => {
     setArModelError("");
     setArModelRenderKey((v) => v + 1);
     setArItem(item);
+    setArScale("1 1 1");
+    setSelectedArModifiers(new Set());
+    const defaultVId = item.variants?.[0]?.id || "";
+    setSelectedArVariantId(defaultVId);
+
+    // Reset scale caches
+    const viewer = modelViewerRef.current;
+    if (viewer) {
+      viewer.removeAttribute("data-base-scale-x");
+      viewer.removeAttribute("data-base-scale-y");
+      viewer.removeAttribute("data-base-scale-z");
+    }
   };
 
   const handleArClose = () => {
@@ -928,87 +1004,255 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(15,23,42,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
           >
             <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden relative" style={{ position: "relative", zIndex: 10000 }}>
-              <div className="p-5 border-b border-slate-100 flex items-start justify-between">
-                <div>
-                  <h2 className="text-lg font-black text-slate-900">{arItem.name}</h2>
-                  <p className="text-xs text-slate-500 mt-1">{arItem.description}</p>
-                </div>
-                <button
-                  onClick={handleArClose}
-                  className="h-8 w-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200"
-                >
-                  <span className="text-lg leading-none">×</span>
-                </button>
-              </div>
+                {/* Custom Steam Animations style */}
+                <style dangerouslySetInnerHTML={{__html: `
+                  @keyframes arSteamRise {
+                    0% {
+                      transform: translateY(60px) scaleX(0.5) translateX(0);
+                      opacity: 0;
+                    }
+                    15% {
+                      opacity: 0.55;
+                    }
+                    50% {
+                      transform: translateY(20px) scaleX(1.3) translateX(8px);
+                      opacity: 0.35;
+                    }
+                    100% {
+                      transform: translateY(-80px) scaleX(2) translateX(-12px);
+                      opacity: 0;
+                    }
+                  }
+                  .ar-steam-particle {
+                    animation: arSteamRise 4s infinite linear;
+                    filter: blur(8px);
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%);
+                  }
+                `}} />
 
-              <div className="p-5 space-y-4">
-                <div className="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden relative" style={{ contain: "strict", height: 280 }}>
-                  {!modelViewerReady ? (
-                    <div className="w-full h-[280px] flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100">
-                      {modelViewerFailed ? "3D viewer failed to initialize" : "Loading 3D viewer..."}
+                <div className="p-5 border-b border-slate-100 flex items-start justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900">{arItem.name}</h2>
+                    <p className="text-xs text-slate-500 mt-1">{arItem.description}</p>
+                  </div>
+                  <button
+                    onClick={handleArClose}
+                    className="h-8 w-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200"
+                  >
+                    <span className="text-lg leading-none">×</span>
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4">
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden relative" style={{ contain: "strict", height: 280 }}>
+                    {/* Hot Steam Effect */}
+                    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-32 h-40 pointer-events-none z-10 flex justify-around opacity-80">
+                      <div className="ar-steam-particle w-4 h-24" style={{ animationDelay: "0s", animationDuration: "4s" }} />
+                      <div className="ar-steam-particle w-5 h-24" style={{ animationDelay: "1.2s", animationDuration: "4.5s" }} />
+                      <div className="ar-steam-particle w-4 h-24" style={{ animationDelay: "2.5s", animationDuration: "3.5s" }} />
                     </div>
-                  ) : (
-                    <model-viewer
-                      key={`${arItem.id || arItem.name}-${arModelRenderKey}`}
-                      ref={modelViewerRef}
-                      src={sanitizeModelUrl(arItem.arModelGlb)}
-                      ios-src={sanitizeModelUrl(arItem.arModelUsdz) || undefined}
-                      alt={arItem.name}
-                      auto-rotate
-                      ar
-                      ar-modes="quick-look scene-viewer webxr"
-                      ar-scale="fixed"
-                      disable-zoom
-                      interaction-prompt="none"
-                      camera-orbit="0deg 75deg 1.8m"
-                      min-camera-orbit="auto auto 1.8m"
-                      max-camera-orbit="auto auto 1.8m"
-                      tone-mapping="commerce"
-                      shadow-intensity="1"
-                      onLoad={() => setArModelError("")}
-                      onError={() =>
-                        setArModelError("3D model failed to load. Try again or re-upload an optimized GLB.")
-                      }
-                      style={{ width: "100%", height: "280px", background: "#f1f5f9" }}
-                    />
+
+                    {!modelViewerReady ? (
+                      <div className="w-full h-[280px] flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100">
+                        {modelViewerFailed ? "3D viewer failed to initialize" : "Loading 3D viewer..."}
+                      </div>
+                    ) : (
+                      <model-viewer
+                        key={`${arItem.id || arItem.name}-${arModelRenderKey}`}
+                        ref={modelViewerRef}
+                        src={sanitizeModelUrl(arItem.arModelGlb)}
+                        ios-src={sanitizeModelUrl(arItem.arModelUsdz) || undefined}
+                        alt={arItem.name}
+                        auto-rotate
+                        ar
+                        ar-modes="quick-look scene-viewer webxr"
+                        ar-scale="fixed"
+                        disable-zoom
+                        interaction-prompt="none"
+                        camera-orbit="0deg 75deg 1.8m"
+                        min-camera-orbit="auto auto 1.8m"
+                        max-camera-orbit="auto auto 1.8m"
+                        tone-mapping="commerce"
+                        shadow-intensity="1"
+                        scale={arScale}
+                        onLoad={() => {
+                          setArModelError("");
+                          // Trigger initial material swap
+                          const viewer = modelViewerRef.current;
+                          if (viewer && viewer.model) {
+                            viewer.model.materials.forEach((material: any) => {
+                              const name = material.name.toLowerCase();
+                              if (name.includes("cheese") && (selectedArModifiers.has("Extra Cheese") || selectedArModifiers.has("Cheese"))) {
+                                material.pbrMetallicRoughness.setBaseColorFactor([0.98, 0.75, 0.15, 1.0]); 
+                                material.pbrMetallicRoughness.setRoughnessFactor(0.15); 
+                              }
+                            });
+                          }
+
+                          // Calculate physical scale factors dynamically (1:1 cm enforcement)
+                          if (viewer) {
+                            try {
+                              const dim = (viewer as any).getDimensions();
+                              if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
+                                const naturalX = dim.x;
+                                const naturalY = dim.y;
+                                const naturalZ = dim.z;
+                                
+                                const targetW = arItem.width_cm || arItem.widthCM;
+                                const targetH = arItem.height_cm || arItem.heightCM;
+                                const targetD = arItem.depth_cm || arItem.depthCM;
+
+                                if (targetW && targetH && targetD) {
+                                  const scaleX = targetW / (naturalX * 100);
+                                  const scaleY = targetH / (naturalY * 100);
+                                  const scaleZ = targetD / (naturalZ * 100);
+                                  
+                                  viewer.setAttribute("data-base-scale-x", String(scaleX));
+                                  viewer.setAttribute("data-base-scale-y", String(scaleY));
+                                  viewer.setAttribute("data-base-scale-z", String(scaleZ));
+                                  
+                                  const currentVariant = arItem.variants?.find((v: any) => v.id === selectedArVariantId);
+                                  let variantYMultiplier = 1.0;
+                                  if (currentVariant) {
+                                    const vName = (currentVariant.name || "").toLowerCase();
+                                    if (vName.includes("triple") || vName.includes("jumbo") || vName.includes("xl")) {
+                                      variantYMultiplier = 1.55;
+                                    } else if (vName.includes("double") || vName.includes("large") || vName.includes("big")) {
+                                      variantYMultiplier = 1.3;
+                                    }
+                                  }
+                                  setArScale(`${scaleX} ${scaleY * variantYMultiplier} ${scaleZ}`);
+                                } else if (targetW) {
+                                  // Proportional scale factor
+                                  const scaleX = targetW / (naturalX * 100);
+                                  
+                                  viewer.setAttribute("data-base-scale-x", String(scaleX));
+                                  viewer.setAttribute("data-base-scale-y", String(scaleX));
+                                  viewer.setAttribute("data-base-scale-z", String(scaleX));
+                                  
+                                  const currentVariant = arItem.variants?.find((v: any) => v.id === selectedArVariantId);
+                                  let variantYMultiplier = 1.0;
+                                  if (currentVariant) {
+                                    const vName = (currentVariant.name || "").toLowerCase();
+                                    if (vName.includes("triple") || vName.includes("jumbo") || vName.includes("xl")) {
+                                      variantYMultiplier = 1.55;
+                                    } else if (vName.includes("double") || vName.includes("large") || vName.includes("big")) {
+                                      variantYMultiplier = 1.3;
+                                    }
+                                  }
+                                  setArScale(`${scaleX} ${scaleX * variantYMultiplier} ${scaleX}`);
+                                }
+                              }
+                            } catch (err) {
+                              console.warn("Failed to apply 1:1 physical scale:", err);
+                            }
+                          }
+                        }}
+                        onError={() =>
+                          setArModelError("3D model failed to load. Try again or re-upload an optimized GLB.")
+                        }
+                        style={{ width: "100%", height: "280px", background: "#f1f5f9" }}
+                      />
+                    )}
+                  </div>
+                  {arModelError && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+                      {arModelError}
+                      <button
+                        type="button"
+                        onClick={() => setArModelRenderKey((v) => v + 1)}
+                        className="ml-2 underline"
+                      >
+                        Retry
+                      </button>
+                    </div>
                   )}
-                </div>
-                {arModelError && (
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
-                    {arModelError}
-                    <button
-                      type="button"
-                      onClick={() => setArModelRenderKey((v) => v + 1)}
-                      className="ml-2 underline"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Calories</p>
-                    <p className="mt-1 text-lg font-black text-slate-900">
-                      {arItem.calories ? `${arItem.calories} kcal` : "—"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ingredients</p>
-                    <p className="mt-1 text-xs text-slate-600 line-clamp-2">
-                      {getIngredients(arItem).length > 0 ? getIngredients(arItem).join(", ") : "Not listed"}
-                    </p>
-                  </div>
-                </div>
+                  {/* Dynamic Upselling & AR Customizer */}
+                  <div className="rounded-2xl border border-indigo-100 bg-indigo-50/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700">AR Customizer (Upsell)</span>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full font-black tracking-wide uppercase">Interactive WebXR</span>
+                    </div>
 
-                <button
-                  onClick={activateAr}
-                  className="w-full rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white shadow-xl transition-all active:scale-95"
-                >
-                  View In AR
-                </button>
+                    {/* 1. Variant Swap */}
+                    {arItem.variants && arItem.variants.length > 0 && (
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Select Size / Patty</label>
+                        <div className="flex flex-wrap gap-2">
+                          {arItem.variants.map((v: any) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => setSelectedArVariantId(v.id)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                selectedArVariantId === v.id
+                                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+                                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                              }`}
+                            >
+                              {v.name} {v.priceDelta > 0 ? `(+₹${v.priceDelta})` : ""}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2. Modifiers Extra Toppings */}
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Add Extras Toppings</label>
+                      <div className="flex flex-wrap gap-2">
+                        {["Extra Cheese", "Extra Sauce", "Double Meat"].map((topping) => {
+                          const isChecked = selectedArModifiers.has(topping);
+                          return (
+                            <button
+                              key={topping}
+                              type="button"
+                              onClick={() => {
+                                const next = new Set(selectedArModifiers);
+                                if (next.has(topping)) next.delete(topping);
+                                else next.add(topping);
+                                setSelectedArModifiers(next);
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                                isChecked
+                                  ? "bg-indigo-600 border border-indigo-600 text-white shadow-sm"
+                                  : "bg-white border border-slate-200 text-slate-655 hover:bg-slate-50"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${isChecked ? "bg-white" : "bg-slate-350"}`} />
+                              {topping}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-slate-200 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Calories</p>
+                      <p className="mt-1 text-lg font-black text-slate-900">
+                        {arItem.calories ? `${arItem.calories} kcal` : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ingredients</p>
+                      <p className="mt-1 text-xs text-slate-600 line-clamp-2">
+                        {getIngredients(arItem).length > 0 ? getIngredients(arItem).join(", ") : "Not listed"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={activateAr}
+                    className="w-full rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white shadow-xl transition-all active:scale-95"
+                  >
+                    View In AR
+                  </button>
+                </div>
               </div>
-            </div>
           </div>,
           document.body
         )}

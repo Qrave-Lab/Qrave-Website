@@ -333,33 +333,41 @@ export default function StaffOperationsControlPage() {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#f8fafc] text-slate-900">
+    <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
       <StaffSidebar />
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-7xl space-y-6 px-6 py-6">
-          <header className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Operations Control</h1>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => void load(true)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  <RefreshCw className="h-4 w-4" /> Refresh
-                </button>
-                <button
-                  type="button"
-                  onClick={exportCsv}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#FFC529] px-3 py-2 text-sm font-semibold text-gray-900 hover:brightness-95"
-                >
-                  <Download className="h-4 w-4" /> Export Flags CSV
-                </button>
-              </div>
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-gray-900">Operations Control</h2>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                Rollout governance, feature flags, and CRM/Inventory status.
+              </span>
             </div>
-          </header>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void load(true)}
+              className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-900 hover:brightness-95 transition-all shadow-sm cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-8 relative">
+          <div className="mx-auto max-w-7xl space-y-6">
 
           {error && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>
@@ -870,7 +878,8 @@ export default function StaffOperationsControlPage() {
           </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
+  </div>
   );
 }

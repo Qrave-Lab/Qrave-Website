@@ -51,18 +51,20 @@ export default function FloorPlanPage() {
     }
   };
 
-  const updateTableMeta = async (id: string, floorName: string, counterName: string) => {
+  const updateTableMeta = async (id: string, floorName: string, counterName: string, capacity: number) => {
     try {
       await api(`/api/admin/tables/${id}/meta`, {
         method: "PATCH",
-        body: JSON.stringify({ floor_name: floorName, counter_name: counterName }),
+        body: JSON.stringify({ floor_name: floorName, counter_name: counterName, capacity }),
       });
       setTables((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, floor_name: floorName, counter_name: counterName } : t))
+        prev.map((t) =>
+          t.id === id ? { ...t, floor_name: floorName, counter_name: counterName, capacity } : t
+        )
       );
       toast.success("Table updated");
     } catch {
-      toast.error("Failed to update floor/counter");
+      toast.error("Failed to update table");
     }
   };
 

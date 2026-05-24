@@ -23,7 +23,8 @@ import {
   Trash2,
   Printer,
   ShoppingBag,
-  Bike
+  Bike,
+  Frown
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -49,6 +50,7 @@ type StaffTable = {
   guests?: number;
   billStatus?: BillStatus;
   seatedAt?: Date;
+  floorName?: string;
 };
 
 type OrderStatus = "pending" | "cooking";
@@ -65,7 +67,7 @@ type PendingOrder = {
   dailyOrderNumber?: number | null;
 };
 
-type ServiceCallType = "waiter" | "water" | "help";
+type ServiceCallType = "waiter" | "water" | "help" | "low-rating";
 type ServiceCallStatus = "open" | "attending" | "done";
 
 type ServiceCall = {
@@ -74,6 +76,8 @@ type ServiceCall = {
   type: ServiceCallType;
   createdAt: Date;
   status: ServiceCallStatus;
+  rating?: number;
+  comment?: string;
 };
 
 type TakeawaySummary = {
@@ -97,6 +101,7 @@ type TableAPI = {
   id: string;
   table_number: number;
   is_enabled: boolean;
+  floor_name?: string;
 };
 
 type ActiveOrderItem = {
@@ -148,6 +153,8 @@ type ServiceCallAPI = {
   type: ServiceCallType;
   status: ServiceCallStatus;
   created_at: string;
+  rating?: number;
+  comment?: string;
 };
 
 const getTimeAgo = (date: Date) => {
@@ -169,10 +176,13 @@ export default function StaffDashboardPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [tables, setTables] = useState<StaffTable[]>([]);
+  const [selectedFloor, setSelectedFloor] = useState<string>("All Floors");
   const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>([]);
   const [todaySales, setTodaySales] = useState<number>(0);
+  const [profitMetrics, setProfitMetrics] = useState<any>(null);
+  const [waitlistCount, setWaitlistCount] = useState<number>(0);
   const [takeawaySummary, setTakeawaySummary] = useState<TakeawaySummary | null>(null);
   const [orderActionPending, setOrderActionPending] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -335,6 +345,7 @@ export default function StaffDashboardPage() {
         itemsCount: meta?.count,
         seatedAt: occ?.seatedAt || (hasActiveOrders ? new Date() : undefined),
         isEnabled: t.is_enabled,
+        floorName: t.floor_name || "Main Floor",
       } as StaffTable;
     });
   };
@@ -398,10 +409,12 @@ export default function StaffDashboardPage() {
     refreshLockRef.current = true;
     try {
       await refreshLiveData();
-      const [serviceRes, salesRes, takeawayRes] = await Promise.all([
+      const [serviceRes, salesRes, takeawayRes, profitRes, waitlistRes] = await Promise.all([
         api<ServiceCallAPI[]>("/api/admin/service-calls"),
         api<{ total: number }>("/api/admin/sales/today"),
         api<TakeawaySummary>("/api/admin/takeaway/summary"),
+        api<any>("/api/admin/analytics/profit-engineering").catch(() => null),
+        api<{ waitlist?: any[] }>("/api/admin/waitlist").catch(() => ({ waitlist: [] })),
       ]);
       setServiceCalls(
         (serviceRes || []).map((c) => ({
@@ -410,6 +423,8 @@ export default function StaffDashboardPage() {
           type: c.type,
           status: c.status,
           createdAt: new Date(c.created_at),
+          rating: c.rating,
+          comment: c.comment,
         }))
       );
       if (typeof salesRes?.total === "number") {
@@ -417,6 +432,13 @@ export default function StaffDashboardPage() {
       }
       if (takeawayRes) {
         setTakeawaySummary(takeawayRes);
+      }
+      if (profitRes?.profit_engineering) {
+        setProfitMetrics(profitRes.profit_engineering);
+      }
+      if (waitlistRes && Array.isArray(waitlistRes.waitlist)) {
+        const waiting = waitlistRes.waitlist.filter((w: any) => w.status === "waiting").length;
+        setWaitlistCount(waiting);
       }
     } finally {
       refreshLockRef.current = false;
@@ -528,6 +550,7 @@ export default function StaffDashboardPage() {
 
   const occupiedCount = tables.filter((t) => t.isOccupied).length;
   const totalTables = tables.length;
+  const uniqueFloors = Array.from(new Set(tables.map((t) => t.floorName || "Main Floor").filter(Boolean))) as string[];
   const totalSales = todaySales;
 
   const pendingOrdersCount = orders.filter((o) => o.status === "pending").length;
@@ -550,6 +573,10 @@ export default function StaffDashboardPage() {
     .filter((table) =>
       table.tableCode.toLowerCase().includes(searchTerm.toLowerCase())
     )
+    .filter((table) => {
+      if (selectedFloor !== "All Floors" && table.floorName !== selectedFloor) return false;
+      return true;
+    })
     .filter((table) => {
       if (tableFilter === "all") return true;
       if (tableFilter === "occupied") return table.isOccupied;
@@ -1043,11 +1070,21 @@ export default function StaffDashboardPage() {
                 {totalTables}
               </span>
             </div>
+            <div className="flex flex-col items-end pl-6">
+              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                Waitlist
+              </span>
+              <span className="text-lg font-bold text-[#FFC529] flex items-center gap-1">
+                <Users className="w-4 h-4 text-[#FFC529]" />
+                {waitlistCount} Waiting
+              </span>
+            </div>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-8">
           <div className="flex flex-col gap-6">
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
                 <div>
@@ -1132,6 +1169,34 @@ export default function StaffDashboardPage() {
                 />
               </div>
             </div>
+
+            {uniqueFloors.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 bg-gray-100/50 p-1.5 rounded-xl w-fit mb-6 border border-gray-200/50">
+                <button
+                  onClick={() => setSelectedFloor("All Floors")}
+                  className={`px-4.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    selectedFloor === "All Floors"
+                      ? "bg-white text-gray-900 shadow-xs ring-1 ring-gray-200/50 font-extrabold"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  All Floors
+                </button>
+                {uniqueFloors.map((floor) => (
+                  <button
+                    key={floor}
+                    onClick={() => setSelectedFloor(floor)}
+                    className={`px-4.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      selectedFloor === floor
+                        ? "bg-white text-gray-900 shadow-xs ring-1 ring-gray-200/50 font-extrabold"
+                        : "text-gray-500 hover:text-gray-900"
+                    }`}
+                  >
+                    {floor}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
               {filteredTables.length === 0 && (
@@ -1567,24 +1632,39 @@ export default function StaffDashboardPage() {
                 <div className="space-y-3">
                   <AnimatePresence mode="popLayout">
                     {serviceCalls.filter(c => c.status !== 'done').map((call) => (
-                      <motion.div key={call.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white p-3 rounded-xl border border-sky-100 shadow-sm hover:shadow-md transition-shadow">
+                      <motion.div key={call.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={`p-3 rounded-xl border shadow-sm hover:shadow-md transition-all ${
+                        call.type === 'low-rating' ? "border-rose-200 bg-rose-50/50 shadow-[0_0_12px_rgba(244,63,94,0.15)] ring-1 ring-rose-200 animate-pulse" : "bg-white border-sky-100"
+                      }`}>
                         <div className="flex justify-between items-start mb-2">
                           <span className="font-bold text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-700">{call.tableCode}</span>
                           <span className="text-[10px] text-gray-400">{getTimeAgo(call.createdAt)}</span>
                         </div>
                         <div className="flex gap-3 mb-3 items-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${call.type === 'waiter' ? 'bg-amber-100 text-amber-600' : call.type === 'water' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
-                            {call.type === 'waiter' ? <Bell className="w-4 h-4" /> : call.type === 'water' ? <Droplets className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            call.type === 'low-rating' ? 'bg-rose-100 text-rose-600 shadow-sm' : call.type === 'waiter' ? 'bg-amber-100 text-amber-600' : call.type === 'water' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {call.type === 'low-rating' ? <Frown className="w-4 h-4 animate-bounce" /> : call.type === 'waiter' ? <Bell className="w-4 h-4" /> : call.type === 'water' ? <Droplets className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-gray-800 capitalize">{call.type} Request</p>
-                            <p className="text-xs text-gray-500">{call.status === 'attending' ? 'Staff attending...' : 'Waiting for staff'}</p>
+                            <p className={`text-sm font-bold capitalize ${call.type === 'low-rating' ? 'text-rose-900 font-extrabold' : 'text-gray-800'}`}>
+                              {call.type === 'low-rating' ? `Low Rating (⭐ ${call.rating}/5)` : `${call.type} Request`}
+                            </p>
+                            <p className={`text-xs ${call.type === 'low-rating' ? 'text-rose-600 font-semibold' : 'text-gray-500'}`}>
+                              {call.status === 'attending' ? (call.type === 'low-rating' ? 'Manager attending...' : 'Staff attending...') : (call.type === 'low-rating' ? 'Floor recovery needed' : 'Waiting for staff')}
+                            </p>
                           </div>
                         </div>
+                        {call.type === 'low-rating' && call.comment && (
+                          <div className="mt-2 bg-white border border-rose-100 p-2.5 rounded-lg text-xs italic text-slate-700 shadow-sm leading-relaxed mb-3">
+                            "{call.comment}"
+                          </div>
+                        )}
                         <div className="flex gap-2">
                           {call.status === 'open' ? (
                             <>
-                              <button onClick={() => handleServiceCallStatus(call.id, 'attending')} className="flex-1 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-sky-100">Attend</button>
+                              <button onClick={() => handleServiceCallStatus(call.id, 'attending')} className={`flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors border ${
+                                call.type === 'low-rating' ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border-rose-200' : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-100'
+                              }`}>Attend</button>
                               <button onClick={() => handleServiceCallStatus(call.id, 'done')} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100">Done</button>
                             </>
                           ) : (

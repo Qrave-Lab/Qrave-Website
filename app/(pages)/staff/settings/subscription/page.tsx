@@ -40,6 +40,14 @@ type PlanChangeResponse = {
   status?: string;
   key_id?: string;
 };
+type PaymentHistoryItem = {
+  id: string;
+  plan: string;
+  status: string;
+  paidAt?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+};
 
 const planLabel = (plan?: string) => plan === "yearly_5500" ? "Yearly ₹5,500" : "Monthly ₹499";
 const formatDate = (iso?: string | null) => !iso ? "-" : new Date(iso).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
@@ -151,6 +159,23 @@ export default function SubscriptionSettingsPage() {
     return status === "active";
   }, [billing]);
 
+  const paymentHistory = useMemo<PaymentHistoryItem[]>(() => {
+    if (!billing) return [];
+    const items: PaymentHistoryItem[] = [];
+    const hasAnyPeriod = Boolean(billing.current_period_start || billing.current_period_end || billing.last_payment_at);
+    if (hasAnyPeriod) {
+      items.push({
+        id: "current",
+        plan: currentPlanLabel,
+        status: statusText,
+        paidAt: billing.last_payment_at,
+        periodStart: billing.current_period_start,
+        periodEnd: billing.current_period_end,
+      });
+    }
+    return items;
+  }, [billing, currentPlanLabel, statusText]);
+
   const loadRazorpay = () => new Promise<boolean>((resolve) => { if (window.Razorpay) return resolve(true); const s = document.createElement("script"); s.src = "https://checkout.razorpay.com/v1/checkout.js"; s.onload = () => resolve(true); s.onerror = () => resolve(false); document.body.appendChild(s); });
 
   const handleReactivate = async () => {
@@ -249,7 +274,7 @@ export default function SubscriptionSettingsPage() {
   if (loading) return <div className="flex h-screen w-full items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-[#FFC529]" /></div>;
 
   return (
-    <SettingsPageLayout title="Subscription" description="Manage your billing plan. Includes a 7-day free trial." maxWidth="max-w-3xl">
+    <SettingsPageLayout title="Subscription" description="Manage your billing plan." maxWidth="max-w-3xl">
       <section className="bg-white rounded-2xl border border-[#FFC529] shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-[#FFC529]" />
@@ -314,6 +339,46 @@ export default function SubscriptionSettingsPage() {
               </button>
             </div>
           )}
+          <div className="rounded-xl border border-slate-200 bg-white">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Payment history</p>
+                <p className="text-xs font-semibold text-slate-500 mt-1">Recent subscription payments and billing cycles.</p>
+              </div>
+            </div>
+            <div className="p-5">
+              {paymentHistory.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm font-semibold text-slate-500">
+                  No subscription payments recorded yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="text-[11px] uppercase tracking-widest text-slate-400">
+                      <tr>
+                        <th className="py-2 pr-4">Plan</th>
+                        <th className="py-2 pr-4">Status</th>
+                        <th className="py-2 pr-4">Paid on</th>
+                        <th className="py-2 pr-4">Period start</th>
+                        <th className="py-2">Period end</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paymentHistory.map((item) => (
+                        <tr key={item.id} className="text-slate-700">
+                          <td className="py-3 pr-4 font-semibold text-slate-900">{item.plan}</td>
+                          <td className="py-3 pr-4">{item.status}</td>
+                          <td className="py-3 pr-4">{formatDate(item.paidAt)}</td>
+                          <td className="py-3 pr-4">{formatDate(item.periodStart)}</td>
+                          <td className="py-3">{formatDate(item.periodEnd)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
       <ConfirmModal open={showCancelConfirm} title="Cancel subscription?" message="This action cannot be undone and your access will be revoked immediately." confirmText={canceling ? "Canceling..." : "Yes, Cancel"} cancelText="Keep Subscription" destructive onClose={() => { if (!canceling) setShowCancelConfirm(false); }} onConfirm={() => { if (!canceling) void confirmCancel(); }} />

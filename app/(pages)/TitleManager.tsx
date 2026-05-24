@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
 import { api } from "@/app/lib/api";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 const getTableFromPath = (pathname: string) => {
   const parts = pathname.split("/").filter(Boolean);
@@ -22,6 +22,7 @@ const getSectionLabel = (pathname: string) => {
   if (pathname.startsWith("/staff/menu/health")) return "Insights";
   if (pathname.startsWith("/staff/menu")) return "Menu";
   if (pathname.startsWith("/staff/analytics")) return "Analytics";
+  if (pathname.startsWith("/staff/reservations")) return "Reservations";
   if (pathname.startsWith("/staff/settings/qr-codes")) return "Settings";
   if (pathname.startsWith("/staff/settings/EditStaff")) return "Settings";
   if (pathname.startsWith("/staff/settings/AddStaff")) return "Settings";
@@ -57,7 +58,11 @@ export default function TitleManager() {
     if (!pathname?.startsWith("/staff")) return;
 
     let cancelled = false;
-    api<{ restaurant?: string; logo_url?: string | null; logo_version?: number | null }>("/api/admin/me")
+    api<{
+      restaurant?: string;
+      logo_url?: string | null;
+      logo_version?: number | null;
+    }>("/api/admin/me")
       .then((res) => {
         if (cancelled) return;
         const name = res?.restaurant?.trim();
@@ -72,8 +77,7 @@ export default function TitleManager() {
           localStorage.setItem("restaurant_logo_url", logo);
         }
       })
-      .catch(() => {
-      });
+      .catch(() => {});
 
     return () => {
       cancelled = true;
@@ -83,15 +87,20 @@ export default function TitleManager() {
   useEffect(() => {
     if (!pathname) return;
     if (isAuthPath(pathname)) return;
-    if (!pathname.startsWith("/menu") && !pathname.startsWith("/checkout")) return;
+    if (!pathname.startsWith("/menu") && !pathname.startsWith("/checkout"))
+      return;
 
     const restaurantID =
       searchParams?.get("restaurant") ||
-      (typeof window !== "undefined" ? localStorage.getItem("restaurant_id") : null);
+      (typeof window !== "undefined"
+        ? localStorage.getItem("restaurant_id")
+        : null);
     if (!restaurantID) return;
 
     let cancelled = false;
-    api<{ logo_url?: string | null }>(`/public/restaurants/${restaurantID}/logo`)
+    api<{ logo_url?: string | null }>(
+      `/public/restaurants/${restaurantID}/logo`,
+    )
       .then((res) => {
         if (cancelled || !res?.logo_url) return;
         setRestaurantLogo(res.logo_url);
@@ -99,8 +108,7 @@ export default function TitleManager() {
           localStorage.setItem("restaurant_logo_url", res.logo_url);
         }
       })
-      .catch(() => {
-      });
+      .catch(() => {});
 
     return () => {
       cancelled = true;
@@ -121,7 +129,8 @@ export default function TitleManager() {
         ? localStorage.getItem("table_number") || localStorage.getItem("table")
         : null);
 
-    const needsTable = pathname.startsWith("/menu") || pathname.startsWith("/checkout");
+    const needsTable =
+      pathname.startsWith("/menu") || pathname.startsWith("/checkout");
     const tableSuffix = needsTable && table ? ` | Table ${table}` : "";
 
     const base = isAuthPath(pathname) ? "Qrave" : restaurantName;
@@ -135,9 +144,12 @@ export default function TitleManager() {
 
   useEffect(() => {
     if (!pathname) return;
-    const href = isAuthPath(pathname) || !restaurantLogo ? "/favicon.ico" : restaurantLogo;
+    const href =
+      isAuthPath(pathname) || !restaurantLogo ? "/favicon.ico" : restaurantLogo;
 
-    let icon = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    let icon = document.querySelector(
+      "link[rel='icon']",
+    ) as HTMLLinkElement | null;
     if (!icon) {
       icon = document.createElement("link");
       icon.rel = "icon";

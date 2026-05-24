@@ -248,15 +248,15 @@ export default function LoginPage() {
           <header className="space-y-3">
             <button 
               onClick={() => router.push("/")}
-              className="flex items-center gap-2 text-slate-400 hover:text-[#ECA918] transition-all group mb-10"
+              className="flex items-center gap-2 text-slate-400 hover:text-amber-600 transition-all group mb-10"
             >
-              <div className="p-2 rounded-full group-hover:bg-[#FFC529]/20 transition-colors">
+              <div className="p-2 rounded-full group-hover:bg-amber-500/20 transition-colors">
                 <ArrowLeft size={18} />
               </div>
               <span className="text-[11px] font-bold uppercase tracking-widest">Home</span>
             </button>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-[#FFC529] flex items-center justify-center shadow-lg shadow-[#FFC529]/40 border border-[#ECA918]/20">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/40 border border-amber-600/20">
                 <Sparkles className="w-5 h-5 text-black fill-current" />
               </div>
               <span className="text-xl font-bold tracking-tighter uppercase">Qrave</span>
@@ -264,7 +264,7 @@ export default function LoginPage() {
             <h2 className="text-4xl font-bold tracking-tight">Welcome back</h2>
             <p className="text-slate-500 font-medium">Log in to manage your restaurant.</p>
           </header>
-
+ 
           <form onSubmit={handleLogin} className="space-y-6">
             {hasValidGoogleClientId && (
               <div className="space-y-3">
@@ -286,12 +286,12 @@ export default function LoginPage() {
                 Google login hidden: set <code className="font-black">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>.
               </div>
             )}
-
+ 
             <div className="space-y-5">
               <div className="space-y-2">
                 <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
                 <div className="relative group">
-                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#ECA918] transition-colors" />
+                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-600 transition-colors" />
                   <input 
                     type="email" 
                     required
@@ -301,24 +301,24 @@ export default function LoginPage() {
                       if(error) setError(null);
                     }}
                     placeholder="name@restaurant.com"
-                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 outline-none transition-all font-bold placeholder:text-slate-300"
+                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all font-bold placeholder:text-slate-300"
                   />
                 </div>
               </div>
-
+ 
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Password</label>
                   <button
                     type="button"
                     onClick={() => router.push("/forgot-password")}
-                    className="text-[11px] font-bold text-[#ECA918] hover:text-[#C58B0E] hover:underline uppercase tracking-widest"
+                    className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline uppercase tracking-widest"
                   >
                     Forgot?
                   </button>
                 </div>
                 <div className="relative group">
-                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#ECA918] transition-colors" />
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-600 transition-colors" />
                   <input 
                     type={showPassword ? "text" : "password"}
                     required
@@ -328,19 +328,19 @@ export default function LoginPage() {
                       if(error) setError(null);
                     }}
                     placeholder="••••••••"
-                    className="w-full pl-14 pr-14 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 outline-none transition-all font-bold placeholder:text-slate-300"
+                    className="w-full pl-14 pr-14 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all font-bold placeholder:text-slate-300"
                   />
                   <button 
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#ECA918]"
+                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-amber-600"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>
             </div>
-
+ 
             <AnimatePresence mode="wait">
               {error && (
                 <motion.div 
@@ -354,21 +354,21 @@ export default function LoginPage() {
                 </motion.div>
               )}
             </AnimatePresence>
-
+ 
             <button 
               type="submit" 
               disabled={isLoading || isGoogleLoading}
-              className="w-full py-5 rounded-2xl bg-[#FFC529] font-bold text-sm uppercase tracking-widest shadow-[0_4px_20px_rgba(255,197,41,0.3)] hover:shadow-[0_8px_25px_rgba(255,197,41,0.45)] hover:bg-[#ECA918] transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed border border-[#FFC529]/10"
+              className="w-full py-5 rounded-2xl bg-amber-500 font-bold text-sm uppercase tracking-widest shadow-[0_4px_20px_rgba(232,144,10,0.3)] hover:shadow-[0_8px_25px_rgba(232,144,10,0.45)] hover:bg-amber-600 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed border border-amber-500/10"
             >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Login"}
             </button>
           </form>
-
+ 
           <footer className="pt-2 text-center">
             <span className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em]">New here?</span>
             <button 
               onClick={() => router.push("/onboarding")} 
-              className="ml-2 text-[#ECA918] font-bold text-[11px] uppercase tracking-[0.2em] hover:text-[#C58B0E] hover:underline transition-colors"
+              className="ml-2 text-amber-600 font-bold text-[11px] uppercase tracking-[0.2em] hover:text-amber-700 hover:underline transition-colors"
             >
               Create Account
             </button>
@@ -376,7 +376,7 @@ export default function LoginPage() {
           </div>
         }
       />
-
+ 
       <AnimatePresence>
         {showBranchPicker && (
           <motion.div
@@ -402,7 +402,7 @@ export default function LoginPage() {
                     onClick={() => setSelectedBranchId(branch.id)}
                     className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all ${
                       selectedBranchId === branch.id
-                        ? "border-[#FFC529] bg-[#FFC529]/10 text-[#1F2127]"
+                        ? "border-amber-500 bg-amber-500/10 text-[#1F2127]"
                         : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -414,7 +414,7 @@ export default function LoginPage() {
                 <button
                   onClick={handleConfirmBranchSelection}
                   disabled={!selectedBranchId || isSelectingBranch}
-                  className="rounded-xl bg-[#FFC529] px-6 py-3 text-sm font-bold text-[#1F2127] shadow-[0_4px_15px_rgba(255,197,41,0.2)] hover:bg-[#ECA918] disabled:opacity-60"
+                  className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-bold text-[#1F2127] shadow-[0_4px_15px_rgba(232,144,10,0.2)] hover:bg-amber-600 disabled:opacity-60"
                 >
                   {isSelectingBranch ? "Opening..." : "Open Dashboard"}
                 </button>

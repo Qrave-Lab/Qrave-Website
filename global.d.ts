@@ -4,7 +4,7 @@ declare global {
   namespace React {
     namespace JSX {
       interface IntrinsicElements {
-        "model-viewer": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+         "model-viewer": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
           src?: string;
           "ios-src"?: string;
           alt?: string;
@@ -18,6 +18,9 @@ declare global {
           "camera-orbit"?: string;
           "min-camera-orbit"?: string;
           "max-camera-orbit"?: string;
+          scale?: string;
+          "tone-mapping"?: string;
+          "shadow-intensity"?: string;
         };
       }
     }

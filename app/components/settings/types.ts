@@ -12,6 +12,8 @@ export type Table = {
   zone?: string | null;
   floor_name?: string;
   counter_name?: string;
+  /** Seating capacity — number of guests the table can accommodate */
+  capacity?: number;
 };
 
 export type Staff = {
@@ -37,6 +39,8 @@ export type Restaurant = {
   themeConfig?: ThemeConfig;
   gstNumber?: string;
   taxConfig?: TaxConfig;
+  reservationDepositRequired?: boolean;
+  reservationDepositAmount?: number;
 };
 
 export type ThemeConfig = {

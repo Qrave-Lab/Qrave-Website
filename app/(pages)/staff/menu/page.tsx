@@ -27,6 +27,7 @@ import {
   ArrowDown,
   GripVertical,
   Sparkles,
+  Scale,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import StaffSidebar from "@/app/components/StaffSidebar";
@@ -130,6 +131,11 @@ type MenuItem = {
   allergens: { type: Allergen; confidence: AllergenConfidence }[];
   availableDays: DayOfWeek[];
   updatedBy: string;
+  hsn_code?: string;
+  gst_rate?: number;
+  width_cm?: number;
+  height_cm?: number;
+  depth_cm?: number;
 };
 
 type CategoryOption = {
@@ -145,6 +151,7 @@ type CategoryOption = {
   active_from?: string | null;
   active_until?: string | null;
   is_seasonal?: boolean;
+  gst_rate?: number;
 };
 
 type MenuHealthItem = {
@@ -238,6 +245,8 @@ export default function MenuPage() {
   const [editingSubcategoryId, setEditingSubcategoryId] = useState<string>("");
   const [editingSubcategoryName, setEditingSubcategoryName] = useState("");
   const [isRenamingSubcategory, setIsRenamingSubcategory] = useState(false);
+  const [editingSubcategoryGstRate, setEditingSubcategoryGstRate] = useState<number>(5);
+  const [newSubcategoryGstRate, setNewSubcategoryGstRate] = useState<number>(5);
   const [activeModalTab, setActiveModalTab] = useState<
     "general" | "variants" | "assets" | "ingredients" | "modifiers" | "availability" | "history"
   >("general");
@@ -666,6 +675,7 @@ export default function MenuPage() {
           parent_id: parentId,
           sort_order: getSubcategories(parentId).length,
           available_days: DAYS,
+          gst_rate: newSubcategoryGstRate,
         }),
       });
       setNewSubcategoryName("");
@@ -685,6 +695,7 @@ export default function MenuPage() {
   const startRenameSubcategory = (category: CategoryOption) => {
     setEditingSubcategoryId(category.id);
     setEditingSubcategoryName(category.name);
+    setEditingSubcategoryGstRate((category as any).gst_rate ?? 5.00);
   };
 
   const cancelRenameSubcategory = () => {
@@ -710,7 +721,7 @@ export default function MenuPage() {
 
     const current = categories.find((c) => c.id === editingSubcategoryId);
     if (!current) return;
-    if (current.name === trimmed) {
+    if (current.name === trimmed && current.gst_rate === editingSubcategoryGstRate) {
       cancelRenameSubcategory();
       return;
     }
@@ -741,6 +752,7 @@ export default function MenuPage() {
           active_from: current.active_from || "",
           active_until: current.active_until || "",
           is_seasonal: current.is_seasonal || false,
+          gst_rate: editingSubcategoryGstRate,
         }),
       });
       toast.success("Subcategory renamed");
@@ -784,6 +796,11 @@ export default function MenuPage() {
         ? fromDateTimeLocal(next.scheduledPriceEffectiveAt)
         : "",
       special_note: next.specialNote || "",
+      hsn_code: next.hsn_code || "",
+      gst_rate: next.gst_rate !== undefined ? next.gst_rate : undefined,
+      width_cm: next.width_cm !== undefined ? next.width_cm : null,
+      height_cm: next.height_cm !== undefined ? next.height_cm : null,
+      depth_cm: next.depth_cm !== undefined ? next.depth_cm : null,
     };
   };
 
@@ -1279,7 +1296,7 @@ export default function MenuPage() {
                 
                 <div className="p-6">
                   <div className="flex flex-col md:flex-row items-center gap-4">
-                    <div className="w-full md:w-64">
+                    <div className="w-full md:w-48">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Parent Section</label>
                       <div className="relative group">
                         <select
@@ -1301,37 +1318,56 @@ export default function MenuPage() {
 
                     <div className="flex-1 w-full">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sub-Category Name</label>
+                      <input
+                        value={newSubcategoryName}
+                        onChange={(e) => setNewSubcategoryName(e.target.value)}
+                        placeholder="e.g. Classic Burgers, Craft Pizzas..."
+                        className="w-full h-12 px-5 text-sm font-medium bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all placeholder:text-slate-300 group-hover:bg-slate-100/50"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            createSubcategory(
+                              newSubcategoryName,
+                              newSubcategoryParentId || parentCategories[0]?.id || ""
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="w-full md:w-36">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">GST Slab</label>
                       <div className="relative group">
-                        <input
-                          value={newSubcategoryName}
-                          onChange={(e) => setNewSubcategoryName(e.target.value)}
-                          placeholder="e.g. Classic Burgers, Craft Pizzas..."
-                          className="w-full h-12 px-5 text-sm font-medium bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all placeholder:text-slate-300 group-hover:bg-slate-100/50"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              createSubcategory(
-                                newSubcategoryName,
-                                newSubcategoryParentId || parentCategories[0]?.id || ""
-                              );
-                            }
-                          }}
-                        />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                           <button
-                            onClick={() =>
-                              createSubcategory(
-                                newSubcategoryName,
-                                newSubcategoryParentId || parentCategories[0]?.id || ""
-                              )
-                            }
-                            disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
-                            className="h-9 px-5 rounded-xl text-[11px] font-bold bg-[#FFC529] text-gray-900 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-[#FFC529]/20 transition-all disabled:opacity-40 disabled:scale-100 flex items-center gap-2"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Quick Add</span>
-                          </button>
+                        <select
+                          value={newSubcategoryGstRate}
+                          onChange={(e) => setNewSubcategoryGstRate(parseFloat(e.target.value))}
+                          className="w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl appearance-none outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all cursor-pointer group-hover:bg-slate-100/50"
+                        >
+                          <option value={0}>0% GST</option>
+                          <option value={5}>5% GST</option>
+                          <option value={12}>12% GST</option>
+                          <option value={18}>18% GST</option>
+                          <option value={28}>28% GST</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <ArrowDown className="w-4 h-4" />
                         </div>
                       </div>
+                    </div>
+
+                    <div className="w-full md:w-auto self-end">
+                      <button
+                        onClick={() =>
+                          createSubcategory(
+                            newSubcategoryName,
+                            newSubcategoryParentId || parentCategories[0]?.id || ""
+                          )
+                        }
+                        disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
+                        className="h-12 px-6 rounded-2xl text-[11px] font-bold bg-[#FFC529] text-gray-900 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-[#FFC529]/20 transition-all disabled:opacity-40 disabled:scale-100 flex items-center gap-2"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Quick Add</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1510,16 +1546,29 @@ export default function MenuPage() {
 
                             {editingSubcategoryId === cat.id ? (
                               <div className="flex-1 flex flex-col gap-2">
-                                <input
-                                  autoFocus
-                                  value={editingSubcategoryName}
-                                  onChange={(e) => setEditingSubcategoryName(e.target.value)}
-                                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-[#FFC529] rounded-xl outline-none focus:ring-4 focus:ring-[#FFC529]/10 transition-all font-semibold"
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") renameSubcategory();
-                                    if (e.key === "Escape") cancelRenameSubcategory();
-                                  }}
-                                />
+                                <div className="flex gap-2">
+                                  <input
+                                    autoFocus
+                                    value={editingSubcategoryName}
+                                    onChange={(e) => setEditingSubcategoryName(e.target.value)}
+                                    className="flex-1 h-9 px-3 text-sm bg-slate-50 border border-[#FFC529] rounded-xl outline-none focus:ring-4 focus:ring-[#FFC529]/10 transition-all font-semibold"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") renameSubcategory();
+                                      if (e.key === "Escape") cancelRenameSubcategory();
+                                    }}
+                                  />
+                                  <select
+                                    value={editingSubcategoryGstRate}
+                                    onChange={(e) => setEditingSubcategoryGstRate(parseFloat(e.target.value))}
+                                    className="w-28 h-9 px-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC529] transition-all cursor-pointer"
+                                  >
+                                    <option value={0}>0% GST</option>
+                                    <option value={5}>5% GST</option>
+                                    <option value={12}>12% GST</option>
+                                    <option value={18}>18% GST</option>
+                                    <option value={28}>28% GST</option>
+                                  </select>
+                                </div>
                                 <div className="flex items-center gap-2">
                                   <button
                                     type="button"
@@ -1541,10 +1590,15 @@ export default function MenuPage() {
                             ) : (
                               <>
                                 <div className="flex-1 flex flex-col">
-                                  <span className="text-[13px] font-bold text-slate-700 leading-tight">
-                                    {cat.name}
-                                  </span>
-                                  <span className="text-[10px] font-medium text-slate-400 capitalize">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[13px] font-bold text-slate-700 leading-tight">
+                                      {cat.name}
+                                    </span>
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#FFC529]/10 text-[#FFC529] border border-[#FFC529]/25">
+                                      {cat.gst_rate ?? 5}% GST
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-medium text-slate-400 capitalize mt-0.5">
                                     Position: {((cat as any).sort_order ?? 0) + 1}
                                   </span>
                                 </div>
@@ -2125,6 +2179,65 @@ export default function MenuPage() {
                             </div>
                           </div>
                         </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            HSN Code
+                          </label>
+                          <input
+                            type="text"
+                            value={editingItem.hsn_code || ""}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, "");
+                              setEditingItem({
+                                ...editingItem,
+                                hsn_code: val,
+                              });
+                            }}
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
+                            placeholder="e.g. 21069099"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            GST Slab Override
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={editingItem.gst_rate === undefined || editingItem.gst_rate === null ? "" : editingItem.gst_rate}
+                              onChange={(e) =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  gst_rate: e.target.value === "" ? undefined : parseFloat(e.target.value),
+                                })
+                              }
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
+                            >
+                              <option value="">Use Category Default</option>
+                              <option value={0}>0% GST</option>
+                              <option value={5}>5% GST</option>
+                              <option value={12}>12% GST</option>
+                              <option value={18}>18% GST</option>
+                              <option value={28}>28% GST</option>
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
@@ -2338,7 +2451,7 @@ export default function MenuPage() {
                         type="file"
                         hidden
                         ref={modelInputRef}
-                        accept=".glb"
+                        accept=".glb,.usdz"
                         onChange={(e) => handleFileUpload(e, "model")}
                       />
                       <div
@@ -2429,11 +2542,63 @@ export default function MenuPage() {
                           <div className="text-center">
                             <Box className="mx-auto text-indigo-200 mb-2" />
                             <span className="text-sm font-bold text-indigo-300">
-                              Upload GLB for AR
+                              Upload GLB/USDZ for AR
                             </span>
                           </div>
                         )}
                       </div>
+
+                      {(editingItem.modelGlb || editingItem.modelUsdz) && (
+                        <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50 space-y-4 animate-in fade-in duration-300">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 bg-indigo-500 rounded-xl text-white">
+                              <Scale className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">Physical 1:1 Scale Enforcement</h4>
+                              <p className="text-[10px] text-slate-500">Specify actual dimensions in centimeters to render accurately in Augmented Reality.</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Width (cm)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                placeholder="e.g. 12"
+                                value={editingItem.width_cm || ""}
+                                onChange={(e) => setEditingItem({ ...editingItem, width_cm: e.target.value ? parseFloat(e.target.value) : undefined })}
+                                className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Height (cm)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                placeholder="e.g. 10"
+                                value={editingItem.height_cm || ""}
+                                onChange={(e) => setEditingItem({ ...editingItem, height_cm: e.target.value ? parseFloat(e.target.value) : undefined })}
+                                className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Depth (cm)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                placeholder="e.g. 12"
+                                value={editingItem.depth_cm || ""}
+                                onChange={(e) => setEditingItem({ ...editingItem, depth_cm: e.target.value ? parseFloat(e.target.value) : undefined })}
+                                className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-indigo-600 bg-white/60 p-2.5 rounded-2xl border border-indigo-50/50 leading-relaxed">
+                            <strong>Pro Tip:</strong> model-viewer automatically extracts dimensions in meters. Setting these values overrides the native scale to guarantee that your food matches the actual tabletop dimensions when viewed in AR!
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

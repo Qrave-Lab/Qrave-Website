@@ -541,6 +541,50 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
           </div>
         </section>
 
+        {/* ── Table Reservation Deposits ───────────────────────────────── */}
+        <section className="pt-4 border-t border-slate-100 space-y-5">
+          <div>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Table Reservation Deposits</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">Require guests to pay a secure deposit to confirm their table bookings</p>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3">
+            <div>
+              <p className="text-xs font-bold text-slate-800">Require Reservation Deposit</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {data.reservationDepositRequired ? "Guests must pay a deposit when booking" : "Reservations are free of deposit"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleChange("reservationDepositRequired", !data.reservationDepositRequired)}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${data.reservationDepositRequired ? "bg-emerald-500" : "bg-slate-300"}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.reservationDepositRequired ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          {data.reservationDepositRequired && (
+            <div className="space-y-2 animate-in slide-in-from-top-2 duration-150">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                Deposit Amount ({data.currency})
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-400">{data.currency}</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={data.reservationDepositAmount ?? 0}
+                  onChange={(e) => handleChange("reservationDepositAmount", Math.max(0, Number(e.target.value) || 0))}
+                  className="w-32 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50/30 text-slate-900 font-bold"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          )}
+        </section>
+
         <div className="grid grid-cols-2 gap-4 pt-2">
           <TimePickerField
             label="Opens At"
