@@ -266,32 +266,14 @@ export default function ImmersiveMenu({
                                     }}
                                 />
 
-                                {hasModel && modelViewerReady ? (
-                                    <div className="absolute inset-0 rounded-full overflow-hidden">
-                                        <model-viewer
-                                            src={currentItem.arModelGlb}
-                                            alt={currentItem.name}
-                                            auto-rotate
-                                            disable-zoom
-                                            interaction-prompt="none"
-                                            camera-orbit="0deg 75deg 1.8m"
-                                            min-camera-orbit="auto auto 1.8m"
-                                            max-camera-orbit="auto auto 1.8m"
-                                            tone-mapping="commerce"
-                                            shadow-intensity="1"
-                                            style={{ width: "100%", height: "100%", background: "transparent" }}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="absolute inset-0 rounded-full overflow-hidden p-6">
-                                        <img
-                                            src={currentItem.image}
-                                            alt={currentItem.name}
-                                            className="w-full h-full object-contain"
-                                            style={{ filter: "drop-shadow(0 14px 28px rgba(0,0,0,0.15))" }}
-                                        />
-                                    </div>
-                                )}
+                                <div className="absolute inset-0 rounded-full overflow-hidden p-6">
+                                    <img
+                                        src={currentItem.image}
+                                        alt={currentItem.name}
+                                        className="w-full h-full object-contain"
+                                        style={{ filter: "drop-shadow(0 14px 28px rgba(0,0,0,0.15))" }}
+                                    />
+                                </div>
 
                                 {hasModel && (
                                     <button

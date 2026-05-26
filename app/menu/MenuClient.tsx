@@ -33,7 +33,12 @@ type ThemeConfig = {
 export default function MenuClient({ table }: { table: string | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [items, setItems] = useState<any[] | null>(null);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const menuCache = useCartStore((state) => state.menuCache);
+  const setMenuCache = useCartStore((state) => state.setMenuCache);
+  const [items, setItems] = useState<any[] | null>(() => {
+    return menuCache && menuCache.length > 0 ? menuCache : null;
+  });
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [currentTableNumber, setCurrentTableNumber] = useState<string | null>(null);
   const [isOccupiedNotice, setIsOccupiedNotice] = useState(false);
@@ -47,7 +52,6 @@ export default function MenuClient({ table }: { table: string | null }) {
       return undefined;
     }
   });
-  const clearCart = useCartStore((state) => state.clearCart);
 
   const tableFromUrl = searchParams.get("table");
   const restaurantFromUrl =
@@ -277,6 +281,7 @@ export default function MenuClient({ table }: { table: string | null }) {
           } catch { }
         }
         setItems(menu);
+        setMenuCache(menu);
         await syncSessionDetails();
       } catch (err: any) {
         if (err?.status === 401 || String(err?.message || "").includes("session expired")) {
@@ -322,6 +327,7 @@ export default function MenuClient({ table }: { table: string | null }) {
                 } catch { }
                 const menu = await loadMenu(session);
                 setItems(menu);
+                setMenuCache(menu);
                 setIsOccupiedNotice(localStorage.getItem("table_occupied") === "1");
                 await syncSessionDetails();
                 return;

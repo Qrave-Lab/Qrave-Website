@@ -790,22 +790,48 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     };
   }, []);
 
+  // Background preloader for 3D GLB models to ensure instant loading when clicked
   useEffect(() => {
-    if (!arItem?.arModelGlb) return;
-    const modelUrl = sanitizeModelUrl(arItem.arModelGlb);
-    if (!modelUrl) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 7000);
-    fetch(modelUrl, {
-      method: "HEAD",
-      cache: "force-cache",
-      signal: controller.signal,
-    }).catch(() => {});
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
+    if (typeof window === "undefined" || !menuItems || menuItems.length === 0) return;
+
+    const arItems = menuItems.filter((item: any) => Boolean(item.arModelGlb));
+    if (arItems.length === 0) return;
+
+    const preloadQueue = [...arItems];
+    let isCancelled = false;
+
+    const preloadNext = async () => {
+      if (preloadQueue.length === 0 || isCancelled) return;
+
+      const item = preloadQueue.shift();
+      const modelUrl = sanitizeModelUrl(item.arModelGlb);
+      if (!modelUrl) {
+        preloadNext();
+        return;
+      }
+
+      try {
+        await fetch(modelUrl, { method: "GET", cache: "force-cache" });
+      } catch (err) {
+        console.warn("Background model preload failed for:", modelUrl, err);
+      }
+
+      setTimeout(preloadNext, 2000);
     };
-  }, [arItem?.arModelGlb]);
+
+    const startDelay = setTimeout(() => {
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(() => preloadNext());
+      } else {
+        preloadNext();
+      }
+    }, 3500);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(startDelay);
+    };
+  }, [menuItems]);
 
   const [arScale, setArScale] = useState<string>("1 1 1");
   const [selectedArModifiers, setSelectedArModifiers] = useState<Set<string>>(new Set());

@@ -1,9 +1,21 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Banknote, PlusCircle, MinusCircle, ShieldAlert, ArrowRightLeft, Clock, Lock, CheckCircle2, History, RefreshCw, Calendar, Search, FileText } from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
+import {
+  Calendar,
+  CheckCircle2,
+  Clock,
+  FileText,
+  History,
+  Lock,
+  MinusCircle,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
 type CashDrawerEvent = {
@@ -50,12 +62,18 @@ export default function CashDrawerPage() {
   const [note, setNote] = useState<string>("");
 
   // Modal open states
-  const [openModalType, setOpenModalType] = useState<"open" | "cash_in" | "cash_out" | "close" | null>(null);
+  const [openModalType, setOpenModalType] = useState<
+    "open" | "cash_in" | "cash_out" | "close" | null
+  >(null);
 
   // Historical explorer states
   const [activeTab, setActiveTab] = useState<"today" | "history">("today");
-  const [rangeStart, setRangeStart] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [rangeEnd, setRangeEnd] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [rangeStart, setRangeStart] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
+  const [rangeEnd, setRangeEnd] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
   const [rangeEvents, setRangeEvents] = useState<CashDrawerEvent[]>([]);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
   const [hasQueriedRange, setHasQueriedRange] = useState(false);
@@ -64,7 +82,9 @@ export default function CashDrawerPage() {
     try {
       const [sumRes, shiftRes, meRes] = await Promise.all([
         api<CashDrawerSummary>("/api/admin/cash-drawer/summary"),
-        api<{ shift: ActiveShift | null; is_clocked_in: boolean }>("/api/admin/shifts/active").catch(() => ({ shift: null, is_clocked_in: false })),
+        api<{ shift: ActiveShift | null; is_clocked_in: boolean }>(
+          "/api/admin/shifts/active",
+        ).catch(() => ({ shift: null, is_clocked_in: false })),
         api<{ role?: string }>("/api/admin/me").catch(() => null),
       ]);
 
@@ -96,7 +116,9 @@ export default function CashDrawerPage() {
     try {
       const startIso = new Date(rangeStart + "T00:00:00Z").toISOString();
       const endIso = new Date(rangeEnd + "T23:59:59Z").toISOString();
-      const data = await api<CashDrawerEvent[]>(`/api/admin/cash-drawer/events/range?start=${startIso}&end=${endIso}`);
+      const data = await api<CashDrawerEvent[]>(
+        `/api/admin/cash-drawer/events/range?start=${startIso}&end=${endIso}`,
+      );
       if (data) {
         setRangeEvents(data);
         setHasQueriedRange(true);
@@ -108,10 +130,16 @@ export default function CashDrawerPage() {
     }
   };
 
-  const downloadPDFReport = (events: CashDrawerEvent[], start: string, end: string) => {
+  const downloadPDFReport = (
+    events: CashDrawerEvent[],
+    start: string,
+    end: string,
+  ) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      toast.error("Popup blocker blocked the report generation. Please allow popups.");
+      toast.error(
+        "Popup blocker blocked the report generation. Please allow popups.",
+      );
       return;
     }
 
@@ -122,13 +150,15 @@ export default function CashDrawerPage() {
     let rangeOverages = 0;
     let rangeClosingCount = 0;
 
-    events.forEach(ev => {
+    events.forEach((ev) => {
       if (ev.event_type === "cash_in") rangeCashIn += ev.amount;
       if (ev.event_type === "cash_out") rangeCashOut += ev.amount;
       if (ev.event_type === "sale") rangeSales += ev.amount;
       if (ev.event_type === "close") {
         rangeClosingCount++;
-        const match = (ev.note || "").match(/\[Discrepancy: ([^ ]+) of ₹([^ ]+) /);
+        const match = (ev.note || "").match(
+          /\[Discrepancy: ([^ ]+) of ₹([^ ]+) /,
+        );
         if (match) {
           const type = match[1].toLowerCase();
           const amtStr = match[2].replace(/,/g, "").replace(/₹/g, "");
@@ -141,8 +171,12 @@ export default function CashDrawerPage() {
       }
     });
 
-    const formattedStart = new Date(start).toLocaleDateString("en-IN", { dateStyle: "medium" });
-    const formattedEnd = new Date(end).toLocaleDateString("en-IN", { dateStyle: "medium" });
+    const formattedStart = new Date(start).toLocaleDateString("en-IN", {
+      dateStyle: "medium",
+    });
+    const formattedEnd = new Date(end).toLocaleDateString("en-IN", {
+      dateStyle: "medium",
+    });
 
     printWindow.document.write(`
       <html>
@@ -322,17 +356,21 @@ export default function CashDrawerPage() {
             </div>
           </div>
 
-          ${(rangeShortages > 0 || rangeOverages > 0) ? `
-            <div class="discrepancy-banner ${rangeShortages > 0 ? 'discrepancy-red' : 'discrepancy-orange'}">
+          ${
+            rangeShortages > 0 || rangeOverages > 0
+              ? `
+            <div class="discrepancy-banner ${rangeShortages > 0 ? "discrepancy-red" : "discrepancy-orange"}">
               <strong>🚨 CRITICAL CASH RECONCILIATION SUMMARY:</strong> Over this date range, there was a total accumulated 
               <strong>shortage of ₹${rangeShortages.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong> and an 
               <strong>overage of ₹${rangeOverages.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>.
             </div>
-          ` : `
+          `
+              : `
             <div class="discrepancy-banner discrepancy-green">
               <strong>✨ HEALTHY CASH RECONCILIATION SUMMARY:</strong> Till is perfectly reconciled. No cash shortages or surpluses detected in this range!
             </div>
-          `}
+          `
+          }
 
           <div class="grid-summary">
             <div class="card">
@@ -349,8 +387,8 @@ export default function CashDrawerPage() {
             </div>
             <div class="card" style="background-color: #0f172a; color: #ffffff;">
               <h3 class="card-title" style="color: #94a3b8;">Net Discrepancy</h3>
-              <p class="card-value" style="color: ${rangeShortages > rangeOverages ? '#f43f5e' : '#10b981'};">
-                ${rangeShortages > rangeOverages ? '-' : '+'}₹${Math.abs(rangeOverages - rangeShortages).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              <p class="card-value" style="color: ${rangeShortages > rangeOverages ? "#f43f5e" : "#10b981"};">
+                ${rangeShortages > rangeOverages ? "-" : "+"}₹${Math.abs(rangeOverages - rangeShortages).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -368,37 +406,45 @@ export default function CashDrawerPage() {
                 </tr>
               </thead>
               <tbody>
-                ${events.map(ev => {
-                  const typeClass = "badge-" + ev.event_type;
-                  const isNegative = ev.event_type === "cash_out" || ev.event_type === "close";
-                  const noteText = ev.note || "";
-                  const match = noteText.match(/^\[Discrepancy: ([^\]]+)\]/);
-                  let noteHtml = ev.note || "--";
-                  
-                  if (match) {
-                    const discrepancyDetail = match[1];
-                    const userNote = noteText.replace(/^\[Discrepancy: [^\]]+\]\s*/, "");
-                    const isShortage = discrepancyDetail.toLowerCase().includes("shortage");
-                    noteHtml = `
+                ${events
+                  .map((ev) => {
+                    const typeClass = "badge-" + ev.event_type;
+                    const isNegative =
+                      ev.event_type === "cash_out" || ev.event_type === "close";
+                    const noteText = ev.note || "";
+                    const match = noteText.match(/^\[Discrepancy: ([^\]]+)\]/);
+                    let noteHtml = ev.note || "--";
+
+                    if (match) {
+                      const discrepancyDetail = match[1];
+                      const userNote = noteText.replace(
+                        /^\[Discrepancy: [^\]]+\]\s*/,
+                        "",
+                      );
+                      const isShortage = discrepancyDetail
+                        .toLowerCase()
+                        .includes("shortage");
+                      noteHtml = `
                       <div>
-                        <div class="${isShortage ? 'badge-discrepancy' : 'badge-discrepancy-over'}">
+                        <div class="${isShortage ? "badge-discrepancy" : "badge-discrepancy-over"}">
                           ⚠️ ${discrepancyDetail}
                         </div>
                         ${userNote ? `<div style="margin-top: 4px; font-weight: 600;">${userNote}</div>` : ""}
                       </div>
                     `;
-                  }
+                    }
 
-                  return `
+                    return `
                     <tr>
                       <td style="color: #64748b;">${new Date(ev.created_at).toLocaleString("en-IN")}</td>
                       <td style="font-weight: 600;">${ev.user_name}</td>
                       <td><span class="badge ${typeClass}">${ev.event_type}</span></td>
-                      <td style="font-weight: 700;">${isNegative ? '-' : '+'}₹${ev.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td style="font-weight: 700;">${isNegative ? "-" : "+"}₹${ev.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                       <td class="note-cell">${noteHtml}</td>
                     </tr>
                   `;
-                }).join("")}
+                  })
+                  .join("")}
               </tbody>
             </table>
           </div>
@@ -450,8 +496,8 @@ export default function CashDrawerPage() {
         openModalType === "open"
           ? "Cash drawer opened successfully"
           : openModalType === "close"
-          ? "Cash drawer closed successfully"
-          : "Transaction logged successfully"
+            ? "Cash drawer closed successfully"
+            : "Transaction logged successfully",
       );
 
       setAmount("");
@@ -491,7 +537,9 @@ export default function CashDrawerPage() {
       <div className="flex-1 flex flex-col min-w-0 relative">
         <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-gray-900">Cash Drawer Management</h2>
+            <h2 className="text-lg font-bold tracking-tight text-gray-900">
+              Cash Drawer Management
+            </h2>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <span className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -512,12 +560,13 @@ export default function CashDrawerPage() {
 
         <div className="flex-1 overflow-y-auto p-8 relative">
           <div className="mx-auto max-w-6xl">
-
             {isLoading ? (
               <div className="flex min-h-[50vh] items-center justify-center">
                 <div className="flex flex-col items-center gap-2">
                   <Clock className="h-8 w-8 animate-spin text-orange-500" />
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Syncing Till Float...</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Syncing Till Float...
+                  </p>
                 </div>
               </div>
             ) : (
@@ -530,9 +579,12 @@ export default function CashDrawerPage() {
                         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
                       </span>
                       <div>
-                        <p className="text-xs font-bold text-emerald-800">CASH DRAWER ACTIVE</p>
+                        <p className="text-xs font-bold text-emerald-800">
+                          CASH DRAWER ACTIVE
+                        </p>
                         <p className="text-[10px] text-emerald-600 font-semibold uppercase mt-0.5">
-                          Opened at: {new Date(summary.opened_at!).toLocaleString("en-IN")}
+                          Opened at:{" "}
+                          {new Date(summary.opened_at!).toLocaleString("en-IN")}
                         </p>
                       </div>
                     </div>
@@ -564,44 +616,67 @@ export default function CashDrawerPage() {
                 ) : (
                   /* Closed State Info banner */
                   <div className="space-y-4">
-                    {summary && summary.last_discrepancy !== undefined && summary.last_discrepancy !== 0 && (
-                      <div className={`rounded-2xl border p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                        summary.last_discrepancy < 0 
-                          ? "border-rose-200 bg-rose-50/50 text-rose-900" 
-                          : "border-amber-200 bg-amber-50/50 text-amber-900"
-                      }`}>
-                        <div className="flex items-start gap-3">
-                          <div className={`rounded-xl p-2.5 shadow-sm border ${
-                            summary.last_discrepancy < 0 
-                              ? "bg-rose-100 text-rose-600 border-rose-200" 
-                              : "bg-amber-100 text-amber-600 border-amber-200"
-                          }`}>
-                            <ShieldAlert className="h-5 w-5" />
+                    {summary &&
+                      summary.last_discrepancy !== undefined &&
+                      summary.last_discrepancy !== 0 && (
+                        <div
+                          className={`rounded-2xl border p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                            summary.last_discrepancy < 0
+                              ? "border-rose-200 bg-rose-50/50 text-rose-900"
+                              : "border-amber-200 bg-amber-50/50 text-amber-900"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`rounded-xl p-2.5 shadow-sm border ${
+                                summary.last_discrepancy < 0
+                                  ? "bg-rose-100 text-rose-600 border-rose-200"
+                                  : "bg-amber-100 text-amber-600 border-amber-200"
+                              }`}
+                            >
+                              <ShieldAlert className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black uppercase tracking-wider">
+                                UNRESOLVED TILL DISCREPANCY DETECTED
+                              </h4>
+                              <p className="text-sm font-extrabold mt-1">
+                                The previous shift closed with a{" "}
+                                {summary.last_discrepancy < 0
+                                  ? "Shortage"
+                                  : "Overage"}{" "}
+                                of {fmtINR(Math.abs(summary.last_discrepancy))}
+                              </p>
+                              <p className="text-[10px] opacity-80 mt-1 font-semibold uppercase">
+                                Expected:{" "}
+                                {fmtINR(summary.last_expected_amount || 0)} |
+                                Counted:{" "}
+                                {fmtINR(summary.last_closed_amount || 0)}
+                              </p>
+                              <p className="text-[10px] opacity-75 mt-0.5 font-medium">
+                                Closed by{" "}
+                                <span className="font-bold">
+                                  {summary.last_closed_by || "Unknown"}
+                                </span>{" "}
+                                on{" "}
+                                {new Date(
+                                  summary.last_closed_at!,
+                                ).toLocaleString("en-IN")}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-xs font-black uppercase tracking-wider">
-                              UNRESOLVED TILL DISCREPANCY DETECTED
-                            </h4>
-                            <p className="text-sm font-extrabold mt-1">
-                              The previous shift closed with a {summary.last_discrepancy < 0 ? "Shortage" : "Overage"} of {fmtINR(Math.abs(summary.last_discrepancy))}
-                            </p>
-                            <p className="text-[10px] opacity-80 mt-1 font-semibold uppercase">
-                              Expected: {fmtINR(summary.last_expected_amount || 0)} | Counted: {fmtINR(summary.last_closed_amount || 0)}
-                            </p>
-                            <p className="text-[10px] opacity-75 mt-0.5 font-medium">
-                              Closed by <span className="font-bold">{summary.last_closed_by || "Unknown"}</span> on {new Date(summary.last_closed_at!).toLocaleString("en-IN")}
-                            </p>
+                          <div
+                            className={`text-[10px] font-black uppercase border rounded-lg px-3 py-2 max-w-[280px] leading-relaxed ${
+                              summary.last_discrepancy < 0
+                                ? "border-rose-300 bg-rose-100/50 text-rose-700"
+                                : "border-amber-300 bg-amber-100/50 text-amber-700"
+                            }`}
+                          >
+                            ⚠️ Carryover Warning: The physical till balance is
+                            currently {fmtINR(summary.last_closed_amount || 0)}.
                           </div>
                         </div>
-                        <div className={`text-[10px] font-black uppercase border rounded-lg px-3 py-2 max-w-[280px] leading-relaxed ${
-                          summary.last_discrepancy < 0
-                            ? "border-rose-300 bg-rose-100/50 text-rose-700"
-                            : "border-amber-300 bg-amber-100/50 text-amber-700"
-                        }`}>
-                          ⚠️ Carryover Warning: The physical till balance is currently {fmtINR(summary.last_closed_amount || 0)}. Opening the drawer will pre-fill this balance to carry it forward.
-                        </div>
-                      </div>
-                    )}
+                      )}
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
@@ -609,19 +684,23 @@ export default function CashDrawerPage() {
                           <Lock className="h-5 w-5" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Cash Drawer is Closed</h3>
+                          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                            Cash Drawer is Closed
+                          </h3>
                           <p className="text-xs text-slate-500">
-                            {summary && summary.last_closed_amount !== undefined 
+                            {summary && summary.last_closed_amount !== undefined
                               ? `Last counted till balance: ${fmtINR(summary.last_closed_amount)}`
-                              : "Open the till with a shift float to start processing cash sales."
-                            }
+                              : "Open the till with a shift float to start processing cash sales."}
                           </p>
                         </div>
                       </div>
                       <button
                         onClick={() => {
                           setOpenModalType("open");
-                          if (summary && summary.last_closed_amount !== undefined) {
+                          if (
+                            summary &&
+                            summary.last_closed_amount !== undefined
+                          ) {
                             setAmount(summary.last_closed_amount.toString());
                           } else {
                             setAmount("");
@@ -640,30 +719,49 @@ export default function CashDrawerPage() {
                 {summary && summary.is_open && (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Opening Float</p>
-                      <p className="mt-1 text-2xl font-black text-slate-800">{fmtINR(summary.opening_float)}</p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Cash In-Out</p>
-                      <p className="mt-1 text-2xl font-black text-slate-800 flex items-center gap-1">
-                        <span className="text-emerald-600">+{summary.total_cash_in}</span>
-                        <span className="text-slate-300 text-sm">/</span>
-                        <span className="text-amber-600">-{summary.total_cash_out}</span>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Opening Float
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-slate-800">
+                        {fmtINR(summary.opening_float)}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Sales (Cash)</p>
-                      <p className="mt-1 text-2xl font-black text-slate-800">{fmtINR(summary.total_sales)}</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Total Cash In-Out
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-slate-800 flex items-center gap-1">
+                        <span className="text-emerald-600">
+                          +{summary.total_cash_in}
+                        </span>
+                        <span className="text-slate-300 text-sm">/</span>
+                        <span className="text-amber-600">
+                          -{summary.total_cash_out}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Total Sales (Cash)
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-slate-800">
+                        {fmtINR(summary.total_sales)}
+                      </p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-900 p-5 shadow-md text-white">
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Expected Cash In Till</p>
-                      <p className="mt-1 text-2xl font-black text-orange-500">{fmtINR(summary.expected_cash)}</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Expected Cash In Till
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-orange-500">
+                        {fmtINR(summary.expected_cash)}
+                      </p>
                     </div>
                   </div>
                 )}
 
                 {/* Tab Selector for Owner & Manager */}
-                {((userRole || "").toLowerCase() === "owner" || (userRole || "").toLowerCase() === "manager") && (
+                {((userRole || "").toLowerCase() === "owner" ||
+                  (userRole || "").toLowerCase() === "manager") && (
                   <div className="flex border-b border-slate-200">
                     <button
                       onClick={() => setActiveTab("today")}
@@ -694,7 +792,9 @@ export default function CashDrawerPage() {
                     <div className="border-b px-5 py-4 flex items-center justify-between bg-slate-50/50">
                       <div className="flex items-center gap-2">
                         <History className="h-4.5 w-4.5 text-slate-400" />
-                        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Today's Audit Ledger</h2>
+                        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                          Today's Audit Ledger
+                        </h2>
                       </div>
                       {!summary?.is_open && (
                         <span className="inline-flex rounded-full bg-slate-100 border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
@@ -717,43 +817,74 @@ export default function CashDrawerPage() {
                         <tbody className="divide-y text-slate-700 text-xs">
                           {!summary || summary.events.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="px-5 py-8 text-center text-slate-400 font-bold uppercase tracking-wider">
+                              <td
+                                colSpan={5}
+                                className="px-5 py-8 text-center text-slate-400 font-bold uppercase tracking-wider"
+                              >
                                 No cash drawer activity recorded today.
                               </td>
                             </tr>
                           ) : (
                             summary.events.map((ev) => (
-                              <tr key={ev.id} className="hover:bg-slate-50/50 transition-colors">
+                              <tr
+                                key={ev.id}
+                                className="hover:bg-slate-50/50 transition-colors"
+                              >
                                 <td className="px-5 py-3 text-slate-400">
-                                  {new Date(ev.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                                  {new Date(ev.created_at).toLocaleTimeString(
+                                    "en-IN",
+                                    { hour: "2-digit", minute: "2-digit" },
+                                  )}
                                 </td>
-                                <td className="px-5 py-3 font-bold text-slate-900">{ev.user_name}</td>
+                                <td className="px-5 py-3 font-bold text-slate-900">
+                                  {ev.user_name}
+                                </td>
                                 <td className="px-5 py-3">
-                                  <span className={`inline-block border px-2 py-0.5 rounded text-[10px] font-bold uppercase ${getEventBadgeClass(ev.event_type)}`}>
+                                  <span
+                                    className={`inline-block border px-2 py-0.5 rounded text-[10px] font-bold uppercase ${getEventBadgeClass(ev.event_type)}`}
+                                  >
                                     {ev.event_type}
                                   </span>
                                 </td>
                                 <td className="px-5 py-3 font-extrabold text-slate-800">
-                                  {ev.event_type === "cash_out" || ev.event_type === "close" ? "-" : "+"}
+                                  {ev.event_type === "cash_out" ||
+                                  ev.event_type === "close"
+                                    ? "-"
+                                    : "+"}
                                   {fmtINR(ev.amount)}
                                 </td>
                                 <td className="px-5 py-3 font-medium text-slate-500 break-all max-w-[250px]">
                                   {(() => {
                                     const noteText = ev.note || "";
-                                    const match = noteText.match(/^\[Discrepancy: ([^\]]+)\]/);
+                                    const match = noteText.match(
+                                      /^\[Discrepancy: ([^\]]+)\]/,
+                                    );
                                     if (match) {
                                       const discrepancyDetail = match[1];
-                                      const userNote = noteText.replace(/^\[Discrepancy: [^\]]+\]\s*/, "");
-                                      const isShortage = discrepancyDetail.toLowerCase().includes("shortage");
+                                      const userNote = noteText.replace(
+                                        /^\[Discrepancy: [^\]]+\]\s*/,
+                                        "",
+                                      );
+                                      const isShortage = discrepancyDetail
+                                        .toLowerCase()
+                                        .includes("shortage");
                                       return (
                                         <div className="space-y-1">
-                                          <div className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black uppercase border ${
-                                            isShortage ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                                          }`}>
+                                          <div
+                                            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black uppercase border ${
+                                              isShortage
+                                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                                : "bg-amber-50 text-amber-700 border-amber-200"
+                                            }`}
+                                          >
                                             <ShieldAlert className="h-3 w-3" />
                                             {discrepancyDetail}
                                           </div>
-                                          {userNote && <p className="text-xs font-semibold text-slate-700">{userNote}</p>}
+                                          {userNote && (
+                                            <p className="text-xs font-semibold text-slate-700">
+                                              {userNote}
+                                            </p>
+                                          )}
                                         </div>
                                       );
                                     }
@@ -772,9 +903,14 @@ export default function CashDrawerPage() {
                   <div className="space-y-6">
                     {/* Range Query form */}
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <form onSubmit={handleQueryRange} className="flex flex-wrap items-end gap-4">
+                      <form
+                        onSubmit={handleQueryRange}
+                        className="flex flex-wrap items-end gap-4"
+                      >
                         <div className="flex-1 min-w-[200px]">
-                          <label className="text-xs font-black uppercase tracking-wider text-slate-400 block mb-1.5">Start Date</label>
+                          <label className="text-xs font-black uppercase tracking-wider text-slate-400 block mb-1.5">
+                            Start Date
+                          </label>
                           <div className="relative">
                             <Calendar className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-400" />
                             <input
@@ -787,7 +923,9 @@ export default function CashDrawerPage() {
                           </div>
                         </div>
                         <div className="flex-1 min-w-[200px]">
-                          <label className="text-xs font-black uppercase tracking-wider text-slate-400 block mb-1.5">End Date</label>
+                          <label className="text-xs font-black uppercase tracking-wider text-slate-400 block mb-1.5">
+                            End Date
+                          </label>
                           <div className="relative">
                             <Calendar className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-400" />
                             <input
@@ -821,20 +959,28 @@ export default function CashDrawerPage() {
                           let rOverages = 0;
                           let rClosings = 0;
 
-                          rangeEvents.forEach(ev => {
-                            if (ev.event_type === "cash_in") rCashIn += ev.amount;
-                            if (ev.event_type === "cash_out") rCashOut += ev.amount;
+                          rangeEvents.forEach((ev) => {
+                            if (ev.event_type === "cash_in")
+                              rCashIn += ev.amount;
+                            if (ev.event_type === "cash_out")
+                              rCashOut += ev.amount;
                             if (ev.event_type === "sale") rSales += ev.amount;
                             if (ev.event_type === "close") {
                               rClosings++;
-                              const match = (ev.note || "").match(/\[Discrepancy: ([^ ]+) of ₹([^ ]+) /);
+                              const match = (ev.note || "").match(
+                                /\[Discrepancy: ([^ ]+) of ₹([^ ]+) /,
+                              );
                               if (match) {
                                 const type = match[1].toLowerCase();
-                                const amtStr = match[2].replace(/,/g, "").replace(/₹/g, "");
+                                const amtStr = match[2]
+                                  .replace(/,/g, "")
+                                  .replace(/₹/g, "");
                                 const amt = parseFloat(amtStr);
                                 if (!isNaN(amt)) {
-                                  if (type.includes("shortage")) rShortages += amt;
-                                  if (type.includes("overage")) rOverages += amt;
+                                  if (type.includes("shortage"))
+                                    rShortages += amt;
+                                  if (type.includes("overage"))
+                                    rOverages += amt;
                                 }
                               }
                             }
@@ -844,10 +990,17 @@ export default function CashDrawerPage() {
                             <>
                               <div className="flex flex-wrap justify-between items-center gap-2">
                                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                                  Audits Result ({rangeEvents.length} entries, {rClosings} closings)
+                                  Audits Result ({rangeEvents.length} entries,{" "}
+                                  {rClosings} closings)
                                 </h3>
                                 <button
-                                  onClick={() => downloadPDFReport(rangeEvents, rangeStart, rangeEnd)}
+                                  onClick={() =>
+                                    downloadPDFReport(
+                                      rangeEvents,
+                                      rangeStart,
+                                      rangeEnd,
+                                    )
+                                  }
                                   className="inline-flex items-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider shadow-sm transition-all"
                                 >
                                   <FileText className="h-4.5 w-4.5" />
@@ -857,27 +1010,46 @@ export default function CashDrawerPage() {
 
                               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Cash In</p>
-                                  <p className="mt-1 text-2xl font-black text-emerald-600">+{fmtINR(rCashIn)}</p>
+                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                    Total Cash In
+                                  </p>
+                                  <p className="mt-1 text-2xl font-black text-emerald-600">
+                                    +{fmtINR(rCashIn)}
+                                  </p>
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Cash Out</p>
-                                  <p className="mt-1 text-2xl font-black text-amber-600">-{fmtINR(rCashOut)}</p>
+                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                    Total Cash Out
+                                  </p>
+                                  <p className="mt-1 text-2xl font-black text-amber-600">
+                                    -{fmtINR(rCashOut)}
+                                  </p>
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Sales (Cash)</p>
-                                  <p className="mt-1 text-2xl font-black text-sky-600">{fmtINR(rSales)}</p>
+                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                    Total Sales (Cash)
+                                  </p>
+                                  <p className="mt-1 text-2xl font-black text-sky-600">
+                                    {fmtINR(rSales)}
+                                  </p>
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-slate-900 p-5 shadow-md text-white">
-                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Net Discrepancies</p>
-                                  <p className={`mt-1 text-2xl font-black ${
-                                    rShortages > rOverages ? 'text-rose-500' : 'text-emerald-500'
-                                  }`}>
-                                    {rShortages > rOverages ? '-' : '+'}
+                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                    Net Discrepancies
+                                  </p>
+                                  <p
+                                    className={`mt-1 text-2xl font-black ${
+                                      rShortages > rOverages
+                                        ? "text-rose-500"
+                                        : "text-emerald-500"
+                                    }`}
+                                  >
+                                    {rShortages > rOverages ? "-" : "+"}
                                     {fmtINR(Math.abs(rOverages - rShortages))}
                                   </p>
                                   <p className="text-[10px] text-slate-400 mt-1 uppercase font-semibold">
-                                    Shortages: {fmtINR(rShortages)} | Overages: {fmtINR(rOverages)}
+                                    Shortages: {fmtINR(rShortages)} | Overages:{" "}
+                                    {fmtINR(rOverages)}
                                   </p>
                                 </div>
                               </div>
@@ -901,46 +1073,77 @@ export default function CashDrawerPage() {
                               <tbody className="divide-y text-slate-700 text-xs">
                                 {rangeEvents.length === 0 ? (
                                   <tr>
-                                    <td colSpan={5} className="px-5 py-8 text-center text-slate-400 font-bold uppercase tracking-wider">
+                                    <td
+                                      colSpan={5}
+                                      className="px-5 py-8 text-center text-slate-400 font-bold uppercase tracking-wider"
+                                    >
                                       No drawer activity audited in this range.
                                     </td>
                                   </tr>
                                 ) : (
                                   rangeEvents.map((ev) => (
-                                    <tr key={ev.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <tr
+                                      key={ev.id}
+                                      className="hover:bg-slate-50/50 transition-colors"
+                                    >
                                       <td className="px-5 py-3 text-slate-400">
-                                        {new Date(ev.created_at).toLocaleString("en-IN", {
-                                          dateStyle: "short",
-                                          timeStyle: "short",
-                                        })}
+                                        {new Date(ev.created_at).toLocaleString(
+                                          "en-IN",
+                                          {
+                                            dateStyle: "short",
+                                            timeStyle: "short",
+                                          },
+                                        )}
                                       </td>
-                                      <td className="px-5 py-3 font-bold text-slate-900">{ev.user_name}</td>
+                                      <td className="px-5 py-3 font-bold text-slate-900">
+                                        {ev.user_name}
+                                      </td>
                                       <td className="px-5 py-3">
-                                        <span className={`inline-block border px-2 py-0.5 rounded text-[10px] font-bold uppercase ${getEventBadgeClass(ev.event_type)}`}>
+                                        <span
+                                          className={`inline-block border px-2 py-0.5 rounded text-[10px] font-bold uppercase ${getEventBadgeClass(ev.event_type)}`}
+                                        >
                                           {ev.event_type}
                                         </span>
                                       </td>
                                       <td className="px-5 py-3 font-extrabold text-slate-800">
-                                        {ev.event_type === "cash_out" || ev.event_type === "close" ? "-" : "+"}
+                                        {ev.event_type === "cash_out" ||
+                                        ev.event_type === "close"
+                                          ? "-"
+                                          : "+"}
                                         {fmtINR(ev.amount)}
                                       </td>
                                       <td className="px-5 py-3 font-medium text-slate-500 break-all max-w-[250px]">
                                         {(() => {
                                           const noteText = ev.note || "";
-                                          const match = noteText.match(/^\[Discrepancy: ([^\]]+)\]/);
+                                          const match = noteText.match(
+                                            /^\[Discrepancy: ([^\]]+)\]/,
+                                          );
                                           if (match) {
                                             const discrepancyDetail = match[1];
-                                            const userNote = noteText.replace(/^\[Discrepancy: [^\]]+\]\s*/, "");
-                                            const isShortage = discrepancyDetail.toLowerCase().includes("shortage");
+                                            const userNote = noteText.replace(
+                                              /^\[Discrepancy: [^\]]+\]\s*/,
+                                              "",
+                                            );
+                                            const isShortage = discrepancyDetail
+                                              .toLowerCase()
+                                              .includes("shortage");
                                             return (
                                               <div className="space-y-1">
-                                                <div className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black uppercase border ${
-                                                  isShortage ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                                                }`}>
+                                                <div
+                                                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black uppercase border ${
+                                                    isShortage
+                                                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                                  }`}
+                                                >
                                                   <ShieldAlert className="h-3 w-3" />
                                                   {discrepancyDetail}
                                                 </div>
-                                                {userNote && <p className="text-xs font-semibold text-slate-700">{userNote}</p>}
+                                                {userNote && (
+                                                  <p className="text-xs font-semibold text-slate-700">
+                                                    {userNote}
+                                                  </p>
+                                                )}
                                               </div>
                                             );
                                           }
@@ -973,39 +1176,64 @@ export default function CashDrawerPage() {
                   </h3>
 
                   <form onSubmit={handleRecordEvent} className="space-y-4">
-                    {openModalType === "open" && summary && summary.last_discrepancy !== undefined && summary.last_discrepancy !== 0 && (
-                      <div className={`rounded-xl border p-3.5 mb-4 text-xs ${
-                        summary.last_discrepancy < 0 ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"
-                      }`}>
-                        <div className="flex items-center gap-2 font-black uppercase text-[10px] mb-1">
-                          <ShieldAlert className="h-4 w-4" />
-                          Unresolved Discrepancy from Last Close
+                    {openModalType === "open" &&
+                      summary &&
+                      summary.last_discrepancy !== undefined &&
+                      summary.last_discrepancy !== 0 && (
+                        <div
+                          className={`rounded-xl border p-3.5 mb-4 text-xs ${
+                            summary.last_discrepancy < 0
+                              ? "border-rose-200 bg-rose-50 text-rose-800"
+                              : "border-amber-200 bg-amber-50 text-amber-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 font-black uppercase text-[10px] mb-1">
+                            <ShieldAlert className="h-4 w-4" />
+                            Unresolved Discrepancy from Last Close
+                          </div>
+                          <p className="font-bold">
+                            The last session closed with a{" "}
+                            <span className="font-extrabold">
+                              {summary.last_discrepancy < 0
+                                ? "Shortage"
+                                : "Overage"}{" "}
+                              of {fmtINR(Math.abs(summary.last_discrepancy))}
+                            </span>
+                            .
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-medium mt-1">
+                            Expected:{" "}
+                            {fmtINR(summary.last_expected_amount || 0)} | Actual
+                            Counted: {fmtINR(summary.last_closed_amount || 0)}
+                          </p>
+                          <p className="text-[9px] font-semibold text-rose-600 mt-2">
+                            💡 Starting float has been pre-filled with the
+                            physical till count of{" "}
+                            {fmtINR(summary.last_closed_amount || 0)}.
+                            Acknowledge or adjust as necessary.
+                          </p>
                         </div>
-                        <p className="font-bold">
-                          The last session closed with a <span className="font-extrabold">{summary.last_discrepancy < 0 ? "Shortage" : "Overage"} of {fmtINR(Math.abs(summary.last_discrepancy))}</span>.
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-medium mt-1">
-                          Expected: {fmtINR(summary.last_expected_amount || 0)} | Actual Counted: {fmtINR(summary.last_closed_amount || 0)}
-                        </p>
-                        <p className="text-[9px] font-semibold text-rose-600 mt-2">
-                          💡 Starting float has been pre-filled with the physical till count of {fmtINR(summary.last_closed_amount || 0)}. Acknowledge or adjust as necessary.
-                        </p>
-                      </div>
-                    )}
+                      )}
 
                     {openModalType === "close" && summary && (
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 mb-4 text-xs">
                         <div className="flex justify-between font-bold text-slate-600 mb-1">
                           <span>Expected Cash in Drawer:</span>
-                          <span className="text-orange-500 font-extrabold">{fmtINR(summary.expected_cash)}</span>
+                          <span className="text-orange-500 font-extrabold">
+                            {fmtINR(summary.expected_cash)}
+                          </span>
                         </div>
                         <p className="text-[10px] text-slate-400 font-medium leading-relaxed mt-1">
-                          Reconciliation: Count the actual cash in the till below. Any shortage or surplus will be flagged in the audit logs.
+                          Reconciliation: Count the actual cash in the till
+                          below. Any shortage or surplus will be flagged in the
+                          audit logs.
                         </p>
                       </div>
                     )}
 
-                    {openModalType === "close" && summary && amount && (
+                    {openModalType === "close" &&
+                      summary &&
+                      amount &&
                       (() => {
                         const parsedAmt = parseFloat(amount);
                         if (isNaN(parsedAmt) || parsedAmt < 0) return null;
@@ -1021,33 +1249,44 @@ export default function CashDrawerPage() {
                         const isShortage = diff < 0;
                         const absDiff = Math.abs(diff);
                         return (
-                          <div className={`rounded-xl border p-3.5 mb-4 text-xs ${
-                            isShortage ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"
-                          }`}>
+                          <div
+                            className={`rounded-xl border p-3.5 mb-4 text-xs ${
+                              isShortage
+                                ? "border-rose-200 bg-rose-50 text-rose-800"
+                                : "border-amber-200 bg-amber-50 text-amber-800"
+                            }`}
+                          >
                             <div className="flex items-center gap-2 font-black uppercase text-[10px] mb-1">
                               <ShieldAlert className="h-4 w-4" />
                               Till Discrepancy Detected
                             </div>
                             <p className="font-bold">
-                              Difference: <span className="font-extrabold">{isShortage ? "Shortage" : "Overage"} of {fmtINR(absDiff)}</span>
+                              Difference:{" "}
+                              <span className="font-extrabold">
+                                {isShortage ? "Shortage" : "Overage"} of{" "}
+                                {fmtINR(absDiff)}
+                              </span>
                             </p>
                             <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-1">
-                              Expected: {fmtINR(summary.expected_cash)} | Actual: {fmtINR(parsedAmt)}
+                              Expected: {fmtINR(summary.expected_cash)} |
+                              Actual: {fmtINR(parsedAmt)}
                             </p>
                             <p className="text-[9px] font-semibold text-rose-600 mt-2">
-                              ⚠️ WARNING: This discrepancy will be logged permanently in the audit ledger and reported to the owner/manager.
+                              ⚠️ WARNING: This discrepancy will be logged
+                              permanently in the audit ledger and reported to
+                              the owner/manager.
                             </p>
                           </div>
                         );
-                      })()
-                    )}
+                      })()}
 
                     <div>
                       <label className="text-xs font-black uppercase tracking-wider text-slate-400">
                         {openModalType === "open" && "Starting Float (₹)"}
                         {openModalType === "close" && "Actual Cash Counted (₹)"}
                         {openModalType === "cash_in" && "Amount to Add (₹)"}
-                        {openModalType === "cash_out" && "Amount to Withdraw (₹)"}
+                        {openModalType === "cash_out" &&
+                          "Amount to Withdraw (₹)"}
                       </label>
                       <input
                         type="number"
@@ -1060,7 +1299,9 @@ export default function CashDrawerPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wider text-slate-400">Reason / Auditing Notes</label>
+                      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                        Reason / Auditing Notes
+                      </label>
                       <textarea
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
@@ -1068,8 +1309,8 @@ export default function CashDrawerPage() {
                           openModalType === "open"
                             ? "Opening shift notes..."
                             : openModalType === "close"
-                            ? "Till reconciliation remarks..."
-                            : "Add verification context..."
+                              ? "Till reconciliation remarks..."
+                              : "Add verification context..."
                         }
                         className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm focus:border-orange-500 focus:outline-none h-20 resize-none"
                       />
