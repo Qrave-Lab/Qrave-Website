@@ -35,6 +35,17 @@ import { api } from "@/app/lib/api";
 import { toast } from "react-hot-toast";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
+const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 type CategoryTab = "all" | string;
 type Allergen =
   | "Dairy"
@@ -501,20 +512,10 @@ export default function MenuPage() {
 
         toast.success("Image uploaded");
       } else {
-        if (!editingItem.id) {
-          toast.error("Save item first before uploading 3D model");
-          return;
-        }
-        const maxBytes = 12 * 1024 * 1024;
-        if (file.size > maxBytes) {
-          toast.dismiss(uploadToastId);
-          toast.error("GLB too large. Keep it under 12MB for reliable loading.");
-          return;
-        }
         const form = new FormData();
         form.append("file", file);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 120000);
+        const timeout = setTimeout(() => controller.abort(), 300000);
         let res: any;
         try {
           res = await authFetch(
@@ -581,7 +582,12 @@ export default function MenuPage() {
           setModalMode(null);
           Promise.all([refreshMenu(true), refreshHealth()]);
         } catch (err: any) {
-          toast.error(err?.message || "Delete failed");
+          const msg = err?.message || "";
+          if (msg.toLowerCase().includes("foreign key") || msg.toLowerCase().includes("violates")) {
+            toast.error("Products with active order history cannot be deleted. Please archive them instead.");
+          } else {
+            toast.error(msg || "Delete failed");
+          }
         }
       },
     });
@@ -595,16 +601,22 @@ export default function MenuPage() {
   };
 
   const handleBulkAction = async (action: "archive" | "unarchive") => {
-    for (const id of selectedItems) {
-      const item = items.find((i) => i.id === id);
-      if (!item) continue;
-      await authFetch(`/api/admin/menu/item?item_id=${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ ...item, is_archived: action === "archive" }),
-      });
+    try {
+      for (const id of selectedItems) {
+        const item = items.find((i) => i.id === id);
+        if (!item) continue;
+        await authFetch(`/api/admin/menu/item?item_id=${id}`, {
+          method: "PUT",
+          body: JSON.stringify(buildItemPayload(item, { isArchived: action === "archive" })),
+        });
+      }
+      toast.success(`Selected product(s) ${action}d`);
+    } catch (err: any) {
+      toast.error(err?.message || `Failed to ${action} product(s)`);
+    } finally {
+      setSelectedItems(new Set());
+      Promise.all([refreshMenu(true), refreshHealth()]);
     }
-    setSelectedItems(new Set());
-    Promise.all([refreshMenu(true), refreshHealth()]);
   };
 
   const handleBulkDelete = async () => {
@@ -616,14 +628,16 @@ export default function MenuPage() {
         try {
           const ids = Array.from(selectedItems);
           let failed = 0;
+          let errorMessage = "";
 
           for (const id of ids) {
             try {
               await authFetch(`/api/admin/menu/item?item_id=${id}`, {
                 method: "DELETE",
               });
-            } catch {
+            } catch (err: any) {
               failed += 1;
+              errorMessage = err?.message || errorMessage;
             }
           }
 
@@ -633,11 +647,13 @@ export default function MenuPage() {
           if (failed === 0) {
             toast.success(`${ids.length} product(s) deleted`);
           } else if (failed === ids.length) {
-            toast.error("Delete failed");
+            if (errorMessage.toLowerCase().includes("foreign key") || errorMessage.toLowerCase().includes("violates")) {
+              toast.error("Products with active order history cannot be deleted. Please archive them instead.");
+            } else {
+              toast.error(errorMessage || "Delete failed");
+            }
           } else {
-            toast(`Deleted ${ids.length - failed}/${ids.length} products`, {
-              icon: "⚠️",
-            });
+            toast.error(`Deleted ${ids.length - failed}/${ids.length} products. Some could not be deleted due to active order history.`);
           }
         } catch {
           toast.error("Delete failed");
@@ -912,6 +928,17 @@ export default function MenuPage() {
 
   const handleSave = async () => {
     if (!editingItem || isSaving) return;
+
+    if (!editingItem.name.trim()) {
+      toast.error("Product name is required");
+      return;
+    }
+
+    if (editingItem.price === undefined || editingItem.price === null || editingItem.price <= 0) {
+      toast.error("A valid price greater than 0 is required");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -920,6 +947,7 @@ export default function MenuPage() {
 
       if (!categoryId) {
         toast.error("Please create/select a category first");
+        setIsSaving(false);
         return;
       }
 
@@ -927,6 +955,7 @@ export default function MenuPage() {
         const res: any = await authFetch("/api/admin/menu/item", {
           method: "POST",
           body: JSON.stringify({
+            id: itemId,
             category_id: categoryId,
             name: editingItem.name,
             price: editingItem.price,
@@ -1219,7 +1248,7 @@ export default function MenuPage() {
                   categories.find((c) => c.id === defaultCategoryId)?.id ||
                   "";
                 setEditingItem({
-                  id: "",
+                  id: generateUUID(),
                   name: "",
                   categoryId: defaultCategoryId,
                   price: 0,
@@ -1296,7 +1325,7 @@ export default function MenuPage() {
                 
                 <div className="p-6">
                   <div className="flex flex-col md:flex-row items-center gap-4">
-                    <div className="w-full md:w-48">
+                    <div className="w-full md:w-64">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Parent Section</label>
                       <div className="relative group">
                         <select
@@ -1696,7 +1725,7 @@ export default function MenuPage() {
                         categories.find((c) => c.id === defaultCategoryId)?.id ||
                         "";
                       setEditingItem({
-                        id: "",
+                        id: generateUUID(),
                         name: "",
                         categoryId: defaultCategoryId,
                         price: 0,
