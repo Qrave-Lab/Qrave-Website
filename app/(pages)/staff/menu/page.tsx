@@ -516,52 +516,47 @@ export default function MenuPage() {
 
         toast.success("Image uploaded");
       } else {
-        const form = new FormData();
-        form.append("file", file);
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 300000);
-        let res: any;
-        try {
-          // Bypass Vercel proxy by uploading directly to the absolute Go backend endpoint
-          const backendBase = getBackendBase();
-          const targetUrl = `${backendBase}/api/admin/menu/item/model?item_id=${editingItem.id}`;
-          
-          // Get CSRF Token if present
-          const csrfToken = typeof window !== "undefined" ? localStorage.getItem("csrf_token") : null;
-          const headers: Record<string, string> = {};
-          if (csrfToken) {
-            headers["X-CSRF-Token"] = csrfToken;
-          }
+        const ct = file.type || "model/gltf-binary";
+        const presignRes: any = await authFetch(
+          `/api/admin/menu/item/model/upload-url?item_id=${editingItem.id}&content_type=${encodeURIComponent(ct)}`,
+          { method: "POST" }
+        );
 
-          const directResp = await fetch(targetUrl, {
+        if (!presignRes?.upload_url || !presignRes?.public_url) {
+          throw new Error("Failed to generate model upload URL.");
+        }
+
+        // Upload the GLB file directly to S3 (bypassing Vercel proxy completely)
+        await fetch(presignRes.upload_url, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": ct },
+        });
+
+        // Trigger Go backend processing & conversion via lightweight JSON commit request
+        const commitRes: any = await authFetch(
+          `/api/admin/menu/item/model/commit`,
+          {
             method: "POST",
-            body: form,
-            headers,
-            credentials: "include",
-            signal: controller.signal,
-          });
-
-          if (!directResp.ok) {
-            const errorText = await directResp.text();
-            let errMsg = "";
-            try {
-              const errJson = JSON.parse(errorText);
-              errMsg = errJson?.message || "";
-            } catch {}
-            throw new Error(errMsg || `Upload failed with status ${directResp.status}`);
+            body: JSON.stringify({
+              item_id: editingItem.id,
+              model_url: presignRes.public_url,
+              filename: file.name,
+            }),
+            headers: {
+              "Content-Type": "application/json",
+            },
           }
+        );
 
-          res = await directResp.json();
-        } finally {
-          clearTimeout(timeout);
+        if (!commitRes?.model_glb) {
+          throw new Error("Model processing failed. No GLB URL returned.");
         }
-        if (!res?.model_glb) {
-          throw new Error("Model upload failed. No GLB URL returned.");
-        }
+
         setEditingItem({
           ...editingItem,
-          modelGlb: res.model_glb || "",
-          modelUsdz: res.model_usdz || "",
+          modelGlb: commitRes.model_glb || "",
+          modelUsdz: commitRes.model_usdz || "",
         });
         setModelPreviewError("");
         toast.dismiss(uploadToastId);
