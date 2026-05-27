@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Star, Scan, Minus, Plus } from "lucide-react";
+import { Star, Scan, Minus, Plus, Flame } from "lucide-react";
 import { useLanguageStore } from "@/stores/languageStore";
 
 type Variant = {
@@ -89,68 +89,69 @@ const FoodCard: React.FC<FoodCardProps> = ({
     isAvailable ? (
       orderingEnabled ? (
         currentQty > 0 ? (
-          <div className="flex items-center bg-slate-900 text-white rounded-xl overflow-hidden h-8">
-            <button onClick={() => onRemove(item.id, activeVariantId)} className="w-8 h-full flex items-center justify-center hover:bg-white/10 transition-colors">
+          <div className="fc-qty-stepper">
+            <button onClick={() => onRemove(item.id, activeVariantId)} className="fc-qty-btn">
               <Minus className="w-3.5 h-3.5" />
             </button>
-            <span className="min-w-6 text-center text-xs font-bold">{currentQty}</span>
-            <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="w-8 h-full flex items-center justify-center hover:bg-white/10 transition-colors">
+            <span className="fc-qty-count">{currentQty}</span>
+            <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="fc-qty-btn">
               <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => onAdd(item.id, activeVariantId, displayPrice)}
-            className="h-8 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-colors"
+            className="fc-add-btn"
           >
             {t("add")}
           </button>
         )
       ) : null
     ) : (
-      <span className="text-xs font-semibold text-red-500">{t("unavailable")}</span>
+      <span className="fc-unavailable">{t("unavailable")}</span>
     )
   );
 
   // ─── MAGAZINE layout ─────────────────────────────────────────────────────────
   if (layout === "magazine") {
     return (
-      <div className={`rounded-3xl overflow-hidden bg-white shadow-xl shadow-slate-200/50 flex flex-col border border-slate-100 ${!isAvailable ? "opacity-60" : ""}`}>
-        <div className="relative w-full aspect-[4/3] bg-slate-100 shrink-0">
-          {!imageLoaded && <div className="absolute inset-0 bg-slate-200 animate-pulse" />}
+      <div className={`fc-magazine ${!isAvailable ? "fc-disabled" : ""}`}>
+        <div className="fc-magazine-img-wrap">
+          {!imageLoaded && <div className="fc-img-placeholder" />}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={item.image}
             alt={item.name}
-            className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            className={`fc-magazine-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
             onLoad={() => setImageLoaded(true)}
           />
-          <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-            {item.isBestseller && <span className="bg-amber-500 text-amber-950 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-widest shadow-lg">Bestseller</span>}
-            {item.isNew && <span className="bg-emerald-500 text-emerald-950 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-widest shadow-lg">New</span>}
+          <div className="fc-magazine-badges">
+            {item.isBestseller && <span className="fc-badge fc-badge--gold">Bestseller</span>}
+            {item.isNew && <span className="fc-badge fc-badge--green">New</span>}
           </div>
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-transparent pt-12 pb-5 px-5 flex flex-col justify-end">
-             <h3 className="font-serif text-2xl sm:text-3xl font-black text-white leading-tight mb-1 drop-shadow-md">{item.name}</h3>
-             <div className="flex items-center gap-3">
-                <div className="bg-white/20 backdrop-blur-md px-2 py-0.5 rounded flex items-center">
-                  <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-green-400" : "bg-red-400"}`} />
-                </div>
-                {item.rating > 0 && (
-                  <span className="text-yellow-400 font-bold text-sm tracking-wide flex items-center gap-1 drop-shadow-md"><Star className="w-4 h-4 fill-current"/> {item.rating}</span>
-                )}
-                {item.calories && <span className="text-white/80 font-medium text-xs tracking-wide">{item.calories} kcal</span>}
-             </div>
+          <div className="fc-magazine-overlay">
+            <h3 className="fc-magazine-name">{item.name}</h3>
+            <div className="fc-magazine-meta">
+              <div className="fc-veg-dot-wrap">
+                <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
+              </div>
+              {item.rating > 0 && (
+                <span className="fc-magazine-rating"><Star className="w-4 h-4 fill-current" /> {item.rating}</span>
+              )}
+              {item.calories && <span className="fc-magazine-cal">{item.calories} kcal</span>}
+            </div>
           </div>
         </div>
-        <div className="p-5 flex flex-col">
-          <p className="text-sm text-slate-600 leading-relaxed font-medium mb-4">{item.description}</p>
-          
+        <div className="fc-magazine-body">
+          <p className="fc-desc">{item.description}</p>
+
           {visibleVariants.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-4">
+            <div className="fc-variants">
               {visibleVariants.map((v) => (
                 <button
                   key={v.id}
                   onClick={() => onVariantChange?.(v.id)}
-                  className={`px-3 py-1 rounded-lg border text-xs font-bold transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529] shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+                  className={`fc-variant-pill ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
                 >
                   {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
                 </button>
@@ -158,16 +159,17 @@ const FoodCard: React.FC<FoodCardProps> = ({
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-auto">
-             <div className="flex flex-col">
-                {displayBaseWithoutDiscount > displayPrice && (
-                  <span className="text-xs text-slate-400 font-bold line-through">₹{displayBaseWithoutDiscount}</span>
-                )}
-                <span className="text-2xl font-black text-slate-900 tracking-tight">₹{displayPrice}</span>
-             </div>
-             <AddButton />
+          <div className="fc-bottom">
+            <div className="fc-price-col">
+              {displayBaseWithoutDiscount > displayPrice && (
+                <span className="fc-price-old">₹{displayBaseWithoutDiscount}</span>
+              )}
+              <span className="fc-price-main fc-price-lg">₹{displayPrice}</span>
+            </div>
+            <AddButton />
           </div>
         </div>
+        <FoodCardStyles />
       </div>
     );
   }
@@ -175,42 +177,43 @@ const FoodCard: React.FC<FoodCardProps> = ({
   // ─── COMPACT layout ─────────────────────────────────────────────────────────
   if (layout === "compact") {
     return (
-      <div className={`flex items-center gap-3 py-2.5 ${!isAvailable ? "opacity-60" : ""}`}>
-        <div className="relative w-12 h-12 shrink-0 rounded-xl overflow-hidden bg-slate-100">
-          {!imageLoaded && <div className="absolute inset-0 bg-slate-200 animate-pulse" />}
+      <div className={`fc-compact ${!isAvailable ? "fc-disabled" : ""}`}>
+        <div className="fc-compact-img-wrap">
+          {!imageLoaded && <div className="fc-img-placeholder" />}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={item.image}
             alt={item.name}
-            className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            className={`fc-compact-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
             onLoad={() => setImageLoaded(true)}
           />
-          <div className="absolute top-1 left-1 bg-white/95 p-0.5 rounded flex items-center">
-            <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-green-600" : "bg-red-600"}`} />
+          <div className="fc-compact-veg-wrap">
+            <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
           </div>
           {!isAvailable && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <span className="text-[8px] font-black uppercase text-white">Out</span>
+            <div className="fc-compact-oos">
+              <span>Out</span>
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate leading-snug">{item.name}</p>
-          <div className="flex items-center gap-2 mt-0.5">
+        <div className="fc-compact-body">
+          <p className="fc-compact-name">{item.name}</p>
+          <div className="fc-compact-meta">
             {displayBaseWithoutDiscount > displayPrice && (
-              <span className="text-[10px] text-slate-400 line-through">₹{displayBaseWithoutDiscount}</span>
+              <span className="fc-price-old fc-price-sm">₹{displayBaseWithoutDiscount}</span>
             )}
-            <span className="text-sm font-bold text-slate-900">₹{displayPrice}</span>
+            <span className="fc-price-main fc-price-sm">₹{displayPrice}</span>
             {item.calories ? (
-              <span className="text-[10px] text-slate-400">{item.calories} kcal</span>
+              <span className="fc-cal-badge">{item.calories} kcal</span>
             ) : null}
           </div>
           {visibleVariants.length > 0 && (
-            <div className="flex gap-1 mt-1 flex-wrap">
+            <div className="fc-variants fc-variants-sm">
               {visibleVariants.map((v) => (
                 <button
                   key={v.id}
                   onClick={() => onVariantChange?.(v.id)}
-                  className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529]" : "bg-white text-slate-600 border-slate-200"}`}
+                  className={`fc-variant-pill fc-variant-pill--sm ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
                 >
                   {v.name}
                 </button>
@@ -218,9 +221,10 @@ const FoodCard: React.FC<FoodCardProps> = ({
             </div>
           )}
         </div>
-        <div className="shrink-0">
+        <div className="fc-compact-action">
           <AddButton />
         </div>
+        <FoodCardStyles />
       </div>
     );
   }
@@ -228,208 +232,771 @@ const FoodCard: React.FC<FoodCardProps> = ({
   // ─── GRID layout ─────────────────────────────────────────────────────────────
   if (layout === "grid") {
     return (
-      <div className={`rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-white flex flex-col ${!isAvailable ? "opacity-60" : ""}`}>
-        <div className="relative aspect-4/3 overflow-hidden bg-slate-100 shrink-0">
-          {!imageLoaded && <div className="absolute inset-0 bg-slate-200 animate-pulse" />}
+      <div className={`fc-grid ${!isAvailable ? "fc-disabled" : ""}`}>
+        <div className="fc-grid-img-wrap">
+          {!imageLoaded && <div className="fc-img-placeholder" />}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={item.image}
             alt={item.name}
-            className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            className={`fc-grid-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
             onLoad={() => setImageLoaded(true)}
           />
-          {/* Veg dot */}
-          <div className="absolute top-2 left-2 bg-white/95 p-1 rounded flex items-center">
-            <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-green-600" : "bg-red-600"}`} />
+          <div className="fc-grid-veg">
+            <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
           </div>
-          {/* Rating */}
           {item.rating > 0 && (
-            <div className={`absolute top-2 right-2 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${ratingStyles.container}`}>
+            <div className={`fc-grid-rating ${ratingStyles.container}`}>
               <Star className={`w-2.5 h-2.5 ${ratingStyles.icon}`} />
-              <span className="font-bold">{item.rating}</span>
+              <span>{item.rating}</span>
             </div>
           )}
-          {/* Sold out */}
           {!isAvailable && (
-            <div className="absolute bottom-2 left-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide font-bold">
-              {t("soldOut")}
-            </div>
+            <div className="fc-grid-oos">{t("soldOut")}</div>
           )}
-          {/* AR */}
           {item.arModelGlb && (
             <button
               onClick={() => onArClick(item)}
-              className={`ar-view-btn absolute bottom-2 right-2 p-1.5 rounded-lg text-white transition-colors ${showArTour ? "bg-emerald-600 animate-pulse" : "bg-black/60 hover:bg-black/80"}`}
+              className={`fc-ar-btn ${showArTour ? "fc-ar-btn--tour" : ""}`}
             >
               <Scan className="w-3.5 h-3.5" />
             </button>
           )}
-          {/* Badges */}
           {(item.isBestseller || item.isSpicy || item.isNew) && (
-            <div className="absolute bottom-2 left-2 flex gap-1">
-              {item.isBestseller && (
-                <span className="text-[9px] font-bold text-amber-700 bg-amber-50/95 px-1.5 py-0.5 rounded-full">{t("bestseller")}</span>
-              )}
-              {item.isNew && (
-                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50/95 px-1.5 py-0.5 rounded-full">New</span>
-              )}
-              {item.isSpicy && (
-                <span className="text-[9px] font-bold text-red-600 bg-red-50/95 px-1.5 py-0.5 rounded-full">{item.spiceLabel || "Spicy"}</span>
-              )}
+            <div className="fc-grid-badges">
+              {item.isBestseller && <span className="fc-badge fc-badge--gold fc-badge--sm">{t("bestseller")}</span>}
+              {item.isNew && <span className="fc-badge fc-badge--green fc-badge--sm">New</span>}
+              {item.isSpicy && <span className="fc-badge fc-badge--red fc-badge--sm">{item.spiceLabel || "Spicy"}</span>}
             </div>
           )}
         </div>
-        <div className="p-3 flex flex-col flex-1">
-          <h3 className="font-semibold text-slate-900 text-sm leading-snug line-clamp-2 mb-1">{item.name}</h3>
-          <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2 flex-1 mb-2">{item.description}</p>
-          {(item.estimatedPrepMinutes || item.pairWithNames?.length) && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {item.estimatedPrepMinutes ? (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600">
-                  {item.estimatedPrepMinutes} min
-                </span>
-              ) : null}
-              {item.pairWithNames?.slice(0, 2).map((name) => (
-                <span key={name} className="rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-700">
-                  Pairs with {name}
-                </span>
-              ))}
-            </div>
-          )}
+        <div className="fc-grid-body">
+          <h3 className="fc-grid-name">{item.name}</h3>
+          <p className="fc-desc fc-desc-sm">{item.description}</p>
           {visibleVariants.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
+            <div className="fc-variants fc-variants-sm">
               {visibleVariants.map((v) => (
                 <button
                   key={v.id}
                   onClick={() => onVariantChange?.(v.id)}
-                  className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529]" : "bg-white text-slate-700 border-slate-200"}`}
+                  className={`fc-variant-pill fc-variant-pill--sm ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
                 >
                   {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
                 </button>
               ))}
             </div>
           )}
-          <div className="flex items-center justify-between mt-auto pt-1">
-            <div className="flex flex-col">
+          <div className="fc-bottom">
+            <div className="fc-price-col">
               {displayBaseWithoutDiscount > displayPrice && (
-                <span className="text-[10px] text-slate-400 line-through">₹{displayBaseWithoutDiscount}</span>
+                <span className="fc-price-old fc-price-sm">₹{displayBaseWithoutDiscount}</span>
               )}
-              <span className="text-sm font-bold text-slate-900">₹{displayPrice}</span>
+              <span className="fc-price-main fc-price-sm">₹{displayPrice}</span>
             </div>
             <AddButton />
           </div>
         </div>
+        <FoodCardStyles />
       </div>
     );
   }
 
-  // ─── LIST layout (default) ───────────────────────────────────────────────────
+  // ─── LIST layout (default) — reference-inspired card ──────────────────────────
   return (
-    <div className={`w-full ${!isAvailable ? "opacity-60" : ""}`}>
-      <div className="flex gap-4">
-        <div className="relative w-28 h-28 shrink-0 rounded-xl overflow-hidden bg-slate-100">
-          {!imageLoaded && <div className="absolute inset-0 bg-slate-200 animate-pulse" />}
-          <img
-            src={item.image}
-            alt={item.name}
-            className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
-            onLoad={() => setImageLoaded(true)}
-          />
-          <div className="absolute top-2 left-2 bg-white/95 p-1 rounded flex items-center gap-1">
-            <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-green-600" : "bg-red-600"}`} />
-          </div>
-          {!isAvailable && (
-            <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide font-bold">
-              {t("soldOut")}
-            </div>
-          )}
-          {item.arModelGlb ? (
-            <button
-              onClick={() => onArClick(item)}
-              className={`ar-view-btn absolute bottom-2 right-2 p-1.5 rounded-lg text-white transition-colors ${showArTour ? "bg-emerald-600 animate-pulse" : "bg-black/60 hover:bg-black/80"}`}
-            >
-              <Scan className="w-3.5 h-3.5" />
-            </button>
-          ) : null}
+    <div className={`fc-card ${!isAvailable ? "fc-disabled" : ""}`}>
+      {/* Large top image */}
+      <div className="fc-card-img-wrap">
+        {!imageLoaded && <div className="fc-img-placeholder" />}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={item.image}
+          alt={item.name}
+          className={`fc-card-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
+          onLoad={() => setImageLoaded(true)}
+        />
+
+        {/* Veg/Non-veg indicator */}
+        <div className="fc-card-veg-badge">
+          <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
         </div>
 
-        <div className="flex-1 flex flex-col justify-between py-0.5">
-          <div>
-            <div className="flex justify-between items-start mb-1.5">
-              <div className="space-y-1 pr-2">
-                <h3 className="font-medium text-slate-900 text-sm leading-snug">{item.name}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {item.isBestseller && (
-                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                      {t("bestseller")}
-                    </span>
-                  )}
-                  {item.isNew && (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      New
-                    </span>
-                  )}
-                  {item.isSpicy && (
-                    <span className="text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      🌶 {item.spiceLabel || t("spicy")}
-                    </span>
-                  )}
-                  {item.estimatedPrepMinutes ? (
-                    <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {item.estimatedPrepMinutes} min
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <div className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border shrink-0 ${ratingStyles.container}`}>
-                <Star className={`w-3 h-3 ${ratingStyles.icon}`} />
-                <span>{item.rating}</span>
-              </div>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 mb-3">{item.description}</p>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              {item.calories ? (
-                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                  {item.calories} kcal
-                </span>
-              ) : null}
-              {Array.isArray(item.allergens) && item.allergens.length > 0 ? (
-                <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">
-                  Allergens: {item.allergens.slice(0, 3).join(", ")}
-                </span>
-              ) : null}
-              {item.pairWithNames?.slice(0, 2).map((name) => (
-                <span key={name} className="text-[10px] font-semibold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">
-                  Pairs with {name}
-                </span>
-              ))}
-            </div>
-            {visibleVariants.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {visibleVariants.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => onVariantChange?.(v.id)}
-                    className={`px-2 py-1 rounded-full border text-[10px] font-medium transition-all ${activeVariantId === v.id ? "bg-[#FFC529] text-gray-900 border-[#FFC529]" : "bg-white text-slate-700 border-slate-200"}`}
-                  >
-                    {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
-                  </button>
-                ))}
-              </div>
-            )}
+        {/* Rating */}
+        {item.rating > 0 && (
+          <div className="fc-card-rating">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span>{item.rating}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              {displayBaseWithoutDiscount > displayPrice && (
-                <span className="text-[11px] font-semibold text-slate-400 line-through">₹{displayBaseWithoutDiscount}</span>
-              )}
-              <span className="text-base font-semibold text-slate-900">₹{displayPrice}</span>
-            </div>
-            <AddButton />
+        )}
+
+        {/* AR button */}
+        {item.arModelGlb && (
+          <button
+            onClick={() => onArClick(item)}
+            className={`fc-ar-btn ${showArTour ? "fc-ar-btn--tour" : ""}`}
+          >
+            <Scan className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Sold out overlay */}
+        {!isAvailable && (
+          <div className="fc-card-oos-overlay">
+            <span className="fc-card-oos-text">{t("soldOut")}</span>
           </div>
+        )}
+
+        {/* Badges */}
+        <div className="fc-card-top-badges">
+          {item.isBestseller && <span className="fc-badge fc-badge--gold">🏆 {t("bestseller")}</span>}
+          {item.isNew && <span className="fc-badge fc-badge--green">✨ New</span>}
         </div>
       </div>
+
+      {/* Content */}
+      <div className="fc-card-body">
+        {/* Name row */}
+        <h3 className="fc-card-name">{item.name}</h3>
+
+        {/* Spice + prep time badges */}
+        {(item.isSpicy || item.estimatedPrepMinutes) && (
+          <div className="fc-card-info-badges">
+            {item.isSpicy && (
+              <span className="fc-info-badge fc-info-badge--spicy">
+                <Flame className="w-3 h-3" /> {item.spiceLabel || t("spicy")}
+              </span>
+            )}
+            {item.estimatedPrepMinutes && (
+              <span className="fc-info-badge">
+                {item.estimatedPrepMinutes} min
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Description */}
+        <p className="fc-card-desc">{item.description}</p>
+
+        {/* Calories + allergens */}
+        {(item.calories || (Array.isArray(item.allergens) && item.allergens.length > 0)) && (
+          <div className="fc-card-meta">
+            {item.calories && (
+              <span className="fc-meta-pill">{item.calories} kcal</span>
+            )}
+            {Array.isArray(item.allergens) && item.allergens.length > 0 && (
+              <span className="fc-meta-pill fc-meta-pill--warn">
+                ⚠ {item.allergens.slice(0, 3).join(", ")}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Pair with */}
+        {item.pairWithNames && item.pairWithNames.length > 0 && (
+          <div className="fc-card-meta">
+            {item.pairWithNames.slice(0, 2).map((name) => (
+              <span key={name} className="fc-meta-pill fc-meta-pill--pair">
+                Pairs with {name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Variants */}
+        {visibleVariants.length > 0 && (
+          <div className="fc-variants">
+            {visibleVariants.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => onVariantChange?.(v.id)}
+                className={`fc-variant-pill ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
+              >
+                {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Price + Add row */}
+        <div className="fc-bottom">
+          <div className="fc-price-col">
+            {displayBaseWithoutDiscount > displayPrice && (
+              <span className="fc-price-old">₹{displayBaseWithoutDiscount}</span>
+            )}
+            <span className="fc-price-main">₹{displayPrice}</span>
+          </div>
+          <AddButton />
+        </div>
+      </div>
+
+      <FoodCardStyles />
     </div>
   );
 };
+
+/* ── Shared Styles ────────────────────────────────────────────────────── */
+
+function FoodCardStyles() {
+  return (
+    <style jsx global>{`
+      /* ── Common ── */
+      .fc-disabled { opacity: 0.55; pointer-events: none; }
+
+      .fc-img-placeholder {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        animation: fc-shimmer 1.5s ease infinite;
+      }
+      @keyframes fc-shimmer {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+      }
+      .fc-img-loaded { opacity: 1; }
+      .fc-img-loading { opacity: 0; }
+
+      .fc-veg-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+      .fc-veg { background: #16a34a; }
+      .fc-nonveg { background: #dc2626; }
+
+      .fc-veg-dot-wrap {
+        background: rgba(255,255,255,0.85);
+        backdrop-filter: blur(4px);
+        padding: 3px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+      }
+
+      /* Badges */
+      .fc-badge {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 4px 10px;
+        border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .fc-badge--gold { background: #fbbf24; color: #78350f; }
+      .fc-badge--green { background: #34d399; color: #064e3b; }
+      .fc-badge--red { background: #fca5a5; color: #991b1b; }
+      .fc-badge--sm { font-size: 8px; padding: 3px 7px; }
+
+      /* Variants */
+      .fc-variants {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .fc-variants-sm { gap: 4px; margin-bottom: 8px; }
+      .fc-variant-pill {
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1.5px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .fc-variant-pill:hover { border-color: #cbd5e1; }
+      .fc-variant-pill--active {
+        background: #0f172a;
+        border-color: #0f172a;
+        color: #fff;
+      }
+      .fc-variant-pill--sm {
+        padding: 3px 8px;
+        font-size: 9px;
+      }
+
+      /* Price */
+      .fc-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: auto;
+        padding-top: 4px;
+      }
+      .fc-price-col {
+        display: flex;
+        flex-direction: column;
+      }
+      .fc-price-old {
+        font-size: 11px;
+        font-weight: 600;
+        color: #94a3b8;
+        text-decoration: line-through;
+      }
+      .fc-price-main {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.02em;
+      }
+      .fc-price-lg { font-size: 24px; }
+      .fc-price-sm { font-size: 14px; }
+      .fc-price-old.fc-price-sm { font-size: 10px; }
+
+      /* Add button */
+      .fc-add-btn {
+        height: 34px;
+        padding: 0 22px;
+        border-radius: 12px;
+        background: #0f172a;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .fc-add-btn:hover { background: #1e293b; }
+      .fc-add-btn:active { transform: scale(0.95); }
+
+      .fc-qty-stepper {
+        display: flex;
+        align-items: center;
+        background: #0f172a;
+        color: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        height: 34px;
+      }
+      .fc-qty-btn {
+        width: 34px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .fc-qty-btn:hover { background: rgba(255,255,255,0.1); }
+      .fc-qty-count {
+        min-width: 24px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .fc-unavailable {
+        font-size: 11px;
+        font-weight: 700;
+        color: #ef4444;
+      }
+
+      /* AR button */
+      .fc-ar-btn {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        padding: 7px;
+        border-radius: 10px;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(8px);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        z-index: 2;
+      }
+      .fc-ar-btn:hover { background: rgba(0,0,0,0.7); }
+      .fc-ar-btn--tour {
+        background: #16a34a;
+        animation: fc-ar-pulse 1.5s ease infinite;
+      }
+      @keyframes fc-ar-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
+      }
+
+      /* Info badges */
+      .fc-card-info-badges, .fc-card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .fc-info-badge {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 8px;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 700;
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .fc-info-badge--spicy {
+        background: #fef2f2;
+        color: #dc2626;
+      }
+      .fc-meta-pill {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #64748b;
+      }
+      .fc-meta-pill--warn { background: #fef3c7; color: #92400e; }
+      .fc-meta-pill--pair { background: #f3e8ff; color: #7c3aed; }
+
+      /* ── LIST Card (Default) — Reference-inspired ── */
+      .fc-card {
+        background: #fff;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .fc-card:hover {
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+      }
+
+      .fc-card-img-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        overflow: hidden;
+        background: #f1f5f9;
+      }
+      .fc-card-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: opacity 0.4s ease, transform 0.6s ease;
+      }
+      .fc-card:hover .fc-card-img { transform: scale(1.03); }
+
+      .fc-card-veg-badge {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(8px);
+        padding: 4px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        z-index: 2;
+      }
+      .fc-card-rating {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(8px);
+        font-size: 12px;
+        font-weight: 800;
+        color: #0f172a;
+        z-index: 2;
+      }
+      .fc-card-top-badges {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        display: flex;
+        gap: 6px;
+        z-index: 2;
+      }
+      .fc-card-oos-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 3;
+      }
+      .fc-card-oos-text {
+        background: #ef4444;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 6px 16px;
+        border-radius: 12px;
+      }
+
+      .fc-card-body {
+        padding: 16px 18px 18px;
+        display: flex;
+        flex-direction: column;
+      }
+      .fc-card-name {
+        font-size: 17px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.3;
+        margin-bottom: 6px;
+        letter-spacing: -0.01em;
+      }
+      .fc-card-desc {
+        font-size: 12.5px;
+        color: #64748b;
+        line-height: 1.55;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-bottom: 10px;
+        font-weight: 450;
+      }
+
+      .fc-desc {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.5;
+        margin-bottom: 12px;
+        font-weight: 450;
+      }
+      .fc-desc-sm { font-size: 11px; margin-bottom: 8px; }
+
+      .fc-cal-badge {
+        font-size: 10px;
+        color: #94a3b8;
+      }
+
+      /* ── Magazine ── */
+      .fc-magazine {
+        border-radius: 24px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+        border: 1px solid rgba(0,0,0,0.04);
+        display: flex;
+        flex-direction: column;
+      }
+      .fc-magazine-img-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4/3;
+        overflow: hidden;
+        background: #f1f5f9;
+      }
+      .fc-magazine-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: opacity 0.4s;
+      }
+      .fc-magazine-badges {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        display: flex;
+        gap: 6px;
+        z-index: 2;
+      }
+      .fc-magazine-overlay {
+        position: absolute;
+        inset-inline: 0;
+        bottom: 0;
+        background: linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 100%);
+        padding: 48px 18px 18px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+      }
+      .fc-magazine-name {
+        font-size: 22px;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1.15;
+        margin-bottom: 6px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      }
+      .fc-magazine-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .fc-magazine-rating {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #fbbf24;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .fc-magazine-cal {
+        color: rgba(255,255,255,0.7);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .fc-magazine-body {
+        padding: 16px 18px 18px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Compact ── */
+      .fc-compact {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+      }
+      .fc-compact-img-wrap {
+        position: relative;
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #f1f5f9;
+        flex-shrink: 0;
+      }
+      .fc-compact-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: opacity 0.3s;
+      }
+      .fc-compact-veg-wrap {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        background: rgba(255,255,255,0.9);
+        padding: 2px;
+        border-radius: 3px;
+        display: flex;
+      }
+      .fc-compact-oos {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 8px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .fc-compact-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .fc-compact-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .fc-compact-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .fc-compact-action {
+        flex-shrink: 0;
+      }
+
+      /* ── Grid ── */
+      .fc-grid {
+        border-radius: 20px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        border: 1px solid #f1f5f9;
+        display: flex;
+        flex-direction: column;
+      }
+      .fc-grid-img-wrap {
+        position: relative;
+        aspect-ratio: 4/3;
+        overflow: hidden;
+        background: #f1f5f9;
+      }
+      .fc-grid-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: opacity 0.3s;
+      }
+      .fc-grid-veg {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        background: rgba(255,255,255,0.9);
+        padding: 3px;
+        border-radius: 4px;
+        display: flex;
+      }
+      .fc-grid-rating {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 20px;
+        font-weight: 700;
+      }
+      .fc-grid-oos {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 3px 8px;
+        border-radius: 8px;
+      }
+      .fc-grid-badges {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        display: flex;
+        gap: 4px;
+      }
+      .fc-grid-body {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+      .fc-grid-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-bottom: 4px;
+      }
+    `}</style>
+  );
+}
 
 export default FoodCard;

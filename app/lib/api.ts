@@ -182,7 +182,11 @@ export async function api<T>(
     if ((err as { name?: string } | null)?.name === "AbortError") {
       throw err;
     }
-    console.error("Network error:", err);
+    if (!suppressErrorLog) {
+      console.error("Network error:", err);
+    } else {
+      console.warn("Network error:", err);
+    }
     throw new Error("Network error");
   }
 
