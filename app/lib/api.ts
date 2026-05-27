@@ -20,6 +20,19 @@ function localBackendBase(): string {
   return `http://${host}:9090`;
 }
 
+export function getBackendBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname || "localhost";
+    if (host === "localhost" || host === "127.0.0.1") {
+      return `http://${host}:9090`;
+    }
+  }
+  return "https://qrave-backend.onrender.com";
+}
+
 const PUBLIC_ROUTES = [
   "/auth/login",
   "/auth/signup",

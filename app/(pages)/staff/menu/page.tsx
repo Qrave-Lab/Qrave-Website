@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import StaffSidebar from "@/app/components/StaffSidebar";
-import { api } from "@/app/lib/api";
+import { api, getBackendBase } from "@/app/lib/api";
 import { toast } from "react-hot-toast";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
@@ -488,6 +488,10 @@ export default function MenuPage() {
   ) => {
     const file = e.target.files?.[0];
     if (!file || !editingItem) return;
+
+    // Reset file input value to allow re-uploading the same file immediately
+    e.target.value = "";
+
     const uploadToastId =
       type === "model" ? toast.loading("Uploading 3D model...") : undefined;
 
@@ -518,10 +522,36 @@ export default function MenuPage() {
         const timeout = setTimeout(() => controller.abort(), 300000);
         let res: any;
         try {
-          res = await authFetch(
-            `/api/admin/menu/item/model?item_id=${editingItem.id}`,
-            { method: "POST", body: form, signal: controller.signal }
-          );
+          // Bypass Vercel proxy by uploading directly to the absolute Go backend endpoint
+          const backendBase = getBackendBase();
+          const targetUrl = `${backendBase}/api/admin/menu/item/model?item_id=${editingItem.id}`;
+          
+          // Get CSRF Token if present
+          const csrfToken = typeof window !== "undefined" ? localStorage.getItem("csrf_token") : null;
+          const headers: Record<string, string> = {};
+          if (csrfToken) {
+            headers["X-CSRF-Token"] = csrfToken;
+          }
+
+          const directResp = await fetch(targetUrl, {
+            method: "POST",
+            body: form,
+            headers,
+            credentials: "include",
+            signal: controller.signal,
+          });
+
+          if (!directResp.ok) {
+            const errorText = await directResp.text();
+            let errMsg = "";
+            try {
+              const errJson = JSON.parse(errorText);
+              errMsg = errJson?.message || "";
+            } catch {}
+            throw new Error(errMsg || `Upload failed with status ${directResp.status}`);
+          }
+
+          res = await directResp.json();
         } finally {
           clearTimeout(timeout);
         }
@@ -555,6 +585,7 @@ export default function MenuPage() {
     if (!editingItem) return;
     if (type === "image") {
       setEditingItem({ ...editingItem, imageUrl: "" });
+      if (imageInputRef.current) imageInputRef.current.value = "";
       toast.success("Image removed. Click Save Changes to persist.");
       return;
     }
@@ -562,6 +593,8 @@ export default function MenuPage() {
     // Optimistically clear the UI right away.
     setEditingItem({ ...editingItem, modelGlb: "", modelUsdz: "" });
     setModelPreviewError("");
+    if (modelInputRef.current) modelInputRef.current.value = "";
+    
     // Fire the DELETE in the background so S3 + DB are cleaned up immediately.
     authFetch(`/api/admin/menu/item/model?item_id=${editingItem.id}`, { method: "DELETE" })
       .then(() => toast.success("3D model removed"))
