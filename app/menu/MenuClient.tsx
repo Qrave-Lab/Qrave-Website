@@ -417,13 +417,15 @@ function detailsRestaurantIdFromSession(_sessionId?: string): string | null {
 }
 
 const menuLoadingStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
   .ml-loader {
     min-height: 100vh; min-height: 100dvh;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 28px;
-    background: #ffffff;
+    background: #FAF8F2;
     position: relative; overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     padding: 24px;
   }
   .ml-particle {
@@ -445,44 +447,45 @@ const menuLoadingStyles = `
   .ml-plate-rim {
     position: absolute; inset: 0;
     border-radius: 50%;
-    border: 3px solid #e2e8f0;
+    border: 3px solid #EFEBE4;
     animation: mlRimSpin 8s linear infinite;
-    border-top-color: #0f172a;
+    border-top-color: #FF561F;
     border-right-color: transparent;
   }
   .ml-plate-inner {
     position: absolute; inset: 18px;
     border-radius: 50%;
-    background: radial-gradient(circle at 40% 40%, #f8fafc, #f1f5f9);
-    border: 1px solid #e2e8f0;
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.04);
+    background: radial-gradient(circle at 40% 40%, #ffffff, #FAF8F2);
+    border: 1px solid #EFEBE4;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);
   }
   .ml-brand {
-    display: flex; gap: 2px;
+    display: flex; gap: 1px;
     z-index: 2; margin-top: -20px;
   }
   .ml-letter {
-    font-size: 48px; font-weight: 900;
-    letter-spacing: -1px; color: #0f172a;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 52px; font-weight: 700;
+    letter-spacing: -0.5px; color: #FF561F;
     display: inline-block;
     opacity: 0;
     animation: mlLetterIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
   .ml-tagline {
-    color: #94a3b8; font-size: 14px; font-weight: 500;
+    color: #5E594F; font-size: 14px; font-weight: 600;
     letter-spacing: 0.5px; margin: 0;
     animation: mlFadeUp 0.8s ease 0.9s both;
   }
   .ml-bar-track {
     width: 120px; height: 3px;
-    border-radius: 3px; background: #f1f5f9;
+    border-radius: 3px; background: #EFEBE4;
     overflow: hidden;
     animation: mlFadeUp 0.8s ease 1s both;
   }
   .ml-bar-fill {
     width: 40%; height: 100%;
     border-radius: 3px;
-    background: #0f172a;
+    background: #FF561F;
     animation: mlShimmer 1.4s ease-in-out infinite;
   }
   @keyframes mlLetterIn {
