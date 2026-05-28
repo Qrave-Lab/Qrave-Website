@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Search, ChevronDown, ChevronRight, UtensilsCrossed, Bell, Droplets, Loader2, Smartphone } from "lucide-react";
+import { Search, ChevronDown, ChevronRight, UtensilsCrossed, Loader2, Smartphone, X } from "lucide-react";
 import { useCartStore, getCartKey } from "@/stores/cartStore";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import FoodCard from "@/app/components/menu/FoodCard";
 import ImmersiveMenu from "@/app/components/menu/ImmersiveMenu";
+import CustomerBottomNav, { type CustomerTab } from "@/app/components/menu/CustomerBottomNav";
+import OrdersView from "@/app/components/menu/OrdersView";
+import ServicesView from "@/app/components/menu/ServicesView";
 import { api } from "@/app/lib/api";
 import { useLanguageStore } from "@/stores/languageStore";
 import { driver } from "driver.js";
@@ -187,7 +190,7 @@ const DEFAULT_THEME: ThemeConfig = {
   section_icon: "•",
   icon_pack: "auto",
   colors: {
-    bg: "#F8FAFC",
+    bg: "#FAF9F6",
     surface: "#FFFFFF",
     text: "#0F172A",
     muted: "#64748B",
@@ -251,7 +254,7 @@ const THEME_PRESETS: Record<string, ThemeConfig> = {
     section_icon: "•",
     icon_pack: "minimal",
     colors: {
-      bg: "#F8FAFC",
+      bg: "#FAF9F6",
       surface: "#FFFFFF",
       text: "#0F172A",
       muted: "#64748B",
@@ -359,11 +362,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : []
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVegOnly, setIsVegOnly] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("All");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
-  const [isWaiterCalled, setIsWaiterCalled] = useState(false);
-  const [isWaterRequested, setIsWaterRequested] = useState(false);
   const [tourReady, setTourReady] = useState(false);
   const [hasArItems, setHasArItems] = useState(false);
   const [isImmersive, setIsImmersive] = useState(!orderingEnabled);
@@ -389,6 +392,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     popular_with_this: [],
     margin_aware: [],
   });
+
+  // ── Bottom nav tab state ──
+  const [activeTab, setActiveTab] = useState<CustomerTab>("menu");
 
   const { t, setLanguage } = useLanguageStore();
 
@@ -507,10 +513,12 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     decrementItemStore(id, vId || "");
   };
 
+  // ── Category-aware filtering ──
   const filteredItems = translatedItems.filter((item: any) => {
     const query = searchQuery ? searchQuery.toLowerCase() : "";
     const matchesSearch = item.name.toLowerCase().includes(query) || item.description.toLowerCase().includes(query);
-    return matchesSearch && (isVegOnly ? item.isVeg : true);
+    const matchesCategory = activeCategory === "All" || getParentName(item) === activeCategory;
+    return matchesSearch && matchesCategory && (isVegOnly ? item.isVeg : true);
   });
 
   const offerItems = filteredItems.filter(
@@ -694,22 +702,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
           title: "🍽️ Add to cart",
           description: "Use the + button to add items. You can also customise variants here.",
           side: "top",
-        },
-      },
-      {
-        element: "#tour-waiter",
-        popover: {
-          title: "🔔 Call a waiter",
-          description: "Need help? Tap here to alert the staff.",
-          side: "left",
-        },
-      },
-      {
-        element: "#tour-water",
-        popover: {
-          title: "💧 Request water",
-          description: "Thirsty? Request water with a single tap.",
-          side: "left",
         },
       },
       {
@@ -982,9 +974,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const sectionIcon = (activeTheme.section_icon || "•").trim() || "•";
   const assetPack = useMemo(() => getThemeAssetPack(activeTheme), [activeTheme]);
   const iconPack = useMemo(() => resolveIconPack(activeTheme), [activeTheme]);
-  const layoutGridClass = activeTheme.layout === "grid" ? "grid grid-cols-2 gap-4" : activeTheme.layout === "compact" || activeTheme.layout === "magazine" ? "flex flex-col gap-4" : "grid gap-6";
+  const layoutGridClass = activeTheme.layout === "grid" ? "mu-grid-2" : activeTheme.layout === "compact" || activeTheme.layout === "magazine" ? "mu-grid-1" : "mu-grid-1";
   const themeStyle = {
-    ["--qr-bg" as string]: activeTheme.colors?.bg || "#F8FAFC",
+    ["--qr-bg" as string]: activeTheme.colors?.bg || "#FAF9F6",
     ["--qr-surface" as string]: activeTheme.colors?.surface || "#FFFFFF",
     ["--qr-text" as string]: activeTheme.colors?.text || "#0F172A",
     ["--qr-muted" as string]: activeTheme.colors?.muted || "#64748B",
@@ -995,6 +987,46 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       ? `linear-gradient(rgba(255,255,255,${activeTheme.bg_overlay_opacity ?? 0.92}), rgba(255,255,255,${activeTheme.bg_overlay_opacity ?? 0.92})), url("${activeTheme.bg_image_url}")`
       : "none",
   } as React.CSSProperties;
+
+  /* ── Section header helper ── */
+  const SectionHeader = ({ title, color }: { title: string; color: string }) => (
+    <div className="mu-section-header">
+      <div className="mu-section-line" style={{ background: color }} />
+      <h2 className="mu-section-title">{title}</h2>
+      <div className="mu-section-line" style={{ background: color }} />
+    </div>
+  );
+
+  /* ── Render food card helper ── */
+  const renderCard = (item: any, keyPrefix: string, idx?: number) => {
+    const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
+    const cartKey = getCartKey(item.id, currentVId);
+    const cartItem = cartState[cartKey];
+    const quantity = cartItem ? cartItem.quantity : 0;
+    const isFirstCard = keyPrefix === "main" && idx === 0;
+    return (
+      <div key={`${keyPrefix}-${item.id}`} id={isFirstCard ? "tour-food-card" : undefined}>
+        <FoodCard
+          item={{
+            ...item,
+            id: String(item.id),
+            name: item.name,
+            description: item.description,
+            category: item.categoryName || "General",
+          }}
+          ratingStyles={getRatingStyles(item.rating)}
+          selectedVariantId={currentVId}
+          onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
+          currentQty={quantity}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onArClick={handleArOpen}
+          orderingEnabled={orderingEnabled}
+          layout={activeTheme.layout as any}
+        />
+      </div>
+    );
+  };
 
   return (
     <div className={`qr-theme-root ${themeRadiusClass} ${themeButtonClass} ${motifClass} ${patternClass} ${headerClass} ${ornamentClass} min-h-screen antialiased`} style={themeStyle}>
@@ -1283,389 +1315,262 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
           document.body
         )}
 
-      <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200/50">
-        <div className="max-w-md mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200 overflow-hidden border border-slate-200 bg-white">
+      {/* ── HEADER ── */}
+      <header className="mu-header">
+        <div className="mu-header-inner">
+          <div className="mu-header-left">
+            <div className="mu-logo-wrap">
               {restaurantLogoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={restaurantLogoUrl} alt={`${restaurantName} logo`} className="w-full h-full object-cover" />
+                <img src={restaurantLogoUrl} alt={`${restaurantName} logo`} className="mu-logo-img" />
               ) : (
-                <div className="w-full h-full bg-slate-900 text-white flex items-center justify-center">
+                <div className="mu-logo-fallback">
                   <UtensilsCrossed className="w-5 h-5" />
                 </div>
               )}
             </div>
             <div>
-              <h1 className="font-serif text-lg font-bold leading-none">{restaurantName}</h1>
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">{t('table')} {tableId || "7"}</p>
+              <h1 className="mu-restaurant-name">{restaurantName}</h1>
+              <p className="mu-table-label">{t('table')} {tableId || "7"}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="mu-header-right">
             <button
               onClick={() => {
                 localStorage.removeItem("qrave_tour_seen");
                 setTourReady(true);
               }}
               title="Replay tour"
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 font-bold text-sm hover:bg-slate-200 transition-colors"
+              className="mu-header-btn"
             >
               ?
             </button>
-            {/* Language toggle disabled until translation is stable */}
             {orderingEnabled && (
               <button
                 id="tour-immersive"
                 onClick={() => setIsImmersive(!isImmersive)}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#FFC529] text-gray-900 shadow font-bold-lg shadow-slate-200 transition-transform active:scale-95"
+                className="mu-header-btn mu-header-btn--accent"
               >
                 <Smartphone size={16} />
               </button>
             )}
             <button
+              id="tour-search"
+              onClick={() => setIsSearchOpen(!isSearchOpen)}
+              className="mu-header-btn"
+            >
+              <Search size={16} />
+            </button>
+            <button
               id="tour-veg-filter"
               onClick={() => setIsVegOnly(!isVegOnly)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 active:scale-95 ${isVegOnly
-                ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-100"
-                : "bg-white border-slate-200 text-slate-600"
-                }`}
+              className={`mu-veg-btn ${isVegOnly ? "mu-veg-btn--active" : ""}`}
             >
-              <div className={`w-2 h-2 rounded-full ${isVegOnly ? "bg-white animate-pulse" : "bg-slate-300"}`} />
-              <span className="text-[10px] font-bold">{t('veg')}</span>
+              <div className={`mu-veg-dot ${isVegOnly ? "mu-veg-dot--active" : ""}`} />
+              <span>{t('veg')}</span>
             </button>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-md mx-auto px-6 pt-6 pb-44">
+        {/* Search bar — slides down when open */}
+        {isSearchOpen && (
+          <div className="mu-search-bar">
+            <Search className="mu-search-icon" size={16} />
+            <input
+              type="text"
+              className="mu-search-input"
+              placeholder={t('search')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="mu-search-clear">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Occupied notice */}
         {isTableOccupied && orderingEnabled && (
-          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+          <div className="mu-occupied-notice">
             This table already has an active session. You are viewing the active table.
           </div>
         )}
-        <div id="tour-search" className="relative mb-10 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 transition-colors group-focus-within:text-slate-900" />
-          <input
-            type="text"
-            className="w-full pl-11 pr-4 py-4 bg-white border border-slate-200/60 rounded-2xl text-sm shadow-sm focus:ring-4 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all"
-            placeholder={t('search')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
 
-        <div className="space-y-10">
-          {offerItems.length > 0 && (
-            <div className="animate-in fade-in duration-500">
-              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-1 w-8 bg-emerald-500 rounded-full" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('offerProducts')}</h2>
-              </div>
-              <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Original price is shown struck through, discounted price shown below.
-              </p>
-              <div className={layoutGridClass}>
-                {offerItems.slice(0, 8).map((item: any) => {
-                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
-                  const cartKey = getCartKey(item.id, currentVId);
-                  const cartItem = cartState[cartKey];
-                  const quantity = cartItem ? cartItem.quantity : 0;
-                  return (
-                    <FoodCard
-                      key={`offer-${item.id}`}
-                      item={{
-                        ...item,
-                        id: String(item.id),
-                        name: item.name,
-                        description: item.offerLabel ? `${item.offerLabel}${resolve(item.specialNote) ? ` • ${resolve(item.specialNote)}` : ""}` : resolve(item.description),
-                        category: item.categoryName || "General",
-                      }}
-                      ratingStyles={getRatingStyles(item.rating)}
-                      selectedVariantId={currentVId}
-                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
-                      currentQty={quantity}
-                      onAdd={handleAdd}
-                      onRemove={handleRemove}
-                      onArClick={handleArOpen}
-                      orderingEnabled={orderingEnabled}
-                      layout={activeTheme.layout as any}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+        {/* Category pills — only on menu tab */}
+        {activeTab === "menu" && categories.length > 0 && (
+          <div className="mu-category-pills">
+            <button
+              onClick={() => setActiveCategory("All")}
+              className={`mu-pill ${activeCategory === "All" ? "mu-pill--active" : ""}`}
+            >
+              All
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`mu-pill ${activeCategory === cat.id ? "mu-pill--active" : ""}`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </header>
 
-          {todaySpecialItems.length > 0 && (
-            <div className="animate-in fade-in duration-500">
-              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-1 w-8 bg-amber-500 rounded-full" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('todaysSpecials')}</h2>
-              </div>
-              <div className={layoutGridClass}>
-                {todaySpecialItems.map((item: any) => {
-                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
-                  const cartKey = getCartKey(item.id, currentVId);
-                  const cartItem = cartState[cartKey];
-                  const quantity = cartItem ? cartItem.quantity : 0;
-                  return (
-                    <FoodCard
-                      key={`todays-${item.id}`}
-                      item={{ ...item, id: String(item.id), name: item.name, description: resolve(item.specialNote) || resolve(item.description), category: item.categoryName || "General" }}
-                      ratingStyles={getRatingStyles(item.rating)}
-                      selectedVariantId={currentVId}
-                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
-                      currentQty={quantity}
-                      onAdd={handleAdd}
-                      onRemove={handleRemove}
-                      onArClick={handleArOpen}
-                      orderingEnabled={orderingEnabled}
-                      layout={activeTheme.layout as any}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+      {/* ── MAIN CONTENT ── */}
+      <main className="mu-main">
+        {activeTab === "menu" && (
+          <div className="mu-menu-content">
+            {/* Today's Specials */}
+            {todaySpecialItems.length > 0 && (
+              <section className="mu-section">
+                <SectionHeader title={t('todaysSpecials')} color="#f59e0b" />
+                <div className={layoutGridClass}>
+                  {todaySpecialItems.map((item: any) => renderCard(item, "todays"))}
+                </div>
+              </section>
+            )}
 
-          {chefSpecialItems.length > 0 && (
-            <div className="animate-in fade-in duration-500">
-              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-1 w-8 bg-orange-400 rounded-full" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('chefSpecials')}</h2>
-              </div>
-              <div className={layoutGridClass}>
-                {chefSpecialItems.map((item: any) => {
-                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
-                  const cartKey = getCartKey(item.id, currentVId);
-                  const cartItem = cartState[cartKey];
-                  const quantity = cartItem ? cartItem.quantity : 0;
-                  return (
-                    <FoodCard
-                      key={`chef-${item.id}`}
-                      item={{ ...item, id: String(item.id), name: item.name, description: resolve(item.specialNote) || resolve(item.description), category: item.categoryName || "General" }}
-                      ratingStyles={getRatingStyles(item.rating)}
-                      selectedVariantId={currentVId}
-                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
-                      currentQty={quantity}
-                      onAdd={handleAdd}
-                      onRemove={handleRemove}
-                      onArClick={handleArOpen}
-                      orderingEnabled={orderingEnabled}
-                      layout={activeTheme.layout as any}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            {/* Offers */}
+            {offerItems.length > 0 && (
+              <section className="mu-section">
+                <SectionHeader title={t('offerProducts')} color="#10b981" />
+                <div className={layoutGridClass}>
+                  {offerItems.slice(0, 8).map((item: any) => renderCard(item, "offer"))}
+                </div>
+              </section>
+            )}
 
-          {recommendationItems.length > 0 && (
-            <div className="animate-in fade-in duration-500">
-              <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-1 w-8 bg-violet-500 rounded-full" />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">{t('recommended')}</h2>
-              </div>
-              <div className={layoutGridClass}>
-                {recommendationItems.slice(0, 4).map((item: any) => {
-                  const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
-                  const cartKey = getCartKey(item.id, currentVId);
-                  const cartItem = cartState[cartKey];
-                  const quantity = cartItem ? cartItem.quantity : 0;
-                  return (
-                    <FoodCard
-                      key={`upsell-${item.id}`}
-                      item={{ ...item, id: String(item.id), name: item.name, description: item.description, category: item.categoryName || "General" }}
-                      ratingStyles={getRatingStyles(item.rating)}
-                      selectedVariantId={currentVId}
-                      onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
-                      currentQty={quantity}
-                      onAdd={handleAdd}
-                      onRemove={handleRemove}
-                      onArClick={handleArOpen}
-                      orderingEnabled={orderingEnabled}
-                      layout={activeTheme.layout as any}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            {/* Chef Specials */}
+            {chefSpecialItems.length > 0 && (
+              <section className="mu-section">
+                <SectionHeader title={t('chefSpecials')} color="#f97316" />
+                <div className={layoutGridClass}>
+                  {chefSpecialItems.map((item: any) => renderCard(item, "chef"))}
+                </div>
+              </section>
+            )}
 
-          {categories.map((category) => {
-            const items = filteredItems.filter((item: any) => getParentName(item) === category.id);
-            if (items.length === 0) return null;
+            {/* Recommended */}
+            {recommendationItems.length > 0 && (
+              <section className="mu-section">
+                <SectionHeader title={t('recommended')} color="#8b5cf6" />
+                <div className={layoutGridClass}>
+                  {recommendationItems.slice(0, 4).map((item: any) => renderCard(item, "rec"))}
+                </div>
+              </section>
+            )}
 
-            const subcategories = Array.from(
-              new Set(items.map((item: any) => getSubcategoryName(item)).filter(Boolean))
-            ) as string[];
-            return (
-              <div key={category.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="qr-theme-divider mb-4" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
-                <button
-                  onClick={() => setExpandedCategories((p) => ({ ...p, [category.id]: !p[category.id] }))}
-                  className="w-full flex items-center justify-between mb-6 group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-1 w-8 bg-slate-900 rounded-full" />
-                    <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase flex items-center gap-2">
-                      <span className="qr-theme-section-icon">{getRegionalCategoryIcon(iconPack, category.name, sectionIcon)}</span>
-                      {category.name}
-                    </h2>
-                  </div>
-                  <div className="p-1 rounded-full bg-slate-100 group-hover:bg-slate-200 transition-colors">
-                    <ChevronDown className={`w-4 h-4 text-slate-600 transition-transform duration-300 ${expandedCategories[category.id] ? "rotate-180" : ""}`} />
-                  </div>
-                </button>
+            {/* Regular categories */}
+            {categories.map((category) => {
+              const items = filteredItems.filter((item: any) => getParentName(item) === category.id);
+              if (items.length === 0) return null;
 
-                {expandedCategories[category.id] && (
-                  <div className="space-y-8">
-                    {subcategories.map((subcat: string) => {
-                      const subItems = items.filter((item: any) => getSubcategoryName(item) === subcat);
-                      if (subItems.length === 0) return null;
+              const subcategories = Array.from(
+                new Set(items.map((item: any) => getSubcategoryName(item)).filter(Boolean))
+              ) as string[];
+              return (
+                <section key={category.id} className="mu-section">
+                  <div className="qr-theme-divider" style={{ backgroundImage: `url('${assetPack.divider}')` }} />
+                  <button
+                    onClick={() => setExpandedCategories((p) => ({ ...p, [category.id]: !p[category.id] }))}
+                    className="mu-category-toggle"
+                  >
+                    <div className="mu-category-toggle-left">
+                      <h2 className="mu-category-name">
+                        <span className="qr-theme-section-icon">{getRegionalCategoryIcon(iconPack, category.name, sectionIcon)}</span>
+                        {category.name}
+                      </h2>
+                    </div>
+                    <div className={`mu-category-chevron ${expandedCategories[category.id] ? "mu-category-chevron--open" : ""}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </button>
 
-                      return (
-                        <div key={`${category.id}-${subcat}`}>
-                          <div className="mb-4 flex items-center gap-3">
-                            <div className="h-1 w-6 bg-slate-200 rounded-full" />
-                            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">
-                              {subcat}
-                            </h3>
+                  {expandedCategories[category.id] && (
+                    <div className="mu-subcategories">
+                      {subcategories.map((subcat: string) => {
+                        const subItems = items.filter((item: any) => getSubcategoryName(item) === subcat);
+                        if (subItems.length === 0) return null;
+
+                        return (
+                          <div key={`${category.id}-${subcat}`}>
+                            {subcategories.length > 1 && (
+                              <h3 className="mu-subcategory-name">{subcat}</h3>
+                            )}
+                            <div className={layoutGridClass}>
+                              {subItems.map((item: any, itemIdx: number) =>
+                                renderCard(item, categories.indexOf(category) === 0 && subcategories.indexOf(subcat) === 0 ? "main" : `cat-${category.id}`, itemIdx)
+                              )}
+                            </div>
                           </div>
-                          <div className={layoutGridClass}>
-                            {subItems.map((item: any, itemIdx: number) => {
-                              const currentVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
-                              const cartKey = getCartKey(item.id, currentVId);
-                              const cartItem = cartState[cartKey];
-                              const quantity = cartItem ? cartItem.quantity : 0;
-                              const isFirstCard = categories.indexOf(category) === 0 && subcategories.indexOf(subcat) === 0 && itemIdx === 0;
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        )}
 
-                              return (
-                                <div key={item.id} id={isFirstCard ? "tour-food-card" : undefined}>
-                                  <FoodCard
-                                    item={{
-                                      ...item,
-                                      id: String(item.id),
-                                      name: item.name,
-                                      description: item.description,
-                                      category: item.categoryName || "General"
-                                    }}
-                                    ratingStyles={getRatingStyles(item.rating)}
-                                    selectedVariantId={currentVId}
-                                    onVariantChange={(vId: any) => setSelectedVariants((p) => ({ ...p, [item.id]: vId }))}
-                                    currentQty={quantity}
-                                    onAdd={handleAdd}
-                                    onRemove={handleRemove}
-                                    onArClick={handleArOpen}
-                                    orderingEnabled={orderingEnabled}
-                                    layout={activeTheme.layout as any}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {activeTab === "orders" && (
+          <OrdersView previewMode={previewMode} />
+        )}
+
+        {activeTab === "services" && (
+          <ServicesView previewMode={previewMode} orderingEnabled={orderingEnabled} />
+        )}
       </main>
 
-      {orderingEnabled && (
-        <div className="fixed right-4 sm:right-6 bottom-24 sm:bottom-28 flex flex-col items-end gap-3" style={{ zIndex: 60 }}>
-          <button
-            id="tour-waiter"
-            onClick={async () => {
-              if (previewMode) return;
-              if (!orderingEnabled) {
-                toast("Ordering is currently disabled for this restaurant.", { icon: "ℹ️" });
-                return;
-              }
-              try {
-                await api("/api/customer/service-calls", {
-                  method: "POST",
-                  body: JSON.stringify({ type: "waiter" }),
-                });
-                setIsWaiterCalled(true);
-                toast.success(t('waiterCalled'));
-              } catch {
-                toast.error(t('waiterCalled') + " failed");
-              }
-            }}
-            className="w-12 h-12 rounded-2xl shadow-2xl bg-white border border-slate-100 flex items-center justify-center transition-all active:scale-90"
-          >
-            {isWaiterCalled ? <Loader2 className="animate-spin text-slate-900" /> : <Bell className="text-slate-600 w-6 h-6" />}
-          </button>
-          <button
-            id="tour-water"
-            onClick={async () => {
-              if (previewMode) return;
-              if (!orderingEnabled) {
-                toast("Ordering is currently disabled for this restaurant.", { icon: "ℹ️" });
-                return;
-              }
-              try {
-                await api("/api/customer/service-calls", {
-                  method: "POST",
-                  body: JSON.stringify({ type: "water" }),
-                });
-                setIsWaterRequested(true);
-                toast.success(t('waterRequested'));
-              } catch {
-                toast.error(t('waterRequested') + " failed");
-              }
-            }}
-            className="w-12 h-12 rounded-2xl shadow-2xl bg-slate-900 text-white flex items-center justify-center transition-all active:scale-90"
-          >
-            {isWaterRequested ? <Loader2 className="animate-spin" /> : <Droplets className="w-6 h-6" />}
-          </button>
-        </div>
-      )}
-
-
-
+      {/* ── CHECKOUT BAR ── */}
       {orderingEnabled && totalItems > 0 && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-4 sm:bottom-6" style={{ zIndex: 65 }}>
+        <div className="mu-checkout-bar-wrap">
           <button
             onClick={() => {
               if (previewMode) return;
               router.push(`/checkout`);
             }}
-            className="group h-16 min-w-[460px] max-w-[calc(100vw-0.5rem)] bg-slate-900 text-white px-5 rounded-2xl flex items-center justify-between gap-4 shadow-2xl shadow-slate-400 transition-all active:scale-[0.98]"
+            className="mu-checkout-bar"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-black text-slate-900">
-                  {totalItems}
-                </span>
-                <div className="p-2 bg-white/10 rounded-lg">
+            <div className="mu-checkout-left">
+              <div className="mu-checkout-icon-wrap">
+                <span className="mu-checkout-badge">{totalItems}</span>
+                <div className="mu-checkout-icon-bg">
                   <UtensilsCrossed size={18} />
                 </div>
               </div>
-              <div className="flex flex-col items-start min-w-0">
-                <span className="text-[10px] uppercase font-bold text-white/50 leading-none mb-1">{t('viewCart')}</span>
-                <span className="font-black text-lg leading-none truncate">₹{cartTotal}</span>
-                <span className="text-[9px] uppercase font-bold tracking-wider text-white/50 mt-1">Apply coupon at checkout</span>
+              <div className="mu-checkout-info">
+                <span className="mu-checkout-label">{t('viewCart')}</span>
+                <span className="mu-checkout-total">₹{cartTotal}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-white text-slate-900 px-5 py-2 rounded-xl font-bold text-sm shrink-0">
+            <div className="mu-checkout-cta">
               <span>{t('checkout')}</span>
-              <ChevronRight size={16} className="transition-transform group-hover:translate-x-1" />
+              <ChevronRight size={16} className="mu-checkout-arrow" />
             </div>
           </button>
         </div>
       )}
+
+      {/* ── BOTTOM NAV ── */}
+      {orderingEnabled && (
+        <CustomerBottomNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          cartItemCount={totalItems}
+          orderingEnabled={orderingEnabled}
+        />
+      )}
+
       <style jsx>{`
+        /* ── Theme root ── */
         .qr-theme-root {
           background-color: var(--qr-bg);
           background-image: var(--qr-bg-image);
@@ -1707,6 +1612,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
           background-repeat: repeat-x;
           background-size: auto 20px;
           opacity: 0.3;
+          margin-bottom: 12px;
         }
         .qr-theme-pattern-none .qr-theme-overlay { background: none; }
         .qr-theme-pattern-silk .qr-theme-overlay {
@@ -1802,6 +1708,439 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
         .qr-theme-root :global(header) {
           position: relative;
           z-index: 2;
+        }
+
+        /* ── HEADER ── */
+        .mu-header {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          width: 100%;
+          background: rgba(255, 255, 255, 0.88);
+          backdrop-filter: blur(20px) saturate(1.8);
+          -webkit-backdrop-filter: blur(20px) saturate(1.8);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .mu-header-inner {
+          max-width: 480px;
+          margin: 0 auto;
+          padding: 14px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .mu-header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .mu-logo-wrap {
+          width: 40px;
+          height: 40px;
+          border-radius: 14px;
+          overflow: hidden;
+          border: 1px solid rgba(0,0,0,0.06);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          flex-shrink: 0;
+        }
+        .mu-logo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .mu-logo-fallback {
+          width: 100%;
+          height: 100%;
+          background: #0f172a;
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .mu-restaurant-name {
+          font-size: 16px;
+          font-weight: 800;
+          color: #0f172a;
+          line-height: 1.2;
+          letter-spacing: -0.01em;
+        }
+        .mu-table-label {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+        .mu-header-right {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .mu-header-btn {
+          width: 34px;
+          height: 34px;
+          border-radius: 11px;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 800;
+          background: #f1f5f9;
+          color: #64748b;
+          transition: all 0.2s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .mu-header-btn:hover { background: #e2e8f0; }
+        .mu-header-btn:active { transform: scale(0.92); }
+        .mu-header-btn--accent {
+          background: #FFC529;
+          color: #1a1a1a;
+          box-shadow: 0 2px 8px rgba(255, 197, 41, 0.3);
+        }
+        .mu-header-btn--accent:hover { background: #ffbb00; }
+        .mu-veg-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 11px;
+          border: 1.5px solid #e2e8f0;
+          background: #fff;
+          color: #64748b;
+          font-size: 10px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.25s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .mu-veg-btn--active {
+          background: #16a34a;
+          border-color: #16a34a;
+          color: #fff;
+          box-shadow: 0 2px 10px rgba(22, 163, 74, 0.3);
+        }
+        .mu-veg-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #94a3b8;
+          transition: background 0.2s;
+        }
+        .mu-veg-dot--active {
+          background: #fff;
+          animation: mu-pulse 1.5s ease infinite;
+        }
+        @keyframes mu-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+
+        /* Search bar */
+        .mu-search-bar {
+          max-width: 480px;
+          margin: 0 auto;
+          padding: 0 20px 12px;
+          position: relative;
+          display: flex;
+          align-items: center;
+          animation: mu-slide-down 0.25s ease;
+        }
+        @keyframes mu-slide-down {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .mu-search-icon {
+          position: absolute;
+          left: 34px;
+          color: #94a3b8;
+        }
+        .mu-search-input {
+          width: 100%;
+          padding: 12px 40px 12px 44px;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 16px;
+          font-size: 13px;
+          font-weight: 500;
+          background: #fff;
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          color: #0f172a;
+        }
+        .mu-search-input:focus {
+          border-color: #0f172a;
+          box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
+        }
+        .mu-search-clear {
+          position: absolute;
+          right: 34px;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: #f1f5f9;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          cursor: pointer;
+        }
+
+        /* Occupied notice */
+        .mu-occupied-notice {
+          max-width: 480px;
+          margin: 0 auto;
+          padding: 0 20px 10px;
+        }
+
+        /* Category pills */
+        .mu-category-pills {
+          max-width: 480px;
+          margin: 0 auto;
+          padding: 0 20px 12px;
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+        }
+        .mu-category-pills::-webkit-scrollbar { display: none; }
+        .mu-pill {
+          flex-shrink: 0;
+          padding: 8px 18px;
+          border-radius: 24px;
+          border: 1.5px solid #e2e8f0;
+          background: #fff;
+          color: #475569;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+          -webkit-tap-highlight-color: transparent;
+          white-space: nowrap;
+        }
+        .mu-pill:hover { border-color: #cbd5e1; }
+        .mu-pill--active {
+          background: #0f172a;
+          border-color: #0f172a;
+          color: #fff;
+          box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+        }
+
+        /* ── MAIN ── */
+        .mu-main {
+          max-width: 480px;
+          margin: 0 auto;
+          padding: 0 20px;
+          padding-bottom: 140px;
+        }
+        .mu-menu-content {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        /* Section headers */
+        .mu-section {
+          padding-top: 16px;
+        }
+        .mu-section-header {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+        .mu-section-line {
+          flex: 1;
+          height: 1.5px;
+          border-radius: 1px;
+          opacity: 0.3;
+        }
+        .mu-section-title {
+          font-size: 13px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: #0f172a;
+          white-space: nowrap;
+        }
+
+        /* Grid layouts */
+        .mu-grid-1 {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .mu-grid-2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        /* Category toggles */
+        .mu-category-toggle {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0;
+          margin-bottom: 14px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .mu-category-toggle-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .mu-category-name {
+          font-size: 16px;
+          font-weight: 900;
+          color: #0f172a;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .mu-category-chevron {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: #f1f5f9;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          transition: all 0.3s;
+        }
+        .mu-category-chevron--open {
+          transform: rotate(180deg);
+        }
+        .mu-subcategories {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .mu-subcategory-name {
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: #94a3b8;
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .mu-subcategory-name::before {
+          content: '';
+          width: 20px;
+          height: 1.5px;
+          background: #e2e8f0;
+          border-radius: 1px;
+        }
+
+        /* ── CHECKOUT BAR ── */
+        .mu-checkout-bar-wrap {
+          position: fixed;
+          left: 50%;
+          transform: translateX(-50%);
+          bottom: 80px;
+          z-index: 65;
+          width: calc(100% - 32px);
+          max-width: 420px;
+        }
+        .mu-checkout-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          height: 60px;
+          padding: 0 6px 0 16px;
+          border-radius: 18px;
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          cursor: pointer;
+          box-shadow: 0 8px 32px rgba(15, 23, 42, 0.25);
+          transition: all 0.2s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .mu-checkout-bar:active {
+          transform: scale(0.98);
+        }
+        .mu-checkout-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+        .mu-checkout-icon-wrap {
+          position: relative;
+          flex-shrink: 0;
+        }
+        .mu-checkout-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #fff;
+          color: #0f172a;
+          font-size: 9px;
+          font-weight: 900;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1;
+        }
+        .mu-checkout-icon-bg {
+          padding: 8px;
+          background: rgba(255,255,255,0.1);
+          border-radius: 10px;
+        }
+        .mu-checkout-info {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .mu-checkout-label {
+          font-size: 9px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: rgba(255,255,255,0.5);
+          line-height: 1;
+          margin-bottom: 3px;
+        }
+        .mu-checkout-total {
+          font-size: 18px;
+          font-weight: 900;
+          line-height: 1;
+        }
+        .mu-checkout-cta {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: #fff;
+          color: #0f172a;
+          padding: 10px 16px;
+          border-radius: 13px;
+          font-size: 12px;
+          font-weight: 800;
+          flex-shrink: 0;
+        }
+        .mu-checkout-arrow {
+          transition: transform 0.2s;
+        }
+        .mu-checkout-bar:hover .mu-checkout-arrow {
+          transform: translateX(2px);
         }
       `}</style>
     </div>

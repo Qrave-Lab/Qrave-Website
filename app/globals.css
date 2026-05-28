@@ -378,8 +378,58 @@ select option {
   animation: marquee 30s linear infinite;
 }
 
+/* ── Customer Menu Design Tokens ──────────── */
+:root {
+  --menu-bg: #FAF9F6;
+  --menu-surface: #FFFFFF;
+  --menu-text: #0F172A;
+  --menu-muted: #64748B;
+  --menu-accent: #0F172A;
+  --menu-accent-text: #FFFFFF;
+  --menu-radius: 24px;
+  --menu-radius-sm: 16px;
+  --menu-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+  --menu-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Customer menu page bottom padding for nav ── */
+.customer-menu-page {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Section entrance animations ─────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mu-section {
+  animation: fadeInUp 0.5s ease both;
+}
+
+.mu-section:nth-child(1) { animation-delay: 0s; }
+.mu-section:nth-child(2) { animation-delay: 0.08s; }
+.mu-section:nth-child(3) { animation-delay: 0.16s; }
+.mu-section:nth-child(4) { animation-delay: 0.24s; }
+.mu-section:nth-child(5) { animation-delay: 0.32s; }
+
+/* ── Smooth scrollbar hide for pills ──────── */
+.mu-category-pills {
+  -ms-overflow-style: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .mu-section {
+    animation: none;
   }
 }

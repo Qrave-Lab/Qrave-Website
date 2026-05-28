@@ -127,6 +127,8 @@ export default function MenuClient({ table }: { table: string | null }) {
       try {
         const details = await api<{ table_number?: number; restaurant_id?: string; session_id?: string; ordering_enabled?: boolean }>("/api/customer/session", {
           credentials: "include",
+          suppressErrorLog: true,
+          skipAuthRedirect: true,
         });
         if (cancelled) return;
         const serverTable = details?.table_number ? String(details.table_number) : null;
@@ -171,6 +173,9 @@ export default function MenuClient({ table }: { table: string | null }) {
         if (!Number.isNaN(tableNumber)) {
           if (!restaurantForSession) {
             console.error("No restaurant found for session start");
+            setSessionError(
+              "No restaurant ID was resolved. Please make sure to append the restaurant parameter to the URL, for example: ?table=1&restaurant=YOUR_RESTAURANT_ID"
+            );
             setItems([]);
             return;
           }
