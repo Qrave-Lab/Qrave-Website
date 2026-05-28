@@ -312,7 +312,10 @@ const CheckoutPage: React.FC = () => {
           setMenuCache(mapped);
 
           if (cartRes?.items) {
-            syncCart(cartRes.items);
+            const localCart = useCartStore.getState().cart;
+            if (Object.keys(localCart).length === 0) {
+              syncCart(cartRes.items);
+            }
           }
           if (ordersRes?.orders) {
             setOrders(ordersRes.orders);
@@ -714,7 +717,7 @@ const CheckoutPage: React.FC = () => {
                         &nbsp;placed!
                       </p>
                       <p className="text-[10px] text-emerald-600 mt-0.5">
-                        All-time order #{lastPlacedNums.orderNumber} · Kitchen is on it!
+                        Kitchen is on it!
                       </p>
                     </div>
                   </div>
@@ -767,11 +770,7 @@ const CheckoutPage: React.FC = () => {
                           >
                             {isCancelled ? "Cancelled" : order.status}
                           </span>
-                          {order.order_number && (
-                            <span className="text-[9px] font-semibold" style={{ color: "var(--co-muted)" }}>
-                              #{order.order_number} overall
-                            </span>
-                          )}
+                          {/* Removed overall order number for professionalism */}
                         </div>
                         {order.status === "pending" && (
                           <button onClick={() => handleCancelOrder(order.id)} className="rounded-lg px-2.5 py-1 text-[10px] font-bold text-rose-600" style={{ background: "rgba(239,68,68,0.08)" }}>

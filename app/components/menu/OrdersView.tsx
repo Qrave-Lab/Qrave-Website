@@ -17,26 +17,24 @@ import {
 /* ── Status mapping ────────────────────────────────────────────────── */
 
 const STEPS = [
-  { key: "placed", label: "Order Placed", icon: ClipboardList },
-  { key: "assigned", label: "Cook Assigned", icon: ChefHat },
-  { key: "preparing", label: "Preparing", icon: CookingPot },
-  { key: "ready", label: "Ready", icon: Package },
-  { key: "delivered", label: "Delivered", icon: CheckCircle2 },
+  { key: "pending", label: "Waiting for confirmation", icon: ClipboardList },
+  { key: "cooking", label: "Cooking", icon: CookingPot },
+  { key: "ready", label: "Ready to be served", icon: Package },
+  { key: "served", label: "Served", icon: CheckCircle2 },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
 
 /**
- * Map the raw `status` string from the API to a step index (0-4).
+ * Map the raw `status` string from the API to a step index (0-3).
  * The backend may use various casing / values — be lenient.
  */
 function statusToStepIndex(status?: string): number {
   if (!status) return 0;
   const s = status.toLowerCase().replace(/[_\- ]/g, "");
-  if (s.includes("deliver") || s.includes("served") || s.includes("completed") || s.includes("complete")) return 4;
-  if (s.includes("ready") || s.includes("finished") || s.includes("done") || s.includes("cooked")) return 3;
-  if (s.includes("prepar") || s.includes("cooking") || s.includes("progress") || s.includes("making")) return 2;
-  if (s.includes("assign") || s.includes("accept") || s.includes("confirmed")) return 1;
+  if (s.includes("deliver") || s.includes("served") || s.includes("completed") || s.includes("complete")) return 3;
+  if (s.includes("ready") || s.includes("finished") || s.includes("done") || s.includes("cooked")) return 2;
+  if (s.includes("prepar") || s.includes("cooking") || s.includes("progress") || s.includes("making") || s.includes("assign") || s.includes("accept") || s.includes("confirmed")) return 1;
   if (s.includes("placed") || s.includes("pending") || s.includes("received") || s.includes("new") || s.includes("submitted")) return 0;
   return 0;
 }
@@ -58,6 +56,7 @@ type Order = {
   status: string;
   created_at?: string;
   createdAt?: string;
+  estimated_prep_minutes?: number | null;
   order_number?: number | null;
   daily_order_number?: number | null;
   total?: number;
@@ -172,6 +171,18 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
               0
             );
 
+          // Calculate estimated time remaining
+          const createdTime = createdDate ? createdDate.getTime() : Date.now();
+          const elapsedMins = Math.floor((Date.now() - createdTime) / 60000);
+          const totalPrepTime = typeof order.estimated_prep_minutes === "number" ? order.estimated_prep_minutes : 20; // fallback to 20 mins
+          const remainingMins = Math.max(0, totalPrepTime - elapsedMins);
+          
+          let etaLabel = "";
+          if (stepIdx === 0) etaLabel = "Awaiting confirmation...";
+          else if (stepIdx === 1) etaLabel = `${remainingMins} mins left`;
+          else if (stepIdx === 2) etaLabel = "Ready now!";
+          else if (stepIdx === 3) etaLabel = "Enjoy your meal!";
+
           return (
             <div key={order.id} className="ov-card">
               {/* Card header */}
@@ -213,6 +224,9 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
                           {isActive && <div className="ov-step-pulse" />}
                         </div>
                         <span className="ov-step-label">{step.label}</span>
+                        {isActive && (
+                          <span className="ov-step-eta">{etaLabel}</span>
+                        )}
                       </div>
                       {idx < STEPS.length - 1 && (
                         <div
@@ -402,7 +416,18 @@ function OrdersStyles() {
         text-align: center;
         color: #94a3b8;
         line-height: 1.2;
-        max-width: 58px;
+        max-width: 65px;
+      }
+      .ov-step-eta {
+        font-size: 9px;
+        font-weight: 800;
+        text-align: center;
+        color: #f59e0b;
+        background: rgba(245, 158, 11, 0.1);
+        padding: 2px 6px;
+        border-radius: 6px;
+        margin-top: 2px;
+        white-space: nowrap;
       }
       .ov-step--done .ov-step-label { color: #0f172a; }
       .ov-step--active .ov-step-label { color: #f59e0b; font-weight: 800; }
