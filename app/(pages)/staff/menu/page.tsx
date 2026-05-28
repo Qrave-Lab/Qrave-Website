@@ -2564,7 +2564,7 @@ export default function MenuPage() {
                                 alt={editingItem.name || "3D model"}
                                 auto-rotate
                                 ar
-                                ar-modes="quick-look scene-viewer webxr"
+                                ar-modes="webxr scene-viewer quick-look"
                                 ar-scale="fixed"
                                 disable-zoom
                                 interaction-prompt="none"
