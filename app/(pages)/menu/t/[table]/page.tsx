@@ -241,13 +241,15 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
 
 /* ─── CSS ──────────────────────────────────────────────────────── */
 const animationStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
   .qrave-loader {
     min-height: 100vh; min-height: 100dvh;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 28px;
-    background: #ffffff;
+    background: #FAF8F2;
     position: relative; overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     padding: 24px;
   }
 
@@ -273,27 +275,28 @@ const animationStyles = `
   .qrave-plate-rim {
     position: absolute; inset: 0;
     border-radius: 50%;
-    border: 3px solid #e2e8f0;
+    border: 3px solid #EFEBE4;
     animation: qRimSpin 8s linear infinite;
-    border-top-color: #0f172a;
+    border-top-color: #FF561F;
     border-right-color: transparent;
   }
   .qrave-plate-inner {
     position: absolute; inset: 18px;
     border-radius: 50%;
-    background: radial-gradient(circle at 40% 40%, #f8fafc, #f1f5f9);
-    border: 1px solid #e2e8f0;
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.04);
+    background: radial-gradient(circle at 40% 40%, #ffffff, #FAF8F2);
+    border: 1px solid #EFEBE4;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);
   }
 
   /* ── Brand wordmark ───────────────────────── */
   .qrave-brand {
-    display: flex; gap: 2px;
+    display: flex; gap: 1px;
     z-index: 2; margin-top: -20px;
   }
   .qrave-letter {
-    font-size: 48px; font-weight: 900;
-    letter-spacing: -1px; color: #0f172a;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 52px; font-weight: 700;
+    letter-spacing: -0.5px; color: #FF561F;
     display: inline-block;
     opacity: 0;
     animation: qLetterIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -301,7 +304,7 @@ const animationStyles = `
 
   /* ── Tagline ──────────────────────────────── */
   .qrave-tagline {
-    color: #94a3b8; font-size: 14px; font-weight: 500;
+    color: #5E594F; font-size: 14px; font-weight: 600;
     letter-spacing: 0.5px; margin: 0;
     animation: qFadeUp 0.8s ease 0.9s both;
   }
@@ -309,29 +312,29 @@ const animationStyles = `
   /* ── Shimmer bar ──────────────────────────── */
   .qrave-bar-track {
     width: 120px; height: 3px;
-    border-radius: 3px; background: #f1f5f9;
+    border-radius: 3px; background: #EFEBE4;
     overflow: hidden;
     animation: qFadeUp 0.8s ease 1s both;
   }
   .qrave-bar-fill {
     width: 40%; height: 100%;
     border-radius: 3px;
-    background: #0f172a;
+    background: #FF561F;
     animation: qShimmer 1.4s ease-in-out infinite;
   }
 
   /* ── Card (error + choice) ────────────────── */
   .qrave-card {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #EFEBE4;
     border-radius: 24px;
     padding: 32px 28px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    box-shadow: 0 8px 32px rgba(107,76,33,0.04);
     text-align: center; z-index: 2;
     max-width: 360px; width: 100%;
   }
   .qrave-title {
-    color: #0f172a; font-size: 20px; font-weight: 800;
+    color: #1E2430; font-family: 'Fredoka', sans-serif; font-size: 20px; font-weight: 700;
     margin: 0; letter-spacing: -0.3px;
   }
   .qrave-sub {
@@ -348,14 +351,14 @@ const animationStyles = `
     transition: all 0.2s ease;
   }
   .qrave-btn-primary {
-    background: #0f172a; color: white;
-    box-shadow: 0 4px 16px rgba(15,23,42,0.2);
+    background: #FF561F; color: white;
+    box-shadow: 0 4px 16px rgba(255,86,31,0.25);
   }
   .qrave-btn-primary:active { transform: scale(0.97); }
   .qrave-btn-secondary {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0 !important;
-    color: #1e293b;
+    background: #FAF8F2;
+    border: 1px solid #EFEBE4 !important;
+    color: #1E2430;
   }
   .qrave-btn-secondary:active { transform: scale(0.97); }
 
