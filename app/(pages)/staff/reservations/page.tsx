@@ -81,6 +81,7 @@ export default function ReservationsPage() {
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [sessions, setSessions] = useState<ActiveSessionAPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [storeInfo, setStoreInfo] = useState<AdminMeResponse | null>(null);
 
   // Modals and Expands State
@@ -202,12 +203,14 @@ export default function ReservationsPage() {
 
   const addReservation = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (isSubmitting) return;
     if (!reservationForm.name.trim()) { toast.error("Add guest name"); return; }
     if (!reservationForm.date || !reservationForm.time) { toast.error("Select date and time"); return; }
 
     const reservedAt = new Date(`${reservationForm.date}T${reservationForm.time}`);
     if (Number.isNaN(reservedAt.getTime())) { toast.error("Invalid date/time"); return; }
 
+    setIsSubmitting(true);
     try {
       await api("/api/admin/reservations", {
         method: "POST",
@@ -223,8 +226,11 @@ export default function ReservationsPage() {
       toast.success("Reservation created");
       setReservationForm((prev) => ({ ...prev, name: "", date: "", time: "", phone: "", notes: "" }));
       await loadData();
+      setShowResModal(false);
     } catch (err: any) {
       toast.error(err?.message || "Failed to create reservation");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -261,7 +267,9 @@ export default function ReservationsPage() {
 
   const addWaitlist = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (isSubmitting) return;
     if (!waitlistForm.name.trim()) { toast.error("Add guest name"); return; }
+    setIsSubmitting(true);
     try {
       await api("/api/admin/waitlist", {
         method: "POST",
@@ -275,8 +283,11 @@ export default function ReservationsPage() {
       toast.success("Added to waitlist");
       setWaitlistForm((prev) => ({ ...prev, name: "", phone: "" }));
       await loadData();
+      setShowWaitlistModal(false);
     } catch {
       toast.error("Failed to add waitlist");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -723,7 +734,7 @@ export default function ReservationsPage() {
               </div>
             )}
             
-            <form onSubmit={async (e) => { await addReservation(e); setShowResModal(false); }} className="mt-4 space-y-4">
+            <form onSubmit={addReservation} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold text-slate-600">
                   Guest Name
@@ -847,9 +858,18 @@ export default function ReservationsPage() {
                 <button
                   type="submit"
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                  disabled={isLoading}
+                  disabled={isSubmitting || isLoading}
                 >
-                  <ListPlus className="h-4 w-4" /> Add Reservation
+                  {isSubmitting ? (
+                    <>
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      Saving Reservation...
+                    </>
+                  ) : (
+                    <>
+                      <ListPlus className="h-4 w-4" /> Add Reservation
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -871,7 +891,7 @@ export default function ReservationsPage() {
               </button>
             </div>
             
-            <form onSubmit={async (e) => { await addWaitlist(e); setShowWaitlistModal(false); }} className="mt-4 space-y-4">
+            <form onSubmit={addWaitlist} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold text-slate-600">
                   Guest Name
@@ -933,9 +953,18 @@ export default function ReservationsPage() {
                 <button
                   type="submit"
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 transition-colors cursor-pointer"
-                  disabled={isLoading}
+                  disabled={isSubmitting || isLoading}
                 >
-                  <ListPlus className="h-4 w-4" /> Add to Waitlist
+                  {isSubmitting ? (
+                    <>
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      Adding to Waitlist...
+                    </>
+                  ) : (
+                    <>
+                      <ListPlus className="h-4 w-4" /> Add to Waitlist
+                    </>
+                  )}
                 </button>
               </div>
             </form>
