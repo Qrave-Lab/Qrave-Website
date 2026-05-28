@@ -343,7 +343,7 @@ export default function MenuClient({ table }: { table: string | null }) {
       }
 
       if (!cancelled) {
-        interval = window.setInterval(syncSessionDetails, 5000);
+        interval = window.setInterval(syncSessionDetails, 30000);
       }
     };
 

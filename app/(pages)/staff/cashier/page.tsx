@@ -118,10 +118,13 @@ export default function CashierPage() {
       refresh().catch(() => {
         // ignore polling errors
       });
-    }, 5000);
+    }, 30000);
+    const onFocus = () => refresh().catch(() => { });
+    window.addEventListener("focus", onFocus);
     return () => {
       active = false;
       window.clearInterval(t);
+      window.removeEventListener("focus", onFocus);
     };
   }, [router]);
 

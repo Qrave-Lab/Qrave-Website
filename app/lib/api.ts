@@ -100,6 +100,7 @@ function getCsrfToken(): string | null {
 
 type CacheEntry = { data: unknown; expiresAt: number };
 const _cache = new Map<string, CacheEntry>();
+const _inflight = new Map<string, Promise<unknown>>();
 
 // TTL in ms for specific path prefixes (0 = no cache)
 const CACHE_TTLS: [string, number][] = [
@@ -107,9 +108,22 @@ const CACHE_TTLS: [string, number][] = [
   ["/api/admin/menu", 60_000],
   ["/api/admin/categories", 60_000],
   ["/api/admin/tables", 60_000],
+  ["/api/admin/orders/active", 3_000],
+  ["/api/admin/sessions/active", 3_000],
+  ["/api/admin/service-calls", 3_000],
+  ["/api/admin/takeaway/orders", 5_000],
+  ["/api/admin/takeaway/summary", 10_000],
+  ["/api/admin/sales/today", 10_000],
+  ["/api/admin/shifts/active", 5_000],
+  ["/api/admin/billing/status", 30_000],
   ["/api/admin/delivery/zones", 60_000],
   ["/api/admin/kitchen/capacity", 30_000],
+  ["/api/admin/branches", 60_000],
   ["/api/admin/locations", 60_000],
+  ["/api/customer/session", 10_000],
+  ["/api/customer/menu", 60_000],
+  ["/api/customer/offers", 30_000],
+  ["/api/customer/recommendations", 30_000],
 ];
 
 function ttlFor(path: string): number {
@@ -130,9 +144,47 @@ export function bustCache(prefix: string) {
 function autoBust(path: string) {
   const base = path.split("?")[0].replace(/\/[0-9a-f-]{36}(\/.+)?$/, "").replace(/\/[0-9]+$/, "");
   bustCache(base);
+
+  const relatedPrefixes: [string, string[]][] = [
+    ["/api/admin/orders", ["/api/admin/orders/active", "/api/admin/sessions/active", "/api/admin/sales/today", "/api/admin/kitchen/capacity"]],
+    ["/api/admin/sessions", ["/api/admin/sessions/active", "/api/admin/tables", "/api/admin/orders/active"]],
+    ["/api/admin/tables", ["/api/admin/tables", "/api/admin/sessions/active"]],
+    ["/api/admin/takeaway", ["/api/admin/takeaway/orders", "/api/admin/takeaway/summary", "/api/admin/sales/today"]],
+    ["/api/admin/service-calls", ["/api/admin/service-calls"]],
+    ["/api/admin/payments", ["/api/admin/orders/active", "/api/admin/sessions/active", "/api/admin/sales/today"]],
+    ["/api/admin/billing", ["/api/admin/billing/status"]],
+    ["/api/customer/orders", ["/api/customer/orders", "/api/customer/session"]],
+    ["/api/customer/service-calls", ["/api/admin/service-calls"]],
+  ];
+
+  for (const [prefix, busts] of relatedPrefixes) {
+    if (base.startsWith(prefix)) {
+      busts.forEach(bustCache);
+    }
+  }
 }
 
-export async function api<T>(
+function canDedupeGet(
+  method: string,
+  options: RequestInit & { noCache?: boolean },
+  didRetry: boolean,
+  forcedBase?: string
+): boolean {
+  return (
+    method === "GET" &&
+    !options.noCache &&
+    !didRetry &&
+    !forcedBase &&
+    typeof window !== "undefined" &&
+    !options.signal
+  );
+}
+
+function makeInflightKey(path: string, method: string): string {
+  return `${API_BASE} ${method} ${path}`;
+}
+
+async function apiInner<T>(
   path: string,
   options: (RequestInit & { skipAuthRedirect?: boolean; suppressErrorLog?: boolean; noCache?: boolean }) = {},
   didRetry = false,
@@ -281,4 +333,28 @@ export async function api<T>(
     console.warn("Non-JSON response received:", text);
     return {} as T;
   }
+}
+
+export async function api<T>(
+  path: string,
+  options: (RequestInit & { skipAuthRedirect?: boolean; suppressErrorLog?: boolean; noCache?: boolean }) = {},
+  didRetry = false,
+  forcedBase?: string
+): Promise<T> {
+  const method = (options.method || "GET").toUpperCase();
+  if (!canDedupeGet(method, options, didRetry, forcedBase)) {
+    return apiInner<T>(path, options, didRetry, forcedBase);
+  }
+
+  const key = makeInflightKey(path, method);
+  const existing = _inflight.get(key);
+  if (existing) {
+    return existing as Promise<T>;
+  }
+
+  const request = apiInner<T>(path, options, didRetry, forcedBase).finally(() => {
+    _inflight.delete(key);
+  });
+  _inflight.set(key, request);
+  return request;
 }

@@ -159,7 +159,7 @@ export default function KitchenDisplayPage() {
     fetchOrders().catch(() => undefined);
     const t = window.setInterval(() => {
       fetchOrders(true).catch(() => undefined);
-    }, 15000);
+    }, 60000);
     return () => window.clearInterval(t);
   }, [fetchOrders]);
 

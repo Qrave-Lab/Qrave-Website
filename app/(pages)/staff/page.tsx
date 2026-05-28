@@ -209,6 +209,7 @@ export default function StaffDashboardPage() {
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const refreshLockRef = useRef(false);
+  const socketRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -409,11 +410,10 @@ export default function StaffDashboardPage() {
     refreshLockRef.current = true;
     try {
       await refreshLiveData();
-      const [serviceRes, salesRes, takeawayRes, profitRes, waitlistRes] = await Promise.all([
+      const [serviceRes, salesRes, takeawayRes, waitlistRes] = await Promise.all([
         api<ServiceCallAPI[]>("/api/admin/service-calls"),
         api<{ total: number }>("/api/admin/sales/today"),
         api<TakeawaySummary>("/api/admin/takeaway/summary"),
-        api<any>("/api/admin/analytics/profit-engineering").catch(() => null),
         api<{ waitlist?: any[] }>("/api/admin/waitlist").catch(() => ({ waitlist: [] })),
       ]);
       setServiceCalls(
@@ -433,9 +433,6 @@ export default function StaffDashboardPage() {
       if (takeawayRes) {
         setTakeawaySummary(takeawayRes);
       }
-      if (profitRes?.profit_engineering) {
-        setProfitMetrics(profitRes.profit_engineering);
-      }
       if (waitlistRes && Array.isArray(waitlistRes.waitlist)) {
         const waiting = waitlistRes.waitlist.filter((w: any) => w.status === "waiting").length;
         setWaitlistCount(waiting);
@@ -443,6 +440,24 @@ export default function StaffDashboardPage() {
     } finally {
       refreshLockRef.current = false;
     }
+  };
+
+  const refreshSlowMetrics = async () => {
+    const profitRes = await api<any>("/api/admin/analytics/profit-engineering", {
+      suppressErrorLog: true,
+    }).catch(() => null);
+    if (profitRes?.profit_engineering) {
+      setProfitMetrics(profitRes.profit_engineering);
+    }
+  };
+
+  const scheduleSocketRefresh = () => {
+    if (socketRefreshTimerRef.current) {
+      clearTimeout(socketRefreshTimerRef.current);
+    }
+    socketRefreshTimerRef.current = setTimeout(() => {
+      refreshDashboard().catch(() => { });
+    }, 300);
   };
 
   useEffect(() => {
@@ -458,6 +473,9 @@ export default function StaffDashboardPage() {
         setServiceCalls([]);
       } finally {
         if (isActive) setIsLoading(false);
+        setTimeout(() => {
+          if (isActive) refreshSlowMetrics().catch(() => { });
+        }, 100);
       }
     };
     load();
@@ -469,7 +487,7 @@ export default function StaffDashboardPage() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       refreshDashboard().catch(() => { });
-    }, 12000);
+    }, 30000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -520,6 +538,7 @@ export default function StaffDashboardPage() {
             setOrders(buildPendingOrders(next));
             return next;
           });
+          scheduleSocketRefresh();
           return;
         }
 
@@ -539,11 +558,15 @@ export default function StaffDashboardPage() {
             ].filter((c) => c.status !== "done");
             return next;
           });
+          scheduleSocketRefresh();
         }
       },
     });
 
     return () => {
+      if (socketRefreshTimerRef.current) {
+        clearTimeout(socketRefreshTimerRef.current);
+      }
       cleanup();
     };
   }, []);
