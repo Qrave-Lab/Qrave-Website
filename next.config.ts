@@ -2,6 +2,18 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  async rewrites() {
+    return [
+      {
+        source: "/uploads/:path*",
+        destination: "http://localhost:9090/uploads/:path*",
+      },
+      {
+        source: "/api/proxy-model/:path*",
+        destination: "https://dzsxi8qe0pwwl.cloudfront.net/:path*",
+      },
+    ];
+  },
   async headers() {
     const csp = [
       "default-src 'self'",

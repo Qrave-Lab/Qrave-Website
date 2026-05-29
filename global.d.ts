@@ -21,6 +21,10 @@ declare global {
           scale?: string;
           "tone-mapping"?: string;
           "shadow-intensity"?: string;
+          "shadow-softness"?: string;
+          exposure?: string;
+          "environment-image"?: string;
+          "rotation-per-second"?: string;
         };
       }
     }

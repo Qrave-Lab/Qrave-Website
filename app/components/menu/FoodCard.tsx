@@ -84,6 +84,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
   const variantDelta = item.variants?.find((v) => v.id === activeVariantId)?.priceDelta || 0;
   const displayPrice = discountedBasePrice + variantDelta;
   const displayBaseWithoutDiscount = basePrice + variantDelta;
+  const hasDiscount = displayBaseWithoutDiscount > displayPrice;
 
   const AddButton = () => (
     isAvailable ? (
@@ -132,7 +133,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
           <div className="fc-magazine-overlay">
             <h3 className="fc-magazine-name">{item.name}</h3>
             <div className="fc-magazine-meta">
-              <div className="fc-veg-dot-wrap">
+              <div className="fc-veg-indicator">
                 <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
               </div>
               {item.rating > 0 && (
@@ -161,7 +162,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
 
           <div className="fc-bottom">
             <div className="fc-price-col">
-              {displayBaseWithoutDiscount > displayPrice && (
+              {hasDiscount && (
                 <span className="fc-price-old">₹{displayBaseWithoutDiscount}</span>
               )}
               <span className="fc-price-main fc-price-lg">₹{displayPrice}</span>
@@ -199,7 +200,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
         <div className="fc-compact-body">
           <p className="fc-compact-name">{item.name}</p>
           <div className="fc-compact-meta">
-            {displayBaseWithoutDiscount > displayPrice && (
+            {hasDiscount && (
               <span className="fc-price-old fc-price-sm">₹{displayBaseWithoutDiscount}</span>
             )}
             <span className="fc-price-main fc-price-sm">₹{displayPrice}</span>
@@ -243,11 +244,13 @@ const FoodCard: React.FC<FoodCardProps> = ({
             onLoad={() => setImageLoaded(true)}
           />
           <div className="fc-grid-veg">
-            <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
+            <div className={`fc-veg-indicator fc-veg-indicator--sm`}>
+              <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
+            </div>
           </div>
           {item.rating > 0 && (
-            <div className={`fc-grid-rating ${ratingStyles.container}`}>
-              <Star className={`w-2.5 h-2.5 ${ratingStyles.icon}`} />
+            <div className="fc-grid-rating">
+              <Star className="w-2.5 h-2.5 fill-current text-amber-500" />
               <span>{item.rating}</span>
             </div>
           )}
@@ -288,7 +291,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
           )}
           <div className="fc-bottom">
             <div className="fc-price-col">
-              {displayBaseWithoutDiscount > displayPrice && (
+              {hasDiscount && (
                 <span className="fc-price-old fc-price-sm">₹{displayBaseWithoutDiscount}</span>
               )}
               <span className="fc-price-main fc-price-sm">₹{displayPrice}</span>
@@ -301,7 +304,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
     );
   }
 
-  // ─── LIST layout (default) — reference-inspired card ──────────────────────────
+  // ─── LIST layout (default) — warm editorial card ──────────────────────────
   return (
     <div className={`fc-card ${!isAvailable ? "fc-disabled" : ""}`}>
       {/* Large top image */}
@@ -315,15 +318,17 @@ const FoodCard: React.FC<FoodCardProps> = ({
           onLoad={() => setImageLoaded(true)}
         />
 
-        {/* Veg/Non-veg indicator */}
+        {/* Veg/Non-veg indicator — bordered square */}
         <div className="fc-card-veg-badge">
-          <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
+          <div className={`fc-veg-indicator ${item.isVeg ? "fc-veg-indicator--green" : "fc-veg-indicator--red"}`}>
+            <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
+          </div>
         </div>
 
-        {/* Rating */}
+        {/* Rating — gold floating badge */}
         {item.rating > 0 && (
           <div className="fc-card-rating">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <Star className="w-3.5 h-3.5 fill-current" />
             <span>{item.rating}</span>
           </div>
         )}
@@ -332,7 +337,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
         {item.arModelGlb && (
           <button
             onClick={() => onArClick(item)}
-            className={`fc-ar-btn ${showArTour ? "fc-ar-btn--tour" : ""}`}
+            className={`fc-ar-btn ar-view-btn ${showArTour ? "fc-ar-btn--tour" : ""}`}
           >
             <Scan className="w-4 h-4" />
           </button>
@@ -349,13 +354,19 @@ const FoodCard: React.FC<FoodCardProps> = ({
         <div className="fc-card-top-badges">
           {item.isBestseller && <span className="fc-badge fc-badge--gold">🏆 {t("bestseller")}</span>}
           {item.isNew && <span className="fc-badge fc-badge--green">✨ New</span>}
+          {hasDiscount && item.offerLabel && (
+            <span className="fc-badge fc-badge--offer">{item.offerLabel}</span>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="fc-card-body">
-        {/* Name row */}
+        {/* Name */}
         <h3 className="fc-card-name">{item.name}</h3>
+
+        {/* Description */}
+        <p className="fc-card-desc">{item.description}</p>
 
         {/* Spice + prep time badges */}
         {(item.isSpicy || item.estimatedPrepMinutes) && (
@@ -372,9 +383,6 @@ const FoodCard: React.FC<FoodCardProps> = ({
             )}
           </div>
         )}
-
-        {/* Description */}
-        <p className="fc-card-desc">{item.description}</p>
 
         {/* Calories + allergens */}
         {(item.calories || (Array.isArray(item.allergens) && item.allergens.length > 0)) && (
@@ -419,7 +427,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
         {/* Price + Add row */}
         <div className="fc-bottom">
           <div className="fc-price-col">
-            {displayBaseWithoutDiscount > displayPrice && (
+            {hasDiscount && (
               <span className="fc-price-old">₹{displayBaseWithoutDiscount}</span>
             )}
             <span className="fc-price-main">₹{displayPrice}</span>
@@ -433,570 +441,10 @@ const FoodCard: React.FC<FoodCardProps> = ({
   );
 };
 
-/* ── Shared Styles ────────────────────────────────────────────────────── */
-
+/* ── Styles are now in globals.css to prevent hydration stripping ── */
 function FoodCardStyles() {
-  return (
-    <style jsx global>{`
-      /* ── Common ── */
-      .fc-disabled { opacity: 0.55; pointer-events: none; }
-
-      .fc-img-placeholder {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-        animation: fc-shimmer 1.5s ease infinite;
-      }
-      @keyframes fc-shimmer {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
-      }
-      .fc-img-loaded { opacity: 1; }
-      .fc-img-loading { opacity: 0; }
-
-      .fc-veg-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-      }
-      .fc-veg { background: #16a34a; }
-      .fc-nonveg { background: #dc2626; }
-
-      .fc-veg-dot-wrap {
-        background: rgba(255,255,255,0.85);
-        backdrop-filter: blur(4px);
-        padding: 3px;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-      }
-
-      /* Badges */
-      .fc-badge {
-        font-size: 9px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 4px 10px;
-        border-radius: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-      .fc-badge--gold { background: #fbbf24; color: #78350f; }
-      .fc-badge--green { background: #34d399; color: #064e3b; }
-      .fc-badge--red { background: #fca5a5; color: #991b1b; }
-      .fc-badge--sm { font-size: 8px; padding: 3px 7px; }
-
-      /* Variants */
-      .fc-variants {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-bottom: 12px;
-      }
-      .fc-variants-sm { gap: 4px; margin-bottom: 8px; }
-      .fc-variant-pill {
-        padding: 5px 12px;
-        border-radius: 20px;
-        border: 1.5px solid #e2e8f0;
-        background: #fff;
-        color: #475569;
-        font-size: 11px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .fc-variant-pill:hover { border-color: #cbd5e1; }
-      .fc-variant-pill--active {
-        background: #0f172a;
-        border-color: #0f172a;
-        color: #fff;
-      }
-      .fc-variant-pill--sm {
-        padding: 3px 8px;
-        font-size: 9px;
-      }
-
-      /* Price */
-      .fc-bottom {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: auto;
-        padding-top: 4px;
-      }
-      .fc-price-col {
-        display: flex;
-        flex-direction: column;
-      }
-      .fc-price-old {
-        font-size: 11px;
-        font-weight: 600;
-        color: #94a3b8;
-        text-decoration: line-through;
-      }
-      .fc-price-main {
-        font-size: 20px;
-        font-weight: 800;
-        color: #0f172a;
-        letter-spacing: -0.02em;
-      }
-      .fc-price-lg { font-size: 24px; }
-      .fc-price-sm { font-size: 14px; }
-      .fc-price-old.fc-price-sm { font-size: 10px; }
-
-      /* Add button */
-      .fc-add-btn {
-        height: 34px;
-        padding: 0 22px;
-        border-radius: 12px;
-        background: #0f172a;
-        color: #fff;
-        font-size: 12px;
-        font-weight: 700;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .fc-add-btn:hover { background: #1e293b; }
-      .fc-add-btn:active { transform: scale(0.95); }
-
-      .fc-qty-stepper {
-        display: flex;
-        align-items: center;
-        background: #0f172a;
-        color: #fff;
-        border-radius: 12px;
-        overflow: hidden;
-        height: 34px;
-      }
-      .fc-qty-btn {
-        width: 34px;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: transparent;
-        border: none;
-        color: #fff;
-        cursor: pointer;
-        transition: background 0.15s;
-      }
-      .fc-qty-btn:hover { background: rgba(255,255,255,0.1); }
-      .fc-qty-count {
-        min-width: 24px;
-        text-align: center;
-        font-size: 12px;
-        font-weight: 800;
-      }
-
-      .fc-unavailable {
-        font-size: 11px;
-        font-weight: 700;
-        color: #ef4444;
-      }
-
-      /* AR button */
-      .fc-ar-btn {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        padding: 7px;
-        border-radius: 10px;
-        background: rgba(0,0,0,0.55);
-        backdrop-filter: blur(8px);
-        color: #fff;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s;
-        z-index: 2;
-      }
-      .fc-ar-btn:hover { background: rgba(0,0,0,0.7); }
-      .fc-ar-btn--tour {
-        background: #16a34a;
-        animation: fc-ar-pulse 1.5s ease infinite;
-      }
-      @keyframes fc-ar-pulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
-        50% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
-      }
-
-      /* Info badges */
-      .fc-card-info-badges, .fc-card-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-bottom: 8px;
-      }
-      .fc-info-badge {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        padding: 3px 8px;
-        border-radius: 8px;
-        font-size: 10px;
-        font-weight: 700;
-        background: #f1f5f9;
-        color: #475569;
-      }
-      .fc-info-badge--spicy {
-        background: #fef2f2;
-        color: #dc2626;
-      }
-      .fc-meta-pill {
-        font-size: 10px;
-        font-weight: 600;
-        padding: 3px 8px;
-        border-radius: 8px;
-        background: #f8fafc;
-        color: #64748b;
-      }
-      .fc-meta-pill--warn { background: #fef3c7; color: #92400e; }
-      .fc-meta-pill--pair { background: #f3e8ff; color: #7c3aed; }
-
-      /* ── LIST Card (Default) — Reference-inspired ── */
-      .fc-card {
-        background: #fff;
-        border-radius: 24px;
-        overflow: hidden;
-        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
-        border: 1px solid rgba(0, 0, 0, 0.04);
-        transition: transform 0.2s, box-shadow 0.2s;
-      }
-      .fc-card:hover {
-        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
-      }
-
-      .fc-card-img-wrap {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 16 / 10;
-        overflow: hidden;
-        background: #f1f5f9;
-      }
-      .fc-card-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: opacity 0.4s ease, transform 0.6s ease;
-      }
-      .fc-card:hover .fc-card-img { transform: scale(1.03); }
-
-      .fc-card-veg-badge {
-        position: absolute;
-        top: 12px;
-        left: 12px;
-        background: rgba(255,255,255,0.92);
-        backdrop-filter: blur(8px);
-        padding: 4px;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        z-index: 2;
-      }
-      .fc-card-rating {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 10px;
-        border-radius: 20px;
-        background: rgba(255,255,255,0.92);
-        backdrop-filter: blur(8px);
-        font-size: 12px;
-        font-weight: 800;
-        color: #0f172a;
-        z-index: 2;
-      }
-      .fc-card-top-badges {
-        position: absolute;
-        bottom: 12px;
-        left: 12px;
-        display: flex;
-        gap: 6px;
-        z-index: 2;
-      }
-      .fc-card-oos-overlay {
-        position: absolute;
-        inset: 0;
-        background: rgba(0,0,0,0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 3;
-      }
-      .fc-card-oos-text {
-        background: #ef4444;
-        color: #fff;
-        font-size: 11px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 6px 16px;
-        border-radius: 12px;
-      }
-
-      .fc-card-body {
-        padding: 16px 18px 18px;
-        display: flex;
-        flex-direction: column;
-      }
-      .fc-card-name {
-        font-size: 17px;
-        font-weight: 800;
-        color: #0f172a;
-        line-height: 1.3;
-        margin-bottom: 6px;
-        letter-spacing: -0.01em;
-      }
-      .fc-card-desc {
-        font-size: 12.5px;
-        color: #64748b;
-        line-height: 1.55;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        margin-bottom: 10px;
-        font-weight: 450;
-      }
-
-      .fc-desc {
-        font-size: 13px;
-        color: #64748b;
-        line-height: 1.5;
-        margin-bottom: 12px;
-        font-weight: 450;
-      }
-      .fc-desc-sm { font-size: 11px; margin-bottom: 8px; }
-
-      .fc-cal-badge {
-        font-size: 10px;
-        color: #94a3b8;
-      }
-
-      /* ── Magazine ── */
-      .fc-magazine {
-        border-radius: 24px;
-        overflow: hidden;
-        background: #fff;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-        border: 1px solid rgba(0,0,0,0.04);
-        display: flex;
-        flex-direction: column;
-      }
-      .fc-magazine-img-wrap {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 4/3;
-        overflow: hidden;
-        background: #f1f5f9;
-      }
-      .fc-magazine-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: opacity 0.4s;
-      }
-      .fc-magazine-badges {
-        position: absolute;
-        top: 14px;
-        left: 14px;
-        display: flex;
-        gap: 6px;
-        z-index: 2;
-      }
-      .fc-magazine-overlay {
-        position: absolute;
-        inset-inline: 0;
-        bottom: 0;
-        background: linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 100%);
-        padding: 48px 18px 18px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-      }
-      .fc-magazine-name {
-        font-size: 22px;
-        font-weight: 800;
-        color: #fff;
-        line-height: 1.15;
-        margin-bottom: 6px;
-        text-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      }
-      .fc-magazine-meta {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .fc-magazine-rating {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        color: #fbbf24;
-        font-size: 13px;
-        font-weight: 700;
-      }
-      .fc-magazine-cal {
-        color: rgba(255,255,255,0.7);
-        font-size: 12px;
-        font-weight: 500;
-      }
-      .fc-magazine-body {
-        padding: 16px 18px 18px;
-        display: flex;
-        flex-direction: column;
-      }
-
-      /* ── Compact ── */
-      .fc-compact {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 0;
-      }
-      .fc-compact-img-wrap {
-        position: relative;
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        overflow: hidden;
-        background: #f1f5f9;
-        flex-shrink: 0;
-      }
-      .fc-compact-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: opacity 0.3s;
-      }
-      .fc-compact-veg-wrap {
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        background: rgba(255,255,255,0.9);
-        padding: 2px;
-        border-radius: 3px;
-        display: flex;
-      }
-      .fc-compact-oos {
-        position: absolute;
-        inset: 0;
-        background: rgba(0,0,0,0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: 8px;
-        font-weight: 800;
-        text-transform: uppercase;
-      }
-      .fc-compact-body {
-        flex: 1;
-        min-width: 0;
-      }
-      .fc-compact-name {
-        font-size: 13px;
-        font-weight: 700;
-        color: #0f172a;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .fc-compact-meta {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 2px;
-      }
-      .fc-compact-action {
-        flex-shrink: 0;
-      }
-
-      /* ── Grid ── */
-      .fc-grid {
-        border-radius: 20px;
-        overflow: hidden;
-        background: #fff;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-        border: 1px solid #f1f5f9;
-        display: flex;
-        flex-direction: column;
-      }
-      .fc-grid-img-wrap {
-        position: relative;
-        aspect-ratio: 4/3;
-        overflow: hidden;
-        background: #f1f5f9;
-      }
-      .fc-grid-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: opacity 0.3s;
-      }
-      .fc-grid-veg {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        background: rgba(255,255,255,0.9);
-        padding: 3px;
-        border-radius: 4px;
-        display: flex;
-      }
-      .fc-grid-rating {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        font-size: 10px;
-        padding: 2px 6px;
-        border-radius: 20px;
-        font-weight: 700;
-      }
-      .fc-grid-oos {
-        position: absolute;
-        bottom: 8px;
-        left: 8px;
-        background: #ef4444;
-        color: #fff;
-        font-size: 9px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 3px 8px;
-        border-radius: 8px;
-      }
-      .fc-grid-badges {
-        position: absolute;
-        bottom: 8px;
-        left: 8px;
-        display: flex;
-        gap: 4px;
-      }
-      .fc-grid-body {
-        padding: 12px;
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-      }
-      .fc-grid-name {
-        font-size: 13px;
-        font-weight: 700;
-        color: #0f172a;
-        line-height: 1.3;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        margin-bottom: 4px;
-      }
-    `}</style>
-  );
+  return null;
 }
+
 
 export default FoodCard;
