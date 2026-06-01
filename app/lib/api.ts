@@ -47,6 +47,7 @@ const PUBLIC_ROUTES = [
   "/public/otp/verify",
   "/public/otp/resend",
   "/public/session/start",
+  "/public/contact",
   "/public/restaurants/resolve",
   "/public/restaurants/",
   "/api/customer/menu",

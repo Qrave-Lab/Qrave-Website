@@ -1,21 +1,21 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import { api } from "@/app/lib/api";
+import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
+import { orderService } from "@/services/orderService";
+import { useCartStore } from "@/stores/cartStore";
 import {
   ChevronLeft,
   ChevronRight,
+  Loader2,
   Minus,
   Plus,
-  UtensilsCrossed,
-  Trash2,
   ReceiptText,
-  Loader2,
+  Trash2,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCartStore } from "@/stores/cartStore";
-import { orderService } from "@/services/orderService";
-import { api } from "@/app/lib/api";
-import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
+import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 
 const BASE_VARIANT = "__base__";
@@ -27,7 +27,13 @@ type MenuItem = {
   offerPrice?: number;
   offerLabel?: string;
   image: string;
-  variants?: { id: string; name: string; priceDelta: number; price?: number; label?: string }[];
+  variants?: {
+    id: string;
+    name: string;
+    priceDelta: number;
+    price?: number;
+    label?: string;
+  }[];
 };
 
 type CartLine = {
@@ -106,7 +112,13 @@ const DEFAULT_THEME: ThemeConfig = {
 const mergeTheme = (raw?: ThemeConfig | null): ThemeConfig => ({
   ...DEFAULT_THEME,
   ...(raw || {}),
-  bg_overlay_opacity: Math.min(0.98, Math.max(0.7, Number(raw?.bg_overlay_opacity ?? DEFAULT_THEME.bg_overlay_opacity))),
+  bg_overlay_opacity: Math.min(
+    0.98,
+    Math.max(
+      0.7,
+      Number(raw?.bg_overlay_opacity ?? DEFAULT_THEME.bg_overlay_opacity),
+    ),
+  ),
   colors: {
     ...(DEFAULT_THEME.colors || {}),
     ...(raw?.colors || {}),
@@ -116,10 +128,11 @@ const mergeTheme = (raw?: ThemeConfig | null): ThemeConfig => ({
 // Unwraps Go NullStr objects ({ String: "...", Valid: true }) that the backend
 // sends for nullable string fields. Without this, `item.imageUrl` is a truthy
 // object but NOT a valid URL string, so images never render.
-const resolve = (val: any): string => {
-  if (!val) return "";
-  if (typeof val === "object" && "String" in val) return val.String;
-  return String(val);
+const resolve = (val: any): string | null => {
+  if (!val) return null;
+  if (typeof val === "object" && "String" in val) return val.String ?? null;
+  const str = String(val).trim();
+  return str.length > 0 ? str : null;
 };
 
 const CheckoutPage: React.FC = () => {
@@ -131,8 +144,8 @@ const CheckoutPage: React.FC = () => {
       ? rawTable
       : typeof window !== "undefined"
         ? localStorage.getItem("table_number") ||
-        localStorage.getItem("table") ||
-        "7"
+          localStorage.getItem("table") ||
+          "7"
         : "7";
 
   useEffect(() => {
@@ -148,19 +161,26 @@ const CheckoutPage: React.FC = () => {
   const [isSyncingAfterPlace, setIsSyncingAfterPlace] = useState(false);
   const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
-  const [lastPlacedNums, setLastPlacedNums] = useState<{ orderNumber: number; dailyOrderNumber: number } | null>(null);
+  const [lastPlacedNums, setLastPlacedNums] = useState<{
+    orderNumber: number;
+    dailyOrderNumber: number;
+  } | null>(null);
   const [isSeparateBill, setIsSeparateBill] = useState(false);
   const [isTableOccupied, setIsTableOccupied] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCouponDiscount, setAppliedCouponDiscount] = useState(0);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponDrawerOpen, setCouponDrawerOpen] = useState(false);
-  const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
+  const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>(
+    [],
+  );
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [myOrderIds, setMyOrderIds] = useState<Set<string>>(new Set());
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
-  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>(
+    [],
+  );
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => {
     if (typeof window === "undefined") return DEFAULT_THEME;
     try {
@@ -170,6 +190,9 @@ const CheckoutPage: React.FC = () => {
       return DEFAULT_THEME;
     }
   });
+  const [orderBreakdowns, setOrderBreakdowns] = useState<Record<string, any>>(
+    {},
+  );
 
   const {
     cart,
@@ -192,7 +215,9 @@ const CheckoutPage: React.FC = () => {
     try {
       const stored = JSON.parse(localStorage.getItem("my_order_ids") || "[]");
       if (Array.isArray(stored)) setMyOrderIds(new Set(stored));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     const ensureSession = async () => {
       if (typeof window === "undefined") return null;
@@ -205,33 +230,45 @@ const CheckoutPage: React.FC = () => {
       const rawTable =
         tableNumber && tableNumber !== "N/A"
           ? tableNumber
-          : localStorage.getItem("table_number") || localStorage.getItem("table");
+          : localStorage.getItem("table_number") ||
+            localStorage.getItem("table");
 
       if (!rawTable) return null;
 
       const isUUID =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTable);
-      const normalizedTable = rawTable.trim().toLowerCase().startsWith("t") ? rawTable.trim().slice(1) : rawTable.trim();
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          rawTable,
+        );
+      const normalizedTable = rawTable.trim().toLowerCase().startsWith("t")
+        ? rawTable.trim().slice(1)
+        : rawTable.trim();
       const tableNumberParsed = Number.parseInt(normalizedTable, 10);
 
       try {
         if (!Number.isNaN(tableNumberParsed)) {
           if (!restaurantId) return null;
-          const res = await api<{ session_id: string }>("/public/session/start", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              restaurant_id: restaurantId,
-              table_number: tableNumberParsed,
-            }),
-            credentials: "include",
-          });
+          const res = await api<{ session_id: string }>(
+            "/public/session/start",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                restaurant_id: restaurantId,
+                table_number: tableNumberParsed,
+              }),
+              credentials: "include",
+            },
+          );
           localStorage.setItem("session_id", res.session_id);
           return res.session_id;
         }
 
         if (isUUID) {
-          const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number }>("/public/session/start", {
+          const res = await api<{
+            session_id: string;
+            restaurant_id?: string;
+            table_number?: number;
+          }>("/public/session/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -266,7 +303,10 @@ const CheckoutPage: React.FC = () => {
         orderService.getMenu(),
         orderService.getCart(),
         orderService.getOrders(),
-        api<{ popular_with_this?: RecommendationItem[]; margin_aware?: RecommendationItem[] }>("/api/customer/recommendations", { method: "GET" }),
+        api<{
+          popular_with_this?: RecommendationItem[];
+          margin_aware?: RecommendationItem[];
+        }>("/api/customer/recommendations", { method: "GET" }),
       ])
         .then(([menu, cartRes, ordersRes, recoRes]) => {
           const mapped =
@@ -274,18 +314,18 @@ const CheckoutPage: React.FC = () => {
               const basePrice = Number(i.price || 0);
               const variants = Array.isArray(i.variants)
                 ? i.variants.map((v: any) => {
-                  const variantPrice = Number(v.price ?? 0);
-                  return {
-                    id: String(v.id),
-                    name: v.name ?? v.label ?? "",
-                    label: v.label,
-                    price: variantPrice,
-                    priceDelta:
-                      typeof v.priceDelta === "number"
-                        ? v.priceDelta
-                        : variantPrice - basePrice,
-                  };
-                })
+                    const variantPrice = Number(v.price ?? 0);
+                    return {
+                      id: String(v.id),
+                      name: v.name ?? v.label ?? "",
+                      label: v.label,
+                      price: variantPrice,
+                      priceDelta:
+                        typeof v.priceDelta === "number"
+                          ? v.priceDelta
+                          : variantPrice - basePrice,
+                    };
+                  })
                 : [];
 
               return {
@@ -301,10 +341,7 @@ const CheckoutPage: React.FC = () => {
                 offerLabel: i.offerLabel || i.offer_label,
                 variants,
                 // backend sends imageUrl as a NullStr {String,Valid} object — must use resolve()
-                image:
-                  resolve(i.imageUrl) ||
-                  resolve(i.image) ||
-                  "",
+                image: resolve(i.imageUrl) ?? resolve(i.image) ?? null,
               };
             }) || [];
 
@@ -326,11 +363,13 @@ const CheckoutPage: React.FC = () => {
           ];
           // Preserve full recommendation data (id + image_url + name + price) — don't strip to just {id}
           const seen = new Set<string>();
-          const unique = recos.filter((r) => {
-            if (seen.has(String(r.id))) return false;
-            seen.add(String(r.id));
-            return true;
-          }).slice(0, 4);
+          const unique = recos
+            .filter((r) => {
+              if (seen.has(String(r.id))) return false;
+              seen.add(String(r.id));
+              return true;
+            })
+            .slice(0, 4);
           setRecommendations(unique);
         })
         .finally(() => {
@@ -394,7 +433,9 @@ const CheckoutPage: React.FC = () => {
       if (!rid || cancelled) return;
 
       try {
-        const logo = await api<{ logo_url?: string | null }>(`/public/restaurants/${rid}/logo`);
+        const logo = await api<{ logo_url?: string | null }>(
+          `/public/restaurants/${rid}/logo`,
+        );
         if (cancelled) return;
         if (logo?.logo_url) {
           setRestaurantLogoUrl(logo.logo_url);
@@ -403,10 +444,13 @@ const CheckoutPage: React.FC = () => {
         // keep checkout header usable with text fallback
       }
       try {
-        const theme = await api<{ theme_config?: ThemeConfig }>(`/public/restaurants/${rid}/theme`, {
-          skipAuthRedirect: true,
-          suppressErrorLog: true,
-        });
+        const theme = await api<{ theme_config?: ThemeConfig }>(
+          `/public/restaurants/${rid}/theme`,
+          {
+            skipAuthRedirect: true,
+            suppressErrorLog: true,
+          },
+        );
         if (cancelled) return;
         if (theme?.theme_config) {
           const merged = mergeTheme(theme.theme_config);
@@ -435,8 +479,10 @@ const CheckoutPage: React.FC = () => {
     ["--co-text" as string]: activeTheme.colors?.text || "#0F172A",
     ["--co-muted" as string]: activeTheme.colors?.muted || "#64748B",
     ["--co-accent" as string]: activeTheme.colors?.accent || "#0F172A",
-    ["--co-accent-text" as string]: activeTheme.colors?.accent_text || "#FFFFFF",
-    ["--co-font" as string]: activeTheme.font_family || "'Inter','Segoe UI',sans-serif",
+    ["--co-accent-text" as string]:
+      activeTheme.colors?.accent_text || "#FFFFFF",
+    ["--co-font" as string]:
+      activeTheme.font_family || "'Inter','Segoe UI',sans-serif",
     backgroundColor: "var(--co-bg)",
     color: "var(--co-text)",
     fontFamily: "var(--co-font)",
@@ -456,7 +502,8 @@ const CheckoutPage: React.FC = () => {
 
         const [itemId, rawVariantId] = key.split("::");
         const normalizedVariantId =
-          rawVariantId && rawVariantId !== "00000000-0000-0000-0000-000000000000"
+          rawVariantId &&
+          rawVariantId !== "00000000-0000-0000-0000-000000000000"
             ? rawVariantId
             : BASE_VARIANT;
 
@@ -471,8 +518,9 @@ const CheckoutPage: React.FC = () => {
         const unitPrice =
           cartItem.price ||
           (variant?.price ??
-            ((typeof item.offerPrice === "number" ? item.offerPrice : item.price) +
-              (variant?.priceDelta || 0)));
+            (typeof item.offerPrice === "number"
+              ? item.offerPrice
+              : item.price) + (variant?.priceDelta || 0));
 
         return {
           key,
@@ -504,19 +552,42 @@ const CheckoutPage: React.FC = () => {
       o.id !== currentOrderId &&
       o.status !== "cart" &&
       Array.isArray(o.items) &&
-      o.items.length > 0
+      o.items.length > 0,
   );
 
   const placedOrders = isSeparateBill
     ? allPlacedOrders.filter((o) => myOrderIds.has(o.id))
     : allPlacedOrders;
 
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchBreakdowns() {
+      const breakdowns: Record<string, any> = {};
+      await Promise.all(
+        placedOrders.map(async (order) => {
+          try {
+            breakdowns[order.id] = await orderService.getTotalBreakdown(
+              order.id,
+            );
+          } catch {
+            breakdowns[order.id] = null;
+          }
+        }),
+      );
+      if (!cancelled) setOrderBreakdowns(breakdowns);
+    }
+    if (placedOrders.length > 0) fetchBreakdowns();
+    return () => {
+      cancelled = true;
+    };
+  }, [placedOrders]);
+
   const cartSubtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
 
   const previousOrdersTotal = placedOrders
     .filter((o) => o.status !== "cancelled")
     .reduce((acc, order) => {
-      return acc + order.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+      return acc + order.items.reduce((s, i) => s + i.price * i.quantity, 0);
     }, 0);
 
   const subtotal = cartSubtotal + previousOrdersTotal;
@@ -531,20 +602,63 @@ const CheckoutPage: React.FC = () => {
     setIsSyncingAfterPlace(false);
 
     try {
-      const orderId = localStorage.getItem("order_id");
+      let orderId = localStorage.getItem("order_id");
       if (!orderId) {
         toast.error("Session expired");
         return;
       }
-      const finalizeRes = await orderService.finalizeOrder(orderId);
+      let finalizeRes;
+      try {
+        finalizeRes = await orderService.finalizeOrder(orderId);
+      } catch (err: any) {
+        const msg = String(err?.message || "").toLowerCase();
+        if (
+          msg.includes("order not found") ||
+          msg.includes("no rows") ||
+          msg.includes("order_id is required") ||
+          msg.includes("uuid")
+        ) {
+          localStorage.removeItem("order_id");
+          const freshOrderId = await orderService.ensureOrderId();
+          if (freshOrderId) {
+            orderId = freshOrderId;
+            const currentCart = useCartStore.getState().cart;
+            for (const [key, item] of Object.entries(currentCart)) {
+              const [menuItemId, variantId] = key.split("::");
+              const cleanVariantId =
+                variantId === "undefined" || variantId === "null" || !variantId
+                  ? null
+                  : variantId;
+              for (let i = 0; i < item.quantity; i++) {
+                await orderService.addItem(
+                  menuItemId,
+                  cleanVariantId,
+                  item.price,
+                );
+              }
+            }
+            finalizeRes = await orderService.finalizeOrder(orderId);
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
       const orderNumber = finalizeRes?.order_number ?? null;
       const dailyOrderNumber = finalizeRes?.daily_order_number ?? null;
       if (orderNumber && dailyOrderNumber) {
         setLastPlacedNums({ orderNumber, dailyOrderNumber });
       }
-      toast.success(dailyOrderNumber ? `Order #${dailyOrderNumber} placed!` : "Order placed!");
+      toast.success(
+        dailyOrderNumber
+          ? `Order #${dailyOrderNumber} placed!`
+          : "Order placed!",
+      );
 
-      const prevIds: string[] = JSON.parse(localStorage.getItem("my_order_ids") || "[]");
+      const prevIds: string[] = JSON.parse(
+        localStorage.getItem("my_order_ids") || "[]",
+      );
       if (!prevIds.includes(orderId)) prevIds.push(orderId);
       localStorage.setItem("my_order_ids", JSON.stringify(prevIds));
       setMyOrderIds(new Set(prevIds));
@@ -581,7 +695,11 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  const handleCancelOrderItem = async (orderId: string, itemId: string, variantId: string) => {
+  const handleCancelOrderItem = async (
+    orderId: string,
+    itemId: string,
+    variantId: string,
+  ) => {
     try {
       await orderService.cancelOrderItem(orderId, itemId, variantId || null, 1);
       toast.success("Item cancelled");
@@ -617,16 +735,18 @@ const CheckoutPage: React.FC = () => {
   const currentCartHasItems = lines.length > 0;
   const hasPlacedOrders = placedOrders.length > 0;
   // Merge reco data with menuItems (reco has image_url/name/price from backend)
-  const recommendationItems = recommendations.map((rec) => {
-    const cached = menuItems.find((m) => m.id === String(rec.id));
-    return {
-      id: String(rec.id),
-      name: cached?.name || rec.name || "Item",
-      price: cached?.price ?? rec.price ?? 0,
-      offerPrice: cached?.offerPrice,
-      image: cached?.image || rec.image_url || "",
-    };
-  }).filter((r) => r.price > 0);
+  const recommendationItems = recommendations
+    .map((rec) => {
+      const cached = menuItems.find((m) => m.id === String(rec.id));
+      return {
+        id: String(rec.id),
+        name: cached?.name || rec.name || "Item",
+        price: cached?.price ?? rec.price ?? 0,
+        offerPrice: cached?.offerPrice,
+        image: cached?.image || rec.image_url || "",
+      };
+    })
+    .filter((r) => r.price > 0);
 
   return (
     <div className="min-h-screen pb-40" style={themedAppStyle}>
@@ -644,29 +764,59 @@ const CheckoutPage: React.FC = () => {
           <button
             onClick={() => router.back()}
             className="flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90"
-            style={{ background: "color-mix(in srgb, var(--co-muted) 12%, transparent)" }}
+            style={{
+              background:
+                "color-mix(in srgb, var(--co-muted) 12%, transparent)",
+            }}
           >
-            <ChevronLeft className="h-4 w-4" style={{ color: "var(--co-text)" }} />
+            <ChevronLeft
+              className="h-4 w-4"
+              style={{ color: "var(--co-text)" }}
+            />
           </button>
 
           <div className="flex items-center gap-2.5">
             {restaurantLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={restaurantLogoUrl} alt="logo" className="h-8 w-8 rounded-full object-cover" />
+              <img
+                src={restaurantLogoUrl}
+                alt="logo"
+                className="h-8 w-8 rounded-full object-cover"
+              />
             ) : (
-              <div className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-black" style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}>
+              <div
+                className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-black"
+                style={{
+                  background: "var(--co-accent)",
+                  color: "var(--co-accent-text)",
+                }}
+              >
                 {(restaurantName || "R").slice(0, 1).toUpperCase()}
               </div>
             )}
             <div>
-              <p className="text-xs font-black leading-none" style={{ color: "var(--co-text)" }}>{restaurantName}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: "var(--co-muted)" }}>Table {tableNumber}</p>
+              <p
+                className="text-xs font-black leading-none"
+                style={{ color: "var(--co-text)" }}
+              >
+                {restaurantName}
+              </p>
+              <p
+                className="text-[10px] mt-0.5"
+                style={{ color: "var(--co-muted)" }}
+              >
+                Table {tableNumber}
+              </p>
             </div>
           </div>
 
           <div
             className="rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest"
-            style={{ background: "color-mix(in srgb, var(--co-accent) 12%, transparent)", color: "var(--co-accent)" }}
+            style={{
+              background:
+                "color-mix(in srgb, var(--co-accent) 12%, transparent)",
+              color: "var(--co-accent)",
+            }}
           >
             Checkout
           </div>
@@ -678,28 +828,50 @@ const CheckoutPage: React.FC = () => {
           /* ── Empty State ──────────────────────────────────────────── */
           <div className="flex min-h-[65vh] flex-col items-center justify-center text-center gap-6">
             <div className="relative">
-              <div className="h-32 w-32 rounded-full flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--co-accent) 8%, transparent)" }}>
-                <UtensilsCrossed className="h-14 w-14" style={{ color: "color-mix(in srgb, var(--co-accent) 40%, transparent)" }} />
+              <div
+                className="h-32 w-32 rounded-full flex items-center justify-center"
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--co-accent) 8%, transparent)",
+                }}
+              >
+                <UtensilsCrossed
+                  className="h-14 w-14"
+                  style={{
+                    color:
+                      "color-mix(in srgb, var(--co-accent) 40%, transparent)",
+                  }}
+                />
               </div>
               <div className="absolute -bottom-2 -right-2 text-3xl">🍽️</div>
             </div>
             <div>
-              <h2 className="text-2xl font-black" style={{ color: "var(--co-text)" }}>Your cart is empty</h2>
-              <p className="mt-2 text-sm leading-relaxed max-w-[220px] mx-auto" style={{ color: "var(--co-muted)" }}>
+              <h2
+                className="text-2xl font-black"
+                style={{ color: "var(--co-text)" }}
+              >
+                Your cart is empty
+              </h2>
+              <p
+                className="mt-2 text-sm leading-relaxed max-w-[220px] mx-auto"
+                style={{ color: "var(--co-muted)" }}
+              >
                 Your table is set. Pick something delicious!
               </p>
             </div>
             <button
               onClick={() => router.push("/menu")}
               className="rounded-2xl px-10 py-4 text-sm font-bold shadow-xl transition-all active:scale-95"
-              style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+              style={{
+                background: "var(--co-accent)",
+                color: "var(--co-accent-text)",
+              }}
             >
               Browse Menu →
             </button>
           </div>
         ) : (
           <div className="space-y-6">
-
             {/* ── Previous Orders ─────────────────────────────────────── */}
             {hasPlacedOrders && (
               <section>
@@ -707,13 +879,18 @@ const CheckoutPage: React.FC = () => {
                 {lastPlacedNums && (
                   <div
                     className="mb-3 flex items-center gap-3 rounded-2xl px-4 py-3"
-                    style={{ background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.25)" }}
+                    style={{
+                      background: "rgba(16,185,129,0.10)",
+                      border: "1px solid rgba(16,185,129,0.25)",
+                    }}
                   >
                     <span className="text-xl">✅</span>
                     <div>
                       <p className="text-sm font-black text-emerald-700">
                         Order&nbsp;
-                        <span className="text-base">#{lastPlacedNums.dailyOrderNumber}</span>
+                        <span className="text-base">
+                          #{lastPlacedNums.dailyOrderNumber}
+                        </span>
                         &nbsp;placed!
                       </p>
                       <p className="text-[10px] text-emerald-600 mt-0.5">
@@ -722,14 +899,21 @@ const CheckoutPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-                <p className="mb-3 text-[10px] font-black uppercase tracking-widest px-1" style={{ color: "var(--co-muted)" }}>
+                <p
+                  className="mb-3 text-[10px] font-black uppercase tracking-widest px-1"
+                  style={{ color: "var(--co-muted)" }}
+                >
                   Previous Orders
                 </p>
                 <div className="space-y-3">
                   {placedOrders.map((order) => {
                     const isCancelled = order.status === "cancelled";
-                    const isCompleted = order.status === "completed" || order.status === "served";
-                    const isAccepted = order.status === "accepted" || order.status === "preparing" || order.status === "ready";
+                    const isCompleted =
+                      order.status === "completed" || order.status === "served";
+                    const isAccepted =
+                      order.status === "accepted" ||
+                      order.status === "preparing" ||
+                      order.status === "ready";
 
                     const statusBg = isCancelled
                       ? "rgba(239,68,68,0.10)"
@@ -742,70 +926,195 @@ const CheckoutPage: React.FC = () => {
                         ? "#059669"
                         : "var(--co-muted)";
 
+                    const breakdown = orderBreakdowns[order.id];
+                    const eta = breakdown?.eta;
+                    const progress = breakdown?.progress;
+                    const progressLabel = breakdown?.progress_label;
+
                     return (
-                    <div key={order.id} className="rounded-2xl border overflow-hidden" style={{
-                      ...themedSurfaceStyle,
-                      borderColor: isCancelled ? "rgba(239,68,68,0.25)" : undefined,
-                      opacity: isCancelled ? 0.75 : 1,
-                    }}>
                       <div
-                        className="flex items-center justify-between px-4 py-2.5"
-                        style={{ background: "color-mix(in srgb, var(--co-muted) 6%, transparent)", borderBottom: "1px solid color-mix(in srgb, var(--co-muted) 12%, transparent)" }}
+                        key={order.id}
+                        className="rounded-2xl border overflow-hidden"
+                        style={{
+                          ...themedSurfaceStyle,
+                          borderColor: isCancelled
+                            ? "rgba(239,68,68,0.25)"
+                            : undefined,
+                          opacity: isCancelled ? 0.75 : 1,
+                        }}
                       >
-                        <div className="flex items-center gap-2">
-                          {/* Daily order number badge */}
-                          {order.daily_order_number ? (
+                        <div
+                          className="flex items-center justify-between px-4 py-2.5"
+                          style={{
+                            background:
+                              "color-mix(in srgb, var(--co-muted) 6%, transparent)",
+                            borderBottom:
+                              "1px solid color-mix(in srgb, var(--co-muted) 12%, transparent)",
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {/* Daily order number badge */}
+                            {order.daily_order_number ? (
+                              <span
+                                className="rounded-lg px-2 py-0.5 text-xs font-black"
+                                style={{
+                                  background: "var(--co-accent)",
+                                  color: "var(--co-accent-text)",
+                                }}
+                              >
+                                #{order.daily_order_number}
+                              </span>
+                            ) : (
+                              <span
+                                className="text-[10px] font-bold uppercase tracking-widest"
+                                style={{ color: "var(--co-muted)" }}
+                              >
+                                #{order.id.slice(0, 6).toUpperCase()}
+                              </span>
+                            )}
                             <span
-                              className="rounded-lg px-2 py-0.5 text-xs font-black"
-                              style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                              className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
+                              style={{
+                                background: statusBg,
+                                color: statusColor,
+                              }}
                             >
-                              #{order.daily_order_number}
+                              {isCancelled ? "Cancelled" : order.status}
                             </span>
-                          ) : (
-                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>#{order.id.slice(0, 6).toUpperCase()}</span>
+                            {/* Removed overall order number for professionalism */}
+                          </div>
+                          {order.status === "pending" && (
+                            <button
+                              onClick={() => handleCancelOrder(order.id)}
+                              className="rounded-lg px-2.5 py-1 text-[10px] font-bold text-rose-600"
+                              style={{ background: "rgba(239,68,68,0.08)" }}
+                            >
+                              Cancel
+                            </button>
                           )}
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
-                            style={{ background: statusBg, color: statusColor }}
-                          >
-                            {isCancelled ? "Cancelled" : order.status}
-                          </span>
-                          {/* Removed overall order number for professionalism */}
                         </div>
-                        {order.status === "pending" && (
-                          <button onClick={() => handleCancelOrder(order.id)} className="rounded-lg px-2.5 py-1 text-[10px] font-bold text-rose-600" style={{ background: "rgba(239,68,68,0.08)" }}>
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                      <div className="px-4 py-3 space-y-2">
-                        {isCancelled && (
-                          <p className="text-[10px] font-semibold text-rose-500 mb-1">This order was cancelled.</p>
-                        )}
-                        {order.items.map((item, idx) => {
-                          const menuItem = menuItems.find((m) => m.id === item.menu_item_id);
-                          const variant = menuItem?.variants?.find((v) => v.id === item.variant_id);
-                          const variantLabel = variant?.name || variant?.label;
-                          const name = menuItem ? (variantLabel ? `${menuItem.name} · ${variantLabel}` : menuItem.name) : "Unknown Item";
-                          return (
-                            <div key={`${order.id}-${idx}`} className="flex items-center justify-between gap-3" style={{ opacity: isCancelled ? 0.6 : 1 }}>
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="flex-none h-5 w-5 rounded text-[10px] font-black flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--co-accent) 10%, transparent)", color: "var(--co-accent)" }}>
-                                  {item.quantity}
-                                </span>
-                                <span className="text-sm truncate" style={{ color: "var(--co-text)" }}>{name}</span>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-sm font-bold" style={{ color: "var(--co-text)" }}>₹{item.price * item.quantity}</span>
-                                {order.status === "pending" && (
-                                  <button onClick={() => handleCancelOrderItem(order.id, item.menu_item_id, item.variant_id)} className="text-[10px] font-bold text-rose-500 hover:underline">✕</button>
+                        {(eta || progress !== undefined) && (
+                          <div
+                            className="px-4 pt-3 pb-2 border-b"
+                            style={{
+                              borderColor:
+                                "color-mix(in srgb, var(--co-muted) 12%, transparent)",
+                            }}
+                          >
+                            <div
+                              className="flex items-center justify-between text-[11px] font-semibold"
+                              style={{ color: "var(--co-muted)" }}
+                            >
+                              <span>
+                                {eta
+                                  ? `ETA: ${eta}`
+                                  : progressLabel
+                                    ? progressLabel
+                                    : "Order progress"}
+                              </span>
+                              {typeof progress === "number" &&
+                                progress >= 0 &&
+                                progress <= 100 && (
+                                  <span
+                                    className="text-[10px] font-bold"
+                                    style={{ color: "var(--co-accent)" }}
+                                  >
+                                    {progress}%
+                                  </span>
                                 )}
-                              </div>
                             </div>
-                          );
-                        })}
+                            {typeof progress === "number" &&
+                              progress >= 0 &&
+                              progress <= 100 && (
+                                <div
+                                  className="mt-2 h-1.5 w-full rounded-full overflow-hidden"
+                                  style={{
+                                    background:
+                                      "color-mix(in srgb, var(--co-muted) 18%, transparent)",
+                                  }}
+                                >
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, progress))}%`,
+                                      background: "var(--co-accent)",
+                                    }}
+                                  />
+                                </div>
+                              )}
+                          </div>
+                        )}
+                        <div className="px-4 py-3 space-y-2">
+                          {isCancelled && (
+                            <p className="text-[10px] font-semibold text-rose-500 mb-1">
+                              This order was cancelled.
+                            </p>
+                          )}
+                          {order.items.map((item, idx) => {
+                            const menuItem = menuItems.find(
+                              (m) => m.id === item.menu_item_id,
+                            );
+                            const variant = menuItem?.variants?.find(
+                              (v) => v.id === item.variant_id,
+                            );
+                            const variantLabel =
+                              variant?.name || variant?.label;
+                            const name = menuItem
+                              ? variantLabel
+                                ? `${menuItem.name} · ${variantLabel}`
+                                : menuItem.name
+                              : "Unknown Item";
+                            return (
+                              <div
+                                key={`${order.id}-${idx}`}
+                                className="flex items-center justify-between gap-3"
+                                style={{ opacity: isCancelled ? 0.6 : 1 }}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className="flex-none h-5 w-5 rounded text-[10px] font-black flex items-center justify-center"
+                                    style={{
+                                      background:
+                                        "color-mix(in srgb, var(--co-accent) 10%, transparent)",
+                                      color: "var(--co-accent)",
+                                    }}
+                                  >
+                                    {item.quantity}
+                                  </span>
+                                  <span
+                                    className="text-sm truncate"
+                                    style={{ color: "var(--co-text)" }}
+                                  >
+                                    {name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span
+                                    className="text-sm font-bold"
+                                    style={{ color: "var(--co-text)" }}
+                                  >
+                                    ₹{item.price * item.quantity}
+                                  </span>
+                                  {order.status === "pending" && (
+                                    <button
+                                      onClick={() =>
+                                        handleCancelOrderItem(
+                                          order.id,
+                                          item.menu_item_id,
+                                          item.variant_id,
+                                        )
+                                      }
+                                      className="text-[10px] font-bold text-rose-500 hover:underline"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
@@ -817,8 +1126,18 @@ const CheckoutPage: React.FC = () => {
               <section>
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Your Selection</p>
-                    <p className="text-lg font-black" style={{ color: "var(--co-text)" }}>{lines.length} {lines.length === 1 ? "item" : "items"}</p>
+                    <p
+                      className="text-[10px] font-black uppercase tracking-widest"
+                      style={{ color: "var(--co-muted)" }}
+                    >
+                      Your Selection
+                    </p>
+                    <p
+                      className="text-lg font-black"
+                      style={{ color: "var(--co-text)" }}
+                    >
+                      {lines.length} {lines.length === 1 ? "item" : "items"}
+                    </p>
                   </div>
                   {!isWaitingConfirmation && (
                     <button
@@ -832,7 +1151,11 @@ const CheckoutPage: React.FC = () => {
                 </div>
                 <div className="space-y-2.5">
                   {lines.map((line) => (
-                    <div key={line.key} className="flex gap-3 rounded-2xl p-3 transition-all" style={themedSurfaceStyle}>
+                    <div
+                      key={line.key}
+                      className="flex gap-3 rounded-2xl p-3 transition-all"
+                      style={themedSurfaceStyle}
+                    >
                       <div className="h-[72px] w-[72px] shrink-0 rounded-xl overflow-hidden relative">
                         {line.item.image ? (
                           <img
@@ -843,39 +1166,87 @@ const CheckoutPage: React.FC = () => {
                               e.currentTarget.style.display = "none";
                               const p = e.currentTarget.parentElement;
                               if (p) {
-                                p.style.background = "linear-gradient(135deg,#667eea,#764ba2)";
-                                p.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:1.5rem'>🍽️</div>";
+                                p.style.background =
+                                  "linear-gradient(135deg,#667eea,#764ba2)";
+                                p.innerHTML =
+                                  "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:1.5rem'>🍽️</div>";
                               }
                             }}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl" style={{ background: "linear-gradient(135deg,#667eea,#764ba2)" }}>🍽️</div>
+                          <div
+                            className="w-full h-full flex items-center justify-center text-2xl"
+                            style={{
+                              background:
+                                "linear-gradient(135deg,#667eea,#764ba2)",
+                            }}
+                          >
+                            🍽️
+                          </div>
                         )}
                       </div>
                       <div className="flex flex-1 flex-col justify-between min-w-0 py-0.5">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-bold leading-snug line-clamp-2" style={{ color: "var(--co-text)" }}>{line.item.name}</p>
-                          <p className="text-sm font-black shrink-0" style={{ color: "var(--co-text)" }}>₹{line.lineTotal}</p>
+                          <p
+                            className="text-sm font-bold leading-snug line-clamp-2"
+                            style={{ color: "var(--co-text)" }}
+                          >
+                            {line.item.name}
+                          </p>
+                          <p
+                            className="text-sm font-black shrink-0"
+                            style={{ color: "var(--co-text)" }}
+                          >
+                            ₹{line.lineTotal}
+                          </p>
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-[11px]" style={{ color: "var(--co-muted)" }}>₹{line.unitPrice} each</p>
+                          <p
+                            className="text-[11px]"
+                            style={{ color: "var(--co-muted)" }}
+                          >
+                            ₹{line.unitPrice} each
+                          </p>
                           {!isWaitingConfirmation && (
                             <div
                               className="flex items-center rounded-full overflow-hidden border"
-                              style={{ borderColor: "color-mix(in srgb, var(--co-muted) 18%, transparent)" }}
+                              style={{
+                                borderColor:
+                                  "color-mix(in srgb, var(--co-muted) 18%, transparent)",
+                              }}
                             >
                               <button
-                                onClick={() => decrementItem(line.item.id, line.variantId)}
+                                onClick={() =>
+                                  decrementItem(line.item.id, line.variantId)
+                                }
                                 className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
-                                style={{ color: "var(--co-text)", background: "color-mix(in srgb, var(--co-muted) 8%, transparent)" }}
+                                style={{
+                                  color: "var(--co-text)",
+                                  background:
+                                    "color-mix(in srgb, var(--co-muted) 8%, transparent)",
+                                }}
                               >
                                 <Minus className="h-3 w-3" />
                               </button>
-                              <span className="w-8 text-center text-xs font-black" style={{ color: "var(--co-text)" }}>{line.quantity}</span>
+                              <span
+                                className="w-8 text-center text-xs font-black"
+                                style={{ color: "var(--co-text)" }}
+                              >
+                                {line.quantity}
+                              </span>
                               <button
-                                onClick={() => addItem(line.item.id, line.variantId, line.unitPrice)}
+                                onClick={() =>
+                                  addItem(
+                                    line.item.id,
+                                    line.variantId,
+                                    line.unitPrice,
+                                  )
+                                }
                                 className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
-                                style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                                style={{
+                                  background: "var(--co-accent)",
+                                  color: "var(--co-accent-text)",
+                                }}
                               >
                                 <Plus className="h-3 w-3" />
                               </button>
@@ -894,18 +1265,40 @@ const CheckoutPage: React.FC = () => {
               <section>
                 <div className="flex items-end justify-between mb-3 px-1">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-accent)" }}>✦ You might also like</p>
-                    <p className="text-base font-black" style={{ color: "var(--co-text)" }}>Pair it perfectly</p>
+                    <p
+                      className="text-[10px] font-black uppercase tracking-widest"
+                      style={{ color: "var(--co-accent)" }}
+                    >
+                      ✦ You might also like
+                    </p>
+                    <p
+                      className="text-base font-black"
+                      style={{ color: "var(--co-text)" }}
+                    >
+                      Pair it perfectly
+                    </p>
                   </div>
-                  <p className="text-[11px]" style={{ color: "var(--co-muted)" }}>{recommendationItems.length} picks</p>
+                  <p
+                    className="text-[11px]"
+                    style={{ color: "var(--co-muted)" }}
+                  >
+                    {recommendationItems.length} picks
+                  </p>
                 </div>
                 <div className="-mx-5 px-5">
-                  <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+                  <div
+                    className="flex gap-3 overflow-x-auto pb-2"
+                    style={{ scrollbarWidth: "none" }}
+                  >
                     {recommendationItems.map((item) => (
                       <div
                         key={`reco-${item.id}`}
                         className="flex-none w-40 rounded-2xl overflow-hidden"
-                        style={{ ...themedSurfaceStyle, border: "1px solid color-mix(in srgb, var(--co-muted) 15%, transparent)" }}
+                        style={{
+                          ...themedSurfaceStyle,
+                          border:
+                            "1px solid color-mix(in srgb, var(--co-muted) 15%, transparent)",
+                        }}
                       >
                         <div className="h-28 relative overflow-hidden">
                           {item.image ? (
@@ -918,22 +1311,51 @@ const CheckoutPage: React.FC = () => {
                                 t.style.display = "none";
                                 const p = t.parentElement;
                                 if (p) {
-                                  p.style.background = "linear-gradient(135deg,#667eea,#764ba2)";
-                                  p.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:2.25rem'>🍽️</div>";
+                                  p.style.background =
+                                    "linear-gradient(135deg,#667eea,#764ba2)";
+                                  p.innerHTML =
+                                    "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:2.25rem'>🍽️</div>";
                                 }
                               }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "linear-gradient(135deg,#667eea,#764ba2)" }}>🍽️</div>
+                            <div
+                              className="w-full h-full flex items-center justify-center text-4xl"
+                              style={{
+                                background:
+                                  "linear-gradient(135deg,#667eea,#764ba2)",
+                              }}
+                            >
+                              🍽️
+                            </div>
                           )}
                         </div>
                         <div className="p-3">
-                          <p className="truncate text-xs font-bold" style={{ color: "var(--co-text)" }}>{item.name}</p>
-                          <p className="text-[11px] mt-0.5 font-semibold" style={{ color: "var(--co-muted)" }}>₹{item.offerPrice ?? item.price}</p>
+                          <p
+                            className="truncate text-xs font-bold"
+                            style={{ color: "var(--co-text)" }}
+                          >
+                            {item.name}
+                          </p>
+                          <p
+                            className="text-[11px] mt-0.5 font-semibold"
+                            style={{ color: "var(--co-muted)" }}
+                          >
+                            ₹{item.offerPrice ?? item.price}
+                          </p>
                           <button
-                            onClick={() => addItem(item.id, "", Number(item.offerPrice ?? item.price))}
+                            onClick={() =>
+                              addItem(
+                                item.id,
+                                "",
+                                Number(item.offerPrice ?? item.price),
+                              )
+                            }
                             className="mt-2.5 w-full rounded-xl py-1.5 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95"
-                            style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                            style={{
+                              background: "var(--co-accent)",
+                              color: "var(--co-accent-text)",
+                            }}
                           >
                             + Add
                           </button>
@@ -948,7 +1370,11 @@ const CheckoutPage: React.FC = () => {
             {/* ── Coupons & Offers ─────────────────────────────────────── */}
             <section
               className="rounded-2xl overflow-hidden"
-              style={{ ...themedSurfaceStyle, border: "1.5px dashed color-mix(in srgb, var(--co-accent) 35%, transparent)" }}
+              style={{
+                ...themedSurfaceStyle,
+                border:
+                  "1.5px dashed color-mix(in srgb, var(--co-accent) 35%, transparent)",
+              }}
             >
               <button
                 type="button"
@@ -958,9 +1384,14 @@ const CheckoutPage: React.FC = () => {
                   if (next && availableCoupons.length === 0) {
                     setCouponsLoading(true);
                     try {
-                      const res = await api<{ offers?: AvailableCoupon[]; coupons?: AvailableCoupon[] }>("/api/customer/offers");
+                      const res = await api<{
+                        offers?: AvailableCoupon[];
+                        coupons?: AvailableCoupon[];
+                      }>("/api/customer/offers");
                       setAvailableCoupons(res?.coupons || []);
-                    } catch { /* silent */ } finally {
+                    } catch {
+                      /* silent */
+                    } finally {
                       setCouponsLoading(false);
                     }
                   }
@@ -970,28 +1401,62 @@ const CheckoutPage: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-xl">🏷️</span>
                   <div className="text-left">
-                    <p className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--co-accent)" }}>Coupons &amp; Offers</p>
+                    <p
+                      className="text-xs font-black uppercase tracking-widest"
+                      style={{ color: "var(--co-accent)" }}
+                    >
+                      Coupons &amp; Offers
+                    </p>
                     {couponDiscount > 0 ? (
-                      <p className="text-sm font-bold text-emerald-600">✓ ₹{couponDiscount} saved!</p>
+                      <p className="text-sm font-bold text-emerald-600">
+                        ✓ ₹{couponDiscount} saved!
+                      </p>
                     ) : (
-                      <p className="text-sm font-medium" style={{ color: "var(--co-muted)" }}>View available deals</p>
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: "var(--co-muted)" }}
+                      >
+                        View available deals
+                      </p>
                     )}
                   </div>
                 </div>
-                <ChevronRight className={`h-4 w-4 transition-transform duration-300 ${couponDrawerOpen ? "rotate-90" : ""}`} style={{ color: "var(--co-muted)" }} />
+                <ChevronRight
+                  className={`h-4 w-4 transition-transform duration-300 ${couponDrawerOpen ? "rotate-90" : ""}`}
+                  style={{ color: "var(--co-muted)" }}
+                />
               </button>
 
               {couponDrawerOpen && (
-                <div className="border-t px-4 pb-4 pt-4 space-y-4" style={{ borderColor: "color-mix(in srgb, var(--co-accent) 20%, transparent)" }}>
+                <div
+                  className="border-t px-4 pb-4 pt-4 space-y-4"
+                  style={{
+                    borderColor:
+                      "color-mix(in srgb, var(--co-accent) 20%, transparent)",
+                  }}
+                >
                   {couponsLoading ? (
-                    <div className="flex items-center justify-center py-5 gap-2" style={{ color: "var(--co-muted)" }}>
+                    <div
+                      className="flex items-center justify-center py-5 gap-2"
+                      style={{ color: "var(--co-muted)" }}
+                    >
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-xs font-medium">Finding deals…</span>
+                      <span className="text-xs font-medium">
+                        Finding deals…
+                      </span>
                     </div>
                   ) : availableCoupons.length > 0 ? (
                     <div>
-                      <p className="mb-2.5 text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Available Offers</p>
-                      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                      <p
+                        className="mb-2.5 text-[10px] font-black uppercase tracking-widest"
+                        style={{ color: "var(--co-muted)" }}
+                      >
+                        Available Offers
+                      </p>
+                      <div
+                        className="flex gap-3 overflow-x-auto pb-1"
+                        style={{ scrollbarWidth: "none" }}
+                      >
                         {availableCoupons.map((c) => (
                           <button
                             key={c.id}
@@ -1007,15 +1472,49 @@ const CheckoutPage: React.FC = () => {
                               background: "var(--co-surface)",
                             }}
                           >
-                            <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, var(--co-accent), color-mix(in srgb, var(--co-accent) 60%, #818cf8))" }} />
+                            <div
+                              className="h-1.5 w-full"
+                              style={{
+                                background:
+                                  "linear-gradient(90deg, var(--co-accent), color-mix(in srgb, var(--co-accent) 60%, #818cf8))",
+                              }}
+                            />
                             <div className="p-3.5">
-                              <p className="text-[11px] font-black uppercase tracking-[0.15em]" style={{ color: "var(--co-accent)" }}>{c.coupon_code}</p>
-                              <p className="mt-1.5 text-base font-black" style={{ color: "var(--co-text)" }}>
-                                {c.discount_type === "percent" ? `${c.discount_value}% OFF` : `₹${c.discount_value} OFF`}
+                              <p
+                                className="text-[11px] font-black uppercase tracking-[0.15em]"
+                                style={{ color: "var(--co-accent)" }}
+                              >
+                                {c.coupon_code}
                               </p>
-                              <p className="mt-0.5 text-[10px] leading-snug line-clamp-2" style={{ color: "var(--co-muted)" }}>{c.description || c.name}</p>
-                              {c.min_order_value ? <p className="mt-1 text-[9px] font-semibold" style={{ color: "var(--co-muted)" }}>Min order ₹{c.min_order_value}</p> : null}
-                              <div className="mt-3 rounded-xl py-2 text-center text-[10px] font-black uppercase tracking-wider" style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}>
+                              <p
+                                className="mt-1.5 text-base font-black"
+                                style={{ color: "var(--co-text)" }}
+                              >
+                                {c.discount_type === "percent"
+                                  ? `${c.discount_value}% OFF`
+                                  : `₹${c.discount_value} OFF`}
+                              </p>
+                              <p
+                                className="mt-0.5 text-[10px] leading-snug line-clamp-2"
+                                style={{ color: "var(--co-muted)" }}
+                              >
+                                {c.description || c.name}
+                              </p>
+                              {c.min_order_value ? (
+                                <p
+                                  className="mt-1 text-[9px] font-semibold"
+                                  style={{ color: "var(--co-muted)" }}
+                                >
+                                  Min order ₹{c.min_order_value}
+                                </p>
+                              ) : null}
+                              <div
+                                className="mt-3 rounded-xl py-2 text-center text-[10px] font-black uppercase tracking-wider"
+                                style={{
+                                  background: "var(--co-accent)",
+                                  color: "var(--co-accent-text)",
+                                }}
+                              >
                                 Tap to Claim
                               </div>
                             </div>
@@ -1024,29 +1523,54 @@ const CheckoutPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-center text-xs py-3" style={{ color: "var(--co-muted)" }}>No active offers right now.</p>
+                    <p
+                      className="text-center text-xs py-3"
+                      style={{ color: "var(--co-muted)" }}
+                    >
+                      No active offers right now.
+                    </p>
                   )}
                   <div>
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-wider" style={{ color: "var(--co-muted)" }}>Have a code?</p>
+                    <p
+                      className="mb-2 text-[10px] font-black uppercase tracking-wider"
+                      style={{ color: "var(--co-muted)" }}
+                    >
+                      Have a code?
+                    </p>
                     <div className="flex items-center gap-2">
                       <input
                         value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        onChange={(e) =>
+                          setCouponCode(e.target.value.toUpperCase())
+                        }
                         placeholder="ENTER CODE"
                         className="h-11 flex-1 rounded-xl border px-4 text-sm font-bold uppercase tracking-widest focus:outline-none focus:ring-2 placeholder:font-normal placeholder:lowercase placeholder:tracking-normal"
                         style={{
-                          borderColor: "color-mix(in srgb, var(--co-muted) 20%, transparent)",
-                          background: "color-mix(in srgb, var(--co-muted) 5%, transparent)",
+                          borderColor:
+                            "color-mix(in srgb, var(--co-muted) 20%, transparent)",
+                          background:
+                            "color-mix(in srgb, var(--co-muted) 5%, transparent)",
                           color: "var(--co-text)",
                         }}
                       />
                       <button
                         onClick={() => handleApplyCoupon()}
-                        disabled={isApplyingCoupon || !currentOrderId || !currentCartHasItems}
+                        disabled={
+                          isApplyingCoupon ||
+                          !currentOrderId ||
+                          !currentCartHasItems
+                        }
                         className="h-11 rounded-xl px-5 text-xs font-black uppercase tracking-wider disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center"
-                        style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                        style={{
+                          background: "var(--co-accent)",
+                          color: "var(--co-accent-text)",
+                        }}
                       >
-                        {isApplyingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                        {isApplyingCoupon ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Apply"
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1055,48 +1579,101 @@ const CheckoutPage: React.FC = () => {
             </section>
 
             {/* ── Bill Summary ──────────────────────────────────────────── */}
-            <section className="rounded-2xl overflow-hidden p-5" style={themedSurfaceStyle}>
+            <section
+              className="rounded-2xl overflow-hidden p-5"
+              style={themedSurfaceStyle}
+            >
               <div className="flex items-center gap-2 mb-4">
-                <ReceiptText className="h-4 w-4" style={{ color: "var(--co-muted)" }} />
-                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Bill Summary</p>
+                <ReceiptText
+                  className="h-4 w-4"
+                  style={{ color: "var(--co-muted)" }}
+                />
+                <p
+                  className="text-[10px] font-black uppercase tracking-widest"
+                  style={{ color: "var(--co-muted)" }}
+                >
+                  Bill Summary
+                </p>
               </div>
               <div className="space-y-3">
                 {hasPlacedOrders && previousOrdersTotal > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span style={{ color: "var(--co-muted)" }}>Previous orders</span>
-                    <span className="font-semibold" style={{ color: "var(--co-text)" }}>₹{previousOrdersTotal}</span>
+                    <span style={{ color: "var(--co-muted)" }}>
+                      Previous orders
+                    </span>
+                    <span
+                      className="font-semibold"
+                      style={{ color: "var(--co-text)" }}
+                    >
+                      ₹{previousOrdersTotal}
+                    </span>
                   </div>
                 )}
                 {currentCartHasItems && (
                   <div className="flex justify-between text-sm">
-                    <span style={{ color: "var(--co-muted)" }}>Current cart</span>
-                    <span className="font-semibold" style={{ color: "var(--co-text)" }}>₹{cartSubtotal}</span>
+                    <span style={{ color: "var(--co-muted)" }}>
+                      Current cart
+                    </span>
+                    <span
+                      className="font-semibold"
+                      style={{ color: "var(--co-text)" }}
+                    >
+                      ₹{cartSubtotal}
+                    </span>
                   </div>
                 )}
                 {couponDiscount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-emerald-600 font-medium">Coupon ({couponCode})</span>
-                    <span className="font-bold text-emerald-600">−₹{couponDiscount}</span>
+                    <span className="text-emerald-600 font-medium">
+                      Coupon ({couponCode})
+                    </span>
+                    <span className="font-bold text-emerald-600">
+                      −₹{couponDiscount}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span style={{ color: "var(--co-muted)" }}>GST (5%)</span>
-                  <span className="font-semibold" style={{ color: "var(--co-text)" }}>₹{tax}</span>
+                  <span
+                    className="font-semibold"
+                    style={{ color: "var(--co-text)" }}
+                  >
+                    ₹{tax}
+                  </span>
                 </div>
               </div>
-              <div className="mt-4 pt-4 flex items-center justify-between border-t" style={{ borderColor: "color-mix(in srgb, var(--co-muted) 15%, transparent)", borderStyle: "dashed" }}>
+              <div
+                className="mt-4 pt-4 flex items-center justify-between border-t"
+                style={{
+                  borderColor:
+                    "color-mix(in srgb, var(--co-muted) 15%, transparent)",
+                  borderStyle: "dashed",
+                }}
+              >
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--co-muted)" }}>Grand Total</p>
-                  <p className="text-2xl font-black mt-0.5" style={{ color: "var(--co-text)" }}>₹{grandTotal}</p>
+                  <p
+                    className="text-[10px] font-black uppercase tracking-widest"
+                    style={{ color: "var(--co-muted)" }}
+                  >
+                    Grand Total
+                  </p>
+                  <p
+                    className="text-2xl font-black mt-0.5"
+                    style={{ color: "var(--co-text)" }}
+                  >
+                    ₹{grandTotal}
+                  </p>
                 </div>
                 {couponDiscount > 0 && (
-                  <div className="rounded-xl px-3 py-1.5 text-xs font-black text-emerald-700" style={{ background: "rgba(16,185,129,0.1)" }}>
+                  <div
+                    className="rounded-xl px-3 py-1.5 text-xs font-black text-emerald-700"
+                    style={{ background: "rgba(16,185,129,0.1)" }}
+                  >
                     💰 ₹{couponDiscount} saved
                   </div>
                 )}
               </div>
             </section>
-
           </div>
         )}
       </main>
@@ -1105,7 +1682,10 @@ const CheckoutPage: React.FC = () => {
       {(currentCartHasItems || hasPlacedOrders) && (
         <div
           className="fixed bottom-0 left-0 right-0 z-[60] px-5 pb-8 pt-4"
-          style={{ background: "linear-gradient(to top, var(--co-bg) 60%, transparent)" }}
+          style={{
+            background:
+              "linear-gradient(to top, var(--co-bg) 60%, transparent)",
+          }}
         >
           <div className="mx-auto max-w-lg">
             {!currentCartHasItems && hasPlacedOrders ? (
@@ -1120,7 +1700,10 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={() => toast.success("Bill requested!")}
                   className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-xl transition-all active:scale-95"
-                  style={{ background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                  style={{
+                    background: "var(--co-accent)",
+                    color: "var(--co-accent-text)",
+                  }}
                 >
                   Request Bill
                 </button>
@@ -1130,7 +1713,14 @@ const CheckoutPage: React.FC = () => {
                 onClick={handlePlaceOrder}
                 disabled={isPlacingOrder || isWaitingConfirmation}
                 className="relative flex h-14 w-full items-center justify-between overflow-hidden rounded-2xl px-6 font-bold shadow-2xl transition-all active:scale-[0.98] disabled:opacity-80"
-                style={isWaitingConfirmation ? { background: "#F59E0B", color: "#fff" } : { background: "var(--co-accent)", color: "var(--co-accent-text)" }}
+                style={
+                  isWaitingConfirmation
+                    ? { background: "#F59E0B", color: "#fff" }
+                    : {
+                        background: "var(--co-accent)",
+                        color: "var(--co-accent-text)",
+                      }
+                }
               >
                 {isWaitingConfirmation ? (
                   <div className="flex w-full items-center justify-center gap-2">
@@ -1140,15 +1730,23 @@ const CheckoutPage: React.FC = () => {
                 ) : isPlacingOrder || isSyncingAfterPlace ? (
                   <div className="flex w-full items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{isSyncingAfterPlace ? "Updating…" : "Processing…"}</span>
+                    <span>
+                      {isSyncingAfterPlace ? "Updating…" : "Processing…"}
+                    </span>
                   </div>
                 ) : (
                   <>
                     <div>
-                      <p className="text-[9px] uppercase tracking-widest opacity-70 leading-none">Total</p>
-                      <p className="text-base font-black leading-tight">₹{grandTotal}</p>
+                      <p className="text-[9px] uppercase tracking-widest opacity-70 leading-none">
+                        Total
+                      </p>
+                      <p className="text-base font-black leading-tight">
+                        ₹{grandTotal}
+                      </p>
                     </div>
-                    <span className="text-sm font-black uppercase tracking-widest">Place Order</span>
+                    <span className="text-sm font-black uppercase tracking-widest">
+                      Place Order
+                    </span>
                     <ChevronRight className="h-5 w-5 opacity-60" />
                   </>
                 )}

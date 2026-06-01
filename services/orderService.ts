@@ -11,6 +11,19 @@ export type CartRes = {
   order_id?: string;
 };
 
+const PLACEHOLDER_ORDER_ID = "00000000-0000-0000-0000-000000000000";
+
+const isValidOrderId = (id?: string | null): id is string => {
+  if (!id) return false;
+  const trimmed = id.trim();
+  return (
+    trimmed !== "" &&
+    trimmed !== "null" &&
+    trimmed !== "undefined" &&
+    trimmed !== PLACEHOLDER_ORDER_ID
+  );
+};
+
 let orderCreationPromise: Promise<string> | null = null;
 
 export const orderService = {
@@ -19,7 +32,7 @@ export const orderService = {
       throw new Error("order_id is required");
     }
     const existing = localStorage.getItem("order_id");
-    if (existing) return existing;
+    if (isValidOrderId(existing)) return existing;
 
     if (orderCreationPromise) {
       return orderCreationPromise;
@@ -39,7 +52,7 @@ export const orderService = {
         body: JSON.stringify({
           session_id: sessionId,
         }),
-        credentials: "include"
+        credentials: "include",
       });
       localStorage.setItem("order_id", created.order_id);
       return created.order_id;
@@ -56,14 +69,16 @@ export const orderService = {
     if (sessionId) return sessionId;
 
     const searchParams = new URLSearchParams(window.location.search);
-    const restaurantFromUrl = searchParams.get("restaurant") || searchParams.get("r");
+    const restaurantFromUrl =
+      searchParams.get("restaurant") || searchParams.get("r");
     const tableFromQuery = searchParams.get("table");
     const tableFromPath = (() => {
       const parts = window.location.pathname.split("/").filter(Boolean);
       const idx = parts.indexOf("t");
       if (idx !== -1 && parts[idx + 1]) return parts[idx + 1];
       const menuIdx = parts.indexOf("menu");
-      if (menuIdx !== -1 && parts[menuIdx + 1] === "t" && parts[menuIdx + 2]) return parts[menuIdx + 2];
+      if (menuIdx !== -1 && parts[menuIdx + 1] === "t" && parts[menuIdx + 2])
+        return parts[menuIdx + 2];
       return null;
     })();
 
@@ -99,7 +114,9 @@ export const orderService = {
     if (!rawTable) return null;
 
     const isUUID =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTable);
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        rawTable,
+      );
     const normalizedTable = rawTable.trim().toLowerCase().startsWith("t")
       ? rawTable.trim().slice(1)
       : rawTable.trim();
@@ -123,7 +140,11 @@ export const orderService = {
       }
 
       if (isUUID) {
-        const res = await api<{ session_id: string; restaurant_id?: string; table_number?: number }>(`/public/session/start`, {
+        const res = await api<{
+          session_id: string;
+          restaurant_id?: string;
+          table_number?: number;
+        }>(`/public/session/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -154,16 +175,37 @@ export const orderService = {
     return api<any[]>(`/api/customer/menu${suffix}`);
   },
 
-  getCart: async (orderIdOverride?: string) => {
+  getCart: async (orderIdOverride?: string): Promise<CartRes> => {
     let orderId = orderIdOverride;
     if (!orderId && typeof window !== "undefined") {
-      orderId = localStorage.getItem("order_id") || undefined;
+      const fromStore = localStorage.getItem("order_id") || undefined;
+      orderId = isValidOrderId(fromStore) ? fromStore : undefined;
     }
-    const res = await api<CartRes>(`/api/customer/orders/cart${orderId ? `?order_id=${orderId}` : ""}`);
-    if (res.order_id) {
-      localStorage.setItem("order_id", res.order_id);
+    try {
+      const res = await api<CartRes>(
+        `/api/customer/orders/cart${orderId ? `?order_id=${orderId}` : ""}`,
+      );
+      if (res.order_id) {
+        if (isValidOrderId(res.order_id)) {
+          localStorage.setItem("order_id", res.order_id);
+        } else {
+          localStorage.removeItem("order_id");
+        }
+      }
+      return res;
+    } catch (e: any) {
+      const msg = String(e?.message || "").toLowerCase();
+      if (
+        msg.includes("order not found") ||
+        msg.includes("no rows") ||
+        msg.includes("order_id is required") ||
+        msg.includes("uuid")
+      ) {
+        localStorage.removeItem("order_id");
+        return orderService.getCart();
+      }
+      throw e;
     }
-    return res;
   },
 
   getOrders: () => {
@@ -176,14 +218,20 @@ export const orderService = {
     return api<{ orders: any[] }>(`/api/customer/orders${suffix}`);
   },
 
-  async addItem(id: string, variantId: string | null, price: number, modifierOptionIds?: string[]): Promise<any> {
+  async addItem(
+    id: string,
+    variantId: string | null,
+    price: number,
+    modifierOptionIds?: string[],
+  ): Promise<any> {
     let sessionId = await orderService.ensureSession();
     if (!sessionId && typeof window !== "undefined") {
       sessionId = localStorage.getItem("session_id");
     }
     let orderId = localStorage.getItem("order_id");
 
-    if (!orderId) {
+    if (!isValidOrderId(orderId)) {
+      localStorage.removeItem("order_id");
       orderId = await orderService.ensureOrderId();
     }
 
@@ -197,57 +245,127 @@ export const orderService = {
           variant_id: variantId || null,
           modifier_option_ids: modifierOptionIds || [],
           quantity: 1,
-          price
+          price,
         }),
-        credentials: "include"
+        credentials: "include",
       });
       if (res.order_id) {
-        localStorage.setItem("order_id", res.order_id);
+        if (isValidOrderId(res.order_id)) {
+          localStorage.setItem("order_id", res.order_id);
+        } else {
+          localStorage.removeItem("order_id");
+        }
       }
       return res;
     } catch (e: any) {
-      if (e.message && (e.message.includes("session_id is required") || e.message.includes("session expired"))) {
+      if (
+        e.message &&
+        (e.message.includes("session_id is required") ||
+          e.message.includes("session expired"))
+      ) {
         localStorage.removeItem("session_id");
-        return this.addItem(id, variantId, price, modifierOptionIds);
+        return await orderService.addItem(
+          id,
+          variantId,
+          price,
+          modifierOptionIds,
+        );
       }
-      if (e.message && (e.message.includes("order not found") || e.message.includes("violates foreign key constraint"))) {
+      if (
+        e.message &&
+        (e.message.includes("order not found") ||
+          e.message.includes("violates foreign key constraint"))
+      ) {
         localStorage.removeItem("order_id");
-        return this.addItem(id, variantId, price, modifierOptionIds);
+        return await orderService.addItem(
+          id,
+          variantId,
+          price,
+          modifierOptionIds,
+        );
       }
       throw e;
     }
   },
 
   decrementItem: async (itemId: string, variantId?: string | number) => {
-    const orderId = typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
-    const res = await api<CartRes>(`/api/customer/orders/decrement${orderId ? `?order_id=${orderId}` : ""}`, {
-      method: "POST",
-      body: JSON.stringify({
-        order_id: orderId,
-        menu_item_id: itemId,
-        variant_id: variantId || null,
-      }),
-    });
-    if (res.order_id) {
-      localStorage.setItem("order_id", res.order_id);
+    let orderId =
+      typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
+    if (!isValidOrderId(orderId)) {
+      orderId = null;
     }
-    return res;
+    try {
+      const res = await api<CartRes>(
+        `/api/customer/orders/decrement${orderId ? `?order_id=${orderId}` : ""}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            order_id: orderId,
+            menu_item_id: itemId,
+            variant_id: variantId || null,
+          }),
+        },
+      );
+      if (res.order_id) {
+        if (isValidOrderId(res.order_id)) {
+          localStorage.setItem("order_id", res.order_id);
+        } else {
+          localStorage.removeItem("order_id");
+        }
+      }
+      return res;
+    } catch (e: any) {
+      const msg = String(e?.message || "").toLowerCase();
+      if (
+        msg.includes("order not found") ||
+        msg.includes("no rows") ||
+        msg.includes("order_id is required") ||
+        msg.includes("uuid")
+      ) {
+        localStorage.removeItem("order_id");
+      }
+      throw e;
+    }
   },
 
   removeItem: async (itemId: string, variantId?: string | number) => {
-    const orderId = typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
-    const res = await api<any>(`/api/customer/orders/remove${orderId ? `?order_id=${orderId}` : ""}`, {
-      method: "POST",
-      body: JSON.stringify({
-        order_id: orderId,
-        menu_item_id: itemId,
-        variant_id: variantId || null,
-      }),
-    });
-    if (res.order_id) {
-      localStorage.setItem("order_id", res.order_id);
+    let orderId =
+      typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
+    if (!isValidOrderId(orderId)) {
+      orderId = null;
     }
-    return res;
+    try {
+      const res = await api<any>(
+        `/api/customer/orders/remove${orderId ? `?order_id=${orderId}` : ""}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            order_id: orderId,
+            menu_item_id: itemId,
+            variant_id: variantId || null,
+          }),
+        },
+      );
+      if (res.order_id) {
+        if (isValidOrderId(res.order_id)) {
+          localStorage.setItem("order_id", res.order_id);
+        } else {
+          localStorage.removeItem("order_id");
+        }
+      }
+      return res;
+    } catch (e: any) {
+      const msg = String(e?.message || "").toLowerCase();
+      if (
+        msg.includes("order not found") ||
+        msg.includes("no rows") ||
+        msg.includes("order_id is required") ||
+        msg.includes("uuid")
+      ) {
+        localStorage.removeItem("order_id");
+      }
+      throw e;
+    }
   },
 
   getTotalBreakdown: (orderId: string) => {
@@ -262,10 +380,13 @@ export const orderService = {
   },
 
   finalizeOrder: (orderId: string) => {
-    return api<{ order_number?: number; daily_order_number?: number }>("/api/customer/orders/finalize", {
-      method: "POST",
-      body: JSON.stringify({ order_id: orderId }),
-    });
+    return api<{ order_number?: number; daily_order_number?: number }>(
+      "/api/customer/orders/finalize",
+      {
+        method: "POST",
+        body: JSON.stringify({ order_id: orderId }),
+      },
+    );
   },
 
   cancelOrder: (orderId: string) => {
@@ -275,7 +396,12 @@ export const orderService = {
     });
   },
 
-  cancelOrderItem: (orderId: string, itemId: string, variantId?: string | null, quantity?: number) => {
+  cancelOrderItem: (
+    orderId: string,
+    itemId: string,
+    variantId?: string | null,
+    quantity?: number,
+  ) => {
     return api("/api/customer/orders/cancel-item", {
       method: "POST",
       body: JSON.stringify({
@@ -285,5 +411,5 @@ export const orderService = {
         quantity: quantity || 1,
       }),
     });
-  }
+  },
 };

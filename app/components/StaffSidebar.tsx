@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/app/lib/api";
+import { isArMenuPlan } from "@/app/lib/plans";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     Banknote,
@@ -18,6 +19,7 @@ import {
     Loader2,
     LogOut,
     MapPin,
+    QrCode,
     Settings,
     Utensils,
 } from "lucide-react";
@@ -63,6 +65,12 @@ const sidebarItems: SidebarSection[] = [
         href: "/staff/menu",
         icon: Utensils,
         description: "Set Qty, 86 Items",
+      },
+      {
+        label: "QR Codes",
+        href: "/staff/settings/qr-codes",
+        icon: QrCode,
+        description: "Table QR flyers",
       },
       {
         label: "Reservations",
@@ -157,6 +165,7 @@ export default function StaffSidebar() {
   const [currentRole, setCurrentRole] = useState<string>("");
   const [roleAccess, setRoleAccess] = useState<RoleAccessConfig | null>(null);
   const [billingLocked, setBillingLocked] = useState(false);
+  const [billingPlan, setBillingPlan] = useState<string>("");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [locations, setLocations] = useState<LocationOption[]>(() => {
     if (typeof window === "undefined") return [];
@@ -343,10 +352,12 @@ export default function StaffSidebar() {
         const data = await api<{
           is_access_allowed?: boolean;
           status?: string;
+          plan?: string;
         }>("/api/admin/billing/status");
         if (!isActive) return;
         const allowed = data?.is_access_allowed !== false;
         setBillingLocked(!allowed);
+        setBillingPlan(data?.plan || "");
       } catch {
         if (!isActive) return;
         setBillingLocked(false);
@@ -370,6 +381,21 @@ export default function StaffSidebar() {
     if (pathname === "/staff/settings/theme") return;
     router.replace("/staff/settings/subscription");
   }, [billingLocked, pathname, router]);
+
+  const arMenuOnly = isArMenuPlan(billingPlan);
+  const isArAllowedPath =
+    pathname === "/staff/menu" ||
+    pathname.startsWith("/staff/menu/") ||
+    pathname === "/staff/settings" ||
+    pathname.startsWith("/staff/settings/qr-codes") ||
+    pathname.startsWith("/staff/settings/subscription") ||
+    pathname.startsWith("/staff/settings/profile") ||
+    pathname.startsWith("/staff/settings/theme");
+
+  useEffect(() => {
+    if (!arMenuOnly || billingLocked || isArAllowedPath) return;
+    router.replace("/staff/menu");
+  }, [arMenuOnly, billingLocked, isArAllowedPath, router]);
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -450,6 +476,13 @@ export default function StaffSidebar() {
         .map((section) => ({
           ...section,
           items: section.items.filter((item) => {
+            if (arMenuOnly) {
+              return (
+                item.href === "/staff/menu" ||
+                item.href === "/staff/settings/qr-codes" ||
+                item.href === "/staff/settings"
+              );
+            }
             const feature =
               item.href === "/staff"
                 ? "floor"

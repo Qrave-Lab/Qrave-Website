@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from 'react';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { api } from '@/app/lib/api';
 
 const DemoForm = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -14,11 +17,18 @@ const DemoForm = () => {
     restaurantName: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsSubmitted(false);
+    setIsLoading(true);
+    setErrorMsg('');
+
+    try {
+      await api('/public/contact', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+
+      setIsSubmitted(true);
       setFormData({
         name: '',
         phone: '',
@@ -26,7 +36,12 @@ const DemoForm = () => {
         city: '',
         restaurantName: '',
       });
-    }, 3000);
+    } catch (err: any) {
+      console.error('Contact submission error:', err);
+      setErrorMsg(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,12 +124,26 @@ const DemoForm = () => {
                     <input type="text" name="restaurantName" value={formData.restaurantName} onChange={handleChange} required className={inputClassName} />
                   </div>
 
+                  {errorMsg && (
+                    <div className="text-red-500 text-xs font-bold px-2 py-2 bg-red-50 border border-red-100 rounded-xl mb-2">
+                      ⚠️ {errorMsg}
+                    </div>
+                  )}
+
                   <div className="pt-4 flex flex-col gap-4">
                     <button
                       type="submit"
-                      className="w-full px-8 py-4 bg-[#FFC529] hover:bg-[#F0B820] text-[#1F2127] font-black text-[15px] tracking-wide rounded-full transition-colors duration-200 shadow-[0_8px_20px_-6px_rgba(255,197,41,0.5)] border-2 border-transparent"
+                      disabled={isLoading}
+                      className="w-full px-8 py-4 bg-[#FFC529] hover:bg-[#F0B820] text-[#1F2127] font-black text-[15px] tracking-wide rounded-full transition-colors duration-200 shadow-[0_8px_20px_-6px_rgba(255,197,41,0.5)] border-2 border-transparent disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      REQUEST CALLBACK
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          SUBMITTING...
+                        </>
+                      ) : (
+                        "REQUEST CALLBACK"
+                      )}
                     </button>
                     <p className="text-[11px] text-center font-medium text-gray-400 px-4">
                       By submitting, you agree to our{' '}

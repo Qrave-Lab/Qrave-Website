@@ -5,6 +5,7 @@ import { CreditCard, Loader2 } from "lucide-react";
 import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
 import { api } from "@/app/lib/api";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
+import { PLAN_OPTIONS, type PlanCode, normalizePlanCode, planLabel } from "@/app/lib/plans";
 
 type RazorpayFailure = { error?: { description?: string } };
 type RazorpayCheckout = {
@@ -30,7 +31,6 @@ type BillingStatus = {
   pending_plan?: string; pending_plan_starts_at?: string | null;
 };
 
-type PlanCode = "monthly_499" | "yearly_5500";
 type PlanChangeResponse = {
   plan?: string;
   pending_plan?: string;
@@ -49,7 +49,6 @@ type PaymentHistoryItem = {
   periodEnd?: string | null;
 };
 
-const planLabel = (plan?: string) => plan === "yearly_5500" ? "Yearly ₹5,500" : "Monthly ₹499";
 const formatDate = (iso?: string | null) => !iso ? "-" : new Date(iso).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
 const errorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
 const statusFromError = (error: unknown) => typeof error === "object" && error !== null && "status" in error ? Number((error as { status?: unknown }).status) : undefined;
@@ -61,14 +60,14 @@ export default function SubscriptionSettingsPage() {
   const [changingPlan, setChangingPlan] = useState(false);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [role, setRole] = useState<string>("");
-  const [selectedPlan, setSelectedPlan] = useState<PlanCode>("monthly_499");
+  const [selectedPlan, setSelectedPlan] = useState<PlanCode>("monthly_799");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const refresh = async (): Promise<BillingStatus | null> => {
     try {
       const [data, me] = await Promise.all([api<BillingStatus>("/api/admin/billing/status", { method: "GET" }), api<{ role?: string }>("/api/admin/me", { method: "GET" })]);
-      setBilling(data); setRole(String(me?.role || "")); setSelectedPlan(data?.plan === "yearly_5500" ? "yearly_5500" : "monthly_499");
+      setBilling(data); setRole(String(me?.role || "")); setSelectedPlan(normalizePlanCode(data?.plan));
       return data || null;
     } catch {
       setStatusMessage({ type: "error", text: "Failed to load subscription details." });
@@ -134,7 +133,7 @@ export default function SubscriptionSettingsPage() {
     const raw = String(billing?.status || "trialing").toLowerCase();
     const hasPaid = Boolean(billing?.last_payment_at) || Boolean(billing?.current_period_end);
     const status = (raw === "trialing" && hasPaid ? "active" : raw).toUpperCase();
-    const planType = billing?.plan === "yearly_5500" ? "YEARLY" : "MONTHLY";
+    const planType = normalizePlanCode(billing?.plan).startsWith("yearly") ? "YEARLY" : "MONTHLY";
     const days = billing?.days_left ?? 0;
     if (status === "TRIALING") return `TRIAL (${days} day${days === 1 ? "" : "s"} left)`;
     if (status === "ACTIVE") return `ACTIVE • ${planType}`;
@@ -227,7 +226,7 @@ export default function SubscriptionSettingsPage() {
   const handlePlanChange = async () => {
     if (role !== "owner") { setStatusMessage({ type: "error", text: "Only owner can change subscription plans." }); return; }
     if (!isActive) { await handleReactivate(); return; }
-    if (selectedPlan === billing?.plan) { setStatusMessage({ type: "error", text: "Select a different plan to schedule a change." }); return; }
+    if (selectedPlan === normalizePlanCode(billing?.plan)) { setStatusMessage({ type: "error", text: "Select a different plan to schedule a change." }); return; }
 
     setChangingPlan(true); setStatusMessage(null);
     try {
@@ -325,17 +324,20 @@ export default function SubscriptionSettingsPage() {
             <div className="rounded-xl border border-[#FFC529] bg-slate-50/50 p-4 space-y-3">
               <p className="text-[11px] font-black uppercase tracking-widest text-gray-900">{isInactive ? "Reactivate Subscription" : "Change Plan"}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {(["monthly_499", "yearly_5500"] as const).map((p) => (
+                {PLAN_OPTIONS.map((plan) => {
+                  const p = plan.code;
+                  return (
                   <button key={p} type="button" onClick={() => setSelectedPlan(p)} className={`rounded-xl border px-4 py-3 text-left ${selectedPlan === p ? "border-[#FFC529] bg-white" : "border-[#FFC529] bg-slate-50/40"}`}>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{p === "monthly_499" ? "Monthly" : "Yearly"}</p>
-                    <p className="text-base font-black text-slate-900 mt-1">{p === "monthly_499" ? "₹499 / month" : "₹5,500 / year"}</p>
-                    {billing?.plan === p && !isInactive ? <p className="mt-1 text-[11px] font-bold text-emerald-600">Current plan</p> : null}
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{plan.name} • {plan.cadence}</p>
+                    <p className="text-base font-black text-slate-900 mt-1">{plan.price}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-500">{plan.summary}</p>
+                    {normalizePlanCode(billing?.plan) === p && !isInactive ? <p className="mt-1 text-[11px] font-bold text-emerald-600">Current plan</p> : null}
                   </button>
-                ))}
+                )})}
               </div>
-              <button type="button" onClick={isInactive ? handleReactivate : handlePlanChange} disabled={reactivating || changingPlan || Boolean(billing?.pending_plan) || (!isInactive && selectedPlan === billing?.plan)} className="inline-flex items-center gap-2 rounded-lg bg-[#FFC529] hover:brightness-95 text-gray-900 px-4 py-2 text-xs font-bold disabled:opacity-60">
+              <button type="button" onClick={isInactive ? handleReactivate : handlePlanChange} disabled={reactivating || changingPlan || Boolean(billing?.pending_plan) || (!isInactive && selectedPlan === normalizePlanCode(billing?.plan))} className="inline-flex items-center gap-2 rounded-lg bg-[#FFC529] hover:brightness-95 text-gray-900 px-4 py-2 text-xs font-bold disabled:opacity-60">
                 {reactivating || changingPlan ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {billing?.pending_plan ? "Plan Change Scheduled" : isInactive ? "Reactivate Subscription" : `Change to ${selectedPlan === "monthly_499" ? "Monthly" : "Yearly"}`}
+                {billing?.pending_plan ? "Plan Change Scheduled" : isInactive ? "Reactivate Subscription" : `Change to ${planLabel(selectedPlan)}`}
               </button>
             </div>
           )}

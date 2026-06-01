@@ -297,14 +297,21 @@ export default function StaffDashboardPage() {
       });
     }
 
-    const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string }>();
+    const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
     for (const order of ordersList) {
       const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0, sessionId: order.session_id };
+      const orderCreatedAt = order.created_at ? new Date(order.created_at) : undefined;
       const orderTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       totalsByTable.set(order.table_number, {
         total: existing.total + orderTotal,
         count: existing.count + order.items.reduce((sum, i) => sum + i.quantity, 0),
         sessionId: order.session_id || existing.sessionId,
+        seatedAt:
+          existing.seatedAt && orderCreatedAt
+            ? existing.seatedAt < orderCreatedAt
+              ? existing.seatedAt
+              : orderCreatedAt
+            : existing.seatedAt || orderCreatedAt,
       });
     }
 
@@ -320,13 +327,14 @@ export default function StaffDashboardPage() {
       }
       
       if (!isNaN(tableNum) && tableNum > 0) {
-         const existing = totalsByTable.get(tableNum) || { total: 0, count: 0, sessionId: tw.id };
+         const existing = totalsByTable.get(tableNum) || { total: 0, count: 0, sessionId: tw.id, seatedAt: undefined };
          const orderTotal = Number(tw.total) || 0;
          const orderCount = Array.isArray(tw.items) ? tw.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) : 1;
          totalsByTable.set(tableNum, {
            total: existing.total + orderTotal,
            count: existing.count + orderCount,
            sessionId: existing.sessionId || tw.id,
+           seatedAt: existing.seatedAt || (tw.created_at ? new Date(tw.created_at) : undefined),
          });
       }
     }
@@ -344,7 +352,7 @@ export default function StaffDashboardPage() {
         isTakeaway: !occ && hasActiveOrders,
         currentTotal: meta?.total,
         itemsCount: meta?.count,
-        seatedAt: occ?.seatedAt || (hasActiveOrders ? new Date() : undefined),
+        seatedAt: occ?.seatedAt || meta?.seatedAt,
         isEnabled: t.is_enabled,
         floorName: t.floor_name || "Main Floor",
       } as StaffTable;

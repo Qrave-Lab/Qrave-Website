@@ -7,37 +7,38 @@ const Pricing = () => {
     const [isYearly, setIsYearly] = useState(false);
     const plans = [
         {
-            name: "Starter",
-            monthlyPrice: "499",
-            yearlyPrice: "5,499",
+            name: "Base",
+            monthlyPrice: "799",
+            yearlyPrice: "8,299",
             description: "7-day free trial included",
             highlight: false,
             badge: "",
             features: [
-                "Unlimited Menus & Items",
-                "Premium Branding Tools",
-                "Instant QR Generation",
                 "Real-time Menu Updates",
+                "Immersive AR Menu View",
+                "Custom QR Code Generator",
+                "Premium Branding Tools",
                 "Basic Performance Insights",
-                "Priority Support"
+                "Standard Email Support"
             ],
             buttonText: "Start 7-Day Free Trial",
             buttonVariant: "outline"
         },
         {
             name: "Pro",
-            monthlyPrice: "999",
-            yearlyPrice: "11,499",
-            description: "Includes Advanced Analytics",
+            monthlyPrice: "1,299",
+            yearlyPrice: "15,299",
+            description: "Includes Advanced POS Ordering",
             highlight: true,
             badge: "MOST POPULAR",
             features: [
-                "Everything in Starter",
-                "Unlimited Menus & Items",
-                "Full Custom Branding",
-                "Advanced Analytics",
-                "Priority VIP Support",
-                "Best Value"
+                "Everything in Base",
+                "Table-side POS Ordering",
+                "Table Reservation System",
+                "Takeaway & Delivery Support",
+                "Cash Drawer & Staff Control",
+                "Advanced Sales & Reports Insights",
+                "Priority VIP Support"
             ],
             buttonText: "Subscribe Pro",
             buttonVariant: "solid"
@@ -77,12 +78,12 @@ const Pricing = () => {
                                 Annually
                             </span>
                             <span className="hidden sm:inline-block bg-[#FFC529]/10 text-[#FFC529] text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                                Save ~16%
+                                Save up to 13%
                             </span>
                         </div>
                     </div>
                     <span className="sm:hidden inline-block bg-[#FFC529]/10 text-[#FFC529] text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mt-2">
-                        Save ~16% on Annual
+                        Save up to 13% on Annual
                     </span>
                 </div>
 

@@ -34,6 +34,7 @@ import { QRCodeSVG } from "qrcode.react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/lib/api";
+import { PLAN_OPTIONS } from "@/app/lib/plans";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -182,7 +183,7 @@ export default function OnboardingPage() {
     confirmPassword: "",
     currency: "INR",
     tableCount: 8,
-    subscriptionPlan: "monthly_499",
+    subscriptionPlan: "monthly_799",
     openTime: "",
     closeTime: "",
     address: "",
@@ -896,24 +897,18 @@ export default function OnboardingPage() {
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setData((prev) => ({ ...prev, subscriptionPlan: "monthly_499" }))}
-                      className={`text-left rounded-2xl border px-4 py-4 transition-all ${data.subscriptionPlan === "monthly_499" ? "border-[#FFC529] bg-[#FFC529]/10" : "border-slate-200 bg-white"}`}
-                    >
-                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Monthly</div>
-                      <div className="mt-1 text-xl font-black text-slate-900">₹499 / month</div>
-                      <div className="mt-1 text-xs font-semibold text-slate-500">7-day free trial, cancel anytime.</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setData((prev) => ({ ...prev, subscriptionPlan: "yearly_5500" }))}
-                      className={`text-left rounded-2xl border px-4 py-4 transition-all ${data.subscriptionPlan === "yearly_5500" ? "border-[#FFC529] bg-[#FFC529]/10" : "border-slate-200 bg-white"}`}
-                    >
-                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Yearly</div>
-                      <div className="mt-1 text-xl font-black text-slate-900">₹5,500 / year</div>
-                      <div className="mt-1 text-xs font-semibold text-slate-500">7-day free trial, best value plan.</div>
-                    </button>
+                    {PLAN_OPTIONS.map((plan) => (
+                      <button
+                        key={plan.code}
+                        type="button"
+                        onClick={() => setData((prev) => ({ ...prev, subscriptionPlan: plan.code }))}
+                        className={`text-left rounded-2xl border px-4 py-4 transition-all ${data.subscriptionPlan === plan.code ? "border-[#FFC529] bg-[#FFC529]/10" : "border-slate-200 bg-white"}`}
+                      >
+                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{plan.name} • {plan.cadence}</div>
+                        <div className="mt-1 text-xl font-black text-slate-900">{plan.price}</div>
+                        <div className="mt-1 text-xs font-semibold text-slate-500">{plan.summary} 7-day free trial.</div>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
