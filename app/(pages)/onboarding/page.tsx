@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   Mail,
-  Sparkles,
   ChefHat,
   RefreshCw,
   Store,
@@ -622,11 +621,8 @@ export default function OnboardingPage() {
       <div className="relative z-30 w-full lg:w-[520px] bg-white flex flex-col border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.01)]">
         <div className="p-10 md:p-14">
           <div className="flex items-center justify-between mb-12">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#FFC529] flex items-center justify-center shadow-lg shadow-[#FFC529]/20">
-                <Sparkles className="w-5 h-5 text-black fill-current" />
-              </div>
-              <span className="text-xl font-extrabold tracking-tight text-slate-900 uppercase">Qrave</span>
+            <div className="flex items-center">
+              <img src="/landing/image.png" alt="Qrave Logo" className="h-9 w-auto object-contain" />
             </div>
             <div className="px-3 py-1 rounded-full bg-slate-50 border border-slate-100">
               <span className="text-[11px] font-bold text-slate-500 tracking-wider">STEP 0{step} / 07</span>

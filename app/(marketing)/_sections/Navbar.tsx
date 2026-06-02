@@ -115,11 +115,8 @@ const Navbar = () => {
           }`}>
           {/* Logo */}
           <div className="flex w-[200px] justify-start">
-            <Link href="/" className="flex items-center gap-1">
-              <img src="/landing/image.png" alt="Qrave Logo" className="w-[4.5rem] h-[4.5rem] object-contain rounded-sm translate-y-[2px]" />
-              <span className="text-[20px] font-black text-[#1c1d20] tracking-tight">
-                QRAVE
-              </span>
+            <Link href="/" className="flex items-center">
+              <img src="/landing/image.png" alt="Qrave Logo" className="h-8 md:h-9 w-auto object-contain translate-y-[1px]" />
             </Link>
           </div>
 

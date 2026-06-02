@@ -8,7 +8,6 @@ import {
   Loader2,
   AlertCircle,
   ArrowLeft,
-  Sparkles,
   ShieldCheck,
   CheckCircle2,
   RefreshCw
@@ -109,11 +108,8 @@ export default function ForgotPasswordPage() {
               </div>
               <span className="text-[11px] font-bold uppercase tracking-widest">Back to Login</span>
             </button>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/40 border border-amber-600/20">
-                <Sparkles className="w-5 h-5 text-black fill-current" />
-              </div>
-              <span className="text-xl font-bold tracking-tighter uppercase">Qrave</span>
+            <div className="flex items-center mb-6">
+              <img src="/landing/image.png" alt="Qrave Logo" className="h-10 w-auto object-contain" />
             </div>
             <h2 className="text-4xl font-bold tracking-tight leading-tight">
               {step === "request" ? "Forgot password?" : "Reset password"}

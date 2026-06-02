@@ -7,7 +7,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Sparkles,
   Loader2,
   AlertCircle,
   ArrowLeft
@@ -255,11 +254,8 @@ export default function LoginPage() {
               </div>
               <span className="text-[11px] font-bold uppercase tracking-widest">Home</span>
             </button>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/40 border border-amber-600/20">
-                <Sparkles className="w-5 h-5 text-black fill-current" />
-              </div>
-              <span className="text-xl font-bold tracking-tighter uppercase">Qrave</span>
+            <div className="flex items-center mb-6">
+              <img src="/landing/image.png" alt="Qrave Logo" className="h-10 w-auto object-contain" />
             </div>
             <h2 className="text-4xl font-bold tracking-tight">Welcome back</h2>
             <p className="text-slate-500 font-medium">Log in to manage your restaurant.</p>

@@ -52,16 +52,13 @@ export default function DemoLayout({ activeTab, onTabChange, children }: DemoLay
                 </button>
 
                 {/* Brand */}
-                <Link href="/" className="flex items-center gap-3 border-b border-gray-100 px-6 py-6">
+                <Link href="/" className="flex flex-col gap-1 border-b border-gray-100 px-6 py-6">
                     <img
                         src="/landing/image.png"
                         alt="Qrave Logo"
-                        className="h-10 w-10 rounded-lg object-contain"
+                        className="h-7 w-auto object-contain self-start"
                     />
-                    <div>
-                        <span className="text-lg font-extrabold tracking-tight text-gray-900">QRAVE</span>
-                        <p className="text-[11px] font-medium text-gray-500">Demo Studio</p>
-                    </div>
+                    <p className="text-[10px] font-semibold text-gray-400 tracking-wide mt-1 pl-0.5">Demo Studio</p>
                 </Link>
 
                 {/* Nav */}
