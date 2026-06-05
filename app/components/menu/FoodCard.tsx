@@ -140,11 +140,16 @@ const FoodCard: React.FC<FoodCardProps> = ({
     );
   };
 
+  const formatPrice = (price: number) => {
+    const rounded = Math.round(price * 100) / 100;
+    return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2);
+  };
+
   return (
-    <div className="flex flex-row p-[16px_16px_14px_16px] bg-[#FFFFFF] border-b border-[#F0E9DF]">
+    <div className="flex flex-row p-[18px_16px] bg-[#FFFFFF] border-b border-[#EDE5D8] gap-4 items-start">
       
-      {/* 88x88 Thumb */}
-      <div className="relative shrink-0 w-[88px] h-[88px] rounded-[12px] bg-[#F7F2EB] overflow-hidden mr-[14px]">
+      {/* 104x104 Premium Thumb */}
+      <div className="relative shrink-0 w-[104px] h-[104px] rounded-[16px] bg-[#F7F2EB] overflow-hidden">
         {item.image ? (
           <img 
              src={item.image} 
@@ -162,25 +167,25 @@ const FoodCard: React.FC<FoodCardProps> = ({
         {item.arModelGlb && (
           <button
             onClick={() => onArClick(item)}
-            className={`ar-view-btn absolute z-10 bottom-1 left-1 w-6 h-6 bg-white/90 backdrop-blur border border-white/40 shadow-sm rounded-full flex items-center justify-center transition-all shadow-[#3D2B1F]/10 ${showArTour ? "ring-2 ring-[#3D2B1F] ring-offset-1 animate-pulse" : "hover:scale-110 active:scale-95"}`}
+            className={`ar-view-btn absolute z-10 bottom-1.5 left-1.5 w-7 h-7 bg-white/95 backdrop-blur border border-[#EDE5D8] shadow-md rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95`}
           >
-            <Scan className="w-3.5 h-3.5 text-[#3D2B1F]" strokeWidth={2.5}/>
+            <Scan className="w-4 h-4 text-[#3D2B1F]" strokeWidth={2.5}/>
           </button>
         )}
 
-        {/* Badges/Tags over image */}
+        {/* Indian Standard Veg/Non-veg badge */}
         {item.isVeg !== undefined && (
-          <div className="absolute top-[4px] left-[4px] w-[14px] h-[14px] bg-white rounded-full flex items-center justify-center shadow-sm">
-             <div className={`w-[8px] h-[8px] rounded-full border-[1.5px] border-white ${item.isVeg ? "bg-[#2E7D32]" : "bg-[#C62828]"}`}/>
+          <div className={`absolute top-[6px] left-[6px] w-[16px] h-[16px] bg-white rounded-[4px] flex items-center justify-center shadow-md border ${item.isVeg ? "border-[#2E7D32]" : "border-[#C62828]"}`}>
+             <div className={`w-[7px] h-[7px] rounded-full ${item.isVeg ? "bg-[#2E7D32]" : "bg-[#C62828]"}`}/>
           </div>
         )}
         
         {hasOffer ? (
-          <div className="absolute top-0 right-0 bg-[#15803D] px-1.5 py-0.5 rounded-bl-[6px] text-[#FFFFFF] text-[9px] font-[600] tracking-tight">
+          <div className="absolute top-0 right-0 bg-[#15803D] px-1.5 py-0.5 rounded-bl-[8px] text-[#FFFFFF] text-[9px] font-[700] tracking-tight font-dm-sans">
              {item.offerLabel || "OFFER"}
           </div>
         ) : isSpecial ? (
-          <div className="absolute top-0 right-0 bg-[#B45309] px-1.5 py-0.5 rounded-bl-[6px] text-[#FFFFFF] text-[9px] font-[600] tracking-tight">
+          <div className="absolute top-0 right-0 bg-[#B45309] px-1.5 py-0.5 rounded-bl-[8px] text-[#FFFFFF] text-[9px] font-[700] tracking-tight font-dm-sans">
              ✦ SPECIAL
           </div>
         ) : null}
@@ -193,29 +198,52 @@ const FoodCard: React.FC<FoodCardProps> = ({
       </div>
 
       {/* Body */}
-      <div className="flex-1 flex flex-col min-w-0 py-0.5">
-        <div className="flex justify-between items-start gap-2">
-          <h3 className="font-dm-sans font-[600] text-[14px] leading-tight text-[#3D2B1F] tracking-[-0.01em] line-clamp-2">
-            {item.name}
+      <div className="flex-1 flex flex-col justify-between self-stretch min-w-0">
+        <div>
+          <div className="flex justify-between items-start gap-2">
+            <h3 className="font-dm-sans font-[700] text-[15px] leading-tight text-[#3D2B1F] tracking-[-0.01em] line-clamp-1">
+              {item.name}
+            </h3>
+            {item.rating > 0 && (
+              <div className="flex items-center gap-0.5 shrink-0 bg-[#FEF3C7] border border-[#FDE68A] rounded-full px-1.5 py-0.5 leading-none shadow-sm">
+                <Star className="w-2.5 h-2.5 fill-[#D4AF37] stroke-[#D4AF37]" />
+                <span className="text-[10px] font-[800] text-[#92400E]">{item.rating}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
             {item.isSpicy && (
-              <span className={`inline-flex items-center ml-1.5 px-1 py-[1px] rounded-[4px] text-[10px] font-[600] leading-none align-baseline ${getSpiceStyle(item.spiceLabel || "mild")}`}>
+              <span className={`inline-flex items-center mt-1 px-1.5 py-[2px] rounded-[4px] text-[10px] font-[600] leading-none ${getSpiceStyle(item.spiceLabel || "mild")}`}>
                 <Flame className="w-2.5 h-2.5 mr-0.5" />
                 {item.spiceLabel}
               </span>
             )}
-            {item.calories && (
-               <span className="inline-flex ml-1.5 bg-[#F7F2EB] text-[#B3A08E] rounded-[20px] px-[7px] py-[1px] text-[10px] font-[500] border border-[#F0E9DF]">
-                 {item.calories} kcal
-               </span>
-            )}
-          </h3>
-        </div>
+          </div>
 
-        {item.description && (
-          <p className="mt-1 font-dm-sans text-[12px] font-[400] leading-[1.5] text-[#9B8677] line-clamp-2 pr-1">
-            {item.description}
-          </p>
-        )}
+          {item.description && (
+            <p className="mt-1 font-dm-sans text-[12px] font-[400] leading-[1.4] text-[#6B5B4E] line-clamp-2 pr-1">
+              {item.description}
+            </p>
+          )}
+
+          {/* Metadata: Calories & Prep Time */}
+          {(item.calories || item.estimatedPrepMinutes) && (
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {item.calories && (
+                <span className="inline-flex items-center bg-[#F7F2EB] text-[#6B5B4E] rounded-full px-2 py-0.5 text-[10px] font-[600] border border-[#EDE5D8] gap-1 leading-none">
+                  <Flame className="w-2.5 h-2.5 text-[#3D2B1F]" />
+                  {item.calories} kcal
+                </span>
+              )}
+              {item.estimatedPrepMinutes && (
+                <span className="inline-flex items-center bg-[#F7F2EB] text-[#6B5B4E] rounded-full px-2 py-0.5 text-[10px] font-[600] border border-[#EDE5D8] leading-none">
+                  ⏱ {item.estimatedPrepMinutes} mins
+                </span>
+              )}
+            </div>
+          )}
+        </div>
         
         {visibleVariants.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -235,21 +263,19 @@ const FoodCard: React.FC<FoodCardProps> = ({
           </div>
         )}
 
-        <div className="flex-1" />
-
-        <div className="flex flex-row justify-between items-end mt-2 h-[32px]">
+        <div className="flex flex-row justify-between items-center mt-2 h-[32px]">
           <div className="flex items-baseline flex-wrap">
-            <span className="font-dm-sans text-[15px] font-[700] text-[#3D2B1F] tracking-[-0.02em] leading-none mb-0.5">
-             <span className="text-[11px] opacity-80 font-[600] mr-0.5 tracking-normal">₹</span>{displayPrice.toFixed(2)}
+            <span className="font-dm-sans text-[16px] font-[800] text-[#3D2B1F] tracking-[-0.02em] leading-none">
+             <span className="text-[12px] opacity-80 font-[700] mr-0.5 tracking-normal">₹</span>{formatPrice(displayPrice)}
             </span>
             {hasDiscount && (
-              <span className="ml-[5px] font-dm-sans text-[11px] text-[#B3A08E] line-through font-[500] leading-none">
-                ₹{displayBaseWithoutDiscount.toFixed(2)}
+              <span className="ml-[5px] font-dm-sans text-[12px] text-[#B3A08E] line-through font-[500] leading-none">
+                ₹{formatPrice(displayBaseWithoutDiscount)}
               </span>
             )}
           </div>
           
-          <div className="relative z-10 flex items-center mb-0.5">
+          <div className="relative z-10 flex items-center">
             <AddControls />
           </div>
         </div>

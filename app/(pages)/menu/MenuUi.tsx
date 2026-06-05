@@ -1681,15 +1681,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       <main className="mu-main">
         {activeTab === "menu" && (
           <div className="mu-menu-content">
-            {/* Hero Section */}
-            <div className="mu-hero">
-              <p className="mu-hero-subcopy">
-                Table {tableId || "7"} · Fine Dining
-              </p>
-              <h2 className="mu-hero-title">
-                What shall we{"\n"}bring you today?
-              </h2>
-            </div>
 
             {/* Today's Specials */}
             {todaySpecialItems.length > 0 && (
