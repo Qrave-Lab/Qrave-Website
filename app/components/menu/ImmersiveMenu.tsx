@@ -288,11 +288,13 @@ export default function ImmersiveMenu({
                                     </div>
                                 ) : (
                                     <div className="absolute inset-0 p-4 z-20 flex items-center justify-center transition-transform duration-700 ease-out group-hover:scale-105">
-                                        <img
-                                            src={resolvedImageUrl}
-                                            alt={currentItem.name}
-                                            className="w-full h-full object-contain drop-shadow-2xl"
-                                        />
+                                        {resolvedImageUrl ? (
+                                            <img
+                                                src={resolvedImageUrl}
+                                                alt={currentItem.name}
+                                                className="w-full h-full object-contain drop-shadow-2xl"
+                                            />
+                                        ) : null}
                                     </div>
                                 )}
 

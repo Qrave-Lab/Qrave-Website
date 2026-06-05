@@ -1,8 +1,10 @@
+
 "use client";
 
 import React, { useState } from "react";
 import { Star, Scan, Minus, Plus, Flame } from "lucide-react";
 import { useLanguageStore } from "@/stores/languageStore";
+import { motion } from "framer-motion";
 
 type Variant = {
   id: string;
@@ -35,6 +37,8 @@ type MenuItem = {
   estimatedPrepMinutes?: number | null;
   pairWithNames?: string[];
   variants?: Variant[];
+  isTodaysSpecial?: boolean;
+  isChefSpecial?: boolean;
 };
 
 interface FoodCardProps {
@@ -85,366 +89,174 @@ const FoodCard: React.FC<FoodCardProps> = ({
   const displayPrice = discountedBasePrice + variantDelta;
   const displayBaseWithoutDiscount = basePrice + variantDelta;
   const hasDiscount = displayBaseWithoutDiscount > displayPrice;
+  
+  const isSpecial = item.isTodaysSpecial || item.isChefSpecial;
+  const hasOffer = hasDiscount || item.offerLabel;
 
-  const AddButton = () => (
-    isAvailable ? (
-      orderingEnabled ? (
-        currentQty > 0 ? (
-          <div className="fc-qty-stepper">
-            <button onClick={() => onRemove(item.id, activeVariantId)} className="fc-qty-btn">
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <span className="fc-qty-count">{currentQty}</span>
-            <button onClick={() => onAdd(item.id, activeVariantId, displayPrice)} className="fc-qty-btn">
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => onAdd(item.id, activeVariantId, displayPrice)}
-            className="fc-add-btn"
+  const getSpiceStyle = (level: string) => {
+    const l = level.toLowerCase();
+    if (l === "mild") return "bg-[#E8650026] text-[#C45200]";
+    if (l === "medium") return "bg-[#E8650033] text-[#B94500]";
+    if (l === "hot" || l === "extra") return "bg-[#E8650044] text-[#A03C00]";
+    return "bg-[#E8650026] text-[#C45200]";
+  };
+
+  const AddControls = () => {
+    if (!isAvailable || !orderingEnabled) return null;
+    
+    if (currentQty > 0) {
+      return (
+        <div className="flex flex-row bg-[#F7F2EB] rounded-[10px] border border-[#EDE5D8] overflow-hidden shrink-0 items-center">
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={() => onRemove(item.id, activeVariantId)}
+            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#ede5d8] transition-colors"
           >
-            {t("add")}
-          </button>
-        )
-      ) : null
-    ) : (
-      <span className="fc-unavailable">{t("unavailable")}</span>
-    )
-  );
-
-  // ─── MAGAZINE layout ─────────────────────────────────────────────────────────
-  if (layout === "magazine") {
+            <Minus className="w-[14px] h-[14px] text-[#3D2B1F]" strokeWidth={2.5}/>
+          </motion.button>
+          <span className="w-[22px] text-center text-[#3D2B1F] text-[13px] font-[700] tabular-nums leading-none">
+            {currentQty}
+          </span>
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={() => onAdd(item.id, activeVariantId, displayPrice)}
+            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#ede5d8] transition-colors"
+          >
+            <Plus className="w-[14px] h-[14px] text-[#3D2B1F]" strokeWidth={2.5} />
+          </motion.button>
+        </div>
+      );
+    }
+    
     return (
-      <div className={`fc-magazine ${!isAvailable ? "fc-disabled" : ""}`}>
-        <div className="fc-magazine-img-wrap">
-          {!imageLoaded && <div className="fc-img-placeholder" />}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={item.image}
-            alt={item.name}
-            className={`fc-magazine-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
-            onLoad={() => setImageLoaded(true)}
-          />
-          <div className="fc-magazine-badges">
-            {item.isBestseller && <span className="fc-badge fc-badge--gold">Bestseller</span>}
-            {item.isNew && <span className="fc-badge fc-badge--green">New</span>}
-          </div>
-          <div className="fc-magazine-overlay">
-            <h3 className="fc-magazine-name">{item.name}</h3>
-            <div className="fc-magazine-meta">
-              <div className="fc-veg-indicator">
-                <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
-              </div>
-              {item.rating > 0 && (
-                <span className="fc-magazine-rating"><Star className="w-4 h-4 fill-current" /> {item.rating}</span>
-              )}
-              {item.calories && <span className="fc-magazine-cal">{item.calories} kcal</span>}
-            </div>
-          </div>
-        </div>
-        <div className="fc-magazine-body">
-          <p className="fc-desc">{item.description}</p>
-
-          {visibleVariants.length > 0 && (
-            <div className="fc-variants">
-              {visibleVariants.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => onVariantChange?.(v.id)}
-                  className={`fc-variant-pill ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
-                >
-                  {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="fc-bottom">
-            <div className="fc-price-col">
-              {hasDiscount && (
-                <span className="fc-price-old">₹{displayBaseWithoutDiscount}</span>
-              )}
-              <span className="fc-price-main fc-price-lg">₹{displayPrice}</span>
-            </div>
-            <AddButton />
-          </div>
-        </div>
-        <FoodCardStyles />
-      </div>
+      <motion.button
+        whileHover={{ scale: 1.05, backgroundColor: "#5C3D2A" }}
+        whileTap={{ scale: 0.92 }}
+        onClick={() => onAdd(item.id, activeVariantId, displayPrice)}
+        className="w-[30px] h-[30px] rounded-[10px] bg-[#3D2B1F] flex items-center justify-center flex-shrink-0 cursor-pointer shadow-sm transition-all"
+      >
+        <Plus className="w-4 h-4 text-[#F7F2EB]" strokeWidth={2.5} />
+      </motion.button>
     );
-  }
+  };
 
-  // ─── COMPACT layout ─────────────────────────────────────────────────────────
-  if (layout === "compact") {
-    return (
-      <div className={`fc-compact ${!isAvailable ? "fc-disabled" : ""}`}>
-        <div className="fc-compact-img-wrap">
-          {!imageLoaded && <div className="fc-img-placeholder" />}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={item.image}
-            alt={item.name}
-            className={`fc-compact-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
-            onLoad={() => setImageLoaded(true)}
-          />
-          <div className="fc-compact-veg-wrap">
-            <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
-          </div>
-          {!isAvailable && (
-            <div className="fc-compact-oos">
-              <span>Out</span>
-            </div>
-          )}
-        </div>
-        <div className="fc-compact-body">
-          <p className="fc-compact-name">{item.name}</p>
-          <div className="fc-compact-meta">
-            {hasDiscount && (
-              <span className="fc-price-old fc-price-sm">₹{displayBaseWithoutDiscount}</span>
-            )}
-            <span className="fc-price-main fc-price-sm">₹{displayPrice}</span>
-            {item.calories ? (
-              <span className="fc-cal-badge">{item.calories} kcal</span>
-            ) : null}
-          </div>
-          {visibleVariants.length > 0 && (
-            <div className="fc-variants fc-variants-sm">
-              {visibleVariants.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => onVariantChange?.(v.id)}
-                  className={`fc-variant-pill fc-variant-pill--sm ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
-                >
-                  {v.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="fc-compact-action">
-          <AddButton />
-        </div>
-        <FoodCardStyles />
-      </div>
-    );
-  }
-
-  // ─── GRID layout ─────────────────────────────────────────────────────────────
-  if (layout === "grid") {
-    return (
-      <div className={`fc-grid ${!isAvailable ? "fc-disabled" : ""}`}>
-        <div className="fc-grid-img-wrap">
-          {!imageLoaded && <div className="fc-img-placeholder" />}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={item.image}
-            alt={item.name}
-            className={`fc-grid-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
-            onLoad={() => setImageLoaded(true)}
-          />
-          <div className="fc-grid-veg">
-            <div className={`fc-veg-indicator fc-veg-indicator--sm`}>
-              <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
-            </div>
-          </div>
-          {item.rating > 0 && (
-            <div className="fc-grid-rating">
-              <Star className="w-2.5 h-2.5 fill-current text-amber-500" />
-              <span>{item.rating}</span>
-            </div>
-          )}
-          {!isAvailable && (
-            <div className="fc-grid-oos">{t("soldOut")}</div>
-          )}
-          {item.arModelGlb && (
-            <button
-              onClick={() => onArClick(item)}
-              className={`fc-ar-btn ${showArTour ? "fc-ar-btn--tour" : ""}`}
-            >
-              <Scan className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {(item.isBestseller || item.isSpicy || item.isNew) && (
-            <div className="fc-grid-badges">
-              {item.isBestseller && <span className="fc-badge fc-badge--gold fc-badge--sm">{t("bestseller")}</span>}
-              {item.isNew && <span className="fc-badge fc-badge--green fc-badge--sm">New</span>}
-              {item.isSpicy && <span className="fc-badge fc-badge--red fc-badge--sm">{item.spiceLabel || "Spicy"}</span>}
-            </div>
-          )}
-        </div>
-        <div className="fc-grid-body">
-          <h3 className="fc-grid-name">{item.name}</h3>
-          <p className="fc-desc fc-desc-sm">{item.description}</p>
-          {visibleVariants.length > 0 && (
-            <div className="fc-variants fc-variants-sm">
-              {visibleVariants.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => onVariantChange?.(v.id)}
-                  className={`fc-variant-pill fc-variant-pill--sm ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
-                >
-                  {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="fc-bottom">
-            <div className="fc-price-col">
-              {hasDiscount && (
-                <span className="fc-price-old fc-price-sm">₹{displayBaseWithoutDiscount}</span>
-              )}
-              <span className="fc-price-main fc-price-sm">₹{displayPrice}</span>
-            </div>
-            <AddButton />
-          </div>
-        </div>
-        <FoodCardStyles />
-      </div>
-    );
-  }
-
-  // ─── LIST layout (default) — warm editorial card ──────────────────────────
   return (
-    <div className={`fc-card ${!isAvailable ? "fc-disabled" : ""}`}>
-      {/* Large top image */}
-      <div className="fc-card-img-wrap">
-        {!imageLoaded && <div className="fc-img-placeholder" />}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={item.image}
-          alt={item.name}
-          className={`fc-card-img ${imageLoaded ? "fc-img-loaded" : "fc-img-loading"}`}
-          onLoad={() => setImageLoaded(true)}
-        />
-
-        {/* Veg/Non-veg indicator — bordered square */}
-        <div className="fc-card-veg-badge">
-          <div className={`fc-veg-indicator ${item.isVeg ? "fc-veg-indicator--green" : "fc-veg-indicator--red"}`}>
-            <div className={`fc-veg-dot ${item.isVeg ? "fc-veg" : "fc-nonveg"}`} />
-          </div>
-        </div>
-
-        {/* Rating — gold floating badge */}
-        {item.rating > 0 && (
-          <div className="fc-card-rating">
-            <Star className="w-3.5 h-3.5 fill-current" />
-            <span>{item.rating}</span>
+    <div className="flex flex-row p-[16px_16px_14px_16px] bg-[#FFFFFF] border-b border-[#F0E9DF]">
+      
+      {/* 88x88 Thumb */}
+      <div className="relative shrink-0 w-[88px] h-[88px] rounded-[12px] bg-[#F7F2EB] overflow-hidden mr-[14px]">
+        {item.image ? (
+          <img 
+             src={item.image} 
+             alt={item.name} 
+             className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"} ${!isAvailable ? "grayscale contrast-50 opacity-60" : ""}`}
+             onLoad={() => setImageLoaded(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center opacity-40">
+            <Scan className="w-6 h-6 text-[#9B8677]" />
           </div>
         )}
-
-        {/* AR button */}
+        
+        {/* AR Button Overlay */}
         {item.arModelGlb && (
           <button
             onClick={() => onArClick(item)}
-            className={`fc-ar-btn ar-view-btn ${showArTour ? "fc-ar-btn--tour" : ""}`}
+            className={`ar-view-btn absolute z-10 bottom-1 left-1 w-6 h-6 bg-white/90 backdrop-blur border border-white/40 shadow-sm rounded-full flex items-center justify-center transition-all shadow-[#3D2B1F]/10 ${showArTour ? "ring-2 ring-[#3D2B1F] ring-offset-1 animate-pulse" : "hover:scale-110 active:scale-95"}`}
           >
-            <Scan className="w-4 h-4" />
+            <Scan className="w-3.5 h-3.5 text-[#3D2B1F]" strokeWidth={2.5}/>
           </button>
         )}
 
-        {/* Sold out overlay */}
-        {!isAvailable && (
-          <div className="fc-card-oos-overlay">
-            <span className="fc-card-oos-text">{t("soldOut")}</span>
+        {/* Badges/Tags over image */}
+        {item.isVeg !== undefined && (
+          <div className="absolute top-[4px] left-[4px] w-[14px] h-[14px] bg-white rounded-full flex items-center justify-center shadow-sm">
+             <div className={`w-[8px] h-[8px] rounded-full border-[1.5px] border-white ${item.isVeg ? "bg-[#2E7D32]" : "bg-[#C62828]"}`}/>
           </div>
         )}
+        
+        {hasOffer ? (
+          <div className="absolute top-0 right-0 bg-[#15803D] px-1.5 py-0.5 rounded-bl-[6px] text-[#FFFFFF] text-[9px] font-[600] tracking-tight">
+             {item.offerLabel || "OFFER"}
+          </div>
+        ) : isSpecial ? (
+          <div className="absolute top-0 right-0 bg-[#B45309] px-1.5 py-0.5 rounded-bl-[6px] text-[#FFFFFF] text-[9px] font-[600] tracking-tight">
+             ✦ SPECIAL
+          </div>
+        ) : null}
 
-        {/* Badges */}
-        <div className="fc-card-top-badges">
-          {item.isBestseller && <span className="fc-badge fc-badge--gold">🏆 {t("bestseller")}</span>}
-          {item.isNew && <span className="fc-badge fc-badge--green">✨ New</span>}
-          {hasDiscount && item.offerLabel && (
-            <span className="fc-badge fc-badge--offer">{item.offerLabel}</span>
-          )}
-        </div>
+        {item.isBestseller && (
+          <div className="absolute bottom-0 left-0 w-full bg-[rgba(254,243,199,0.95)] backdrop-blur-[2px] py-[2px] flex justify-center text-[#92400E] text-[9px] uppercase font-[700] tracking-wider leading-none">
+             ★ Bestseller
+          </div>
+        )}
       </div>
 
-      {/* Content */}
-      <div className="fc-card-body">
-        {/* Name */}
-        <h3 className="fc-card-name">{item.name}</h3>
-
-        {/* Description */}
-        <p className="fc-card-desc">{item.description}</p>
-
-        {/* Spice + prep time badges */}
-        {(item.isSpicy || item.estimatedPrepMinutes) && (
-          <div className="fc-card-info-badges">
+      {/* Body */}
+      <div className="flex-1 flex flex-col min-w-0 py-0.5">
+        <div className="flex justify-between items-start gap-2">
+          <h3 className="font-dm-sans font-[600] text-[14px] leading-tight text-[#3D2B1F] tracking-[-0.01em] line-clamp-2">
+            {item.name}
             {item.isSpicy && (
-              <span className="fc-info-badge fc-info-badge--spicy">
-                <Flame className="w-3 h-3" /> {item.spiceLabel || t("spicy")}
+              <span className={`inline-flex items-center ml-1.5 px-1 py-[1px] rounded-[4px] text-[10px] font-[600] leading-none align-baseline ${getSpiceStyle(item.spiceLabel || "mild")}`}>
+                <Flame className="w-2.5 h-2.5 mr-0.5" />
+                {item.spiceLabel}
               </span>
             )}
-            {item.estimatedPrepMinutes && (
-              <span className="fc-info-badge">
-                {item.estimatedPrepMinutes} min
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Calories + allergens */}
-        {(item.calories || (Array.isArray(item.allergens) && item.allergens.length > 0)) && (
-          <div className="fc-card-meta">
             {item.calories && (
-              <span className="fc-meta-pill">{item.calories} kcal</span>
+               <span className="inline-flex ml-1.5 bg-[#F7F2EB] text-[#B3A08E] rounded-[20px] px-[7px] py-[1px] text-[10px] font-[500] border border-[#F0E9DF]">
+                 {item.calories} kcal
+               </span>
             )}
-            {Array.isArray(item.allergens) && item.allergens.length > 0 && (
-              <span className="fc-meta-pill fc-meta-pill--warn">
-                ⚠ {item.allergens.slice(0, 3).join(", ")}
-              </span>
-            )}
-          </div>
-        )}
+          </h3>
+        </div>
 
-        {/* Pair with */}
-        {item.pairWithNames && item.pairWithNames.length > 0 && (
-          <div className="fc-card-meta">
-            {item.pairWithNames.slice(0, 2).map((name) => (
-              <span key={name} className="fc-meta-pill fc-meta-pill--pair">
-                Pairs with {name}
-              </span>
-            ))}
-          </div>
+        {item.description && (
+          <p className="mt-1 font-dm-sans text-[12px] font-[400] leading-[1.5] text-[#9B8677] line-clamp-2 pr-1">
+            {item.description}
+          </p>
         )}
-
-        {/* Variants */}
+        
         {visibleVariants.length > 0 && (
-          <div className="fc-variants">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {visibleVariants.map((v) => (
               <button
                 key={v.id}
                 onClick={() => onVariantChange?.(v.id)}
-                className={`fc-variant-pill ${activeVariantId === v.id ? "fc-variant-pill--active" : ""}`}
+                className={`px-2 py-[3px] rounded-[6px] text-[11px] font-[600] border transition-colors ${
+                  activeVariantId === v.id
+                    ? "bg-[#3D2B1F] border-[#3D2B1F] text-[#F7F2EB]"
+                    : "bg-[#FFFFFF] border-[#DDD5C5] text-[#6B5B4E]"
+                }`}
               >
-                {v.name} {v.priceDelta > 0 && `+₹${v.priceDelta}`}
+                {v.name}
               </button>
             ))}
           </div>
         )}
 
-        {/* Price + Add row */}
-        <div className="fc-bottom">
-          <div className="fc-price-col">
+        <div className="flex-1" />
+
+        <div className="flex flex-row justify-between items-end mt-2 h-[32px]">
+          <div className="flex items-baseline flex-wrap">
+            <span className="font-dm-sans text-[15px] font-[700] text-[#3D2B1F] tracking-[-0.02em] leading-none mb-0.5">
+             <span className="text-[11px] opacity-80 font-[600] mr-0.5 tracking-normal">₹</span>{displayPrice.toFixed(2)}
+            </span>
             {hasDiscount && (
-              <span className="fc-price-old">₹{displayBaseWithoutDiscount}</span>
+              <span className="ml-[5px] font-dm-sans text-[11px] text-[#B3A08E] line-through font-[500] leading-none">
+                ₹{displayBaseWithoutDiscount.toFixed(2)}
+              </span>
             )}
-            <span className="fc-price-main">₹{displayPrice}</span>
           </div>
-          <AddButton />
+          
+          <div className="relative z-10 flex items-center mb-0.5">
+            <AddControls />
+          </div>
         </div>
       </div>
-
-      <FoodCardStyles />
+      
     </div>
   );
 };
-
-/* ── Styles are now in globals.css to prevent hydration stripping ── */
-function FoodCardStyles() {
-  return null;
-}
-
 
 export default FoodCard;

@@ -412,4 +412,10 @@ export const orderService = {
       }),
     });
   },
+
+  requestBill: () => {
+    return api("/api/customer/orders/bill-request", {
+      method: "POST",
+    });
+  },
 };

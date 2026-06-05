@@ -33,7 +33,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Libre+Caslon+Text:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Suspense fallback={null}>
@@ -46,23 +46,26 @@ export default function RootLayout({
           toastOptions={{
             className: "font-sans text-sm font-medium",
             style: {
-              borderRadius: "12px",
-              padding: "10px 14px",
-              boxShadow: "0 8px 24px rgba(2, 6, 23, 0.18)",
-              background: "#0f172a",
+              borderRadius: "24px",
+              padding: "10px 20px",
+              boxShadow: "0 4px 20px rgba(61, 43, 31, 0.25)",
+              background: "#3D2B1F",
               color: "#fff",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '13px',
+              fontWeight: '500',
             },
             success: {
               duration: 2200,
               style: {
-                background: "#10b981",
+                background: "#15803D",
                 color: "#fff",
               },
             },
             error: {
               duration: 3200,
               style: {
-                background: "#ef4444",
+                background: "#C62828",
                 color: "#fff",
               },
             },

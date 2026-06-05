@@ -1,18 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
 import { api } from "@/app/lib/api";
 import {
-  ClipboardList,
-  ChefHat,
-  Flame,
-  CookingPot,
   CheckCircle2,
-  Truck,
-  Package,
+  ClipboardList,
   Clock,
+  CookingPot,
+  Package,
   RefreshCw,
 } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
 
 /* ── Status mapping ────────────────────────────────────────────────── */
 
@@ -32,10 +29,38 @@ type StepKey = (typeof STEPS)[number]["key"];
 function statusToStepIndex(status?: string): number {
   if (!status) return 0;
   const s = status.toLowerCase().replace(/[_\- ]/g, "");
-  if (s.includes("deliver") || s.includes("served") || s.includes("completed") || s.includes("complete")) return 3;
-  if (s.includes("ready") || s.includes("finished") || s.includes("done") || s.includes("cooked")) return 2;
-  if (s.includes("prepar") || s.includes("cooking") || s.includes("progress") || s.includes("making") || s.includes("assign") || s.includes("accept") || s.includes("confirmed")) return 1;
-  if (s.includes("placed") || s.includes("pending") || s.includes("received") || s.includes("new") || s.includes("submitted")) return 0;
+  if (
+    s.includes("deliver") ||
+    s.includes("served") ||
+    s.includes("completed") ||
+    s.includes("complete")
+  )
+    return 3;
+  if (
+    s.includes("ready") ||
+    s.includes("finished") ||
+    s.includes("done") ||
+    s.includes("cooked")
+  )
+    return 2;
+  if (
+    s.includes("prepar") ||
+    s.includes("cooking") ||
+    s.includes("progress") ||
+    s.includes("making") ||
+    s.includes("assign") ||
+    s.includes("accept") ||
+    s.includes("confirmed")
+  )
+    return 1;
+  if (
+    s.includes("placed") ||
+    s.includes("pending") ||
+    s.includes("received") ||
+    s.includes("new") ||
+    s.includes("submitted")
+  )
+    return 0;
   return 0;
 }
 
@@ -48,6 +73,7 @@ type OrderItem = {
   price: number;
   name?: string;
   item_name?: string;
+  menu_item_name?: string;
 };
 
 type Order = {
@@ -70,6 +96,17 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [billRequested, setBillRequested] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sessionId = localStorage.getItem("session_id");
+      if (sessionId && localStorage.getItem(`bill_requested_${sessionId}`) === "true") {
+        setBillRequested(true);
+      }
+    }
+  }, []);
+
 
   const fetchOrders = useCallback(
     async (silent = false) => {
@@ -82,10 +119,10 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
         else setRefreshing(true);
         const data = await api<Order[] | { orders?: Order[] }>(
           "/api/customer/orders",
-          { credentials: "include" }
+          { credentials: "include" },
         );
-        const list = Array.isArray(data) ? data : data?.orders ?? [];
-        setOrders(list);
+        const list = Array.isArray(data) ? data : (data?.orders ?? []);
+        setOrders(list.filter((order: any) => order.status !== "cart"));
       } catch {
         // keep current state
       } finally {
@@ -93,7 +130,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
         setRefreshing(false);
       }
     },
-    [previewMode]
+    [previewMode],
   );
 
   useEffect(() => {
@@ -124,14 +161,22 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
             <ClipboardList size={40} strokeWidth={1.4} />
           </div>
           <h3 className="ov-empty-title">No orders yet</h3>
-          <p className="ov-empty-desc">
-            Items you order will appear here with live preparation updates.
-          </p>
+          <p className="ov-empty-desc">Items you order will appear here.</p>
         </div>
         <OrdersStyles />
       </div>
     );
   }
+
+  const nonCancelledOrders = orders.filter((o) => (o.status || "").toLowerCase() !== "cancelled");
+  const previousOrdersTotal = nonCancelledOrders.reduce((acc, order) => {
+    return (
+      acc +
+      (typeof order.total === "number" && order.total > 0
+        ? order.total
+        : order.items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0))
+    );
+  }, 0);
 
   /* ── Orders list ─────────────────────────────────────────────────── */
   return (
@@ -149,6 +194,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
 
       <div className="ov-list">
         {orders.map((order) => {
+          const isCancelled = (order.status || "").toLowerCase() === "cancelled";
           const stepIdx = statusToStepIndex(order.status);
           const createdRaw = order.created_at || order.createdAt;
           const createdDate = createdRaw ? new Date(createdRaw) : null;
@@ -158,25 +204,29 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
                 minute: "2-digit",
               })
             : "";
-          const orderLabel =
-            order.daily_order_number
-              ? `#${order.daily_order_number}`
-              : order.order_number
-                ? `#${order.order_number}`
-                : `#${order.id.slice(0, 6)}`;
+          const orderLabel = order.daily_order_number
+            ? `#${order.daily_order_number}`
+            : order.order_number
+              ? `#${order.order_number}`
+              : `#${order.id.slice(0, 6)}`;
           const total =
-            order.total ??
+            (typeof order.total === "number" && order.total > 0
+              ? order.total
+              : null) ??
             order.items.reduce(
-              (sum, item) => sum + item.price * item.quantity,
-              0
+              (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
+              0,
             );
 
           // Calculate estimated time remaining
           const createdTime = createdDate ? createdDate.getTime() : Date.now();
           const elapsedMins = Math.floor((Date.now() - createdTime) / 60000);
-          const totalPrepTime = typeof order.estimated_prep_minutes === "number" ? order.estimated_prep_minutes : 20; // fallback to 20 mins
+          const totalPrepTime =
+            typeof order.estimated_prep_minutes === "number"
+              ? order.estimated_prep_minutes
+              : 20; // fallback to 20 mins
           const remainingMins = Math.max(0, totalPrepTime - elapsedMins);
-          
+
           let etaLabel = "";
           if (stepIdx === 0) etaLabel = "Awaiting confirmation...";
           else if (stepIdx === 1) etaLabel = `${remainingMins} mins left`;
@@ -184,7 +234,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
           else if (stepIdx === 3) etaLabel = "Enjoy your meal!";
 
           return (
-            <div key={order.id} className="ov-card">
+            <div key={order.id} className={`ov-card ${isCancelled ? "ov-card--cancelled" : ""}`}>
               {/* Card header */}
               <div className="ov-card-header">
                 <div className="ov-card-id">
@@ -196,49 +246,51 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
                     </span>
                   )}
                 </div>
-                <div className="ov-card-status-badge" data-step={stepIdx}>
-                  {STEPS[stepIdx].label}
+                <div className="ov-card-status-badge" data-step={stepIdx} data-cancelled={isCancelled}>
+                  {isCancelled ? "Cancelled" : STEPS[stepIdx].label}
                 </div>
               </div>
 
               {/* Stepper */}
-              <div className="ov-stepper">
-                {STEPS.map((step, idx) => {
-                  const Icon = step.icon;
-                  const isCompleted = idx < stepIdx;
-                  const isActive = idx === stepIdx;
-                  const isPending = idx > stepIdx;
-                  return (
-                    <React.Fragment key={step.key}>
-                      <div
-                        className={`ov-step ${
-                          isCompleted
-                            ? "ov-step--done"
-                            : isActive
-                              ? "ov-step--active"
-                              : "ov-step--pending"
-                        }`}
-                      >
-                        <div className="ov-step-icon">
-                          <Icon size={14} strokeWidth={2} />
-                          {isActive && <div className="ov-step-pulse" />}
-                        </div>
-                        <span className="ov-step-label">{step.label}</span>
-                        {isActive && (
-                          <span className="ov-step-eta">{etaLabel}</span>
-                        )}
-                      </div>
-                      {idx < STEPS.length - 1 && (
+              {!isCancelled && (
+                <div className="ov-stepper">
+                  {STEPS.map((step, idx) => {
+                    const Icon = step.icon;
+                    const isCompleted = idx < stepIdx;
+                    const isActive = idx === stepIdx;
+                    const isPending = idx > stepIdx;
+                    return (
+                      <React.Fragment key={step.key}>
                         <div
-                          className={`ov-step-line ${
-                            idx < stepIdx ? "ov-step-line--done" : ""
+                          className={`ov-step ${
+                            isCompleted
+                              ? "ov-step--done"
+                              : isActive
+                                ? "ov-step--active"
+                                : "ov-step--pending"
                           }`}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
+                        >
+                          <div className="ov-step-icon">
+                            <Icon size={14} strokeWidth={2} />
+                            {isActive && <div className="ov-step-pulse" />}
+                          </div>
+                          <span className="ov-step-label">{step.label}</span>
+                          {isActive && (
+                            <span className="ov-step-eta">{etaLabel}</span>
+                          )}
+                        </div>
+                        {idx < STEPS.length - 1 && (
+                          <div
+                            className={`ov-step-line ${
+                              idx < stepIdx ? "ov-step-line--done" : ""
+                            }`}
+                          />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Items */}
               <div className="ov-items">
@@ -246,12 +298,25 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
                   <div key={i} className="ov-item">
                     <span className="ov-item-qty">{item.quantity}×</span>
                     <span className="ov-item-name">
-                      {item.name || item.item_name || `Item`}
+                      {item.menu_item_name ||
+                        item.name ||
+                        item.item_name ||
+                        `Item`}
                     </span>
-                    <span className="ov-item-price">₹{item.price * item.quantity}</span>
+                    <span className="ov-item-price">
+                      ₹{item.price * item.quantity}
+                    </span>
                   </div>
                 ))}
               </div>
+
+              {isCancelled && (
+                <div style={{ padding: "0 18px 8px 18px" }}>
+                  <p style={{ fontSize: "11px", fontWeight: "bold", color: "#ef4444" }}>
+                    This order was cancelled.
+                  </p>
+                </div>
+              )}
 
               {/* Total */}
               <div className="ov-card-footer">
@@ -261,6 +326,49 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
             </div>
           );
         })}
+
+        {/* Checkout & Bill Summary Link */}
+        {previousOrdersTotal > 0 && (
+          <div className="ov-summary-card">
+            <div className="ov-summary-info">
+              <span className="ov-summary-label">Total Placed Bill</span>
+              <span className="ov-summary-amount">₹{previousOrdersTotal}</span>
+            </div>
+            <div className="ov-summary-actions">
+              <button
+                onClick={() => {
+                  window.location.href = "/checkout";
+                }}
+                className="ov-btn-checkout"
+              >
+                View Bill & Checkout
+              </button>
+              {!billRequested && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const { orderService } = await import("@/services/orderService");
+                      await orderService.requestBill();
+                      const { toast } = await import("react-hot-toast");
+                      toast.success("Bill requested!");
+                      const sessionId = localStorage.getItem("session_id");
+                      if (sessionId) {
+                        localStorage.setItem(`bill_requested_${sessionId}`, "true");
+                      }
+                      setBillRequested(true);
+                    } catch (err: any) {
+                      const { toast } = await import("react-hot-toast");
+                      toast.error(err?.message || "Failed to request bill");
+                    }
+                  }}
+                  className="ov-btn-request"
+                >
+                  Request Bill
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       <OrdersStyles />
     </div>
@@ -275,6 +383,7 @@ function OrdersStyles() {
       .ov-root {
         padding: 20px 20px 120px;
         min-height: 60vh;
+        font-family: 'DM Sans', sans-serif;
       }
       .ov-header {
         display: flex;
@@ -285,25 +394,33 @@ function OrdersStyles() {
       .ov-title {
         font-size: 22px;
         font-weight: 800;
-        color: #0f172a;
+        color: #3D2B1F;
         letter-spacing: -0.02em;
       }
       .ov-refresh {
         width: 36px;
         height: 36px;
         border-radius: 12px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #EDE5D8;
         background: #fff;
-        color: #64748b;
+        color: #6B5B4E;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         transition: all 0.2s;
       }
-      .ov-refresh:hover { background: #f8fafc; }
-      .ov-refresh--spin svg { animation: ov-spin 0.8s linear infinite; }
-      @keyframes ov-spin { to { transform: rotate(360deg); } }
+      .ov-refresh:hover {
+        background: #F7F2EB;
+      }
+      .ov-refresh--spin svg {
+        animation: ov-spin 0.8s linear infinite;
+      }
+      @keyframes ov-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
       .ov-list {
         display: flex;
@@ -315,16 +432,21 @@ function OrdersStyles() {
       .ov-card {
         background: #fff;
         border-radius: 20px;
-        border: 1px solid #f1f5f9;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        border: 1px solid #EDE5D8;
+        box-shadow: 0 4px 20px rgba(61, 43, 31, 0.04);
         overflow: hidden;
+      }
+      .ov-card--cancelled {
+        opacity: 0.7;
+        background-color: #fafafa;
+        border-color: #fee2e2;
       }
       .ov-card-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 16px 18px 12px;
-        border-bottom: 1px solid #f8fafc;
+        border-bottom: 1px solid #F7F2EB;
       }
       .ov-card-id {
         display: flex;
@@ -334,7 +456,7 @@ function OrdersStyles() {
       .ov-card-order-num {
         font-size: 15px;
         font-weight: 800;
-        color: #0f172a;
+        color: #3D2B1F;
       }
       .ov-card-time {
         display: flex;
@@ -342,7 +464,7 @@ function OrdersStyles() {
         gap: 4px;
         font-size: 11px;
         font-weight: 600;
-        color: #94a3b8;
+        color: #9B8677;
       }
       .ov-card-status-badge {
         font-size: 10px;
@@ -351,13 +473,29 @@ function OrdersStyles() {
         letter-spacing: 0.06em;
         padding: 4px 10px;
         border-radius: 8px;
-        background: #f1f5f9;
-        color: #64748b;
+        background: #EDE5D8;
+        color: #6B5B4E;
       }
-      .ov-card-status-badge[data-step="1"] { background: #fef3c7; color: #92400e; }
-      .ov-card-status-badge[data-step="2"] { background: #ffedd5; color: #c2410c; }
-      .ov-card-status-badge[data-step="3"] { background: #dcfce7; color: #166534; }
-      .ov-card-status-badge[data-step="4"] { background: #d1fae5; color: #065f46; }
+      .ov-card-status-badge[data-cancelled="true"] {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .ov-card-status-badge[data-step="1"] {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .ov-card-status-badge[data-step="2"] {
+        background: #ffedd5;
+        color: #c2410c;
+      }
+      .ov-card-status-badge[data-step="3"] {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .ov-card-status-badge[data-step="4"] {
+        background: #d1fae5;
+        color: #065f46;
+      }
 
       /* Stepper */
       .ov-stepper {
@@ -368,7 +506,9 @@ function OrdersStyles() {
         overflow-x: auto;
         scrollbar-width: none;
       }
-      .ov-stepper::-webkit-scrollbar { display: none; }
+      .ov-stepper::-webkit-scrollbar {
+        display: none;
+      }
       .ov-step {
         display: flex;
         flex-direction: column;
@@ -385,36 +525,43 @@ function OrdersStyles() {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #f1f5f9;
-        color: #94a3b8;
+        background: #F7F2EB;
+        color: #9B8677;
         transition: all 0.3s ease;
       }
       .ov-step--done .ov-step-icon {
-        background: #0f172a;
-        color: #fff;
+        background: #3D2B1F;
+        color: #F7F2EB;
       }
       .ov-step--active .ov-step-icon {
-        background: #f59e0b;
-        color: #fff;
-        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+        background: #3D2B1F;
+        color: #F7F2EB;
+        box-shadow: 0 4px 14px rgba(61, 43, 31, 0.25);
       }
       .ov-step-pulse {
         position: absolute;
         inset: -4px;
         border-radius: 14px;
-        border: 2px solid #f59e0b;
+        border: 2px solid #3D2B1F;
         opacity: 0.4;
         animation: ov-pulse 1.8s ease-in-out infinite;
       }
       @keyframes ov-pulse {
-        0%, 100% { transform: scale(1); opacity: 0.4; }
-        50% { transform: scale(1.12); opacity: 0; }
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.4;
+        }
+        50% {
+          transform: scale(1.12);
+          opacity: 0;
+        }
       }
       .ov-step-label {
         font-size: 9px;
         font-weight: 700;
         text-align: center;
-        color: #94a3b8;
+        color: #9B8677;
         line-height: 1.2;
         max-width: 65px;
       }
@@ -422,25 +569,32 @@ function OrdersStyles() {
         font-size: 9px;
         font-weight: 800;
         text-align: center;
-        color: #f59e0b;
-        background: rgba(245, 158, 11, 0.1);
+        color: #3D2B1F;
+        background: rgba(61, 43, 31, 0.08);
         padding: 2px 6px;
         border-radius: 6px;
         margin-top: 2px;
         white-space: nowrap;
       }
-      .ov-step--done .ov-step-label { color: #0f172a; }
-      .ov-step--active .ov-step-label { color: #f59e0b; font-weight: 800; }
+      .ov-step--done .ov-step-label {
+        color: #3D2B1F;
+      }
+      .ov-step--active .ov-step-label {
+        color: #3D2B1F;
+        font-weight: 800;
+      }
       .ov-step-line {
         flex: 1;
         height: 2px;
         min-width: 12px;
-        background: #e2e8f0;
+        background: #EDE5D8;
         margin-top: 15px;
         border-radius: 1px;
         transition: background 0.3s;
       }
-      .ov-step-line--done { background: #0f172a; }
+      .ov-step-line--done {
+        background: #3D2B1F;
+      }
 
       /* Items */
       .ov-items {
@@ -451,25 +605,27 @@ function OrdersStyles() {
         align-items: center;
         gap: 8px;
         padding: 8px 0;
-        border-bottom: 1px solid #f8fafc;
+        border-bottom: 1px solid #F7F2EB;
       }
-      .ov-item:last-child { border-bottom: none; }
+      .ov-item:last-child {
+        border-bottom: none;
+      }
       .ov-item-qty {
         font-size: 12px;
         font-weight: 800;
-        color: #64748b;
+        color: #6B5B4E;
         min-width: 24px;
       }
       .ov-item-name {
         flex: 1;
         font-size: 13px;
         font-weight: 600;
-        color: #334155;
+        color: #3D2B1F;
       }
       .ov-item-price {
         font-size: 13px;
         font-weight: 700;
-        color: #0f172a;
+        color: #3D2B1F;
       }
 
       /* Footer */
@@ -478,18 +634,91 @@ function OrdersStyles() {
         align-items: center;
         justify-content: space-between;
         padding: 12px 18px 16px;
-        border-top: 1px dashed #e2e8f0;
+        border-top: 1px dashed #EDE5D8;
         margin-top: 4px;
       }
       .ov-total-label {
         font-size: 13px;
         font-weight: 700;
-        color: #64748b;
+        color: #6B5B4E;
       }
       .ov-total-amount {
         font-size: 18px;
         font-weight: 800;
-        color: #0f172a;
+        color: #3D2B1F;
+      }
+
+      /* Summary Card */
+      .ov-summary-card {
+        margin-top: 24px;
+        padding: 20px;
+        background: #fff;
+        border-radius: 20px;
+        border: 2px solid #EDE5D8;
+        box-shadow: 0 4px 20px rgba(61, 43, 31, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .ov-summary-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .ov-summary-label {
+        font-size: 14px;
+        font-weight: 700;
+        color: #6B5B4E;
+      }
+      .ov-summary-amount {
+        font-size: 24px;
+        font-weight: 800;
+        color: #3D2B1F;
+        font-family: monospace;
+      }
+      .ov-summary-actions {
+        display: flex;
+        gap: 12px;
+      }
+      .ov-btn-checkout {
+        flex: 1;
+        height: 48px;
+        background: #3D2B1F;
+        color: #F7F2EB;
+        border: none;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .ov-btn-checkout:hover {
+        opacity: 0.9;
+      }
+      .ov-btn-request {
+        flex: 1;
+        height: 48px;
+        background: #EDE5D8;
+        color: #3D2B1F;
+        border: 1px solid #DDD5C5;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .ov-btn-request:hover {
+        background: #DDD5C5;
       }
 
       /* Empty & Loading */
@@ -505,22 +734,22 @@ function OrdersStyles() {
         width: 80px;
         height: 80px;
         border-radius: 24px;
-        background: #f8fafc;
+        background: #F7F2EB;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #cbd5e1;
+        color: #C9B89A;
         margin-bottom: 20px;
       }
       .ov-empty-title {
         font-size: 18px;
         font-weight: 800;
-        color: #1e293b;
+        color: #3D2B1F;
         margin-bottom: 8px;
       }
       .ov-empty-desc {
         font-size: 13px;
-        color: #94a3b8;
+        color: #6B5B4E;
         max-width: 260px;
         line-height: 1.5;
       }
@@ -535,15 +764,15 @@ function OrdersStyles() {
       .ov-loading-spinner {
         width: 32px;
         height: 32px;
-        border: 3px solid #f1f5f9;
-        border-top-color: #0f172a;
+        border: 3px solid #EDE5D8;
+        border-top-color: #3D2B1F;
         border-radius: 50%;
         animation: ov-spin 0.7s linear infinite;
       }
       .ov-loading-text {
         font-size: 13px;
         font-weight: 600;
-        color: #94a3b8;
+        color: #6B5B4E;
       }
     `}</style>
   );
