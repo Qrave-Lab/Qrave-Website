@@ -131,13 +131,6 @@ const Navbar = () => {
                 Features
               </Link>
 
-              <Link
-                href="/#pricing"
-                className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
-                onClick={(e) => handleSectionLinkClick(e, '#pricing')}
-              >
-                Pricing
-              </Link>
 
               <Link
                 href="/#about"
@@ -187,13 +180,6 @@ const Navbar = () => {
                 onClick={(e) => handleSectionLinkClick(e, '#features')}
               >
                 Features
-              </Link>
-              <Link
-                href="/#pricing"
-                className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
-                onClick={(e) => handleSectionLinkClick(e, '#pricing')}
-              >
-                Pricing
               </Link>
               <Link
                 href="/#about"

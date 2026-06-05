@@ -2,7 +2,6 @@ import Navbar from './_sections/Navbar';
 import Hero from './_sections/Hero';
 import TrustedBy from './_sections/TrustedBy';
 import SmartFeatures from './_sections/SmartFeatures';
-import Pricing from './_sections/Pricing';
 import AppMarketplace from './_sections/AppMarketplace';
 import OutletTypes from './_sections/OutletTypes';
 import AboutUs from './_sections/AboutUs';
@@ -24,9 +23,6 @@ export default function Home() {
                 </ScrollReveal>
                 <ScrollReveal delayMs={80}>
                     <SmartFeatures />
-                </ScrollReveal>
-                <ScrollReveal delayMs={100}>
-                    <Pricing />
                 </ScrollReveal>
                 <ScrollReveal delayMs={120}>
                     <AppMarketplace />
