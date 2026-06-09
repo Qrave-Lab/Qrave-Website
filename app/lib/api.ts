@@ -30,7 +30,7 @@ export function getBackendBase(): string {
       return `http://${host}:9090`;
     }
   }
-  return "https://qrave-backend.onrender.com";
+  throw new Error("NEXT_PUBLIC_API_URL environment variable is required");
 }
 
 const PUBLIC_ROUTES = [

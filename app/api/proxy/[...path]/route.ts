@@ -5,7 +5,7 @@ function resolveBackendBase(request: NextRequest): string {
   if (configured) return configured.replace(/\/+$/, "");
 
   if (process.env.NODE_ENV === "production") {
-    return "https://qrave-backend.onrender.com";
+    throw new Error("NEXT_PUBLIC_API_URL environment variable is required in production");
   }
 
   const host = request.headers.get("host") || "localhost:3000";
