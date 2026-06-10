@@ -150,10 +150,12 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
       <>
         <style>{animationStyles}</style>
         <div className="qrave-loader">
-          <div className="qrave-card" style={{ borderColor: "rgba(239,68,68,0.15)" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
-            <h1 className="qrave-title" style={{ color: "#1e293b" }}>Table Unavailable</h1>
-            <p className="qrave-sub" style={{ marginTop: 8 }}>{tableError}</p>
+          <div className="qrave-orb qrave-orb-1" />
+          <div className="qrave-orb qrave-orb-2" />
+          <div className="qrave-card" style={{ borderColor: "rgba(239,68,68,0.2)" }}>
+            <div style={{ fontSize: 36, marginBottom: 16 }}>⚠️</div>
+            <h1 className="qrave-title">Table Unavailable</h1>
+            <p className="qrave-sub" style={{ marginTop: 10 }}>{tableError}</p>
           </div>
         </div>
       </>
@@ -166,26 +168,27 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
       <>
         <style>{animationStyles}</style>
         <div className="qrave-loader">
-          <div className="qrave-card" style={{ animation: "qFadeUp 0.5s ease" }}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>🍽️</div>
-            <h2 className="qrave-title" style={{ fontSize: 18 }}>This table has an active order</h2>
-            <p className="qrave-sub" style={{ marginTop: 8, lineHeight: 1.5 }}>
-              Someone is already ordering here. Would you like to share the order or keep a separate bill?
+          <div className="qrave-orb qrave-orb-1" />
+          <div className="qrave-orb qrave-orb-2" />
+          <div className="qrave-card">
+            <div style={{ fontSize: 34, marginBottom: 14 }}>🍽️</div>
+            <h2 className="qrave-title" style={{ fontSize: 20 }}>Active order at this table</h2>
+            <p className="qrave-sub" style={{ marginTop: 10 }}>
+              Someone is already ordering here. Join them or start your own separate bill.
             </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 24, width: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24, width: "100%" }}>
               <button onClick={() => handleChoose(false)} className="qrave-btn qrave-btn-primary">
-                <span style={{ fontSize: 20 }}>🤝</span>
+                <span style={{ fontSize: 18 }}>🤝</span>
                 <div>
-                  <div style={{ fontWeight: 700 }}>Join shared order</div>
-                  <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>Order together, one bill</div>
+                  <div style={{ fontWeight: 600 }}>Join shared order</div>
+                  <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>Order together, one bill</div>
                 </div>
               </button>
               <button onClick={() => handleChoose(true)} className="qrave-btn qrave-btn-secondary">
-                <span style={{ fontSize: 20 }}>🧾</span>
+                <span style={{ fontSize: 18 }}>🧾</span>
                 <div>
-                  <div style={{ fontWeight: 700 }}>Start my own bill</div>
-                  <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>Separate checkout</div>
+                  <div style={{ fontWeight: 600 }}>Start my own bill</div>
+                  <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>Separate checkout</div>
                 </div>
               </button>
             </div>
@@ -200,28 +203,38 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
     <>
       <style>{animationStyles}</style>
       <div className="qrave-loader">
-        {/* Floating food particles */}
-        <div className="qrave-particle p1">🍕</div>
-        <div className="qrave-particle p2">🍜</div>
-        <div className="qrave-particle p3">🥗</div>
-        <div className="qrave-particle p4">🍰</div>
-        <div className="qrave-particle p5">☕</div>
-        <div className="qrave-particle p6">🍣</div>
+        {/* Ambient gradient orbs */}
+        <div className="qrave-orb qrave-orb-1" />
+        <div className="qrave-orb qrave-orb-2" />
+        <div className="qrave-orb qrave-orb-3" />
 
-        {/* Plate circle */}
-        <div className="qrave-plate">
-          <div className="qrave-plate-inner" />
-          <div className="qrave-plate-rim" />
+        {/* Spinning ring with icon */}
+        <div className="qrave-ring-wrap">
+          <svg className="qrave-ring-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="54" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5"/>
+            <circle cx="60" cy="60" r="54" stroke="url(#ringGrad)" strokeWidth="2.5"
+              strokeLinecap="round" strokeDasharray="100 240" className="qrave-ring-arc"/>
+            <defs>
+              <linearGradient id="ringGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#FF6B35"/>
+                <stop offset="1" stopColor="#FF9A5C" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="qrave-ring-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <ellipse cx="16" cy="24" rx="10" ry="2.5" fill="rgba(255,107,53,0.15)"/>
+              <path d="M8 16c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#FF6B35" strokeWidth="2" strokeLinecap="round"/>
+              <circle cx="16" cy="20" r="2.5" fill="#FF6B35"/>
+              <path d="M7 23h18" stroke="rgba(255,107,53,0.35)" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
         </div>
 
-        {/* Animated Qrave wordmark emerging from plate */}
-        <div className="qrave-brand">
+        {/* Wordmark */}
+        <div className="qrave-wordmark">
           {"Qrave".split("").map((char, i) => (
-            <span
-              key={i}
-              className="qrave-letter"
-              style={{ animationDelay: `${0.15 * i}s` }}
-            >
+            <span key={i} className="qrave-letter" style={{ animationDelay: `${0.07 * i + 0.25}s` }}>
               {char}
             </span>
           ))}
@@ -230,9 +243,9 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
         {/* Tagline */}
         <p className="qrave-tagline">Preparing your table…</p>
 
-        {/* Shimmer loading bar */}
-        <div className="qrave-bar-track">
-          <div className="qrave-bar-fill" />
+        {/* Progress bar */}
+        <div className="qrave-progress">
+          <div className="qrave-progress-fill" />
         </div>
       </div>
     </>
@@ -241,13 +254,16 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
 
 /* ─── CSS ──────────────────────────────────────────────────────── */
 const animationStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; }
 
   .qrave-loader {
     min-height: 100vh; min-height: 100dvh;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 28px;
-    background: #FAF8F2;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    background: #0E0C0A;
     position: relative; overflow: hidden;
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     padding: 24px;

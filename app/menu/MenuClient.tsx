@@ -374,28 +374,44 @@ export default function MenuClient({ table }: { table: string | null }) {
     <>
       <style>{menuLoadingStyles}</style>
       <div className="ml-loader">
-        <div className="ml-particle p1">🍕</div>
-        <div className="ml-particle p2">🍜</div>
-        <div className="ml-particle p3">🥗</div>
-        <div className="ml-particle p4">🍰</div>
-        <div className="ml-particle p5">☕</div>
-        <div className="ml-particle p6">🍣</div>
+        <div className="ml-orb ml-orb-1" />
+        <div className="ml-orb ml-orb-2" />
+        <div className="ml-orb ml-orb-3" />
 
-        <div className="ml-plate">
-          <div className="ml-plate-inner" />
-          <div className="ml-plate-rim" />
+        <div className="ml-ring-wrap">
+          <svg className="ml-ring-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="54" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5"/>
+            <circle cx="60" cy="60" r="54" stroke="url(#mlRingGrad)" strokeWidth="2.5"
+              strokeLinecap="round" strokeDasharray="100 240" className="ml-ring-arc"/>
+            <defs>
+              <linearGradient id="mlRingGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#FF6B35"/>
+                <stop offset="1" stopColor="#FF9A5C" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="ml-ring-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <ellipse cx="16" cy="24" rx="10" ry="2.5" fill="rgba(255,107,53,0.15)"/>
+              <path d="M8 16c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#FF6B35" strokeWidth="2" strokeLinecap="round"/>
+              <circle cx="16" cy="20" r="2.5" fill="#FF6B35"/>
+              <path d="M7 23h18" stroke="rgba(255,107,53,0.35)" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
         </div>
 
-        <div className="ml-brand">
+        <div className="ml-wordmark">
           {"Qrave".split("").map((char, i) => (
-            <span key={i} className="ml-letter" style={{ animationDelay: `${0.15 * i}s` }}>{char}</span>
+            <span key={i} className="ml-letter" style={{ animationDelay: `${0.07 * i + 0.25}s` }}>
+              {char}
+            </span>
           ))}
         </div>
 
         <p className="ml-tagline">Loading your menu…</p>
 
-        <div className="ml-bar-track">
-          <div className="ml-bar-fill" />
+        <div className="ml-progress">
+          <div className="ml-progress-fill" />
         </div>
       </div>
     </>
@@ -417,98 +433,134 @@ function detailsRestaurantIdFromSession(_sessionId?: string): string | null {
 }
 
 const menuLoadingStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; }
 
   .ml-loader {
     min-height: 100vh; min-height: 100dvh;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 28px;
-    background: #FAF8F2;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    background: #0E0C0A;
     position: relative; overflow: hidden;
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    padding: 24px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 32px;
   }
-  .ml-particle {
-    position: absolute; font-size: 22px;
-    opacity: 0; pointer-events: none;
-    animation: mlFloat 4s ease-in-out infinite;
+
+  .ml-orb {
+    position: absolute; border-radius: 50%;
+    filter: blur(80px); pointer-events: none;
+    will-change: transform;
   }
-  .p1 { top: 12%; left: 10%; animation-delay: 0s; }
-  .p2 { top: 18%; right: 14%; animation-delay: 0.7s; }
-  .p3 { bottom: 22%; left: 16%; animation-delay: 1.4s; }
-  .p4 { bottom: 14%; right: 10%; animation-delay: 0.3s; }
-  .p5 { top: 40%; left: 6%; animation-delay: 1.8s; }
-  .p6 { top: 35%; right: 8%; animation-delay: 1s; }
-  .ml-plate {
-    width: 160px; height: 160px;
-    border-radius: 50%; position: relative;
-    animation: mlPlateIn 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  .ml-orb-1 {
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(255,107,53,0.18) 0%, transparent 70%);
+    top: -80px; left: -100px;
+    animation: mlOrbDrift1 12s ease-in-out infinite;
   }
-  .ml-plate-rim {
-    position: absolute; inset: 0;
-    border-radius: 50%;
-    border: 3px solid #EFEBE4;
-    animation: mlRimSpin 8s linear infinite;
-    border-top-color: #FF561F;
-    border-right-color: transparent;
+  .ml-orb-2 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(255,154,92,0.12) 0%, transparent 70%);
+    bottom: -60px; right: -80px;
+    animation: mlOrbDrift2 15s ease-in-out infinite;
   }
-  .ml-plate-inner {
-    position: absolute; inset: 18px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 40% 40%, #ffffff, #FAF8F2);
-    border: 1px solid #EFEBE4;
-    box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);
+  .ml-orb-3 {
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+    top: 40%; left: 50%; transform: translate(-50%, -50%);
+    animation: mlOrbDrift3 10s ease-in-out infinite;
   }
-  .ml-brand {
-    display: flex; gap: 1px;
-    z-index: 2; margin-top: -20px;
+
+  .ml-ring-wrap {
+    position: relative; width: 120px; height: 120px;
+    display: flex; align-items: center; justify-content: center;
+    animation: mlRingIn 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  .ml-ring-svg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    animation: mlRingRotate 2.4s linear infinite;
+  }
+  .ml-ring-arc { transform-origin: center; }
+  .ml-ring-icon {
+    position: relative; z-index: 1;
+    width: 72px; height: 72px;
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  .ml-wordmark {
+    display: flex; align-items: baseline; gap: 0;
+    z-index: 2;
   }
   .ml-letter {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 52px; font-weight: 700;
-    letter-spacing: -0.5px; color: #FF561F;
+    font-family: 'Playfair Display', serif;
+    font-size: 48px; font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -1px;
     display: inline-block;
     opacity: 0;
-    animation: mlLetterIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: mlLetterReveal 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
+    text-shadow: 0 2px 20px rgba(255,107,53,0.3);
   }
+
   .ml-tagline {
-    color: #5E594F; font-size: 14px; font-weight: 600;
-    letter-spacing: 0.5px; margin: 0;
-    animation: mlFadeUp 0.8s ease 0.9s both;
+    color: rgba(255,255,255,0.35);
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin: 0;
+    animation: mlFadeUp 0.6s ease 0.7s both;
   }
-  .ml-bar-track {
-    width: 120px; height: 3px;
-    border-radius: 3px; background: #EFEBE4;
-    overflow: hidden;
-    animation: mlFadeUp 0.8s ease 1s both;
+
+  .ml-progress {
+    width: 140px; height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px; overflow: hidden;
+    animation: mlFadeUp 0.6s ease 0.8s both;
   }
-  .ml-bar-fill {
-    width: 40%; height: 100%;
-    border-radius: 3px;
-    background: #FF561F;
-    animation: mlShimmer 1.4s ease-in-out infinite;
+  .ml-progress-fill {
+    height: 100%; width: 35%;
+    background: linear-gradient(90deg, #FF6B35, #FF9A5C);
+    border-radius: 2px;
+    animation: mlProgressSlide 1.6s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(255,107,53,0.6);
   }
-  @keyframes mlLetterIn {
-    0% { opacity: 0; transform: translateY(40px) scale(0.3) rotate(-20deg); filter: blur(8px); }
-    100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); filter: blur(0); }
+
+  @keyframes mlOrbDrift1 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(30px,20px) scale(1.05); }
   }
-  @keyframes mlPlateIn {
-    0% { opacity: 0; transform: scale(0.4) rotate(-90deg); }
-    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  @keyframes mlOrbDrift2 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(-20px,-30px) scale(1.08); }
   }
-  @keyframes mlRimSpin { to { transform: rotate(360deg); } }
-  @keyframes mlFloat {
-    0%, 100% { opacity: 0; transform: translateY(0) scale(0.8); }
-    30% { opacity: 0.3; }
-    50% { opacity: 0.4; transform: translateY(-18px) scale(1); }
-    70% { opacity: 0.3; }
+  @keyframes mlOrbDrift3 {
+    0%, 100% { transform: translate(-50%,-50%) scale(1); }
+    50% { transform: translate(-50%,-50%) scale(1.15); }
   }
-  @keyframes mlShimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(350%); }
+  @keyframes mlRingIn {
+    from { opacity: 0; transform: scale(0.6); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes mlRingRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes mlLetterReveal {
+    0% { opacity: 0; transform: translateY(16px); filter: blur(6px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
   }
   @keyframes mlFadeUp {
-    from { opacity: 0; transform: translateY(12px); }
+    from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  @keyframes mlProgressSlide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
 `;
+
