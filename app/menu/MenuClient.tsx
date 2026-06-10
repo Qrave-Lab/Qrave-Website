@@ -380,22 +380,22 @@ export default function MenuClient({ table }: { table: string | null }) {
 
         <div className="ml-ring-wrap">
           <svg className="ml-ring-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="60" cy="60" r="54" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5"/>
+            <circle cx="60" cy="60" r="54" stroke="rgba(15,23,42,0.08)" strokeWidth="2.5"/>
             <circle cx="60" cy="60" r="54" stroke="url(#mlRingGrad)" strokeWidth="2.5"
               strokeLinecap="round" strokeDasharray="100 240" className="ml-ring-arc"/>
             <defs>
               <linearGradient id="mlRingGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#FF6B35"/>
-                <stop offset="1" stopColor="#FF9A5C" stopOpacity="0"/>
+                <stop stopColor="#0F172A"/>
+                <stop offset="1" stopColor="#0F172A" stopOpacity="0"/>
               </linearGradient>
             </defs>
           </svg>
           <div className="ml-ring-icon">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <ellipse cx="16" cy="24" rx="10" ry="2.5" fill="rgba(255,107,53,0.15)"/>
-              <path d="M8 16c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#FF6B35" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="16" cy="20" r="2.5" fill="#FF6B35"/>
-              <path d="M7 23h18" stroke="rgba(255,107,53,0.35)" strokeWidth="1.5" strokeLinecap="round"/>
+              <ellipse cx="16" cy="24" rx="10" ry="2.5" fill="rgba(15,23,42,0.08)"/>
+              <path d="M8 16c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#0F172A" strokeWidth="2" strokeLinecap="round"/>
+              <circle cx="16" cy="20" r="2.5" fill="#0F172A"/>
+              <path d="M7 23h18" stroke="rgba(15,23,42,0.25)" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
         </div>
@@ -442,7 +442,7 @@ const menuLoadingStyles = `
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 20px;
-    background: #0E0C0A;
+    background: #FAF9F6;
     position: relative; overflow: hidden;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     padding: 32px;
@@ -455,19 +455,19 @@ const menuLoadingStyles = `
   }
   .ml-orb-1 {
     width: 380px; height: 380px;
-    background: radial-gradient(circle, rgba(255,107,53,0.18) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(15,23,42,0.04) 0%, transparent 70%);
     top: -80px; left: -100px;
     animation: mlOrbDrift1 12s ease-in-out infinite;
   }
   .ml-orb-2 {
     width: 300px; height: 300px;
-    background: radial-gradient(circle, rgba(255,154,92,0.12) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(100,116,139,0.06) 0%, transparent 70%);
     bottom: -60px; right: -80px;
     animation: mlOrbDrift2 15s ease-in-out infinite;
   }
   .ml-orb-3 {
     width: 220px; height: 220px;
-    background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(15,23,42,0.03) 0%, transparent 70%);
     top: 40%; left: 50%; transform: translate(-50%, -50%);
     animation: mlOrbDrift3 10s ease-in-out infinite;
   }
@@ -485,12 +485,11 @@ const menuLoadingStyles = `
   .ml-ring-icon {
     position: relative; z-index: 1;
     width: 72px; height: 72px;
-    background: rgba(255,255,255,0.04);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: #FFFFFF;
+    border: 1px solid rgba(15,23,42,0.08);
     border-radius: 22px;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow: 0 4px 20px rgba(15,23,42,0.07), 0 1px 3px rgba(15,23,42,0.04);
   }
 
   .ml-wordmark {
@@ -500,34 +499,32 @@ const menuLoadingStyles = `
   .ml-letter {
     font-family: 'Playfair Display', serif;
     font-size: 48px; font-weight: 700;
-    color: #FFFFFF;
-    letter-spacing: -1px;
+    color: #0F172A;
+    letter-spacing: -1.5px;
     display: inline-block;
     opacity: 0;
     animation: mlLetterReveal 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
-    text-shadow: 0 2px 20px rgba(255,107,53,0.3);
   }
 
   .ml-tagline {
-    color: rgba(255,255,255,0.35);
-    font-size: 12px; font-weight: 500;
-    letter-spacing: 0.12em; text-transform: uppercase;
+    color: #64748B;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
     margin: 0;
     animation: mlFadeUp 0.6s ease 0.7s both;
   }
 
   .ml-progress {
     width: 140px; height: 2px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(15,23,42,0.08);
     border-radius: 2px; overflow: hidden;
     animation: mlFadeUp 0.6s ease 0.8s both;
   }
   .ml-progress-fill {
     height: 100%; width: 35%;
-    background: linear-gradient(90deg, #FF6B35, #FF9A5C);
+    background: #0F172A;
     border-radius: 2px;
     animation: mlProgressSlide 1.6s ease-in-out infinite;
-    box-shadow: 0 0 8px rgba(255,107,53,0.6);
   }
 
   @keyframes mlOrbDrift1 {

@@ -258,15 +258,17 @@ const animationStyles = `
 
   *, *::before, *::after { box-sizing: border-box; }
 
+  /* Override dark values to light */
+
   .qrave-loader {
     min-height: 100vh; min-height: 100dvh;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 20px;
-    background: #0E0C0A;
+    background: #FAF9F6;
     position: relative; overflow: hidden;
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    padding: 24px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 32px;
   }
 
   /* ── Floating food particles ──────────────── */
@@ -310,106 +312,110 @@ const animationStyles = `
     z-index: 2; margin-top: -20px;
   }
   .qrave-letter {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 52px; font-weight: 700;
-    letter-spacing: -0.5px; color: #FF561F;
+    font-family: 'Playfair Display', serif;
+    font-size: 48px; font-weight: 700;
+    letter-spacing: -1.5px; color: #0F172A;
     display: inline-block;
     opacity: 0;
-    animation: qLetterIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: letterReveal 0.45s cubic-bezier(0.22,1,0.36,1) forwards;
   }
 
   /* ── Tagline ──────────────────────────────── */
   .qrave-tagline {
-    color: #5E594F; font-size: 14px; font-weight: 600;
-    letter-spacing: 0.5px; margin: 0;
-    animation: qFadeUp 0.8s ease 0.9s both;
+    color: #64748B;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    margin: 0;
+    animation: fadeUp 0.6s ease 0.65s both;
   }
 
   /* ── Shimmer bar ──────────────────────────── */
-  .qrave-bar-track {
-    width: 120px; height: 3px;
-    border-radius: 3px; background: #EFEBE4;
+  .qrave-progress {
+    width: 120px; height: 2px;
+    border-radius: 2px; background: rgba(15,23,42,0.08);
     overflow: hidden;
-    animation: qFadeUp 0.8s ease 1s both;
+    animation: fadeUp 0.6s ease 0.75s both;
   }
-  .qrave-bar-fill {
+  .qrave-progress-fill {
     width: 40%; height: 100%;
-    border-radius: 3px;
-    background: #FF561F;
-    animation: qShimmer 1.4s ease-in-out infinite;
+    border-radius: 2px;
+    background: #0F172A;
+    animation: progressSlide 1.6s ease-in-out infinite;
   }
 
   /* ── Card (error + choice) ────────────────── */
   .qrave-card {
-    background: #ffffff;
-    border: 1px solid #EFEBE4;
+    background: #FFFFFF;
+    border: 1px solid rgba(15,23,42,0.08);
     border-radius: 24px;
-    padding: 32px 28px;
-    box-shadow: 0 8px 32px rgba(107,76,33,0.04);
+    padding: 36px 28px;
+    box-shadow: 0 8px 40px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.04);
     text-align: center; z-index: 2;
     max-width: 360px; width: 100%;
+    animation: fadeUp 0.5s ease both;
   }
   .qrave-title {
-    color: #1E2430; font-family: 'Fredoka', sans-serif; font-size: 20px; font-weight: 700;
+    color: #0F172A;
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 700;
     margin: 0; letter-spacing: -0.3px;
   }
   .qrave-sub {
-    color: #64748b; font-size: 13px; margin: 0;
+    color: #64748B; font-size: 13px; margin: 0; line-height: 1.65;
   }
 
-  /* ── Choice buttons ───────────────────────── */
   .qrave-btn {
     display: flex; align-items: center; gap: 14px;
-    width: 100%; padding: 16px 20px;
-    border-radius: 16px; border: none;
+    width: 100%; padding: 15px 18px;
+    border-radius: 14px; border: none;
     cursor: pointer; font-family: inherit;
     text-align: left; font-size: 14px;
-    transition: all 0.2s ease;
+    transition: transform 0.15s ease, background 0.15s ease;
   }
+  .qrave-btn:active { transform: scale(0.97); }
   .qrave-btn-primary {
-    background: #FF561F; color: white;
-    box-shadow: 0 4px 16px rgba(255,86,31,0.25);
+    background: #0F172A; color: #FFFFFF;
+    box-shadow: 0 4px 16px rgba(15,23,42,0.18);
   }
-  .qrave-btn-primary:active { transform: scale(0.97); }
+  .qrave-btn-primary:hover { background: #1E293B; }
   .qrave-btn-secondary {
-    background: #FAF8F2;
-    border: 1px solid #EFEBE4 !important;
-    color: #1E2430;
+    background: #FAF9F6;
+    border: 1px solid rgba(15,23,42,0.1) !important;
+    color: #0F172A;
   }
-  .qrave-btn-secondary:active { transform: scale(0.97); }
+  .qrave-btn-secondary:hover { background: #F1F0EC; }
 
   /* ── Keyframes ────────────────────────────── */
-  @keyframes qLetterIn {
-    0% {
-      opacity: 0;
-      transform: translateY(40px) scale(0.3) rotate(-20deg);
-      filter: blur(8px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0) scale(1) rotate(0deg);
-      filter: blur(0);
-    }
+  @keyframes orbDrift1 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(30px,20px) scale(1.04); }
   }
-  @keyframes qPlateIn {
-    0% { opacity: 0; transform: scale(0.4) rotate(-90deg); }
-    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  @keyframes orbDrift2 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(-20px,-30px) scale(1.06); }
   }
-  @keyframes qRimSpin {
+  @keyframes orbDrift3 {
+    0%, 100% { transform: translate(-50%,-50%) scale(1); }
+    50% { transform: translate(-50%,-50%) scale(1.12); }
+  }
+  @keyframes ringIn {
+    from { opacity: 0; transform: scale(0.65); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes ringRotate {
+    from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
-  @keyframes qFloat {
-    0%, 100% { opacity: 0; transform: translateY(0) scale(0.8); }
-    30% { opacity: 0.3; }
-    50% { opacity: 0.4; transform: translateY(-18px) scale(1); }
-    70% { opacity: 0.3; }
+  @keyframes letterReveal {
+    0% { opacity: 0; transform: translateY(14px); filter: blur(5px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
   }
-  @keyframes qShimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(350%); }
-  }
-  @keyframes qFadeUp {
-    from { opacity: 0; transform: translateY(12px); }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes progressSlide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
   }
 `;
