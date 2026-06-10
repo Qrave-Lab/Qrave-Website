@@ -766,25 +766,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     };
 
     const loadBranding = async () => {
-      try {
-        const me = await api<{
-          restaurant?: string;
-          logo_url?: string | null;
-          logo_version?: number | null;
-          theme_config?: ThemeConfig;
-        }>("/api/admin/me", { skipAuthRedirect: true });
-        if (cancelled) return;
-        const name = me?.restaurant?.trim();
-        if (name) {
-          setRestaurantName(name);
-          localStorage.setItem("restaurant_name", name);
-        }
-        applyLogo(me?.logo_url, me?.logo_version ?? null);
-        applyTheme(me?.theme_config || null);
-      } catch {
-        if (cancelled) return;
-      }
-
       const rid = localStorage.getItem("restaurant_id");
       if (!rid || cancelled) return;
 
