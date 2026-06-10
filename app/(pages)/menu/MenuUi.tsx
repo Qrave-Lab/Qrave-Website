@@ -43,9 +43,16 @@ const sanitizeModelUrl = (val: any): string => {
     else if (/^[a-z0-9-]+\.cloudfront\.net\//i.test(raw)) url = `https://${raw}`;
     else if (/^[a-z0-9.-]+\.amazonaws\.com\//i.test(raw)) url = `https://${raw}`;
   }
-  if (url && (url.includes("cloudfront.net") || url.includes("amazonaws.com"))) {
-    const separator = url.includes("?") ? "&" : "?";
-    return `${url}${separator}cb=qrave3`;
+  // Route CloudFront .glb files through the Next.js server-side proxy to
+  // avoid CORS errors — the rewrite in next.config.ts forwards /api/proxy-model/*
+  // to CloudFront without the browser's Origin header restrictions.
+  if (url && url.includes("cloudfront.net")) {
+    try {
+      const urlObj = new URL(url);
+      return `/api/proxy-model${urlObj.pathname}`;
+    } catch {
+      // fall through to return url as-is
+    }
   }
   return url;
 };
