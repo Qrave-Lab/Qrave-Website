@@ -1644,14 +1644,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                 Chef&apos;s Pick
               </button>
             )}
-            {recommendationItems.length > 0 && (
-              <button
-                onClick={() => scrollToSection("category-recommendations")}
-                className={`mu-pill ${activeCategory === "recommendations" ? "mu-pill--active" : ""}`}
-              >
-                For You
-              </button>
-            )}
+
             {categories.map((cat) => {
               const count = filteredItems.filter(
                 (item: any) => getParentName(item) === cat.id,
@@ -1754,31 +1747,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               </section>
             )}
 
-            {/* Recommended */}
-            {recommendationItems.length > 0 && (
-              <section className="mu-section">
-                <SectionToggle
-                  title={t("recommended")}
-                  color="#8B6E4F"
-                  count={recommendationItems.length}
-                  sectionId="category-recommendations"
-                  expanded={expandedCategories["__recommendations"] !== false}
-                  onToggle={() =>
-                    setExpandedCategories((p) => ({
-                      ...p,
-                      __recommendations: p["__recommendations"] === false,
-                    }))
-                  }
-                />
-                {expandedCategories["__recommendations"] !== false && (
-                  <div className={layoutGridClass}>
-                    {recommendationItems
-                      .slice(0, 4)
-                      .map((item: any) => renderCard(item, "rec"))}
-                  </div>
-                )}
-              </section>
-            )}
 
             {/* Regular categories */}
             {categories.map((category) => {
