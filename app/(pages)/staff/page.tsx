@@ -67,7 +67,7 @@ type PendingOrder = {
   dailyOrderNumber?: number | null;
 };
 
-type ServiceCallType = "waiter" | "water" | "help" | "low-rating";
+type ServiceCallType = "waiter" | "water" | "help" | "bill" | "low-rating";
 type ServiceCallStatus = "open" | "attending" | "done";
 
 type ServiceCall = {
@@ -592,8 +592,8 @@ export default function StaffDashboardPage() {
 
   const activeServiceCallsCount = serviceCalls.filter((c) => c.status !== "done").length;
 
-  const billRequestedCount = tables.filter(
-    (t) => t.billStatus === "bill_requested"
+  const billRequestedCount = Array.from(
+    new Set(serviceCalls.filter((c) => c.type === "bill").map((c) => c.tableCode))
   ).length;
 
   const longSittingCount = tables.filter(
@@ -613,7 +613,7 @@ export default function StaffDashboardPage() {
       if (tableFilter === "occupied") return table.isOccupied;
       if (tableFilter === "free") return !table.isOccupied;
       if (tableFilter === "bill_requested")
-        return table.billStatus === "bill_requested";
+        return serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
       if (tableFilter === "long_sitting")
         return table.isOccupied && getMinutesDiff(table.seatedAt) > 90;
       return true;
@@ -1241,7 +1241,7 @@ export default function StaffDashboardPage() {
                 const isDisabled = table.isEnabled === false;
                 const seatedMinutes = getMinutesDiff(table.seatedAt);
                 const longSit = table.isOccupied && seatedMinutes > 90;
-                const isBillRequested = table.billStatus === "bill_requested";
+                const isBillRequested = serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
                 const isPaid = table.billStatus === "paid";
 
                 const activeOrdersForTable = orders.filter((o) => o.tableCode === table.tableCode && (o.status === "pending" || o.status === "cooking")).length;
