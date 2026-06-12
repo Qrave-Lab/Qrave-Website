@@ -806,6 +806,7 @@ export default function StaffDashboardPage() {
     }
 
     try {
+      const me = await api<{ name?: string }>("/api/admin/me", { method: "GET", suppressErrorLog: true }).catch(() => null);
       await printBillTicket({
         tableCode: table.tableCode,
         printedAt: new Date().toLocaleString(),

@@ -3,7 +3,6 @@
 import { Printer } from "lucide-react";
 import { api } from "@/app/lib/api";
 import { printBillTicket } from "@/app/lib/posPrinter";
-import { useAdminMeQuery } from "@/app/lib/queries";
 
 export function PrintButton({ 
   sessionId, 
@@ -16,10 +15,10 @@ export function PrintButton({
   items?: any[];
   total?: number;
 }) {
-  const { data: me } = useAdminMeQuery();
-
   const handlePrint = async () => {
     if (typeof window !== "undefined") {
+      const me = await api<{ name?: string }>("/api/admin/me", { method: "GET", suppressErrorLog: true }).catch(() => null);
+
       if (sessionId) {
         try {
           await api(`/api/admin/sessions/${sessionId}/end`, { method: "POST", suppressErrorLog: true });
