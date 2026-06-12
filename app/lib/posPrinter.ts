@@ -174,11 +174,11 @@ type BillTicketInput = {
   total: number;
 };
 
-export type BillTemplate = "classic" | "minimalist" | "detailed" | "modern" | "compact" | "elegant";
+export type BillTemplate = "cafe" | "fine_dining" | "retail" | "fast_food" | "tax_invoice" | "compact";
 
 export function getBillTemplate(): BillTemplate {
-  if (typeof window === "undefined") return "classic";
-  return (window.localStorage.getItem("qrave_pos_bill_template") as BillTemplate) || "classic";
+  if (typeof window === "undefined") return "retail";
+  return (window.localStorage.getItem("qrave_pos_bill_template") as BillTemplate) || "retail";
 }
 
 export function setBillTemplate(template: BillTemplate): void {
@@ -196,126 +196,127 @@ export async function printBillTicket(input: BillTicketInput): Promise<void> {
 
   let body = "";
 
-  if (template === "minimalist") {
+  if (template === "cafe") {
     const lines = input.items.map((i) => {
       const left = `${i.qty}x ${i.name}`;
-      const right = i.amount.toFixed(2);
-      const pad = Math.max(1, 30 - left.length - right.length);
+      const right = `$ ${i.amount.toFixed(2)}`;
+      const pad = Math.max(1, 32 - left.length - right.length);
       return `${left}${" ".repeat(pad)}${right}`;
     });
     body = [
-      "QRAVE RECEIPT",
-      "",
-      `Table : ${input.tableCode}`,
-      ...(orderNums ? [`Order : ${orderNums}`] : []),
-      staffLine,
-      `Time  : ${input.printedAt}`,
+      "          THE COFFEE SHOP         ",
+      "==================================",
       "",
       ...lines,
       "",
-      `Total : ${input.total.toFixed(2)}`,
+      "==================================",
+      `Subtotal                $ ${input.total.toFixed(2)}`,
+      `Tax                     $  0.00`,
+      `TOTAL                   $ ${input.total.toFixed(2)}`,
       "",
-      "Thank you",
+      "Tip:  ___________________________",
+      "",
+      "Sign: ___________________________",
+      "",
+      "       Thank you, come again!    ",
     ].filter(Boolean).join("\n");
-  } else if (template === "detailed") {
+  } else if (template === "fine_dining") {
     const lines = input.items.map((i) => {
-      const title = `${i.name}`;
-      const qtyPrice = `${i.qty} x ${(i.amount / i.qty).toFixed(2)}`;
-      const total = i.amount.toFixed(2);
-      const pad = Math.max(1, 30 - qtyPrice.length - total.length);
-      return `${title}\n${qtyPrice}${" ".repeat(pad)}${total}`;
-    });
-    body = [
-      "QRAVE - DETAILED BILL",
-      "------------------------------",
-      `Table : ${input.tableCode}`,
-      ...(orderNums ? [`Orders: ${orderNums}`] : []),
-      staffLine,
-      `Time  : ${input.printedAt}`,
-      "------------------------------",
-      ...lines,
-      "------------------------------",
-      `SUBTOTAL      ${input.total.toFixed(2).padStart(16)}`,
-      "------------------------------",
-      `GRAND TOTAL   ${input.total.toFixed(2).padStart(16)}`,
-      "------------------------------",
-      "      Thank you for dining!   ",
-    ].filter(Boolean).join("\n");
-  } else if (template === "modern") {
-    const lines = input.items.map((i) => {
-      const left = `${i.qty} ${i.name}`;
+      const left = `   ${i.qty}   ${i.name.substring(0, 15)}`;
       const right = i.amount.toFixed(2);
-      const pad = Math.max(1, 30 - left.length - right.length);
+      const pad = Math.max(1, 32 - left.length - right.length);
       return `${left}${" ".repeat(pad)}${right}`;
     });
     body = [
-      "       Q R A V E       ",
-      "******************************",
-      `Tbl: ${input.tableCode}  |  ${input.printedAt.split(',')[0]}`,
-      ...(orderNums ? [`Ord: ${orderNums}`] : []),
-      staffLine,
-      "******************************",
+      "             L'ETOILE             ",
+      "..................................",
+      "",
       ...lines,
-      "******************************",
-      `TOTAL: ${input.total.toFixed(2).padStart(23)}`,
-      "******************************",
-      "         See you again!       ",
+      "",
+      "..................................",
+      `          Subtotal:  ${input.total.toFixed(2).padStart(7)}`,
+      `          Tax     :     0.00`,
+      "",
+      `        GRAND TOTAL: ${input.total.toFixed(2).padStart(7)}`,
+      "..................................",
+      staffLine ? `        ${staffLine}` : "",
+    ].filter(Boolean).join("\n");
+  } else if (template === "fast_food") {
+    const lines = input.items.map((i) => {
+      const left = `${i.qty}  ${i.name.substring(0, 18).toUpperCase()}`;
+      const right = i.amount.toFixed(2);
+      const pad = Math.max(1, 32 - left.length - right.length);
+      return `${left}${" ".repeat(pad)}${right}`;
+    });
+    const mainOrder = orderNums ? orderNums.split(',')[0].trim() : `#???`;
+    body = [
+      "==================================",
+      `         ORDER ${mainOrder.padEnd(10)}         `,
+      "==================================",
+      `${input.tableCode} | ${input.printedAt.split(',')[1]?.trim() || ""} | ${input.staffName || "Staff"}`,
+      "----------------------------------",
+      ...lines,
+      "----------------------------------",
+      `DUE:                       ${input.total.toFixed(2).padStart(7)}`,
+      "==================================",
+    ].filter(Boolean).join("\n");
+  } else if (template === "tax_invoice") {
+    const lines = input.items.map((i) => {
+      const name = i.name.substring(0, 14).padEnd(14);
+      const qty = String(i.qty).padStart(3);
+      const rate = (i.amount/i.qty).toFixed(2).padStart(6);
+      const val = i.amount.toFixed(2).padStart(7);
+      return `${name} ${qty} ${rate} ${val}`;
+    });
+    body = [
+      "           TAX INVOICE            ",
+      "----------------------------------",
+      `Table: ${input.tableCode.padEnd(8)} Served: ${(input.staffName || "NA").substring(0, 8)}`,
+      "----------------------------------",
+      "Item           Qty   Rate    Value",
+      "----------------------------------",
+      ...lines,
+      "----------------------------------",
+      `Subtotal                   ${input.total.toFixed(2).padStart(7)}`,
+      `CGST (2.5%)                 0.00`,
+      `SGST (2.5%)                 0.00`,
+      "----------------------------------",
+      `GRAND TOTAL                ${input.total.toFixed(2).padStart(7)}`,
+      "----------------------------------",
+      "      GSTIN: 29ABCDE1234F1Z5      ",
     ].filter(Boolean).join("\n");
   } else if (template === "compact") {
     const lines = input.items.map((i) => `${i.qty}x ${i.name.substring(0,18).padEnd(18)} ${i.amount.toFixed(2).padStart(8)}`);
     body = [
-      "QRAVE",
-      `T${input.tableCode} ${input.printedAt.split(',')[1]?.trim() || input.printedAt}`,
-      ...(orderNums ? [`O:${orderNums}`] : []),
-      staffLine ? staffLine.replace('Served By : ', 'By: ') : "",
-      "------------------------------",
+      "QRAVE POS",
+      `T${input.tableCode} | ${input.printedAt.split(',')[1]?.trim() || ""} | ${input.staffName || "NA"}`,
+      "----------------------------------",
       ...lines,
-      "------------------------------",
-      `TOT: ${input.total.toFixed(2).padStart(25)}`,
+      "----------------------------------",
+      `TOT:                       ${input.total.toFixed(2).padStart(7)}`,
       "Thx!",
     ].filter(Boolean).join("\n");
-  } else if (template === "elegant") {
-    const lines = input.items.map((i) => {
-      const left = `${i.qty}x ${i.name}`;
-      const right = i.amount.toFixed(2);
-      const pad = Math.max(1, 30 - left.length - right.length);
-      return `${left}${" ".repeat(pad)}${right}`;
-    });
-    body = [
-      "          ~ QRAVE ~          ",
-      "==============================",
-      `Table : ${input.tableCode}`,
-      ...(orderNums ? [`Orders: ${orderNums}`] : []),
-      staffLine,
-      `Date  : ${input.printedAt}`,
-      "------------------------------",
-      ...lines,
-      "------------------------------",
-      `Total Due     ${input.total.toFixed(2).padStart(16)}`,
-      "==============================",
-      "     We appreciate you!     ",
-    ].filter(Boolean).join("\n");
   } else {
-    // classic
-    const lines = input.items.map((i) => {
-      const left = `${i.qty}x ${i.name}`;
-      const right = i.amount.toFixed(2);
-      const pad = Math.max(1, 30 - left.length - right.length);
-      return `${left}${" ".repeat(pad)}${right}`;
+    // retail
+    const lines = input.items.flatMap((i) => {
+      const title = i.name.substring(0, 32);
+      const sub = `  ${i.qty} @ ${(i.amount/i.qty).toFixed(2)}`;
+      const total = i.amount.toFixed(2);
+      const pad = Math.max(1, 32 - sub.length - total.length);
+      return [title, `${sub}${" ".repeat(pad)}${total}`];
     });
+    const itemsCount = input.items.reduce((sum, i) => sum + i.qty, 0);
     body = [
-      "QRAVE - CUSTOMER BILL",
-      "------------------------------",
-      `Table : ${input.tableCode}`,
-      ...(orderNums ? [`Orders: ${orderNums}`] : []),
-      staffLine,
-      `Time  : ${input.printedAt}`,
-      "------------------------------",
+      "          SUPERMART INC           ",
+      `Table: ${input.tableCode.padEnd(8)}${" ".repeat(15)}`,
+      "----------------------------------",
+      "Item                  Qty    Total",
+      "----------------------------------",
       ...lines,
-      "------------------------------",
-      `TOTAL : ${input.total.toFixed(2)}`,
-      "------------------------------",
-      "Thank you!",
+      "----------------------------------",
+      `TOTAL DUE:                  $${input.total.toFixed(2)}`,
+      "----------------------------------",
+      `         Items Sold: ${itemsCount}           `,
     ].filter(Boolean).join("\n");
   }
 
