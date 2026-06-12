@@ -67,12 +67,6 @@ const sidebarItems: SidebarSection[] = [
         description: "Set Qty, 86 Items",
       },
       {
-        label: "QR Codes",
-        href: "/staff/settings/qr-codes",
-        icon: QrCode,
-        description: "Table QR flyers",
-      },
-      {
         label: "Reservations",
         href: "/staff/reservations",
         icon: CalendarCheck,

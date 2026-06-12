@@ -18,16 +18,14 @@ type Table = {
   zone?: string | null;
   floor_name?: string | null;
   counter_name?: string | null;
+  qr_token?: string;
 };
 
 const getTableLabel = (table: Table) => table.table_number.toString().padStart(2, "0");
 
-const getTableUrl = (table: Table | null, restaurantId?: string) => {
-  if (!table || typeof window === "undefined") return "";
-  const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const baseOrigin = isLocalDev ? window.location.origin : (process.env.NEXT_PUBLIC_APP_ORIGIN || "https://qrave-website.vercel.app");
-  const base = `${baseOrigin}/menu/t/${table.table_number}`;
-  return restaurantId ? `${base}?restaurant=${restaurantId}` : base;
+const getTableUrl = (table: Table | null) => {
+  if (!table || !table.qr_token) return "";
+  return `https://qravetech.in/menu/qr/${table.qr_token}`;
 };
 
 const groupByFloor = (tables: Table[]): { floor: string; tables: Table[] }[] => {
@@ -87,6 +85,27 @@ export default function QrFlyerGenerator() {
   const [wifiSsid, setWifiSsid] = useState("");
   const [wifiPass, setWifiPass] = useState("");
 
+  const [rotating, setRotating] = useState(false);
+
+  const handleRotateToken = async () => {
+    if (!selectedTable) return;
+    try {
+      setRotating(true);
+      const res = await api<{ token: string }>(`/api/admin/tables/${selectedTable.id}/qr-token`, { method: "POST" });
+      const updatedToken = res.token;
+      
+      setSelectedTable((prev) => prev ? { ...prev, qr_token: updatedToken } : null);
+      setTables((prev) =>
+        prev.map((t) => (t.id === selectedTable.id ? { ...t, qr_token: updatedToken } : t))
+      );
+    } catch (e) {
+      console.error("Failed to regenerate QR token", e);
+      alert("Failed to regenerate QR token");
+    } finally {
+      setRotating(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       const [tablesRes, me] = await Promise.all([
@@ -94,13 +113,29 @@ export default function QrFlyerGenerator() {
         api<{ restaurant_id?: string; restaurantId?: string; restaurant?: string; logo_url?: string | null; logo_version?: number | null }>("/api/admin/me", { method: "GET" }),
       ]);
       const next = Array.isArray(tablesRes) ? tablesRes.filter((t) => t.is_enabled) : [];
-      setTables(next);
-      if (next.length > 0) {
-        const firstFloor = next[0].floor_name?.trim() || "Main Floor";
+      
+      // Auto-generate missing qr tokens
+      const updated = await Promise.all(
+        next.map(async (t) => {
+          if (!t.qr_token) {
+            try {
+              const res = await api<{ token: string }>(`/api/admin/tables/${t.id}/qr-token`, { method: "POST" });
+              return { ...t, qr_token: res.token };
+            } catch (e) {
+              console.warn("Failed to auto-generate token for table", t.table_number, e);
+            }
+          }
+          return t;
+        })
+      );
+
+      setTables(updated);
+      if (updated.length > 0) {
+        const firstFloor = updated[0].floor_name?.trim() || "Main Floor";
         setActiveFloor(firstFloor);
-        setSelectedTable(next[0]);
+        setSelectedTable(updated[0]);
         // Default to all selected for bulk print
-        setSelectedTableIds(new Set(next.map((t) => t.id)));
+        setSelectedTableIds(new Set(updated.map((t) => t.id)));
       }
       setRestaurantId(me?.restaurant_id || me?.restaurantId || "");
       setRestaurantName(me?.restaurant?.trim() || "Restaurant");
@@ -158,7 +193,7 @@ export default function QrFlyerGenerator() {
   // Component to render individual flyer panel details
   const FlyerPanelContent = ({ table, isHalf }: { table: Table; isHalf: boolean }) => {
     const logoSrc = logoImage || restaurantLogoUrl;
-    const qrUrl = getTableUrl(table, restaurantId);
+    const qrUrl = getTableUrl(table);
     const isDark = template === "dark" || template === "gold";
 
     // Standard high-fidelity center logo setting
@@ -331,9 +366,21 @@ export default function QrFlyerGenerator() {
       description="Design, customize, and print high-fidelity tabletop QR flyers or folding standing tent cards."
       maxWidth="max-w-full"
       action={
-        <button onClick={handlePrint} className="no-print flex items-center gap-2 bg-[#FFC529] hover:bg-[#FFC529]/95 text-gray-900 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#FFC529]/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
-          <Printer className="w-4 h-4" /> Print Setup
-        </button>
+        <div className="flex gap-2">
+          {selectedTable && (
+            <button
+              onClick={handleRotateToken}
+              disabled={rotating}
+              className="no-print flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${rotating ? "animate-spin" : ""}`} />
+              Regenerate QR Token
+            </button>
+          )}
+          <button onClick={handlePrint} className="no-print flex items-center gap-2 bg-[#FFC529] hover:bg-[#FFC529]/95 text-gray-900 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#FFC529]/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+            <Printer className="w-4 h-4" /> Print Setup
+          </button>
+        </div>
       }
     >
       {/* Print styles: targets A5 portrait or bulk page sequences */}
