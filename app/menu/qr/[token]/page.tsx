@@ -1,5 +1,6 @@
 import MenuByToken from "./MenuByToken";
 
-export default function QRMenuPage({ params }: { params: { token: string } }) {
-  return <MenuByToken token={params.token} />;
+export default async function QRMenuPage({ params }: { params: Promise<{ token: string }> }) {
+  const resolvedParams = await params;
+  return <MenuByToken token={resolvedParams.token} />;
 }
