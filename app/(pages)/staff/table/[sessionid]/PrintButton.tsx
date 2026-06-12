@@ -7,12 +7,12 @@ import { printBillTicket } from "@/app/lib/posPrinter";
 export function PrintButton({ 
   sessionId, 
   tableCode, 
-  items, 
-  total 
+  items = [], 
+  total = 0 
 }: { 
   sessionId?: string; 
   tableCode?: string;
-  items?: any[];
+  items?: Array<{ name: string; qty: number; amount: number }>;
   total?: number;
 }) {
   const handlePrint = async () => {
