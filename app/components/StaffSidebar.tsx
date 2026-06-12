@@ -134,12 +134,28 @@ function hasFeatureAccess(
   feature: string,
 ): boolean {
   const r = String(role || "").toLowerCase();
-  if (!r || r === "owner") return true;
-  if (!roleAccess) return true;
-  const byRole = roleAccess[r];
-  if (!byRole) return true;
-  if (typeof byRole[feature] === "boolean") return byRole[feature];
-  return true;
+  if (!r || r === "owner" || r === "admin" || r === "manager") return true;
+  
+  if (roleAccess && roleAccess[r] && typeof roleAccess[r][feature] === "boolean") {
+    return roleAccess[r][feature];
+  }
+
+  // Sensible Defaults
+  if (r === "waiter") {
+    return ["floor", "reservations", "takeaway"].includes(feature);
+  }
+  if (r === "cashier") {
+    return ["floor", "reservations", "takeaway", "cash_drawer"].includes(feature);
+  }
+  if (r === "kitchen") {
+    // Kitchen only needs their display, they shouldn't see menu edits or settings.
+    return false;
+  }
+  if (r === "delivery_rider") {
+    return ["takeaway"].includes(feature);
+  }
+
+  return false;
 }
 
 export default function StaffSidebar() {
@@ -492,17 +508,10 @@ export default function StaffSidebar() {
                           ? "settings"
                           : item.href === "/staff/takeaway"
                             ? "takeaway"
-                            : "";
-            // Takeaway is for cashier, manager, owner
-            if (item.href === "/staff/takeaway") {
-              const r = String(currentRole || "").toLowerCase();
-              return ["owner", "manager", "cashier"].includes(r);
-            }
-            // Cash Drawer is for cashier, manager, owner
-            if (item.href === "/staff/cashier/cash-drawer") {
-              const r = String(currentRole || "").toLowerCase();
-              return ["owner", "manager", "cashier"].includes(r);
-            }
+                            : item.href === "/staff/cashier/cash-drawer"
+                              ? "cash_drawer"
+                              : "";
+            
             // Shifts are for everyone
             if (item.href === "/staff/settings/shifts") {
               return true;
