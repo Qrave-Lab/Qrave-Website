@@ -809,6 +809,7 @@ export default function StaffDashboardPage() {
       await printBillTicket({
         tableCode: table.tableCode,
         printedAt: new Date().toLocaleString(),
+        staffName: me?.name || "NA",
         orderRefs,
         items: billItems,
         total,

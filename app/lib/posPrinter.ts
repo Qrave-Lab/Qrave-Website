@@ -168,38 +168,157 @@ export async function printKitchenTicket(input: KitchenTicketInput): Promise<voi
 type BillTicketInput = {
   tableCode: string;
   printedAt: string;
+  staffName?: string;
   orderRefs?: Array<{ dailyOrderNumber?: number | null; orderNumber?: number | null }>;
   items: Array<{ name: string; qty: number; amount: number }>;
   total: number;
 };
 
-export async function printBillTicket(input: BillTicketInput): Promise<void> {
-  const lines = input.items.map((i) => {
-    const left = `${i.qty}x ${i.name}`;
-    const right = i.amount.toFixed(2);
-    const pad = Math.max(1, 30 - left.length - right.length);
-    return `${left}${" ".repeat(pad)}${right}`;
-  });
+export type BillTemplate = "classic" | "minimalist" | "detailed" | "modern" | "compact" | "elegant";
 
-  // Build compact order reference line
+export function getBillTemplate(): BillTemplate {
+  if (typeof window === "undefined") return "classic";
+  return (window.localStorage.getItem("qrave_pos_bill_template") as BillTemplate) || "classic";
+}
+
+export function setBillTemplate(template: BillTemplate): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("qrave_pos_bill_template", template);
+}
+
+export async function printBillTicket(input: BillTicketInput): Promise<void> {
+  const template = getBillTemplate();
   const orderNums = (input.orderRefs || [])
     .filter((r) => r.dailyOrderNumber)
     .map((r) => `#${r.dailyOrderNumber}`)
     .join(", ");
+  const staffLine = input.staffName && input.staffName !== "NA" ? `Served By : ${input.staffName}` : "";
 
-  const body = [
-    "QRAVE - CUSTOMER BILL",
-    "------------------------------",
-    `Table : ${input.tableCode}`,
-    ...(orderNums ? [`Orders: ${orderNums}`] : []),
-    `Time  : ${input.printedAt}`,
-    "------------------------------",
-    ...lines,
-    "------------------------------",
-    `TOTAL : ${input.total.toFixed(2)}`,
-    "------------------------------",
-    "Thank you!",
-  ].join("\n");
+  let body = "";
+
+  if (template === "minimalist") {
+    const lines = input.items.map((i) => {
+      const left = `${i.qty}x ${i.name}`;
+      const right = i.amount.toFixed(2);
+      const pad = Math.max(1, 30 - left.length - right.length);
+      return `${left}${" ".repeat(pad)}${right}`;
+    });
+    body = [
+      "QRAVE RECEIPT",
+      "",
+      `Table : ${input.tableCode}`,
+      ...(orderNums ? [`Order : ${orderNums}`] : []),
+      staffLine,
+      `Time  : ${input.printedAt}`,
+      "",
+      ...lines,
+      "",
+      `Total : ${input.total.toFixed(2)}`,
+      "",
+      "Thank you",
+    ].filter(Boolean).join("\n");
+  } else if (template === "detailed") {
+    const lines = input.items.map((i) => {
+      const title = `${i.name}`;
+      const qtyPrice = `${i.qty} x ${(i.amount / i.qty).toFixed(2)}`;
+      const total = i.amount.toFixed(2);
+      const pad = Math.max(1, 30 - qtyPrice.length - total.length);
+      return `${title}\n${qtyPrice}${" ".repeat(pad)}${total}`;
+    });
+    body = [
+      "QRAVE - DETAILED BILL",
+      "------------------------------",
+      `Table : ${input.tableCode}`,
+      ...(orderNums ? [`Orders: ${orderNums}`] : []),
+      staffLine,
+      `Time  : ${input.printedAt}`,
+      "------------------------------",
+      ...lines,
+      "------------------------------",
+      `SUBTOTAL      ${input.total.toFixed(2).padStart(16)}`,
+      "------------------------------",
+      `GRAND TOTAL   ${input.total.toFixed(2).padStart(16)}`,
+      "------------------------------",
+      "      Thank you for dining!   ",
+    ].filter(Boolean).join("\n");
+  } else if (template === "modern") {
+    const lines = input.items.map((i) => {
+      const left = `${i.qty} ${i.name}`;
+      const right = i.amount.toFixed(2);
+      const pad = Math.max(1, 30 - left.length - right.length);
+      return `${left}${" ".repeat(pad)}${right}`;
+    });
+    body = [
+      "       Q R A V E       ",
+      "******************************",
+      `Tbl: ${input.tableCode}  |  ${input.printedAt.split(',')[0]}`,
+      ...(orderNums ? [`Ord: ${orderNums}`] : []),
+      staffLine,
+      "******************************",
+      ...lines,
+      "******************************",
+      `TOTAL: ${input.total.toFixed(2).padStart(23)}`,
+      "******************************",
+      "         See you again!       ",
+    ].filter(Boolean).join("\n");
+  } else if (template === "compact") {
+    const lines = input.items.map((i) => `${i.qty}x ${i.name.substring(0,18).padEnd(18)} ${i.amount.toFixed(2).padStart(8)}`);
+    body = [
+      "QRAVE",
+      `T${input.tableCode} ${input.printedAt.split(',')[1]?.trim() || input.printedAt}`,
+      ...(orderNums ? [`O:${orderNums}`] : []),
+      staffLine ? staffLine.replace('Served By : ', 'By: ') : "",
+      "------------------------------",
+      ...lines,
+      "------------------------------",
+      `TOT: ${input.total.toFixed(2).padStart(25)}`,
+      "Thx!",
+    ].filter(Boolean).join("\n");
+  } else if (template === "elegant") {
+    const lines = input.items.map((i) => {
+      const left = `${i.qty}x ${i.name}`;
+      const right = i.amount.toFixed(2);
+      const pad = Math.max(1, 30 - left.length - right.length);
+      return `${left}${" ".repeat(pad)}${right}`;
+    });
+    body = [
+      "          ~ QRAVE ~          ",
+      "==============================",
+      `Table : ${input.tableCode}`,
+      ...(orderNums ? [`Orders: ${orderNums}`] : []),
+      staffLine,
+      `Date  : ${input.printedAt}`,
+      "------------------------------",
+      ...lines,
+      "------------------------------",
+      `Total Due     ${input.total.toFixed(2).padStart(16)}`,
+      "==============================",
+      "     We appreciate you!     ",
+    ].filter(Boolean).join("\n");
+  } else {
+    // classic
+    const lines = input.items.map((i) => {
+      const left = `${i.qty}x ${i.name}`;
+      const right = i.amount.toFixed(2);
+      const pad = Math.max(1, 30 - left.length - right.length);
+      return `${left}${" ".repeat(pad)}${right}`;
+    });
+    body = [
+      "QRAVE - CUSTOMER BILL",
+      "------------------------------",
+      `Table : ${input.tableCode}`,
+      ...(orderNums ? [`Orders: ${orderNums}`] : []),
+      staffLine,
+      `Time  : ${input.printedAt}`,
+      "------------------------------",
+      ...lines,
+      "------------------------------",
+      `TOTAL : ${input.total.toFixed(2)}`,
+      "------------------------------",
+      "Thank you!",
+    ].filter(Boolean).join("\n");
+  }
+
   await printTicket("billing", "Customer Bill", body);
 }
 

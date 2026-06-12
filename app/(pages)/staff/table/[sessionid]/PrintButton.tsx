@@ -2,13 +2,34 @@
 
 import { Printer } from "lucide-react";
 import { api } from "@/app/lib/api";
+import { printBillTicket } from "@/app/lib/posPrinter";
+import { useAdminMeQuery } from "@/app/lib/queries";
 
-export function PrintButton({ sessionId }: { sessionId?: string }) {
+export function PrintButton({ 
+  sessionId, 
+  tableCode, 
+  items, 
+  total 
+}: { 
+  sessionId?: string; 
+  tableCode?: string;
+  items?: any[];
+  total?: number;
+}) {
+  const { data: me } = useAdminMeQuery();
+
   const handlePrint = async () => {
     if (typeof window !== "undefined") {
       if (sessionId) {
         try {
           await api(`/api/admin/sessions/${sessionId}/end`, { method: "POST", suppressErrorLog: true });
+          await printBillTicket({
+            tableCode: tableCode || "T-",
+            printedAt: new Date().toLocaleString(),
+            staffName: me?.name || "NA",
+            items,
+            total,
+          });
         } catch {
           // best effort
         }
