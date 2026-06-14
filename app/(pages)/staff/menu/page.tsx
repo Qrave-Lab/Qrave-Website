@@ -147,6 +147,8 @@ type MenuItem = {
   width_cm?: number;
   height_cm?: number;
   depth_cm?: number;
+  hasSteam?: boolean;
+  modelScale?: number;
 };
 
 type CategoryOption = {
@@ -338,6 +340,8 @@ export default function MenuPage() {
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
+  const staffModelViewerRef = useRef<any>(null);
+  const naturalDimsRef = useRef<{ x: number; y: number; z: number } | null>(null);
 
   useEffect(() => {
     refreshMenu();
@@ -452,6 +456,8 @@ export default function MenuPage() {
         isBestSeller: item.isBestSeller ?? item.is_best_seller ?? false,
         isNew: item.isNew ?? item.is_new ?? false,
         spiceLevel: (item.spiceLevel ?? item.spice_level ?? "none") as SpiceLevel,
+        hasSteam: Boolean(item.hasSteam ?? item.has_steam ?? false),
+        modelScale: item.modelScale ?? item.model_scale ?? 1.00,
         specialNote:
           typeof item.specialNote === "object"
             ? item.specialNote?.String ?? ""
@@ -907,6 +913,8 @@ export default function MenuPage() {
       width_cm: next.width_cm !== undefined ? next.width_cm : null,
       height_cm: next.height_cm !== undefined ? next.height_cm : null,
       depth_cm: next.depth_cm !== undefined ? next.depth_cm : null,
+      has_steam: next.hasSteam !== undefined ? next.hasSteam : false,
+      model_scale: next.modelScale !== undefined ? next.modelScale : 1.00,
     };
   };
 
@@ -1362,6 +1370,8 @@ export default function MenuPage() {
                   imageUrl: "",
                   modelGlb: "",
                   modelUsdz: "",
+                  hasSteam: false,
+                  modelScale: 1.00,
                   description: "",
                   calories: null,
                   foodCost: 0,
@@ -1876,6 +1886,8 @@ export default function MenuPage() {
                         imageUrl: "",
                         modelGlb: "",
                         modelUsdz: "",
+                        hasSteam: false,
+                        modelScale: 1.00,
                         description: "",
                         calories: null,
                         foodCost: 0,
@@ -2631,7 +2643,7 @@ export default function MenuPage() {
                           }`}
                       >
                         {editingItem.modelGlb || editingItem.modelUsdz ? (
-                          <div className="w-full h-full overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                          <div className="w-full h-full overflow-hidden rounded-3xl border border-slate-200 bg-white relative">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -2661,12 +2673,47 @@ export default function MenuPage() {
                             >
                               Open File
                             </a>
+                            {editingItem.hasSteam && (
+                              <>
+                                <style dangerouslySetInnerHTML={{__html: `
+                                  @keyframes adminSteamRise {
+                                    0% {
+                                      transform: translateY(40px) scaleX(0.5) translateX(0);
+                                      opacity: 0;
+                                    }
+                                    15% {
+                                      opacity: 0.5;
+                                    }
+                                    50% {
+                                      transform: translateY(10px) scaleX(1.2) translateX(5px);
+                                      opacity: 0.3;
+                                    }
+                                    100% {
+                                      transform: translateY(-50px) scaleX(1.8) translateX(-8px);
+                                      opacity: 0;
+                                    }
+                                  }
+                                  .admin-steam-particle {
+                                    animation: adminSteamRise 4s infinite linear;
+                                    filter: blur(6px);
+                                    border-radius: 50%;
+                                    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+                                  }
+                                `}} />
+                                <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-24 h-32 pointer-events-none z-10 flex justify-around opacity-80">
+                                  <div className="admin-steam-particle w-3 h-20" style={{ animationDelay: "0s", animationDuration: "4s" }} />
+                                  <div className="admin-steam-particle w-4 h-20" style={{ animationDelay: "1.2s", animationDuration: "4.5s" }} />
+                                  <div className="admin-steam-particle w-3 h-20" style={{ animationDelay: "2.5s", animationDuration: "3.5s" }} />
+                                </div>
+                              </>
+                            )}
                             {!modelViewerReady ? (
                               <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">
                                 Loading 3D preview...
                               </div>
                             ) : (
                               <model-viewer
+                                ref={staffModelViewerRef}
                                 key={editingItem.modelGlb || editingItem.modelUsdz}
                                 src={normalizeAssetUrl(editingItem.modelGlb)}
                                 ios-src={normalizeAssetUrl(editingItem.modelUsdz) || undefined}
@@ -2683,7 +2730,24 @@ export default function MenuPage() {
                                 environment-image="neutral"
                                 shadow-intensity="1"
                                 tone-mapping="commerce"
-                                onLoad={() => setModelPreviewError("")}
+                                onLoad={() => {
+                                  setModelPreviewError("");
+                                  const viewer = staffModelViewerRef.current;
+                                  if (viewer) {
+                                    try {
+                                      const dim = (viewer as any).getDimensions();
+                                      if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
+                                        naturalDimsRef.current = { x: dim.x, y: dim.y, z: dim.z };
+                                        const currentW = editingItem.width_cm || 20;
+                                        const scaleMultiplier = editingItem.modelScale || 1.00;
+                                        const ratio = (currentW / (dim.x * 100)) * scaleMultiplier;
+                                        viewer.scale = `${ratio} ${ratio} ${ratio}`;
+                                      }
+                                    } catch (err) {
+                                      console.warn("Failed to read dimensions:", err);
+                                    }
+                                  }
+                                }}
                                 onError={() =>
                                   setModelPreviewError(
                                     "Unable to load model preview. File URL may be inaccessible."
@@ -2715,56 +2779,200 @@ export default function MenuPage() {
                       </div>
 
                       {(editingItem.modelGlb || editingItem.modelUsdz) && (
-                        <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50 space-y-4 animate-in fade-in duration-300">
-                          <div className="flex items-center gap-2">
-                            <div className="p-2 bg-indigo-500 rounded-xl text-white">
-                              <Scale className="w-4 h-4" />
+                        <div className="space-y-4">
+                          {/* 1. Toggle Steam Effect */}
+                          <div className="p-4 bg-orange-50/60 rounded-3xl border border-orange-100/50 flex items-center justify-between animate-in fade-in duration-300">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">♨️</span>
+                              <div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                                  Default Steam Effect
+                                </h4>
+                                <p className="text-[10px] text-slate-500">
+                                  Show hot steam rising from this dish when loaded in AR.
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">Physical 1:1 Scale Enforcement</h4>
-                              <p className="text-[10px] text-slate-500">Specify actual dimensions in centimeters to render accurately in Augmented Reality.</p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Width (cm)</label>
+                            <label className="relative inline-flex items-center cursor-pointer">
                               <input
-                                type="number"
-                                step="0.1"
-                                placeholder="e.g. 12"
-                                value={editingItem.width_cm || ""}
-                                onChange={(e) => setEditingItem({ ...editingItem, width_cm: e.target.value ? parseFloat(e.target.value) : undefined })}
-                                className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                type="checkbox"
+                                checked={editingItem.hasSteam || false}
+                                onChange={(e) => {
+                                  setEditingItem({
+                                    ...editingItem,
+                                    hasSteam: e.target.checked,
+                                  });
+                                }}
+                                className="sr-only peer"
+                              />
+                              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+                            </label>
+                          </div>
+
+                          {/* 2. Proportional Size Slider */}
+                          <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50 space-y-4 animate-in fade-in duration-300">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 bg-indigo-500 rounded-xl text-white">
+                                <Scale className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                                  Physical 1:1 Scale Enforcement
+                                </h4>
+                                <p className="text-[10px] text-slate-500">
+                                  Scale the model in centimeters. Drag the sliders to resize visually.
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Slider 1: Visual Size Offset (modelScale) */}
+                            <div className="space-y-2 pt-2 border-t border-indigo-100/30">
+                              <div className="flex justify-between items-center">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                  Model Size Offset (Scale)
+                                </label>
+                                <span className="text-xs font-black text-indigo-655 bg-indigo-100/60 px-2.5 py-0.5 rounded-lg">
+                                  {Math.round((editingItem.modelScale || 1.00) * 100)}%
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="2.0"
+                                step="0.05"
+                                value={editingItem.modelScale || 1.00}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  setEditingItem({
+                                    ...editingItem,
+                                    modelScale: val,
+                                  });
+                                  const dims = naturalDimsRef.current;
+                                  if (dims) {
+                                    const currentW = editingItem.width_cm || 20;
+                                    const ratio = (currentW / (dims.x * 100)) * val;
+                                    const viewer = staffModelViewerRef.current;
+                                    if (viewer) {
+                                      viewer.scale = `${ratio} ${ratio} ${ratio}`;
+                                    }
+                                  }
+                                }}
+                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-650 focus:outline-none"
                               />
                             </div>
-                            <div>
-                              <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Height (cm)</label>
+
+                            {/* Slider 2: Physical Width */}
+                            <div className="space-y-2 pt-2">
+                              <div className="flex justify-between items-center">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                  Visual Width Slider
+                                </label>
+                                <span className="text-xs font-black text-indigo-655 bg-indigo-100/60 px-2.5 py-0.5 rounded-lg">
+                                  {editingItem.width_cm || 20} cm
+                                </span>
+                              </div>
                               <input
-                                type="number"
-                                step="0.1"
-                                placeholder="e.g. 10"
-                                value={editingItem.height_cm || ""}
-                                onChange={(e) => setEditingItem({ ...editingItem, height_cm: e.target.value ? parseFloat(e.target.value) : undefined })}
-                                className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                type="range"
+                                min="5"
+                                max="80"
+                                step="1"
+                                value={editingItem.width_cm || 20}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  const dims = naturalDimsRef.current;
+                                  const scaleMultiplier = editingItem.modelScale || 1.00;
+                                  if (dims) {
+                                    const ratio = val / (dims.x * 100);
+                                    const newH = Math.round(dims.y * 100 * ratio * 10) / 10;
+                                    const newD = Math.round(dims.z * 100 * ratio * 10) / 10;
+                                    setEditingItem({
+                                      ...editingItem,
+                                      width_cm: val,
+                                      height_cm: newH,
+                                      depth_cm: newD,
+                                    });
+                                    const viewer = staffModelViewerRef.current;
+                                    if (viewer) {
+                                      const totalRatio = ratio * scaleMultiplier;
+                                      viewer.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
+                                    }
+                                  } else {
+                                    setEditingItem({
+                                      ...editingItem,
+                                      width_cm: val,
+                                    });
+                                  }
+                                }}
+                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
                               />
                             </div>
-                            <div>
-                              <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Depth (cm)</label>
-                              <input
-                                type="number"
-                                step="0.1"
-                                placeholder="e.g. 12"
-                                value={editingItem.depth_cm || ""}
-                                onChange={(e) => setEditingItem({ ...editingItem, depth_cm: e.target.value ? parseFloat(e.target.value) : undefined })}
-                                className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                              />
+
+                            <div className="grid grid-cols-3 gap-3 pt-2">
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Width (cm)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  placeholder="e.g. 12"
+                                  value={editingItem.width_cm || ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value ? parseFloat(e.target.value) : 20;
+                                    setEditingItem({
+                                      ...editingItem,
+                                      width_cm: val,
+                                    });
+                                    const dims = naturalDimsRef.current;
+                                    const scaleMultiplier = editingItem.modelScale || 1.00;
+                                    if (dims && val > 0) {
+                                      const ratio = val / (dims.x * 100);
+                                      const viewer = staffModelViewerRef.current;
+                                      if (viewer) {
+                                        const totalRatio = ratio * scaleMultiplier;
+                                        viewer.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
+                                      }
+                                    }
+                                  }}
+                                  className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Height (cm)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  placeholder="e.g. 10"
+                                  value={editingItem.height_cm || ""}
+                                  onChange={(e) =>
+                                    setEditingItem({
+                                      ...editingItem,
+                                      height_cm: e.target.value ? parseFloat(e.target.value) : undefined,
+                                    })
+                                  }
+                                  className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Depth (cm)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  placeholder="e.g. 12"
+                                  value={editingItem.depth_cm || ""}
+                                  onChange={(e) =>
+                                    setEditingItem({
+                                      ...editingItem,
+                                      depth_cm: e.target.value ? parseFloat(e.target.value) : undefined,
+                                    })
+                                  }
+                                  className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                />
+                              </div>
+                            </div>
+                            <div className="text-[10px] text-indigo-600 bg-white/60 p-2.5 rounded-2xl border border-indigo-50/50 leading-relaxed">
+                              <strong>Pro Tip:</strong> Setting physical dimensions guarantees your food matches the actual tabletop dimensions when viewed in AR! Visual Size Offset scales the 3D model bigger or smaller to look best in the menu.
                             </div>
                           </div>
-                          <div className="text-[10px] text-indigo-600 bg-white/60 p-2.5 rounded-2xl border border-indigo-50/50 leading-relaxed">
-                            <strong>Pro Tip:</strong> model-viewer automatically extracts dimensions in meters. Setting these values overrides the native scale to guarantee that your food matches the actual tabletop dimensions when viewed in AR!
-                          </div>
-                        </div>
-                      )}
+                        </div>      )}
                     </div>
                   </div>
                 )}

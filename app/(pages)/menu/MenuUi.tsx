@@ -976,6 +976,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   }, [menuItems]);
 
   const [arScale, setArScale] = useState<string>("1 1 1");
+  const [steamEnabled, setSteamEnabled] = useState<boolean>(false);
   const [selectedArModifiers, setSelectedArModifiers] = useState<Set<string>>(
     new Set(),
   );
@@ -1072,6 +1073,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     setArModelError("");
     setArModelRenderKey((v) => v + 1);
     setArItem(item);
+    setSteamEnabled(Boolean(item.hasSteam ?? item.has_steam ?? false));
     setArScale("1 1 1");
     setSelectedArModifiers(new Set());
     const defaultVId = item.variants?.[0]?.id || "";
@@ -1089,6 +1091,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const handleArClose = () => {
     setArItem(null);
     setArModelError("");
+    setSteamEnabled(false);
   };
 
   const activateAr = () => {
@@ -1290,6 +1293,32 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               }}
               className="fixed inset-0 z-[9999] bg-[#3D2B1F]/30 backdrop-blur-[4px] flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all"
             >
+              <style dangerouslySetInnerHTML={{__html: `
+                @keyframes arSteamRise {
+                  0% {
+                    transform: translateY(60px) scaleX(0.5) translateX(0);
+                    opacity: 0;
+                  }
+                  15% {
+                    opacity: 0.55;
+                  }
+                  50% {
+                    transform: translateY(20px) scaleX(1.3) translateX(8px);
+                    opacity: 0.35;
+                  }
+                  100% {
+                    transform: translateY(-80px) scaleX(2) translateX(-12px);
+                    opacity: 0;
+                  }
+                }
+                .ar-steam-particle {
+                  animation: arSteamRise 4s infinite linear;
+                  filter: blur(8px);
+                  border-radius: 50%;
+                  background: radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%);
+                }
+              `}} />
+
               <div
                 className="w-full sm:max-w-md rounded-t-[32px] sm:rounded-[32px] bg-[#FFFFFF] border border-[#F0E9DF] shadow-2xl overflow-hidden relative"
                 style={{ position: "relative", zIndex: 10000 }}
@@ -1330,6 +1359,15 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                   className="mx-5 rounded-2xl overflow-hidden relative bg-[#F7F2EB] border border-[#F0E9DF]"
                   style={{ height: 300 }}
                 >
+                  {/* Hot Steam Effect */}
+                  {steamEnabled && (
+                    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-32 h-40 pointer-events-none z-10 flex justify-around opacity-80">
+                      <div className="ar-steam-particle w-4 h-24" style={{ animationDelay: "0s", animationDuration: "4s" }} />
+                      <div className="ar-steam-particle w-5 h-24" style={{ animationDelay: "1.2s", animationDuration: "4.5s" }} />
+                      <div className="ar-steam-particle w-4 h-24" style={{ animationDelay: "2.5s", animationDuration: "3.5s" }} />
+                    </div>
+                  )}
+
                   {!modelViewerReady ? (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-3">
                       <div
@@ -1373,12 +1411,20 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                                 arItem.height_cm || arItem.heightCM;
                               const targetD = arItem.depth_cm || arItem.depthCM;
                               if (targetW && targetH && targetD) {
-                                const scaleX = targetW / (dim.x * 100);
-                                const scaleY = targetH / (dim.y * 100);
-                                const scaleZ = targetD / (dim.z * 100);
+                                const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
+                                const scaleX = (targetW / (dim.x * 100)) * scaleMultiplier;
+                                const scaleY = (targetH / (dim.y * 100)) * scaleMultiplier;
+                                const scaleZ = (targetD / (dim.z * 100)) * scaleMultiplier;
+                                viewer.setAttribute("data-base-scale-x", String(scaleX));
+                                viewer.setAttribute("data-base-scale-y", String(scaleY));
+                                viewer.setAttribute("data-base-scale-z", String(scaleZ));
                                 setArScale(`${scaleX} ${scaleY} ${scaleZ}`);
                               } else if (targetW) {
-                                const scaleX = targetW / (dim.x * 100);
+                                const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
+                                const scaleX = (targetW / (dim.x * 100)) * scaleMultiplier;
+                                viewer.setAttribute("data-base-scale-x", String(scaleX));
+                                viewer.setAttribute("data-base-scale-y", String(scaleX));
+                                viewer.setAttribute("data-base-scale-z", String(scaleX));
                                 setArScale(`${scaleX} ${scaleX} ${scaleX}`);
                               }
                             }
