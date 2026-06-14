@@ -193,13 +193,13 @@ const EditStaffPage = () => {
                 </div>
                 <div className="flex justify-between items-start">
                   <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/10">
-                    <UserPlus className="w-5 h-5 text-[#FFC529]" />
+                    <UserPlus className="w-5 h-5 text-[#fe5c13]" />
                   </div>
                   <span className="text-[9px] font-bold opacity-40 uppercase tracking-[0.2em]">Live Preview</span>
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold truncate mb-1">{formData.name || "Member Name"}</h2>
-                  <p className="text-sm font-semibold text-[#FFC529] uppercase tracking-widest">{formData.role}</p>
+                  <p className="text-sm font-semibold text-[#fe5c13] uppercase tracking-widest">{formData.role}</p>
                 </div>
                 <div className="pt-4 border-t border-white/5 text-[10px] opacity-30 truncate">
                   {formData.phone || formData.email || "user@workplace.com"}

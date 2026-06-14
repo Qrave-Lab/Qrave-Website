@@ -157,6 +157,36 @@ export default function ShiftsPage() {
     return `${h}h ${m}m`;
   };
 
+  const renderRoleBadge = (role: string) => {
+    const r = role.toLowerCase();
+    if (r === "owner") {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-100">
+          Owner
+        </span>
+      );
+    }
+    if (r === "admin") {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-100">
+          Admin
+        </span>
+      );
+    }
+    if (r === "cashier") {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-100">
+          Cashier
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-50 text-slate-600 border border-slate-200/60">
+        {role}
+      </span>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
       <StaffSidebar />
@@ -164,7 +194,7 @@ export default function ShiftsPage() {
         <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
           <div>
             <h2 className="text-lg font-bold tracking-tight text-gray-900 flex items-center gap-2">
-              <Clock className="h-5 w-5 text-[#E8900A]" />
+              <Clock className="h-5 w-5 text-[#fe5c13]" />
               Shift Clock-In & History
             </h2>
             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -175,132 +205,162 @@ export default function ShiftsPage() {
             <button
               type="button"
               onClick={fetchShiftsData}
-              className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer hover:border-slate-300"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4 text-slate-500" />
               Refresh
             </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 relative">
-          <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex-1 overflow-y-auto bg-slate-50 relative">
 
             {isLoading ? (
-              <div className="flex min-h-[50vh] items-center justify-center">
+              <div className="flex min-h-[50vh] items-center justify-center py-12">
                 <div className="flex flex-col items-center gap-2">
-                  <Clock className="h-8 w-8 animate-spin text-orange-500" />
+                  <Clock className="h-8 w-8 animate-spin text-[#fe5c13]" />
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Syncing Shift Deck...</p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                {/* Clock Status Dashboard */}
-                <div className="lg:col-span-1 space-y-4">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h2 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Shift Guard</h2>
-
-                    {!isClockedIn || !activeShift ? (
-                      <div className="text-center py-6">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3 border">
-                          <LogIn className="h-5 w-5" />
-                        </div>
-                        <h3 className="text-sm font-bold text-slate-900">You are Clocked Out</h3>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-[200px] mx-auto">
-                          Clock in now with your register float to start receiving guests.
+              <div className="flex flex-col min-h-full">
+                {/* Active Shift Status Banner */}
+                {!isClockedIn || !activeShift ? (
+                  <div className="border-b border-slate-200 bg-white px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-slate-300" />
+                    
+                    <div className="flex flex-col md:flex-row md:items-center gap-6 pl-2">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 border border-slate-100 shrink-0">
+                        <LogOut className="h-6 w-6" />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <h3 className="text-base font-extrabold text-slate-900">You are Clocked Out</h3>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Start a new shift and define your register float to begin sales operations.
                         </p>
-                        <button
-                          onClick={() => setModalType("clock_in")}
-                          className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-slate-800 transition-all shadow-sm"
-                        >
-                          Clock In Shift
-                        </button>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <span className="flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-100">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                            </span>
-                            <span className="text-xs font-bold text-emerald-800 uppercase">Shift Active</span>
-                          </div>
-                          <div className="mt-3 space-y-1.5 text-xs text-slate-700">
-                            <div>
-                              <span className="text-[#888] font-medium">Logged in: </span>
-                              <span className="font-bold">{activeShift.user_name} ({activeShift.role})</span>
-                            </div>
-                            <div>
-                              <span className="text-[#888] font-medium">Clocked in: </span>
-                              <span className="font-bold">{new Date(activeShift.clocked_in_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
-                            </div>
-                            <div>
-                              <span className="text-[#888] font-medium">Starting Float: </span>
-                              <span className="font-extrabold text-emerald-700">{fmtINR(activeShift.opening_float)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => setModalType("clock_out")}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-rose-700 hover:bg-rose-100 transition-all"
-                        >
-                          <LogOut className="h-4 w-4" />
-                          Clock Out Shift
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Past Shifts History Table */}
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <div className="border-b px-5 py-4 flex items-center gap-2 bg-slate-50/50">
-                      <History className="h-4.5 w-4.5 text-slate-400" />
-                      <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Shift History & Audits</h2>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            <th className="px-5 py-3">Date</th>
-                            <th className="px-5 py-3">Staff</th>
-                            <th className="px-5 py-3">Role</th>
-                            <th className="px-5 py-3">Hours</th>
-                            <th className="px-5 py-3">Float (Start/End)</th>
-                            <th className="px-5 py-3">Remarks</th>
+                    <button
+                      onClick={() => {
+                        setFloatVal("");
+                        setNotesVal("");
+                        setModalType("clock_in");
+                      }}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 hover:bg-slate-900 px-6 py-3.5 text-xs font-black uppercase tracking-wider text-white transition-all shadow-md shrink-0 active:scale-95 cursor-pointer"
+                    >
+                      <LogIn className="h-4 w-4" />
+                      Clock In Shift
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-b border-slate-200 bg-white px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-500" />
+                    
+                    <div className="flex flex-col md:flex-row md:items-center gap-6 pl-2">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 relative shrink-0">
+                        <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <Clock className="h-6 w-6" />
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <h3 className="text-base font-extrabold text-slate-900">
+                            {activeShift.user_name}
+                          </h3>
+                          {renderRoleBadge(activeShift.role)}
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs font-medium text-slate-500">
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-slate-400">Clocked in:</span> 
+                            <span className="font-bold text-slate-700">{new Date(activeShift.clocked_in_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-slate-400">Starting Float:</span> 
+                            <span className="font-extrabold text-[#fe5c13]">{fmtINR(activeShift.opening_float)}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setFloatVal("");
+                        setNotesVal("");
+                        setModalType("clock_out");
+                      }}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-50 px-5 py-3 text-xs font-black uppercase tracking-wider text-rose-700 transition-all shrink-0 hover:shadow-sm cursor-pointer"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Clock Out Shift
+                    </button>
+                  </div>
+                )}
+
+                {/* Shift History & Audits Full-width Table */}
+                <div className="bg-white min-h-full flex flex-col">
+                  <div className="border-b border-slate-100 px-8 py-4.5 flex items-center justify-between bg-slate-50/50">
+                    <div className="flex items-center gap-2.5">
+                      <History className="h-4.5 w-4.5 text-slate-400" />
+                      <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Shift History & Audits</h2>
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md">
+                      {shifts.length} Total Logs
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/80 text-[10px] font-black uppercase tracking-wider text-slate-400 select-none">
+                          <th className="px-8 py-4">Date</th>
+                          <th className="px-8 py-4">Staff Member</th>
+                          <th className="px-8 py-4">Role</th>
+                          <th className="px-8 py-4">Hours Active</th>
+                          <th className="px-8 py-4">Float (Start / End)</th>
+                          <th className="px-8 py-4">Remarks & Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
+                        {shifts.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-wider">
+                              No shifts logged in database yet.
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y text-slate-700 text-xs">
-                          {shifts.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="px-5 py-8 text-center text-slate-400 font-semibold">
-                                No shifts logged in database yet.
+                        ) : (
+                          shifts.map((s) => (
+                            <tr key={s.id} className="hover:bg-slate-50/40 transition-colors">
+                              <td className="px-8 py-4 font-extrabold text-slate-400">
+                                {new Date(s.clocked_in_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                              </td>
+                              <td className="px-8 py-4 font-bold text-slate-900">{s.user_name}</td>
+                              <td className="px-8 py-4">{renderRoleBadge(s.role)}</td>
+                              <td className="px-8 py-4 font-bold text-slate-700">
+                                {fmtDuration(s.duration_mins)}
+                              </td>
+                              <td className="px-8 py-4">
+                                <div className="flex items-center gap-2 font-bold">
+                                  <span className="text-emerald-600" title="Starting Float">{fmtINR(s.opening_float)}</span>
+                                  <span className="text-slate-300">/</span>
+                                  <span className={s.closing_float !== undefined ? "text-slate-800" : "text-slate-400 italic"} title="Closing Float">
+                                    {s.closing_float !== undefined ? fmtINR(s.closing_float) : "Open"}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-8 py-4 font-semibold text-slate-400 max-w-[200px] truncate" title={s.notes}>
+                                {s.notes || "--"}
                               </td>
                             </tr>
-                          ) : (
-                            shifts.map((s) => (
-                              <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-5 py-3 font-semibold text-slate-400">
-                                  {new Date(s.clocked_in_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-                                </td>
-                                <td className="px-5 py-3 font-bold text-slate-900">{s.user_name}</td>
-                                <td className="px-5 py-3 uppercase text-[10px] font-black text-slate-500">{s.role}</td>
-                                <td className="px-5 py-3 font-medium text-slate-700">
-                                  {fmtDuration(s.duration_mins)}
-                                </td>
-                                <td className="px-5 py-3 font-bold text-slate-800">
-                                  {fmtINR(s.opening_float)} / {s.closing_float !== undefined ? fmtINR(s.closing_float) : "--"}
-                                </td>
-                                <td className="px-5 py-3 font-medium text-slate-400 truncate max-w-[120px]" title={s.notes}>{s.notes || "--"}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -308,52 +368,53 @@ export default function ShiftsPage() {
 
             {/* Shift Modal */}
             {modalType && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-                <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl overflow-y-auto">
-                  <h3 className="text-lg font-black text-slate-900 border-b pb-3 mb-4 uppercase tracking-wider">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="w-full max-w-md rounded-2xl border border-slate-150 bg-white p-6 shadow-2xl overflow-y-auto animate-in zoom-in-95 duration-200">
+                  <h3 className="text-base font-black text-slate-900 border-b border-slate-100 pb-3.5 mb-4.5 uppercase tracking-wider">
                     {modalType === "clock_in" ? "Clock In Shift & Open Till" : "Clock Out Shift & Settle Till"}
                   </h3>
 
                   <form onSubmit={modalType === "clock_in" ? handleClockIn : handleClockOut} className="space-y-4">
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wider text-slate-400">Your Full Name</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">Your Full Name</label>
                       <input
                         type="text"
                         required
                         value={staffName}
                         onChange={(e) => setStaffName(e.target.value)}
                         placeholder="Staff Name"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 focus:outline-none transition-all"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">
                         {modalType === "clock_in" ? "Starting Drawer Float (₹)" : "Closing Drawer Float (₹)"}
                       </label>
                       <input
                         type="number"
+                        step="0.01"
                         required
                         value={floatVal}
                         onChange={(e) => setFloatVal(e.target.value)}
                         placeholder="0.00"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 focus:outline-none transition-all"
                       />
                     </div>
 
                     {modalType === "clock_out" && (
                       <div>
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-400">End-of-shift Remarks</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">End-of-shift Remarks</label>
                         <textarea
                           value={notesVal}
                           onChange={(e) => setNotesVal(e.target.value)}
                           placeholder="Reconciliation notes, shortages, drops, etc."
-                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm focus:border-orange-500 focus:outline-none h-20 resize-none"
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 focus:outline-none h-20 resize-none transition-all"
                         />
                       </div>
                     )}
 
-                    <div className="flex gap-2 pt-3 border-t">
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
                       <button
                         type="button"
                         onClick={() => {
@@ -361,14 +422,14 @@ export default function ShiftsPage() {
                           setFloatVal("");
                           setNotesVal("");
                         }}
-                        className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 shadow-sm"
+                        className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={isActionLoading}
-                        className="flex-1 rounded-xl bg-[#090A0F] py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-slate-800 shadow-md disabled:opacity-50"
+                        className="flex-1 rounded-xl bg-slate-950 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-slate-900 shadow-md transition-all disabled:opacity-50 cursor-pointer"
                       >
                         {isActionLoading ? "Recording..." : modalType === "clock_in" ? "Clock In" : "Clock Out"}
                       </button>
@@ -377,7 +438,6 @@ export default function ShiftsPage() {
                 </div>
               </div>
             )}
-          </div>
         </div>
       </div>
     </div>

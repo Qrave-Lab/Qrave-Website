@@ -48,7 +48,7 @@ const AppMarketplace = () => {
         <div className="text-center mb-16 lg:mb-24">
           <h2 className="text-4xl md:text-5xl lg:text-5xl font-black text-[#1F2127] tracking-tight">
             Unlock the Full Power of <br className="hidden md:block" />
-            <span className="text-[#FFC529]"> the Qrave Ecosystem</span>
+            <span className="text-[#fe5c13]"> the Qrave Ecosystem</span>
           </h2>
         </div>
 
@@ -64,7 +64,7 @@ const AppMarketplace = () => {
                 <div
                   key={addon.id}
                   onClick={() => setActiveIndex(index)}
-                  className={`group relative py-5 -ml-[3px] pl-6 md:pl-8 cursor-pointer transition-colors duration-300 ${isActive ? 'border-l-[3px] border-[#FFC529]' : 'border-l-[3px] border-transparent hover:border-gray-300'
+                  className={`group relative py-5 -ml-[3px] pl-6 md:pl-8 cursor-pointer transition-colors duration-300 ${isActive ? 'border-l-[3px] border-[#fe5c13]' : 'border-l-[3px] border-transparent hover:border-gray-300'
                     }`}
                 >
                   <h3 className={`text-xl md:text-[22px] font-bold transition-colors duration-200 ${isActive ? 'text-[#1F2127]' : 'text-gray-400 hover:text-gray-600'
@@ -83,7 +83,7 @@ const AppMarketplace = () => {
                       </p>
                       <Link
                         href={`/feature/${addon.id}`}
-                        className="inline-flex items-center text-[14px] font-bold text-[#1F2127] hover:text-[#FFC529] transition-colors"
+                        className="inline-flex items-center text-[14px] font-bold text-[#1F2127] hover:text-[#fe5c13] transition-colors"
                       >
                         <span>Learn more</span>
                         <ArrowRight className="w-4 h-4 ml-1.5" />

@@ -125,7 +125,7 @@ const Navbar = () => {
             <div className="flex items-center space-x-8">
               <Link
                 href="/#features"
-                className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
+                className="text-gray-500 hover:text-[#fe5c13] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
                 onClick={(e) => handleSectionLinkClick(e, '#features')}
               >
                 Features
@@ -134,14 +134,14 @@ const Navbar = () => {
 
               <Link
                 href="/#about"
-                className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
+                className="text-gray-500 hover:text-[#fe5c13] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
                 onClick={(e) => handleSectionLinkClick(e, '#about')}
               >
                 About Us
               </Link>
               <Link
                 href="/#demo"
-                className="text-gray-500 hover:text-[#FFC529] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
+                className="text-gray-500 hover:text-[#fe5c13] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
                 onClick={(e) => handleSectionLinkClick(e, '#demo')}
               >
                 Contact Us
@@ -156,7 +156,7 @@ const Navbar = () => {
             <Link href="/login" className="text-gray-500 hover:text-gray-900 font-semibold text-[13px] transition-all duration-200 mr-2 px-3 py-1.5 rounded-full hover:bg-gray-100">
               Sign In
             </Link>
-            <Link href="/onboarding" className="bg-[#FFC529] hover:bg-[#F0B820] text-[#1c1d20] px-5 py-[0.4rem] rounded-full font-bold text-[13px] transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap">
+            <Link href="/onboarding" className="bg-[#fe5c13] hover:bg-[#fe5c13] text-[#1c1d20] px-5 py-[0.4rem] rounded-full font-bold text-[13px] transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap">
               Get Started
             </Link>
           </div>
@@ -176,21 +176,21 @@ const Navbar = () => {
             <div className="space-y-2">
               <Link
                 href="/#features"
-                className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
+                className="block px-6 py-3 text-gray-600 hover:text-[#fe5c13] hover:bg-gray-50 font-medium transition-colors"
                 onClick={(e) => handleSectionLinkClick(e, '#features')}
               >
                 Features
               </Link>
               <Link
                 href="/#about"
-                className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
+                className="block px-6 py-3 text-gray-600 hover:text-[#fe5c13] hover:bg-gray-50 font-medium transition-colors"
                 onClick={(e) => handleSectionLinkClick(e, '#about')}
               >
                 About Us
               </Link>
               <Link
                 href="/#demo"
-                className="block px-6 py-3 text-gray-600 hover:text-[#FFC529] hover:bg-gray-50 font-medium transition-colors"
+                className="block px-6 py-3 text-gray-600 hover:text-[#fe5c13] hover:bg-gray-50 font-medium transition-colors"
                 onClick={(e) => handleSectionLinkClick(e, '#demo')}
               >
                 Contact Us
@@ -200,7 +200,7 @@ const Navbar = () => {
                 <Link href="/login" className="block text-center text-gray-600 hover:text-gray-900 font-medium py-2 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                   Sign In
                 </Link>
-                <Link href="/onboarding" className="bg-[#FFC529] hover:bg-[#F0B820] text-[#1F2127] px-5 py-2.5 rounded-full font-bold text-center transition-colors shadow-sm" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/onboarding" className="bg-[#fe5c13] hover:bg-[#fe5c13] text-[#1F2127] px-5 py-2.5 rounded-full font-bold text-center transition-colors shadow-sm" onClick={() => setMobileMenuOpen(false)}>
                   Get Started
                 </Link>
               </div>

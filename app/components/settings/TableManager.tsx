@@ -125,7 +125,7 @@ export default function TableManager({ tables, onToggle, onRemove, onUpdateMeta 
               <div className="col-span-2 flex justify-end gap-1">
                 <button
                   onClick={() => openEdit(table)}
-                  className="px-2 py-1 text-[10px] font-bold rounded-md border border-[#FFC529] text-[#FFC529] hover:bg-slate-50"
+                  className="px-2 py-1 text-[10px] font-bold rounded-md border border-[#fe5c13] text-[#fe5c13] hover:bg-slate-50"
                 >
                   <span className="inline-flex items-center gap-1">
                     <Edit2 className="w-3 h-3" /> Edit

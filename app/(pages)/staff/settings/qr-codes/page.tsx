@@ -249,7 +249,7 @@ export default function QrFlyerGenerator() {
         <div className={`max-w-[90%] space-y-1.5 ${isHalf ? "mb-1" : "mb-4"}`}>
           {showArBadge && (
             <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${isHalf ? "text-[7px]" : "text-[9px] mb-1.5"} ${
-              isDark ? "bg-[#FFC529]/15 text-[#FFC529] border border-[#FFC529]/20" : "bg-[#FFC529]/10 text-amber-800 border border-[#FFC529]/20"
+              isDark ? "bg-[#fe5c13]/15 text-[#fe5c13] border border-[#fe5c13]/20" : "bg-[#fe5c13]/10 text-amber-800 border border-[#fe5c13]/20"
             }`}>
               <span>✨ Tabletop 3D AR Enabled</span>
             </div>
@@ -377,7 +377,7 @@ export default function QrFlyerGenerator() {
               Regenerate QR Token
             </button>
           )}
-          <button onClick={handlePrint} className="no-print flex items-center gap-2 bg-[#FFC529] hover:bg-[#FFC529]/95 text-gray-900 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#FFC529]/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+          <button onClick={handlePrint} className="no-print flex items-center gap-2 bg-[#fe5c13] hover:bg-[#fe5c13]/95 text-gray-900 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#fe5c13]/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
             <Printer className="w-4 h-4" /> Print Setup
           </button>
         </div>
@@ -609,7 +609,7 @@ export default function QrFlyerGenerator() {
                         <div key={floor} className="space-y-2 border-t border-slate-100 pt-3">
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-bold text-slate-600">{floor}</span>
-                            <button onClick={() => selectFloorTables(floor)} className="text-[9px] text-[#FFC529] font-black uppercase tracking-wider hover:underline">Select Floor</button>
+                            <button onClick={() => selectFloorTables(floor)} className="text-[9px] text-[#fe5c13] font-black uppercase tracking-wider hover:underline">Select Floor</button>
                           </div>
                           <div className="grid grid-cols-4 gap-2">
                             {floorTables.map((t) => (
@@ -618,7 +618,7 @@ export default function QrFlyerGenerator() {
                                 onClick={() => toggleTableSelection(t.id)}
                                 className={`flex flex-col items-center justify-center p-2 rounded-lg border text-sm font-bold transition-all ${
                                   selectedTableIds.has(t.id)
-                                    ? "border-[#FFC529] bg-[#FFC529]/10 text-slate-900"
+                                    ? "border-[#fe5c13] bg-[#fe5c13]/10 text-slate-900"
                                     : "border-slate-200 hover:border-slate-350 text-slate-600 bg-white"
                                 }`}
                               >

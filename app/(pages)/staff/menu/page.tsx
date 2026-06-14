@@ -229,6 +229,66 @@ export const authFetch = async (url: string, options: RequestInit = {}) => {
   });
 };
 
+const CustomSelect = ({ value, onChange, options, placeholder, className = "" }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((opt: any) => opt.value === value);
+
+  return (
+    <div className={`relative group w-full ${className}`} ref={ref}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all flex items-center justify-between hover:bg-slate-100/50 ${isOpen ? "border-[#fe5c13] bg-white ring-4 ring-[#fe5c13]/10" : ""}`}
+      >
+        <span className="truncate text-slate-700">{selectedOption ? selectedOption.label : placeholder}</span>
+      </button>
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+        <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#fe5c13]" : "group-hover:text-slate-600"}`} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden py-1.5 ring-1 ring-slate-900/5"
+          >
+            <div className="max-h-60 overflow-y-auto custom-scrollbar">
+              {options.map((opt: any) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-slate-50 flex items-center justify-between ${value === opt.value ? "text-[#fe5c13] font-bold bg-orange-50/50" : "text-slate-600 font-medium"}`}
+                >
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export default function MenuPage() {
   const router = useRouter();
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -253,6 +313,7 @@ export default function MenuPage() {
   const [newSubcategoryParentId, setNewSubcategoryParentId] = useState("");
   const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
   const [showSubcategoryManager, setShowSubcategoryManager] = useState(false);
+  const [showAddSubcategoryModal, setShowAddSubcategoryModal] = useState(false);
   const [editingSubcategoryId, setEditingSubcategoryId] = useState<string>("");
   const [editingSubcategoryName, setEditingSubcategoryName] = useState("");
   const [isRenamingSubcategory, setIsRenamingSubcategory] = useState(false);
@@ -723,6 +784,7 @@ export default function MenuPage() {
         }),
       });
       setNewSubcategoryName("");
+      setShowAddSubcategoryModal(false);
       toast.success("Subcategory added");
       refreshCategories();
     } catch (e: any) {
@@ -1208,7 +1270,7 @@ export default function MenuPage() {
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-20 sticky top-0">
+        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-40 sticky top-0">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
               Menu Engineering
@@ -1222,18 +1284,18 @@ export default function MenuPage() {
           <div className="flex items-center gap-3">
             {canImportMenu && (
               <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2">
-                <select
-                  value={sourceBranchId}
-                  onChange={(e) => setSourceBranchId(e.target.value)}
-                  className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-600 outline-none focus:border-[#FFC529]"
-                >
-                  <option value="">Copy menu from branch...</option>
-                  {branchOptionsForImport.map((branch) => (
-                    <option key={branch.restaurant_id} value={branch.restaurant_id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-56">
+                  <CustomSelect
+                    value={sourceBranchId}
+                    onChange={(val: any) => setSourceBranchId(val)}
+                    options={branchOptionsForImport.map((branch) => ({
+                      value: branch.restaurant_id,
+                      label: branch.name,
+                    }))}
+                    placeholder="Copy menu from branch..."
+                    buttonClassName="!h-8 !rounded-lg !text-xs !bg-slate-50 !border-slate-200"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={handleImportMenu}
@@ -1245,11 +1307,20 @@ export default function MenuPage() {
                 <button
                   type="button"
                   onClick={openSyncModal}
-                  className="h-8 rounded-lg bg-[#FFC529] px-3 text-xs font-bold text-gray-900 hover:brightness-95"
+                  className="h-8 rounded-lg bg-[#fe5c13] px-3 text-xs font-bold text-gray-900 hover:brightness-95"
                 >
                   Sync Menu
                 </button>
               </div>
+            )}
+            {canManageCategories && (
+              <button
+                onClick={() => setShowSubcategoryManager(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border bg-white border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                <Sparkles className="w-4 h-4 text-[#fe5c13]" />
+                Categories
+              </button>
             )}
             <button
               onClick={() => {
@@ -1316,169 +1387,73 @@ export default function MenuPage() {
                 setModalMode("add");
                 setActiveModalTab("general");
               }}
-              className="bg-[#FFC529] text-gray-900 px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-[#FFC529]/30 hover:brightness-95 transition-all"
+              className="bg-[#fe5c13] text-gray-900 px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-[#fe5c13]/30 hover:brightness-95 transition-all"
             >
               <Plus className="w-4 h-4" /> New Product
             </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 bg-[#F8F9FB]">
-          <div className="max-w-7xl mx-auto">
-            {canManageCategories && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-8 bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="px-6 py-4 bg-gradient-to-r from-slate-50/80 to-white border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-[#FFC529]/10 flex items-center justify-center border border-[#FFC529]/20">
-                      <Sparkles className="w-4 h-4 text-[#FFC529]" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-800 tracking-tight">Expand Your Menu</h2>
-                      <p className="text-[10px] font-medium text-slate-400">Create a new sub-category for your items</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowSubcategoryManager(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-[#FFC529] hover:bg-[#FFC529]/5 transition-all group"
-                  >
-                    <span>Manage Categories</span>
-                    <ArrowUp className="w-3 h-3 rotate-45 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </button>
-                </div>
-                
-                <div className="p-6">
-                  <div className="flex flex-col md:flex-row items-center gap-4">
-                    <div className="w-full md:w-64">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Parent Section</label>
-                      <div className="relative group">
-                        <select
-                          value={newSubcategoryParentId || parentCategories[0]?.id || ""}
-                          onChange={(e) => setNewSubcategoryParentId(e.target.value)}
-                          className="w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl appearance-none outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all cursor-pointer group-hover:bg-slate-100/50"
+        <main className="flex-1 overflow-y-auto bg-[#F8F9FB]">
+          <div className="flex flex-col">
+            <div className="bg-white border-b border-slate-200 shadow-sm flex flex-col sticky top-0 z-30">
+              <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 p-4 md:px-6 bg-white">
+                <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+                  <div className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl overflow-x-auto scrollbar-hide max-w-[80vw]">
+                    {["all", ...parentCategories.map((c) => c.name)].map(
+                      (cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setActiveTab(cat as any)}
+                          className={`px-5 py-2 rounded-lg text-xs font-bold capitalize transition-all whitespace-nowrap ${
+                            activeTab === cat
+                              ? "bg-white text-gray-900 shadow-sm ring-1 ring-slate-200/60"
+                              : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                          }`}
                         >
-                          {parentCategories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <ArrowDown className="w-4 h-4" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 w-full">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sub-Category Name</label>
-                      <input
-                        value={newSubcategoryName}
-                        onChange={(e) => setNewSubcategoryName(e.target.value)}
-                        placeholder="e.g. Classic Burgers, Craft Pizzas..."
-                        className="w-full h-12 px-5 text-sm font-medium bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all placeholder:text-slate-300 group-hover:bg-slate-100/50"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            createSubcategory(
-                              newSubcategoryName,
-                              newSubcategoryParentId || parentCategories[0]?.id || ""
-                            );
-                          }
-                        }}
-                      />
-                    </div>
-
-                    <div className="w-full md:w-36">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">GST Slab</label>
-                      <div className="relative group">
-                        <select
-                          value={newSubcategoryGstRate}
-                          onChange={(e) => setNewSubcategoryGstRate(parseFloat(e.target.value))}
-                          className="w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl appearance-none outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-[#FFC529]/10 transition-all cursor-pointer group-hover:bg-slate-100/50"
-                        >
-                          <option value={0}>0% GST</option>
-                          <option value={5}>5% GST</option>
-                          <option value={12}>12% GST</option>
-                          <option value={18}>18% GST</option>
-                          <option value={28}>28% GST</option>
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <ArrowDown className="w-4 h-4" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="w-full md:w-auto self-end">
-                      <button
-                        onClick={() =>
-                          createSubcategory(
-                            newSubcategoryName,
-                            newSubcategoryParentId || parentCategories[0]?.id || ""
-                          )
-                        }
-                        disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
-                        className="h-12 px-6 rounded-2xl text-[11px] font-bold bg-[#FFC529] text-gray-900 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-[#FFC529]/20 transition-all disabled:opacity-40 disabled:scale-100 flex items-center gap-2"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Quick Add</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-            <div className="flex flex-col md:flex-row justify-between mb-8 gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-fit">
-                  {["all", ...parentCategories.map((c) => c.name)].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setActiveTab(cat as any)}
-                      className={`px-5 py-2 rounded-lg text-xs font-bold capitalize transition-all ${activeTab === cat
-                        ? "bg-[#FFC529] text-gray-900 font-bold"
-                        : "text-slate-500 hover:text-slate-900"
-                        }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-                {filteredItems.length > 0 && (
-                  <button
-                    onClick={() => {
-                      if (selectedItems.size === filteredItems.length)
-                        setSelectedItems(new Set());
-                      else
-                        setSelectedItems(
-                          new Set(filteredItems.map((i) => i.id))
-                        );
-                    }}
-                    className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-2 transition-colors"
-                  >
-                    {selectedItems.size === filteredItems.length ? (
-                      <CheckSquare className="w-4 h-4 text-[#FFC529]" />
-                    ) : (
-                      <Square className="w-4 h-4" />
+                          {cat}
+                        </button>
+                      ),
                     )}
-                    Select All
-                  </button>
-                )}
-              </div>
-              <div className="relative min-w-[300px] group">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#FFC529] transition-colors" />
-                <input
-                  type="text"
-                  placeholder="Search menu..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-yellow-50 focus:border-[#FFC529] outline-none transition-all shadow-sm"
-                />
+                  </div>
+                  {filteredItems.length > 0 && (
+                    <>
+                      <div className="w-px h-6 bg-slate-200 hidden sm:block shrink-0" />
+                      <button
+                        onClick={() => {
+                          if (selectedItems.size === filteredItems.length)
+                            setSelectedItems(new Set());
+                          else
+                            setSelectedItems(
+                              new Set(filteredItems.map((i) => i.id)),
+                            );
+                        }}
+                        className="text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-900 flex items-center gap-2 transition-colors shrink-0"
+                      >
+                        {selectedItems.size === filteredItems.length ? (
+                          <CheckSquare className="w-4 h-4 text-[#fe5c13]" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                        Select All
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div className="relative w-full xl:w-[320px] group shrink-0">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#fe5c13] transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="Search menu..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 focus:border-[#fe5c13] outline-none transition-all"
+                  />
+                </div>
               </div>
             </div>
 
+            <div className={filteredItems.length === 0 && !loading ? "flex-1 w-full" : "px-4 md:px-8 pt-8 pb-8"}>
             <AnimatePresence>
               {selectedItems.size > 0 && (
                 <motion.div
@@ -1564,24 +1539,37 @@ export default function MenuPage() {
                       </button>
                     </div>
                     <div className="p-5 space-y-4">
+                      {/* Parent Section Selector */}
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                          Parent Category
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Parent Category Section
                         </label>
-                        <select
+                        <CustomSelect
                           value={newSubcategoryParentId || parentCategories[0]?.id || ""}
-                          onChange={(e) => setNewSubcategoryParentId(e.target.value)}
-                          className="w-full h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-300 focus:ring-4 focus:ring-yellow-50 transition-all"
-                        >
-                          {parentCategories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(val: string) => setNewSubcategoryParentId(val)}
+                          options={parentCategories.map((cat) => ({ value: cat.id, label: cat.name }))}
+                          placeholder="Select Parent Category..."
+                        />
                       </div>
 
-                      <div className="max-h-[400px] overflow-y-auto space-y-2.5 pr-1 py-1 custom-scrollbar">
+                      {/* Add New Sub-Category Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowAddSubcategoryModal(true)}
+                        className="w-full h-12 rounded-xl border-2 border-dashed border-[#fe5c13]/30 bg-[#fe5c13]/5 text-[#fe5c13] font-bold text-xs hover:bg-[#fe5c13]/10 hover:border-[#fe5c13]/50 transition-all flex items-center justify-center gap-2 mt-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add New Sub-Category
+                      </button>
+
+                      <div className="h-px bg-slate-100 my-2" />
+
+                      {/* Existing Sub-Categories List */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 ml-1">
+                          Existing Sub-Categories
+                        </label>
+                        <div className="max-h-[260px] overflow-y-auto space-y-2.5 pr-1 py-1 custom-scrollbar">
                         <motion.div className="space-y-2.5">
                           {getSubcategories(
                             newSubcategoryParentId || parentCategories[0]?.id || ""
@@ -1595,7 +1583,7 @@ export default function MenuPage() {
                                 layout: { type: "spring", stiffness: 300, damping: 30 },
                                 opacity: { duration: 0.2 }
                               }}
-                              className="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 bg-white hover:border-[#FFC529]/30 hover:shadow-md hover:shadow-slate-100 transition-all group"
+                              className="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 bg-white hover:border-[#fe5c13]/30 hover:shadow-md hover:shadow-slate-100 transition-all group"
                             >
                             <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors">
                               <GripVertical className="w-4 h-4" />
@@ -1608,7 +1596,7 @@ export default function MenuPage() {
                                     autoFocus
                                     value={editingSubcategoryName}
                                     onChange={(e) => setEditingSubcategoryName(e.target.value)}
-                                    className="flex-1 h-9 px-3 text-sm bg-slate-50 border border-[#FFC529] rounded-xl outline-none focus:ring-4 focus:ring-[#FFC529]/10 transition-all font-semibold"
+                                    className="flex-1 h-9 px-3 text-sm bg-slate-50 border border-[#fe5c13] rounded-xl outline-none focus:ring-4 focus:ring-[#fe5c13]/10 transition-all font-semibold"
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") renameSubcategory();
                                       if (e.key === "Escape") cancelRenameSubcategory();
@@ -1617,7 +1605,7 @@ export default function MenuPage() {
                                   <select
                                     value={editingSubcategoryGstRate}
                                     onChange={(e) => setEditingSubcategoryGstRate(parseFloat(e.target.value))}
-                                    className="w-28 h-9 px-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC529] transition-all cursor-pointer"
+                                    className="w-28 h-9 px-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#fe5c13] transition-all cursor-pointer"
                                   >
                                     <option value={0}>0% GST</option>
                                     <option value={5}>5% GST</option>
@@ -1631,7 +1619,7 @@ export default function MenuPage() {
                                     type="button"
                                     onClick={renameSubcategory}
                                     disabled={isRenamingSubcategory}
-                                    className="px-3 h-8 rounded-lg text-[10px] font-bold bg-[#FFC529] text-gray-900 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                                    className="px-3 h-8 rounded-lg text-[10px] font-bold bg-[#fe5c13] text-gray-900 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                                   >
                                     Apply Changes
                                   </button>
@@ -1651,7 +1639,7 @@ export default function MenuPage() {
                                     <span className="text-[13px] font-bold text-slate-700 leading-tight">
                                       {cat.name}
                                     </span>
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#FFC529]/10 text-[#FFC529] border border-[#FFC529]/25">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#fe5c13]/10 text-[#fe5c13] border border-[#fe5c13]/25">
                                       {cat.gst_rate ?? 5}% GST
                                     </span>
                                   </div>
@@ -1663,7 +1651,7 @@ export default function MenuPage() {
                                   <button
                                     type="button"
                                     onClick={() => moveCategory(cat, -1)}
-                                    className="h-8 w-8 rounded-lg text-slate-400 hover:text-[#FFC529] hover:bg-[#FFC529]/10 flex items-center justify-center transition-colors"
+                                    className="h-8 w-8 rounded-lg text-slate-400 hover:text-[#fe5c13] hover:bg-[#fe5c13]/10 flex items-center justify-center transition-colors"
                                     title="Move up"
                                   >
                                     <ArrowUp className="w-3.5 h-3.5" />
@@ -1671,7 +1659,7 @@ export default function MenuPage() {
                                   <button
                                     type="button"
                                     onClick={() => moveCategory(cat, 1)}
-                                    className="h-8 w-8 rounded-lg text-slate-400 hover:text-[#FFC529] hover:bg-[#FFC529]/10 flex items-center justify-center transition-colors"
+                                    className="h-8 w-8 rounded-lg text-slate-400 hover:text-[#fe5c13] hover:bg-[#fe5c13]/10 flex items-center justify-center transition-colors"
                                     title="Move down"
                                   >
                                     <ArrowDown className="w-3.5 h-3.5" />
@@ -1695,13 +1683,133 @@ export default function MenuPage() {
                         ).length === 0 && (
                             <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                                <Box className="w-6 h-6 text-[#FFC529]" />
+                                <Box className="w-6 h-6 text-[#fe5c13]" />
                               </div>
                               <p className="text-[14px] font-bold text-slate-600 mb-1">Empty Category</p>
                               <p className="text-[12px] text-slate-400">Add subcategories to organize your items better.</p>
                             </div>
                           )}
                       </div>
+                    </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {showAddSubcategoryModal && canManageCategories && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+                  onClick={() => setShowAddSubcategoryModal(false)}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                  >
+                    {/* Header */}
+                    <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-[#fe5c13]/10 flex items-center justify-center">
+                          <Plus className="w-4 h-4 text-[#fe5c13]" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">
+                            Add New Sub-Category
+                          </h3>
+                          <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                            Create a new category for your items
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddSubcategoryModal(false)}
+                        className="p-2 rounded-xl hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-6 space-y-5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                          Sub-Category Name
+                        </label>
+                        <input
+                          value={newSubcategoryName}
+                          onChange={(e) => setNewSubcategoryName(e.target.value)}
+                          placeholder="e.g. Classic Burgers..."
+                          className="w-full h-12 px-4 text-sm font-semibold bg-white border-2 border-slate-200 rounded-xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all placeholder:text-slate-300 placeholder:font-medium"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && newSubcategoryName.trim() && !isCreatingSubcategory) {
+                              createSubcategory(
+                                newSubcategoryName,
+                                newSubcategoryParentId || parentCategories[0]?.id || "",
+                              );
+                            }
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                          GST Slab
+                        </label>
+                        <CustomSelect
+                          value={newSubcategoryGstRate}
+                          onChange={(val: number) => setNewSubcategoryGstRate(val)}
+                          options={[
+                            { value: 0, label: "0% GST" },
+                            { value: 5, label: "5% GST" },
+                            { value: 12, label: "12% GST" },
+                            { value: 18, label: "18% GST" },
+                            { value: 28, label: "28% GST" },
+                          ]}
+                          placeholder="GST Rate"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-6 pt-2 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 mt-auto">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddSubcategoryModal(false)}
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/50 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() =>
+                          createSubcategory(
+                            newSubcategoryName,
+                            newSubcategoryParentId || parentCategories[0]?.id || "",
+                          )
+                        }
+                        disabled={isCreatingSubcategory || !newSubcategoryName.trim()}
+                        className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#fe5c13] text-gray-900 hover:brightness-95 active:scale-95 shadow-lg shadow-[#fe5c13]/20 transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center gap-2"
+                      >
+                        {isCreatingSubcategory ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            Create Sub-Category
+                          </>
+                        )}
+                      </button>
                     </div>
                   </motion.div>
                 </motion.div>
@@ -1731,7 +1839,7 @@ export default function MenuPage() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center py-32 bg-white rounded-3xl border border-dashed border-slate-200 shadow-sm"
+                className="flex flex-col items-center justify-center py-32 lg:py-48 bg-white border-y border-slate-100 w-full"
               >
                 <div className="bg-slate-50 p-6 rounded-full mb-6">
                   <ChefHat className="w-16 h-16 text-slate-300" />
@@ -1793,7 +1901,7 @@ export default function MenuPage() {
                       setModalMode("add");
                       setActiveModalTab("general");
                     }}
-                    className="mt-8 bg-[#FFC529] text-gray-900 px-8 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 hover:brightness-95 transition-all shadow-lg shadow-indigo-100"
+                    className="mt-8 bg-[#fe5c13] text-gray-900 px-8 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 hover:brightness-95 transition-all shadow-lg shadow-indigo-100"
                   >
                     <Plus className="w-5 h-5" /> Add First Product
                   </button>
@@ -1809,8 +1917,8 @@ export default function MenuPage() {
                     animate={{ opacity: 1, scale: 1 }}
                     whileHover={{ y: -4 }}
                     className={`group bg-white rounded-[28px] border transition-all duration-500 flex flex-col relative overflow-hidden ${selectedItems.has(item.id)
-                      ? "border-[#FFC529] ring-8 ring-[#FFC529]/5 px-[1px] py-[1px]"
-                      : "border-slate-100 hover:shadow-2xl hover:shadow-[#FFC529]/10"
+                      ? "border-[#fe5c13] ring-8 ring-[#fe5c13]/5 px-[1px] py-[1px]"
+                      : "border-slate-100 hover:shadow-2xl hover:shadow-[#fe5c13]/10"
                       }`}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
@@ -1819,7 +1927,7 @@ export default function MenuPage() {
                         className="absolute top-3 left-3 z-10 p-1 rounded-md bg-white/90 backdrop-blur shadow-sm transition-transform active:scale-90"
                       >
                         {selectedItems.has(item.id) ? (
-                          <CheckSquare className="w-5 h-5 text-[#FFC529]" />
+                          <CheckSquare className="w-5 h-5 text-[#fe5c13]" />
                         ) : (
                           <Square className="w-5 h-5 text-slate-300" />
                         )}
@@ -1844,13 +1952,13 @@ export default function MenuPage() {
                             refreshHistory(item.id);
                             setModalMode("edit");
                           }}
-                          className="p-2.5 bg-white shadow-xl rounded-xl text-slate-600 hover:text-[#FFC529] border border-slate-50 transition-all active:scale-90"
+                          className="p-2.5 bg-white shadow-xl rounded-xl text-slate-600 hover:text-[#fe5c13] border border-slate-50 transition-all active:scale-90"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                       </div>
                       {item.modelGlb && (
-                        <div className="absolute bottom-3 left-3 bg-[#FFC529] text-gray-900 p-1.5 rounded-lg shadow-lg">
+                        <div className="absolute bottom-3 left-3 bg-[#fe5c13] text-gray-900 p-1.5 rounded-lg shadow-lg">
                           <Box className="w-3.5 h-3.5" />
                         </div>
                       )}
@@ -1877,7 +1985,7 @@ export default function MenuPage() {
                             </span>
                           )}
                           {item.isBestSeller && (
-                            <span className="rounded-lg bg-[#FFC529]/10 border border-[#FFC529]/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-gray-800">
+                            <span className="rounded-lg bg-[#fe5c13]/10 border border-[#fe5c13]/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-gray-800">
                               Bestseller
                             </span>
                           )}
@@ -1938,6 +2046,7 @@ export default function MenuPage() {
                   ))}
               </div>
             )}
+            </div>
           </div>
         </main>
       </div>
@@ -2014,7 +2123,7 @@ export default function MenuPage() {
                     key={tab.id}
                     onClick={() => setActiveModalTab(tab.id as any)}
                     className={`px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${activeModalTab === tab.id
-                      ? "border-[#FFC529] text-[#FFC529]"
+                      ? "border-[#fe5c13] text-[#fe5c13]"
                       : "border-transparent text-slate-400 hover:text-slate-600"
                       }`}
                   >
@@ -2039,7 +2148,7 @@ export default function MenuPage() {
                               name: e.target.value,
                             })
                           }
-                          className="w-full text-lg font-bold border-b-2 border-slate-100 focus:border-[#FFC529] outline-none pb-2 transition-all"
+                          className="w-full text-lg font-bold border-b-2 border-slate-100 focus:border-[#fe5c13] outline-none pb-2 transition-all"
                           placeholder="e.g. Signature Truffle Burger"
                         />
                       </div>
@@ -2051,7 +2160,7 @@ export default function MenuPage() {
                           <button
                             type="button"
                             onClick={handleAIAssist}
-                            className="rounded-lg border border-[#FFC529] bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 hover:bg-indigo-100"
+                            className="rounded-lg border border-[#fe5c13] bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 hover:bg-indigo-100"
                           >
                             AI Improve
                           </button>
@@ -2087,7 +2196,7 @@ export default function MenuPage() {
                                       : parseFloat(e.target.value),
                                 })
                               }
-                              className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all pl-8"
+                              className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all pl-8"
                             />
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
                               ₹
@@ -2108,7 +2217,7 @@ export default function MenuPage() {
                                 calories: e.target.value === "" ? null : Number(e.target.value),
                               })
                             }
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
                             placeholder="e.g. 320"
                           />
                         </div>
@@ -2126,7 +2235,7 @@ export default function MenuPage() {
                                 foodCost: e.target.value === "" ? 0 : Number(e.target.value),
                               })
                             }
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
                           />
                         </div>
 
@@ -2143,7 +2252,7 @@ export default function MenuPage() {
                                 estimatedPrepMinutes: e.target.value === "" ? null : Number(e.target.value),
                               })
                             }
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
                             placeholder="e.g. 15"
                           />
                         </div>
@@ -2165,7 +2274,7 @@ export default function MenuPage() {
                                   categoryId: nextCategoryId,
                                 });
                               }}
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                             >
                               {parentCategories.map((cat) => (
                                 <option key={cat.id} value={cat.id}>
@@ -2204,7 +2313,7 @@ export default function MenuPage() {
                                   categoryId: e.target.value,
                                 })
                               }
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                             >
                               {subcategoryOptions.length > 0 ? (
                                 subcategoryOptions.map((cat) => (
@@ -2251,7 +2360,7 @@ export default function MenuPage() {
                                 hsn_code: val,
                               });
                             }}
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all"
+                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
                             placeholder="e.g. 21069099"
                           />
                         </div>
@@ -2269,7 +2378,7 @@ export default function MenuPage() {
                                   gst_rate: e.target.value === "" ? undefined : parseFloat(e.target.value),
                                 })
                               }
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
+                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
                             >
                               <option value="">Use Category Default</option>
                               <option value={0}>0% GST</option>
@@ -2349,7 +2458,7 @@ export default function MenuPage() {
                           Merchandising
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#FFC529] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#fe5c13] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
                             <input
                               type="checkbox"
                               checked={editingItem.isBestSeller}
@@ -2357,7 +2466,7 @@ export default function MenuPage() {
                             />
                             Best Seller
                           </label>
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#FFC529] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
+                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#fe5c13] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
                             <input
                               type="checkbox"
                               checked={editingItem.isNew}
@@ -2438,7 +2547,7 @@ export default function MenuPage() {
                                   });
                                 }}
                                 className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold transition-all ${active
-                                  ? "bg-[#FFC529] border-[#FFC529] text-gray-900"
+                                  ? "bg-[#fe5c13] border-[#fe5c13] text-gray-900"
                                   : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
                                   }`}
                               >
@@ -2667,7 +2776,7 @@ export default function MenuPage() {
                         <h4 className="text-sm font-bold text-indigo-900">
                           Structured Ingredients
                         </h4>
-                        <p className="text-[11px] text-[#FFC529] font-medium">
+                        <p className="text-[11px] text-[#fe5c13] font-medium">
                           Define components for accurate tracking and costing.
                         </p>
                       </div>
@@ -2686,7 +2795,7 @@ export default function MenuPage() {
                             ],
                           })
                         }
-                        className="bg-[#FFC529] text-gray-900 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:brightness-95 transition-all shadow-sm"
+                        className="bg-[#fe5c13] text-gray-900 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:brightness-95 transition-all shadow-sm"
                       >
                         <Plus className="w-4 h-4" /> Add Ingredient
                       </button>
@@ -2706,7 +2815,7 @@ export default function MenuPage() {
                         {editingItem.ingredientsStructured.map((ing, idx) => (
                           <div
                             key={ing.id}
-                            className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-2xl group hover:border-[#FFC529] transition-all"
+                            className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-2xl group hover:border-[#fe5c13] transition-all"
                           >
                             <div className="flex-1 grid grid-cols-12 gap-4">
                               <div className="col-span-6 space-y-1">
@@ -2714,7 +2823,7 @@ export default function MenuPage() {
                                   Ingredient Name
                                 </span>
                                 <input
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#FFC529] pb-1"
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
                                   value={ing.name}
                                   onChange={(e) => {
                                     const list = [
@@ -2735,7 +2844,7 @@ export default function MenuPage() {
                                 </span>
                                 <input
                                   type="number"
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#FFC529] pb-1"
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
                                   value={ing.quantity || ""}
                                   onFocus={(e) => e.target.select()}
                                   onChange={(e) => {
@@ -2769,7 +2878,7 @@ export default function MenuPage() {
                                       ingredientsStructured: list,
                                     });
                                   }}
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#FFC529] pb-1"
+                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
                                 >
                                   <option value="g">Grams (g)</option>
                                   <option value="ml">Milliliters (ml)</option>
@@ -2818,7 +2927,7 @@ export default function MenuPage() {
                             ],
                           })
                         }
-                        className="text-[#FFC529] font-bold text-xs bg-slate-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
+                        className="text-[#fe5c13] font-bold text-xs bg-slate-50 px-4 py-2 rounded-xl hover:bg-indigo-100 transition-all"
                       >
                         + Add Variant
                       </button>
@@ -2835,7 +2944,7 @@ export default function MenuPage() {
                                 Size / Variant Label
                               </span>
                               <input
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#FFC529] pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#fe5c13] pb-1"
                                 value={v.label}
                                 onChange={(e) => {
                                   const newList = [...editingItem.variants];
@@ -2851,7 +2960,7 @@ export default function MenuPage() {
                               </span>
                               <input
                                 type="number"
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#FFC529] pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#fe5c13] pb-1"
                                 value={v.price || ""}
                                 onChange={(e) => {
                                   const newList = [...editingItem.variants];
@@ -2866,7 +2975,7 @@ export default function MenuPage() {
                               </span>
                               <input
                                 type="number"
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#FFC529] pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#fe5c13] pb-1"
                                 value={v.stockCount ?? ""}
                                 placeholder="Unlimited"
                                 onChange={(e) => {
@@ -2919,7 +3028,7 @@ export default function MenuPage() {
                             ],
                           })
                         }
-                        className="rounded-xl bg-[#FFC529] px-4 py-2 text-xs font-bold text-gray-900 hover:brightness-95"
+                        className="rounded-xl bg-[#fe5c13] px-4 py-2 text-xs font-bold text-gray-900 hover:brightness-95"
                       >
                         + Add Group
                       </button>
@@ -3182,7 +3291,7 @@ export default function MenuPage() {
                                 });
                               }}
                               className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-black uppercase transition-all border-2 ${active
-                                ? "bg-[#FFC529] border-[#FFC529] text-gray-900 shadow-lg"
+                                ? "bg-[#fe5c13] border-[#fe5c13] text-gray-900 shadow-lg"
                                 : "bg-white border-slate-100 text-slate-300 hover:border-slate-200"
                                 }`}
                             >
@@ -3243,7 +3352,7 @@ export default function MenuPage() {
                             <button
                               type="button"
                               onClick={() => handleRestoreVersion(version.id)}
-                              className="rounded-xl border border-[#FFC529] bg-slate-50 px-3 py-2 text-xs font-bold text-gray-900 hover:bg-indigo-100"
+                              className="rounded-xl border border-[#fe5c13] bg-slate-50 px-3 py-2 text-xs font-bold text-gray-900 hover:bg-indigo-100"
                             >
                               Restore
                             </button>
@@ -3351,7 +3460,7 @@ export default function MenuPage() {
                       setSyncSourceBranchId(nextSource);
                       setSyncTargetBranchIds((prev) => prev.filter((id) => id !== nextSource));
                     }}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#FFC529] focus:ring-4 focus:ring-yellow-50"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50"
                   >
                     <option value="">Select source branch...</option>
                     {branches.map((branch) => (
@@ -3379,7 +3488,7 @@ export default function MenuPage() {
                           type="checkbox"
                           checked={syncTargetBranchIds.includes(branch.restaurant_id)}
                           onChange={() => toggleSyncTargetBranch(branch.restaurant_id)}
-                          className="h-4 w-4 rounded border-slate-300 text-[#FFC529] focus:ring-yellow-500"
+                          className="h-4 w-4 rounded border-slate-300 text-[#fe5c13] focus:ring-yellow-500"
                         />
                       </label>
                     ))}
@@ -3399,7 +3508,7 @@ export default function MenuPage() {
                   type="button"
                   onClick={handleConfirmSync}
                   disabled={isSyncingMenu || !syncSourceBranchId || syncTargetBranchIds.length === 0}
-                  className="h-9 rounded-lg bg-[#FFC529] px-4 text-xs font-bold text-gray-900 disabled:opacity-50"
+                  className="h-9 rounded-lg bg-[#fe5c13] px-4 text-xs font-bold text-gray-900 disabled:opacity-50"
                 >
                   {isSyncingMenu ? "Syncing..." : "Confirm Sync"}
                 </button>

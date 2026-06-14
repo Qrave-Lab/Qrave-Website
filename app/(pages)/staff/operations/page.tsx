@@ -377,7 +377,7 @@ export default function StaffOperationsControlPage() {
             <button
               onClick={() => setActiveTab('inventory')}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activeTab === 'inventory' ? 'bg-[#FFC529] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+                activeTab === 'inventory' ? 'bg-[#fe5c13] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Advanced Inventory
@@ -385,7 +385,7 @@ export default function StaffOperationsControlPage() {
             <button
               onClick={() => setActiveTab('crm')}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activeTab === 'crm' ? 'bg-[#FFC529] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+                activeTab === 'crm' ? 'bg-[#fe5c13] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               CRM & Loyalty
@@ -393,7 +393,7 @@ export default function StaffOperationsControlPage() {
             <button
               onClick={() => setActiveTab('flags')}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activeTab === 'flags' ? 'bg-[#FFC529] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
+                activeTab === 'flags' ? 'bg-[#fe5c13] text-gray-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Configuration & Permissions
@@ -663,7 +663,7 @@ export default function StaffOperationsControlPage() {
                             type="button"
                             onClick={() => void sendBirthdayCampaign()}
                             disabled={sendingCampaign}
-                            className="rounded-md bg-[#FFC529] px-3 py-1.5 text-xs font-semibold text-gray-900 hover:brightness-95 disabled:opacity-50"
+                            className="rounded-md bg-[#fe5c13] px-3 py-1.5 text-xs font-semibold text-gray-900 hover:brightness-95 disabled:opacity-50"
                           >
                             {sendingCampaign ? "Sending..." : "Send Birthday Campaign"}
                           </button>

@@ -196,7 +196,7 @@ export default function AddTablesPage() {
                 <button
                   onClick={handleCreate}
                   disabled={isSaving}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#FFC529] px-5 py-2.5 text-sm font-bold text-gray-900 disabled:opacity-50 hover:brightness-95 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#fe5c13] px-5 py-2.5 text-sm font-bold text-gray-900 disabled:opacity-50 hover:brightness-95 transition-colors"
                 >
                   {isSaving ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Adding...</>

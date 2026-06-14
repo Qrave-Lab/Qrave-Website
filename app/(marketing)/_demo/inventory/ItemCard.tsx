@@ -26,7 +26,7 @@ export default function ItemCard({
         }).format(price);
 
     return (
-        <div className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition-all hover:border-[#FFC529]/30 hover:shadow-xl hover:shadow-black/5">
+        <div className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition-all hover:border-[#fe5c13]/30 hover:shadow-xl hover:shadow-black/5">
             {/* Image */}
             <div className="relative h-44 overflow-hidden bg-gray-100">
                 {item.image ? (
@@ -47,14 +47,14 @@ export default function ItemCard({
                         type="checkbox"
                         checked={selected}
                         onChange={onToggleSelect}
-                        className="h-4 w-4 rounded border-gray-300 bg-white/80 text-[#FFC529] backdrop-blur-sm focus:ring-[#FFC529]/20 cursor-pointer"
+                        className="h-4 w-4 rounded border-gray-300 bg-white/80 text-[#fe5c13] backdrop-blur-sm focus:ring-[#fe5c13]/20 cursor-pointer"
                     />
                 </div>
 
                 {/* Edit icon */}
                 <button
                     onClick={onEdit}
-                    className="absolute right-3 top-3 rounded-lg bg-white/90 p-2 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-[#D9A016] hover:shadow-md"
+                    className="absolute right-3 top-3 rounded-lg bg-white/90 p-2 text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-[#fe5c13] hover:shadow-md"
                 >
                     <Edit3 className="h-3.5 w-3.5" />
                 </button>

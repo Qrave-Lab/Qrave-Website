@@ -7,7 +7,7 @@ const SmartFeatures = () => {
     {
       title: (
         <>
-          Immersive <span className="text-[#FFC529]">WebAR Menu</span>{" "}
+          Immersive <span className="text-[#fe5c13]">WebAR Menu</span>{" "}
           Visualization
         </>
       ),
@@ -16,12 +16,12 @@ const SmartFeatures = () => {
       linkText: "Explore WebAR integration",
       linkPath: "/feature/webar",
       image: "/landing/feature_ar.png",
-      icon: <View className="w-8 h-8 text-[#FFC529]" />,
+      icon: <View className="w-8 h-8 text-[#fe5c13]" />,
     },
     {
       title: (
         <>
-          Zero-Friction <span className="text-[#FFC529]">QR Ordering</span>{" "}
+          Zero-Friction <span className="text-[#fe5c13]">QR Ordering</span>{" "}
           Ecosystem
         </>
       ),
@@ -30,12 +30,12 @@ const SmartFeatures = () => {
       linkText: "Explore QR ordering features",
       linkPath: "/feature/qr-ordering",
       image: "/landing/feature_qr.png",
-      icon: <QrCode className="w-8 h-8 text-[#FFC529]" />,
+      icon: <QrCode className="w-8 h-8 text-[#fe5c13]" />,
     },
     {
       title: (
         <>
-          Integrated <span className="text-[#FFC529]">UPI Billing</span> &
+          Integrated <span className="text-[#fe5c13]">UPI Billing</span> &
           Payment Suite
         </>
       ),
@@ -44,13 +44,13 @@ const SmartFeatures = () => {
       linkText: "Explore payment integrations",
       linkPath: "/feature/upi-billing",
       image: "/landing/feature_upi.png",
-      icon: <CreditCard className="w-8 h-8 text-[#FFC529]" />,
+      icon: <CreditCard className="w-8 h-8 text-[#fe5c13]" />,
     },
     {
       title: (
         <>
           Strategic{" "}
-          <span className="text-[#FFC529]">Business Intelligence</span> &
+          <span className="text-[#fe5c13]">Business Intelligence</span> &
           Analytics
         </>
       ),
@@ -59,7 +59,7 @@ const SmartFeatures = () => {
       linkText: "Explore analytics dashboard",
       linkPath: "/feature/analytics",
       image: "/landing/feature_analytics.png",
-      icon: <PieChart className="w-8 h-8 text-[#FFC529]" />,
+      icon: <PieChart className="w-8 h-8 text-[#fe5c13]" />,
     },
   ];
 
@@ -78,7 +78,7 @@ const SmartFeatures = () => {
             className="w-[150%] lg:w-full h-[200px] lg:h-[400px]"
           >
             <path
-              fill="#FFC529"
+              fill="#fe5c13"
               d="M0,192L48,197.3C96,203,192,213,288,208C384,203,480,181,576,149.3C672,117,768,75,864,80C960,85,1056,139,1152,154.7C1248,171,1344,149,1392,138.7L1440,128L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"
             ></path>
           </svg>
@@ -92,7 +92,7 @@ const SmartFeatures = () => {
             className="w-[150%] lg:w-full h-[300px]"
           >
             <path
-              fill="#FFC529"
+              fill="#fe5c13"
               d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,138.7C672,149,768,203,864,202.7C960,203,1056,149,1152,128C1248,107,1344,117,1392,122.7L1440,128L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"
             ></path>
           </svg>
@@ -106,7 +106,7 @@ const SmartFeatures = () => {
             className="w-[150%] lg:w-full h-[250px]"
           >
             <path
-              fill="#FFC529"
+              fill="#fe5c13"
               d="M0,256L48,245.3C96,235,192,213,288,213.3C384,213,480,235,576,224C672,213,768,171,864,160C960,149,1056,171,1152,165.3C1248,160,1344,128,1392,112L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
             ></path>
           </svg>
@@ -119,7 +119,7 @@ const SmartFeatures = () => {
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#1F2127] tracking-tight mb-8 max-w-4xl mx-auto leading-[1.1] text-center">
             Beyond the POS: <br className="hidden md:block" />
             Immersive Dining &{" "}
-            <span className="text-[#FFC529]">Intelligent Control</span>
+            <span className="text-[#fe5c13]">Intelligent Control</span>
           </h2>
           <p className="text-xl md:text-2xl text-gray-500 font-medium max-w-3xl mx-auto text-center">
             Captivate guests with 3D visuals while powering your operations with
@@ -147,9 +147,9 @@ const SmartFeatures = () => {
                   </p>
                   <Link
                     href={feature.linkPath}
-                    className="inline-flex items-center text-[#1F2127] font-bold text-lg hover:text-[#FFC529] transition-colors group"
+                    className="inline-flex items-center text-[#1F2127] font-bold text-lg hover:text-[#fe5c13] transition-colors group"
                   >
-                    <span className="border-b-2 border-transparent group-hover:border-[#FFC529] pb-0.5 transition-colors">
+                    <span className="border-b-2 border-transparent group-hover:border-[#fe5c13] pb-0.5 transition-colors">
                       Explore all features
                     </span>
                     <ArrowRight className="ml-2 w-5 h-5 transform group-hover:translate-x-1 transition-transform" />
@@ -159,7 +159,7 @@ const SmartFeatures = () => {
                 {/* Image Content - Blended natively, no boxes, glowing shadow */}
                 <div className="w-full lg:w-1/2 relative flex justify-center items-center z-10">
                   {/* Decorative soft glow behind image to help it pop against white/wave background */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-[#FFC529]/15 blur-[100px] rounded-full -z-10" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-[#fe5c13]/15 blur-[100px] rounded-full -z-10" />
 
                   <Image
                     src={feature.image}

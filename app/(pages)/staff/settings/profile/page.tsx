@@ -57,14 +57,21 @@ function validatePhone(countryCode: string, phone: string) {
 
 function RestaurantProfileSkeleton() {
   return (
-    <div className="mx-auto max-w-[1100px] space-y-6 pb-10 animate-pulse">
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50"><div className="h-5 w-44 rounded bg-slate-200" /></div>
-        <div className="p-6 space-y-6">
-          <div className="flex items-center gap-6"><div className="h-24 w-24 rounded-2xl bg-slate-100 border border-slate-200" /><div className="flex-1 space-y-2"><div className="h-3 w-28 rounded bg-slate-100" /><div className="h-10 w-full rounded-xl bg-slate-100" /></div></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5"><div className="md:col-span-2 h-10 rounded-xl bg-slate-100" /><div className="md:col-span-2 h-10 rounded-xl bg-slate-100" /><div className="h-10 rounded-xl bg-slate-100" /><div className="h-10 rounded-xl bg-slate-100" /></div>
+    <div className="bg-white -m-6 p-8 space-y-8 min-h-[calc(100vh-73px)] animate-pulse">
+      <div className="max-w-4xl space-y-8">
+        <div className="flex items-start gap-6">
+          <div className="h-24 w-24 rounded-2xl bg-slate-100 border border-slate-200 shrink-0" />
+          <div className="flex-1 space-y-3">
+            <div className="h-3 w-28 rounded bg-slate-100" />
+            <div className="h-10 w-full rounded-xl bg-slate-100" />
+          </div>
         </div>
-      </section>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="md:col-span-2 h-10 rounded-xl bg-slate-100" />
+          <div className="md:col-span-2 h-10 rounded-xl bg-slate-100" />
+          <div className="md:col-span-2 h-10 rounded-xl bg-slate-100" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -131,9 +138,9 @@ export default function RestaurantProfilePage() {
     <SettingsPageLayout
       title="Restaurant Profile"
       description={<span className="flex items-center gap-1.5"><Globe className="w-3 h-3" /> Brand Profile{!isLoading ? ` • ${restaurant.currency}` : ""}</span>}
-      maxWidth="max-w-[1100px]"
+      maxWidth="max-w-none"
       action={
-        <button onClick={handleSave} disabled={isLoading || isSaving || !isDirty} className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 text-white disabled:text-slate-400 px-8 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm">
+        <button onClick={handleSave} disabled={isLoading || isSaving || !isDirty} className="flex items-center gap-2 bg-[#fe5c13] hover:brightness-95 disabled:bg-slate-100 text-white disabled:text-slate-400 px-8 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm">
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
         </button>
       }

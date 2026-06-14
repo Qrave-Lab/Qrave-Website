@@ -41,7 +41,7 @@ export default function QRGenerator() {
                                 className={`mx-auto inline-block rounded-2xl p-6 ${state.qrConfig.frameStyle === 'circle'
                                     ? 'rounded-full'
                                     : state.qrConfig.frameStyle === 'badge'
-                                        ? 'rounded-3xl border-4 border-[#FFC529]/30'
+                                        ? 'rounded-3xl border-4 border-[#fe5c13]/30'
                                         : state.qrConfig.frameStyle === 'rounded'
                                             ? 'rounded-2xl border-2 border-gray-100'
                                             : ''

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Printer, ArrowRight, Receipt, Plus, Trash2, TestTube2 } from "lucide-react";
+import { Printer, ArrowRight, Receipt, Plus, Trash2, TestTube2, QrCode } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import {
@@ -118,115 +118,148 @@ export default function DeviceSettings() {
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold text-gray-900 flex items-center gap-2">
-          <Printer className="w-5 h-5 text-gray-500" /> POS Printers
-        </h2>
-        <button
-          type="button"
-          onClick={addProfile}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Printer
-        </button>
+    <div className="flex flex-col flex-1 min-h-0 bg-[#f8fafc]">
+      {/* Sticky action bar */}
+      <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">POS Hardware</p>
+          <h2 className="text-sm font-black text-slate-900 mt-0.5">Printers & Connected Devices</h2>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/staff/settings/qr-codes")}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] transition-all shadow-sm"
+          >
+            <QrCode className="w-3.5 h-3.5 text-slate-500" />
+            Table QR Flyers
+          </button>
+          <button
+            type="button"
+            onClick={addProfile}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 text-white px-4 py-2 text-xs font-bold hover:bg-gray-800 active:scale-[0.98] transition-all shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Printer
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-3">
-        {profiles.map((p) => (
-          <div key={p.id} className="p-3 border border-gray-200 rounded-xl bg-gray-50/40">
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-              <input
-                value={p.name}
-                onChange={(e) => patchProfile(p.id, { name: e.target.value })}
-                className="md:col-span-2 h-9 rounded-lg border border-slate-200 px-3 text-sm"
-              />
-              <select
-                value={p.channel}
-                onChange={(e) => patchProfile(p.id, { channel: e.target.value as PrinterChannel })}
-                className="h-9 rounded-lg border border-slate-200 px-2 text-sm bg-white"
-              >
-                {CHANNELS.map((c) => (
-                  <option key={c} value={c}>
-                    {channelLabel(c)}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={p.mode}
-                onChange={(e) => patchProfile(p.id, { mode: e.target.value as PrinterMode })}
-                className="h-9 rounded-lg border border-slate-200 px-2 text-sm bg-white"
-              >
-                {MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {m === "system" ? "System" : "Serial ESC/POS"}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={1200}
-                step={300}
-                value={p.baudRate}
-                onChange={(e) => patchProfile(p.id, { baudRate: Number(e.target.value) || 9600 })}
-                disabled={p.mode !== "serial"}
-                className="h-9 rounded-lg border border-slate-200 px-3 text-sm disabled:bg-gray-100"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => patchProfile(p.id, { enabled: !p.enabled })}
-                  className={`h-9 px-2 rounded-lg text-xs font-bold border ${p.enabled
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                    : "bg-white border-slate-200 text-slate-500"
-                    }`}
-                >
-                  {p.enabled ? "Enabled" : "Disabled"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteProfile(p.id)}
-                  className="h-9 w-9 rounded-lg border border-rose-200 text-rose-600 flex items-center justify-center"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between">
-              <p className="text-[11px] text-slate-500">
-                Assign one active printer per channel (Kitchen/Billing/Bar).
-              </p>
-              <button
-                type="button"
-                onClick={() => testProfile(p)}
-                disabled={isTestingId === p.id}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[#FFC529] bg-slate-50 text-gray-900 text-xs font-bold disabled:opacity-60"
-              >
-                <TestTube2 className="w-3.5 h-3.5" />
-                {isTestingId === p.id ? "Testing..." : "Test"}
-              </button>
-            </div>
-          </div>
-        ))}
-
-        <button
-          onClick={() => router.push("/staff/settings/qr-codes")}
-          className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-bold text-gray-900">QR Codes</p>
-              <p className="text-xs text-gray-500">Manage table QR generation</p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-gray-900" />
-        </button>
+      {/* Main content table area */}
+      <div className="flex-1 bg-white overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="border-b border-slate-100">
+            <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <th className="px-8 py-3.5">Printer Name</th>
+              <th className="px-8 py-3.5">Print Channel</th>
+              <th className="px-8 py-3.5">Connection Mode</th>
+              <th className="px-8 py-3.5">Target Device / Speed</th>
+              <th className="px-8 py-3.5">Status & Action</th>
+              <th className="px-8 py-3.5 text-right">Delete</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {profiles.map((p) => (
+              <tr key={p.id} className="hover:bg-slate-50/40 transition-colors group">
+                <td className="px-8 py-4">
+                  <div className="flex items-center gap-2.5">
+                    <Printer className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input
+                      value={p.name}
+                      onChange={(e) => patchProfile(p.id, { name: e.target.value })}
+                      className="w-full max-w-[200px] h-9 rounded-xl border border-slate-250 px-3 text-sm focus:border-[#fe5c13] focus:ring-1 focus:ring-[#fe5c13] outline-none transition-all"
+                      placeholder="e.g. Kitchen Printer"
+                    />
+                  </div>
+                </td>
+                <td className="px-8 py-4">
+                  <select
+                    value={p.channel}
+                    onChange={(e) => patchProfile(p.id, { channel: e.target.value as PrinterChannel })}
+                    className="h-9 rounded-xl border border-slate-200 px-3 text-sm bg-white focus:border-[#fe5c13] focus:ring-1 focus:ring-[#fe5c13] outline-none transition-all"
+                  >
+                    {CHANNELS.map((c) => (
+                      <option key={c} value={c}>
+                        {channelLabel(c)}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-8 py-4">
+                  <select
+                    value={p.mode}
+                    onChange={(e) => patchProfile(p.id, { mode: e.target.value as PrinterMode })}
+                    className="h-9 rounded-xl border border-slate-200 px-3 text-sm bg-white focus:border-[#fe5c13] focus:ring-1 focus:ring-[#fe5c13] outline-none transition-all"
+                  >
+                    {MODES.map((m) => (
+                      <option key={m} value={m}>
+                        {m === "system" ? "System Printer" : "Serial ESC/POS"}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-8 py-4">
+                  {p.mode === "system" ? (
+                    <span className="text-xs text-slate-400 font-medium">Browser Print Fallback</span>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1200}
+                        step={300}
+                        value={p.baudRate}
+                        onChange={(e) => patchProfile(p.id, { baudRate: Number(e.target.value) || 9600 })}
+                        className="w-24 h-9 rounded-xl border border-slate-200 px-3 text-sm focus:border-[#fe5c13] focus:ring-1 focus:ring-[#fe5c13] outline-none transition-all"
+                      />
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Baud</span>
+                    </div>
+                  )}
+                </td>
+                <td className="px-8 py-4">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => patchProfile(p.id, { enabled: !p.enabled })}
+                      className={`h-9 px-3.5 rounded-xl text-xs font-bold border transition-colors ${
+                        p.enabled
+                          ? "bg-emerald-50 border-emerald-250 text-emerald-700 hover:bg-emerald-100/50"
+                          : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      {p.enabled ? "Active" : "Inactive"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => testProfile(p)}
+                      disabled={isTestingId === p.id}
+                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold disabled:opacity-60 transition-colors"
+                    >
+                      <TestTube2 className="w-3.5 h-3.5 text-slate-400" />
+                      {isTestingId === p.id ? "Testing..." : "Test"}
+                    </button>
+                  </div>
+                </td>
+                <td className="px-8 py-4 text-right">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => deleteProfile(p.id)}
+                      className="h-9 w-9 rounded-xl border border-rose-100 text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </section>
+
+      {/* Info footer */}
+      <div className="px-8 py-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center gap-2 shrink-0">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+        <span>Assign one active printer per channel (Kitchen/Billing/Bar).</span>
+      </div>
+    </div>
   );
 }

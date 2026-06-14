@@ -10,7 +10,7 @@ export default function ThemePanel({ currentThemeId, onApplyTheme }: ThemePanelP
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-[#FFC529]" />
+                <Sparkles className="h-3.5 w-3.5 text-[#fe5c13]" />
                 <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
                     Theme Presets
                 </label>
@@ -22,7 +22,7 @@ export default function ThemePanel({ currentThemeId, onApplyTheme }: ThemePanelP
                         key={theme.id}
                         onClick={() => onApplyTheme(theme)}
                         className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 transition-all hover:shadow-sm ${currentThemeId === theme.id
-                            ? 'border-[#FFC529] bg-[#FFC529]/5 shadow-sm ring-1 ring-[#FFC529]/20'
+                            ? 'border-[#fe5c13] bg-[#fe5c13]/5 shadow-sm ring-1 ring-[#fe5c13]/20'
                             : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                             }`}
                     >
@@ -45,7 +45,7 @@ export default function ThemePanel({ currentThemeId, onApplyTheme }: ThemePanelP
                         </div>
 
                         {currentThemeId === theme.id && (
-                            <span className="rounded-full bg-[#FFC529] px-1.5 py-0.5 text-[8px] font-bold text-white">
+                            <span className="rounded-full bg-[#fe5c13] px-1.5 py-0.5 text-[8px] font-bold text-white">
                                 Active
                             </span>
                         )}

@@ -40,7 +40,7 @@ const TrustedBy = () => {
               key={index}
               className="flex items-center space-x-3 mx-6 md:mx-12 flex-shrink-0"
             >
-              <CheckCircle2 className="w-5 h-5 text-[#FFC529]" strokeWidth={2} />
+              <CheckCircle2 className="w-5 h-5 text-[#fe5c13]" strokeWidth={2} />
               <span className="text-[15px] md:text-[17px] font-bold text-gray-700">
                 {feature}
               </span>

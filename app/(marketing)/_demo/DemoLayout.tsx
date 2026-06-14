@@ -74,14 +74,14 @@ export default function DemoLayout({ activeTab, onTabChange, children }: DemoLay
                                     setSidebarOpen(false);
                                 }}
                                 className={`group w-full rounded-xl px-4 py-3.5 text-left transition-all ${active
-                                    ? 'bg-[#FFC529]/10 border border-[#FFC529]/20'
+                                    ? 'bg-[#fe5c13]/10 border border-[#fe5c13]/20'
                                     : 'hover:bg-gray-50 border border-transparent'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">
                                     <div
                                         className={`rounded-lg p-2 transition-colors ${active
-                                            ? 'bg-gradient-to-br from-[#FFC529] to-[#F0B820] text-white shadow-md shadow-[#FFC529]/25'
+                                            ? 'bg-gradient-to-br from-[#fe5c13] to-[#fe5c13] text-white shadow-md shadow-[#fe5c13]/25'
                                             : 'bg-gray-100 text-gray-400 group-hover:text-gray-600'
                                             }`}
                                     >
@@ -104,9 +104,9 @@ export default function DemoLayout({ activeTab, onTabChange, children }: DemoLay
 
                 {/* Disclaimer & CTA Card */}
                 <div className="mx-3 mt-4 mb-6">
-                    <div className="rounded-2xl border border-[#FFC529]/10 bg-gradient-to-br from-[#FDFCF6] to-[#F9FAFB] p-4 ring-1 ring-[#FFC529]/5">
-                        <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFC529]/10">
-                            <Calendar className="h-4 w-4 text-[#FFC529]" />
+                    <div className="rounded-2xl border border-[#fe5c13]/10 bg-gradient-to-br from-[#FDFCF6] to-[#F9FAFB] p-4 ring-1 ring-[#fe5c13]/5">
+                        <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-[#fe5c13]/10">
+                            <Calendar className="h-4 w-4 text-[#fe5c13]" />
                         </div>
                         <h3 className="mb-1.5 text-xs font-bold text-gray-900">Disclaimer</h3>
                         <p className="mb-4 text-[11px] leading-relaxed text-gray-500">
@@ -156,7 +156,7 @@ export default function DemoLayout({ activeTab, onTabChange, children }: DemoLay
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="rounded-full bg-[#FFC529]/10 px-3 py-1 text-[11px] font-bold text-[#FFC529]">
+                            <span className="rounded-full bg-[#fe5c13]/10 px-3 py-1 text-[11px] font-bold text-[#fe5c13]">
                                 DEMO MODE
                             </span>
                         </div>
@@ -178,8 +178,8 @@ export default function DemoLayout({ activeTab, onTabChange, children }: DemoLay
                     {activeTab === 'studio' && (
                         <div className="lg:hidden absolute inset-0 z-50 flex items-center justify-center bg-white">
                             <div className="flex flex-col items-center text-center px-8 max-w-sm">
-                                <div className="w-20 h-20 rounded-2xl bg-[#FFC529]/10 flex items-center justify-center mb-6">
-                                    <Monitor className="w-10 h-10 text-[#FFC529]" />
+                                <div className="w-20 h-20 rounded-2xl bg-[#fe5c13]/10 flex items-center justify-center mb-6">
+                                    <Monitor className="w-10 h-10 text-[#fe5c13]" />
                                 </div>
                                 <h2 className="text-2xl font-black text-[#1F2127] mb-3 tracking-tight">Switch to Desktop</h2>
                                 <p className="text-gray-500 font-medium text-[15px] leading-relaxed mb-6">
@@ -188,7 +188,7 @@ export default function DemoLayout({ activeTab, onTabChange, children }: DemoLay
                                 <div className="flex flex-col gap-3 w-full">
                                     <button
                                         onClick={() => onTabChange('inventory')}
-                                        className="w-full px-6 py-3 bg-[#FFC529] hover:bg-[#F0B820] text-[#1F2127] font-bold text-sm rounded-xl transition-all shadow-sm"
+                                        className="w-full px-6 py-3 bg-[#fe5c13] hover:bg-[#fe5c13] text-[#1F2127] font-bold text-sm rounded-xl transition-all shadow-sm"
                                     >
                                         Open Menu Inventory
                                     </button>

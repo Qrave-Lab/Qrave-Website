@@ -19,8 +19,8 @@ const categoryLabels: Record<string, string> = {
 
 const templateThumbnailColors: Record<string, { bg: string; accent: string }> = {
     'fine-dining': { bg: '#0F0F0F', accent: '#C9A54E' },
-    'modern-cafe': { bg: '#FFFFFF', accent: '#FFC529' },
-    'street-food': { bg: '#FFF8E7', accent: '#FFC529' },
+    'modern-cafe': { bg: '#FFFFFF', accent: '#fe5c13' },
+    'street-food': { bg: '#FFF8E7', accent: '#fe5c13' },
     'luxury-bar': { bg: '#0A0A0A', accent: '#C9A54E' },
     'minimal-mono': { bg: '#FFFFFF', accent: '#111827' },
 };
@@ -44,8 +44,8 @@ export default function TemplateGallery({ onSelectTemplate, onClose }: TemplateG
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                     <div className="flex items-center gap-2.5">
-                        <div className="rounded-lg bg-[#FFC529]/10 p-1.5">
-                            <Layout className="h-4 w-4 text-[#D9A016]" />
+                        <div className="rounded-lg bg-[#fe5c13]/10 p-1.5">
+                            <Layout className="h-4 w-4 text-[#fe5c13]" />
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">Choose a Template</h2>
@@ -84,7 +84,7 @@ export default function TemplateGallery({ onSelectTemplate, onClose }: TemplateG
                             <button
                                 key={template.id}
                                 onClick={() => handleSelect(template)}
-                                className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 transition-all hover:border-[#FFC529] hover:shadow-lg hover:shadow-[#FFC529]/20 hover:scale-[1.02] active:scale-[0.98]"
+                                className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 transition-all hover:border-[#fe5c13] hover:shadow-lg hover:shadow-[#fe5c13]/20 hover:scale-[1.02] active:scale-[0.98]"
                             >
                                 {/* Thumbnail */}
                                 <div
@@ -143,7 +143,7 @@ export default function TemplateGallery({ onSelectTemplate, onClose }: TemplateG
                 {/* Theme Picker Footer */}
                 <div className="border-t border-gray-100 px-6 py-3 bg-gray-50/50">
                     <div className="flex items-center gap-3">
-                        <Sparkles className="h-3.5 w-3.5 text-[#FFC529]" />
+                        <Sparkles className="h-3.5 w-3.5 text-[#fe5c13]" />
                         <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
                             Color Theme
                         </span>
@@ -154,7 +154,7 @@ export default function TemplateGallery({ onSelectTemplate, onClose }: TemplateG
                                     onClick={() => setSelectedThemeId(theme.id)}
                                     title={theme.name}
                                     className={`h-6 w-6 rounded-full border-2 transition-all hover:scale-110 ${selectedThemeId === theme.id
-                                        ? 'border-[#FFC529] ring-2 ring-[#FFC529]/30 scale-110'
+                                        ? 'border-[#fe5c13] ring-2 ring-[#fe5c13]/30 scale-110'
                                         : 'border-gray-200'
                                         }`}
                                     style={{ backgroundColor: theme.colors.primary }}

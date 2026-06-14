@@ -20,9 +20,9 @@ const Hero = () => {
           preserveAspectRatio="none"
           className="absolute bottom-0 left-0 w-full h-full pointer-events-none"
         >
-          <path d="M0,800 L0,600 C 400,600 800,100 1440,100 L1440,800 Z" fill="#FFC529" fillOpacity="0.15" />
-          <path d="M0,800 L0,700 C 400,700 800,400 1440,400 L1440,800 Z" fill="#FFC529" fillOpacity="0.35" />
-          <path d="M0,800 L0,760 C 400,780 1000,740 1440,760 L1440,800 Z" fill="#FFC529" />
+          <path d="M0,800 L0,600 C 400,600 800,100 1440,100 L1440,800 Z" fill="#fe5c13" fillOpacity="0.15" />
+          <path d="M0,800 L0,700 C 400,700 800,400 1440,400 L1440,800 Z" fill="#fe5c13" fillOpacity="0.35" />
+          <path d="M0,800 L0,760 C 400,780 1000,740 1440,760 L1440,800 Z" fill="#fe5c13" />
         </svg>
       </div>
 
@@ -49,9 +49,9 @@ const Hero = () => {
               <h1 className="text-[28px] sm:text-[42px] md:text-[52px] lg:text-[76px] font-black text-[#1F2127] tracking-tighter leading-[1.05]">
                 See what you,
                 <br />
-                crave <span className="relative inline-block text-[#FFC529]">
+                crave <span className="relative inline-block text-[#fe5c13]">
                   for
-                  <svg className="absolute -bottom-3 lg:-bottom-5 left-0 w-full h-3 lg:h-5 text-[#FFC529]" viewBox="0 0 100 15" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="absolute -bottom-3 lg:-bottom-5 left-0 w-full h-3 lg:h-5 text-[#fe5c13]" viewBox="0 0 100 15" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M2.38883 12.8715C22.0833 7.8288 65.625 2.15833 97.5 10.375" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
                   </svg>
                 </span>
@@ -62,7 +62,7 @@ const Hero = () => {
               <div className="flex justify-center lg:justify-start">
                 <Link
                   href="/demo"
-                  className="inline-flex items-center space-x-2 bg-[#FFC529] text-black hover:bg-[#ECA918] px-7 py-3.5 sm:px-8 sm:py-4 rounded-xl font-bold text-[15px] sm:text-[16px] transition-colors duration-200 shadow-[0_4px_20px_rgba(255,197,41,0.3)] hover:shadow-[0_8px_25px_rgba(255,197,41,0.45)] group"
+                  className="inline-flex items-center space-x-2 bg-[#fe5c13] text-black hover:bg-[#ECA918] px-7 py-3.5 sm:px-8 sm:py-4 rounded-xl font-bold text-[15px] sm:text-[16px] transition-colors duration-200 shadow-[0_4px_20px_rgba(255,197,41,0.3)] hover:shadow-[0_8px_25px_rgba(255,197,41,0.45)] group"
                 >
                   <span>Take a free demo</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />

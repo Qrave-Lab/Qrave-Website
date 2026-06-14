@@ -9,7 +9,7 @@ const AboutUs = () => {
                 <div className="text-center mb-16 lg:mb-24">
                     <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#1F2127] tracking-tight max-w-4xl mx-auto leading-[1.1]">
                         The story behind <br className="hidden md:block" />
-                        <span className="text-[#FFC529]">QRAVE</span>
+                        <span className="text-[#fe5c13]">QRAVE</span>
                     </h2>
                 </div>
 

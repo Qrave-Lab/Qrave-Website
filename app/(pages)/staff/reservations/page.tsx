@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
+  ArrowDown,
   ArrowUpRight,
+  Calendar,
   CalendarCheck,
   CheckCircle2,
   Clock,
   ListPlus,
+  Minus,
   Phone,
+  Plus,
   Sparkles,
   Users,
   XCircle,
@@ -17,9 +21,180 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
+import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/app/lib/api";
 import type { Table } from "@/app/components/settings/types";
+import StaffSidebar from "@/app/components/StaffSidebar";
+
+export const CustomSelect = ({ value, onChange, options, placeholder, className = "" }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((opt: any) => opt.value === value);
+
+  return (
+    <div className={`relative group w-full ${className}`} ref={ref}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all flex items-center justify-between hover:bg-slate-100/50 ${isOpen ? "border-[#fe5c13] bg-white ring-4 ring-[#fe5c13]/10" : ""}`}
+      >
+        <span className="truncate text-slate-700">{selectedOption ? selectedOption.label : placeholder}</span>
+      </button>
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+        <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#fe5c13]" : "group-hover:text-slate-600"}`} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden py-1.5 ring-1 ring-slate-900/5"
+          >
+            <div className="max-h-60 overflow-y-auto custom-scrollbar">
+              {options.map((opt: any) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={opt.disabled}
+                  onClick={() => {
+                    if (opt.disabled) return;
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between ${
+                    opt.disabled 
+                      ? "opacity-50 cursor-not-allowed bg-slate-50/50 text-slate-400" 
+                      : value === opt.value 
+                        ? "text-[#fe5c13] font-bold bg-orange-50/50 hover:bg-orange-50" 
+                        : "text-slate-600 font-medium hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const PartySizeSelector = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
+  return (
+    <div className="flex items-center gap-2 mt-1 bg-slate-50 border border-slate-200 rounded-2xl p-1.5 w-full h-12 transition-all focus-within:border-[#fe5c13] focus-within:ring-4 focus-within:ring-[#fe5c13]/10">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(1, value - 1))}
+        className="w-10 h-full flex items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm border border-slate-200 hover:bg-slate-50 hover:text-[#fe5c13] transition-colors cursor-pointer"
+      >
+        <Minus className="w-4 h-4" />
+      </button>
+      <div className="flex-1 flex items-center justify-center text-sm font-bold text-slate-800 gap-1.5">
+        <Users className="w-4 h-4 text-slate-400" />
+        {value} {value === 1 ? 'Guest' : 'Guests'}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(value + 1)}
+        className="w-10 h-full flex items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm border border-slate-200 hover:bg-slate-50 hover:text-[#fe5c13] transition-colors cursor-pointer"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
+
+const DateSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const dates = [];
+  const today = new Date();
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dateStr = d.toISOString().split("T")[0];
+    let label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    if (i === 0) label = "Today";
+    if (i === 1) label = "Tomorrow";
+    dates.push({ value: dateStr, label });
+  }
+
+  const isCustom = !dates.find(d => d.value === value) && value !== "";
+
+  return (
+    <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 mt-1">
+      {dates.map((d) => (
+        <button
+          key={d.value}
+          type="button"
+          onClick={() => onChange(d.value)}
+          className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            value === d.value
+              ? "bg-slate-900 text-white shadow-sm"
+              : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100/50"
+          }`}
+        >
+          {d.label}
+        </button>
+      ))}
+      <div className="relative flex-shrink-0">
+        <input 
+          type="date" 
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+        />
+        <button
+          type="button"
+          className={`flex h-full items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all whitespace-nowrap border cursor-pointer ${
+            isCustom
+              ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+              : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100/50"
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" /> 
+          {isCustom ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "Pick Date"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const TimeSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const times = useMemo(() => {
+    const opts = [];
+    for (let i = 11; i <= 23; i++) {
+      const h = i.toString().padStart(2, '0');
+      opts.push({ value: `${h}:00`, label: `${i > 12 ? i - 12 : i}:00 ${i >= 12 ? 'PM' : 'AM'}` });
+      opts.push({ value: `${h}:30`, label: `${i > 12 ? i - 12 : i}:30 ${i >= 12 ? 'PM' : 'AM'}` });
+    }
+    return opts;
+  }, []);
+
+  return (
+    <div className="mt-1">
+      <CustomSelect 
+        value={value} 
+        onChange={onChange} 
+        options={times} 
+        placeholder="Select Time" 
+      />
+    </div>
+  );
+};
 
 type ReservationEntry = {
   id: string;
@@ -341,54 +516,57 @@ export default function ReservationsPage() {
   };
 
   return (
-    <SettingsPageLayout
-      title="Reservations & Waitlist"
-      description="Reserve tables and keep a live queue for walk-ins."
-      maxWidth="max-w-6xl"
-    >
-      {/* ── TOP ACTION BAR (Clean space saving design) ────────────────────────── */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <h2 className="text-sm font-bold text-slate-800">Quick Operations</h2>
-          <p className="text-xs text-slate-500">Add reservations or manage walk-ins without wasting dashboard space.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowResModal(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            <CalendarCheck className="h-4 w-4" /> Book Reservation
-          </button>
-          <button
-            onClick={() => setShowWaitlistModal(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors cursor-pointer"
-          >
-            <Users className="h-4 w-4" /> Add Walk-in
-          </button>
-        </div>
-      </div>
+    <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
+      <StaffSidebar />
 
-      {/* ── MAIN COLUMNS DISPLAY (Zero scroll side by side display) ──────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        
-        {/* ── COLUMN 1: TABLE RESERVATIONS ──────────────────────────────────── */}
-        <section className="flex flex-col h-[650px] rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4 bg-slate-50/50">
-            <CalendarCheck className="h-5 w-5 text-indigo-500" />
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Upcoming Reservations</h2>
-              <p className="text-[11px] text-slate-500">Bookings scheduled for today.</p>
-            </div>
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-20 sticky top-0">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+              Reservations & Waitlist
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-0.5">
+              Reserve tables and keep a live queue for walk-ins.
+            </p>
           </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowResModal(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <CalendarCheck className="h-4 w-4" /> Book Reservation
+            </button>
+            <button
+              onClick={() => setShowWaitlistModal(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#fe5c13] px-4 py-2 text-xs font-bold text-gray-900 hover:brightness-95 transition-colors cursor-pointer shadow-sm shadow-[#fe5c13]/30"
+            >
+              <Users className="h-4 w-4" /> Add Walk-in
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 h-full">
+            
+            {/* ── COLUMN 1: TABLE RESERVATIONS ──────────────────────────────────── */}
+            <section className="flex flex-col h-full overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <CalendarCheck className="h-5 w-5 text-indigo-500" />
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900">Upcoming Reservations</h2>
+                    <p className="text-[11px] text-slate-500">Bookings scheduled for today.</p>
+                  </div>
+                </div>
+              </div>
           
-          <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
             {isLoading ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">Loading reservations...</div>
             ) : activeReservations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-slate-200 p-4 text-center">
-                <span className="text-2xl mb-1">📅</span>
-                <p className="text-xs font-bold text-slate-700">No reservations scheduled</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Click "Book Reservation" at the top to schedule.</p>
+              <div className="flex flex-col items-center justify-center h-64 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 text-center transition-all">
+                <p className="text-[14px] font-bold text-slate-700">No reservations scheduled</p>
+                <p className="text-xs text-slate-500 mt-1">Click "Book Reservation" at the top to schedule.</p>
               </div>
             ) : (
               activeReservations.map((entry) => {
@@ -418,13 +596,35 @@ export default function ReservationsPage() {
                 }
 
                 return (
-                  <div key={entry.id} className="rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 p-3.5 transition-all">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-bold text-slate-900">{entry.guest_name}</p>
-                          {entry.deposit_amount && entry.deposit_amount > 0 ? (
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider border ${
+                  <div key={entry.id} className="group relative rounded-2xl border border-slate-200/60 bg-white p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
+                    <div className="flex items-start gap-4">
+                      {/* Left Side: Time */}
+                      <div className="flex flex-col items-center justify-center min-w-[70px] rounded-xl bg-slate-50 border border-slate-100 p-2 text-center">
+                        <span className="text-sm font-black text-[#fe5c13]">
+                          {new Date(entry.reserved_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '')}
+                        </span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">
+                          {new Date(entry.reserved_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+
+                      {/* Right Side: Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm font-bold text-slate-900 truncate">
+                              {entry.guest_name}
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span className="flex items-center gap-1 font-semibold text-slate-600"><Users className="w-3.5 h-3.5 text-slate-400" /> {entry.party_size} guests</span>
+                              <span className="text-slate-300">•</span>
+                              <span className="font-medium text-slate-600">{entry.table_number ? `Table ${entry.table_number}` : "Any table"}</span>
+                            </p>
+                          </div>
+                          
+                          {/* Deposit Badge */}
+                          {Number(entry.deposit_amount) > 0 ? (
+                            <span className={`flex-shrink-0 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-wider border ${
                               entry.deposit_status === "paid" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
                               entry.deposit_status === "refunded" ? "bg-slate-100 border-slate-200 text-slate-600" :
                               entry.deposit_status === "forfeited" ? "bg-rose-50 border-rose-200 text-rose-700" :
@@ -438,23 +638,12 @@ export default function ReservationsPage() {
                             </span>
                           ) : null}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          {formatReservationTime(entry.reserved_at)}
-                          {entry.table_number ? ` • Table ${entry.table_number}` : " • Any table"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-white border border-slate-200/50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                          {entry.party_size} guests
-                        </span>
-                      </div>
-                    </div>
 
                     {isResAvailable && (
-                      <div className="mt-2.5 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 border border-emerald-100/50 text-[10px] font-bold text-emerald-700">
-                        <span className="relative flex h-1.5 w-1.5">
+                      <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 border border-emerald-100 text-xs font-bold text-emerald-700">
+                        <span className="relative flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
                         <span>
                           {entry.table_id ? (
@@ -467,31 +656,40 @@ export default function ReservationsPage() {
                     )}
 
                     {(entry.phone || entry.notes) && (
-                      <p className="mt-2 text-[11px] text-slate-500 bg-white border border-slate-100 p-1.5 rounded-md">
-                        {entry.phone ?? ""}{entry.phone && entry.notes ? " • " : ""}{entry.notes ?? ""}
-                      </p>
+                      <div className="mt-3 flex flex-col gap-1 rounded-xl bg-slate-50 border border-slate-100 p-2.5">
+                        {entry.phone && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+                            <Phone className="w-3.5 h-3.5 text-slate-400" /> {entry.phone}
+                          </div>
+                        )}
+                        {entry.notes && (
+                          <div className="flex items-start gap-1.5 text-[11px] font-medium text-slate-600">
+                            <ListPlus className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" /> <span>{entry.notes}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100/70 pt-2.5">
+                    <div className="mt-3.5 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100/70">
                       <button
                         type="button"
                         onClick={() => updateReservationStatus(entry.id, "seated")}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors cursor-pointer"
+                        className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Seat
+                        <CheckCircle2 className="h-4 w-4" /> Seat Guest
                       </button>
                       <button
                         type="button"
                         onClick={() => updateReservationStatus(entry.id, "no_show")}
-                        className="inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200/50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-50 border border-amber-200/50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer"
                       >
                         No-show
                       </button>
                       <button
                         type="button"
                         onClick={() => handleCancelReservation(entry)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
                       >
-                        <XCircle className="h-3.5 w-3.5" /> Cancel
+                        <XCircle className="h-4 w-4" /> Cancel
                       </button>
 
                       {entry.deposit_amount && entry.deposit_amount > 0 && entry.deposit_status === "unpaid" && (
@@ -535,30 +733,33 @@ export default function ReservationsPage() {
                       )}
                     </div>
                   </div>
+                  </div>
+                  </div>
                 );
               })
             )}
-          </div>
-        </section>
-
-        {/* ── COLUMN 2: LIVE WAITLIST QUEUE ──────────────────────────────────── */}
-        <section className="flex flex-col h-[650px] rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4 bg-slate-50/50">
-            <Users className="h-5 w-5 text-emerald-500" />
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Live Waitlist Queue</h2>
-              <p className="text-[11px] text-slate-500">Live guest wait times and best-fit availability.</p>
             </div>
-          </div>
+          </section>
+
+          {/* ── COLUMN 2: LIVE WAITLIST QUEUE ──────────────────────────────────── */}
+          <section className="flex flex-col h-full overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-emerald-500" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Live Waitlist Queue</h2>
+                  <p className="text-[11px] text-slate-500">Live guest wait times and best-fit availability.</p>
+                </div>
+              </div>
+            </div>
           
-          <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
             {isLoading ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">Loading waitlist...</div>
             ) : activeWaitlist.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 rounded-xl border border-dashed border-slate-200 p-4 text-center">
-                <span className="text-2xl mb-1">✨</span>
-                <p className="text-xs font-bold text-slate-700">All guests seated!</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Waitlist is currently empty.</p>
+              <div className="flex flex-col items-center justify-center h-64 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 text-center transition-all">
+                <p className="text-[14px] font-bold text-slate-700">All guests seated</p>
+                <p className="text-xs text-slate-500 mt-1">Waitlist is currently empty.</p>
               </div>
             ) : (
               activeWaitlist.map((entry) => {
@@ -570,276 +771,279 @@ export default function ReservationsPage() {
                 const isExpanded = expandedWaitlistId === entry.id;
 
                 return (
-                  <div key={entry.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 transition-all">
-                    
-                    {/* Main Compact Row */}
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col items-center justify-center h-8 w-8 rounded-lg bg-white border border-slate-200/50 shadow-sm text-xs font-black text-slate-700">
-                          #{entry.priority || "—"}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">{entry.guest_name}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            {entry.party_size} guests • quoted {entry.quoted_minutes}m
-                          </p>
-                        </div>
+                  <div key={entry.id} className="group relative rounded-2xl border border-slate-200/60 bg-white p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
+                    <div className="flex items-start gap-4">
+                      {/* Left Side: Timer Box */}
+                      <div className={`flex flex-col items-center justify-center min-w-[70px] rounded-xl border p-2 text-center ${timer.colorClass.replace('bg-', 'bg-').replace('text-', 'text-')}`}>
+                        <span className="text-xl font-black leading-none">
+                          {timer.elapsedMins}
+                        </span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider mt-1 opacity-80">
+                          Mins Wait
+                        </span>
                       </div>
 
-                      {/* Color-Coded Waiting Timer */}
-                      <span className={`inline-flex items-center border rounded-lg px-2.5 py-1 text-xs font-black tracking-wide ${timer.colorClass}`}>
-                        <Clock className="h-3.5 w-3.5 mr-1" />
-                        {timer.statusText}
-                      </span>
-                    </div>
+                      {/* Right Side: Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm font-bold text-slate-900 truncate flex items-center gap-2">
+                              {entry.guest_name}
+                              {entry.priority !== null && entry.priority !== undefined && (
+                                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md border border-slate-200/60">
+                                  #{entry.priority}
+                                </span>
+                              )}
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span className="flex items-center gap-1 font-semibold text-slate-600"><Users className="w-3.5 h-3.5 text-slate-400" /> {entry.party_size} guests</span>
+                              <span className="text-slate-300">•</span>
+                              <span className="font-medium text-slate-600">Quoted {entry.quoted_minutes}m</span>
+                            </p>
+                          </div>
+                        </div>
 
                     {/* Table availability alert */}
                     {isAvailable && (
-                      <div className="mt-2.5 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 border border-emerald-100/50 text-[10px] font-bold text-emerald-700">
-                        <span className="relative flex h-1.5 w-1.5">
+                      <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 border border-emerald-100 text-xs font-bold text-emerald-700">
+                        <span className="relative flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
                         <span>
-                          Table ready: <span className="font-black">{availableTables.map((t) => `T${t.table_number}`).join(", ")}</span>
+                          Table ready:{" "}
+                          <span className="font-black">
+                            {availableTables.map((t) => `T${t.table_number}`).join(", ")}
+                          </span>
                         </span>
                       </div>
                     )}
 
-                    {/* Compact Primary Actions Row */}
-                    <div className="mt-3 flex items-center gap-2 pt-2.5 border-t border-slate-100/70">
+                    {/* Primary Actions Row */}
+                    <div className="mt-3.5 flex items-center gap-2 pt-3 border-t border-slate-100/70">
                       <button
                         type="button"
                         onClick={() => seatWaitlistEntry(entry)}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors cursor-pointer"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Seat Guest
+                        <CheckCircle2 className="h-4 w-4" /> Seat Guest
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setExpandedWaitlistId(isExpanded ? null : entry.id)}
-                        className={`inline-flex items-center justify-center p-1.5 rounded-lg border transition-all cursor-pointer ${
-                          isExpanded 
-                            ? "bg-slate-900 border-slate-900 text-white" 
-                            : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                        className={`inline-flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
+                          isExpanded
+                            ? "bg-slate-900 border-slate-900 text-white"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                         }`}
                         title="Advanced Seating Options"
                       >
-                        <Settings className="h-3.5 w-3.5" />
+                        <Settings className="h-4 w-4" />
                       </button>
                     </div>
 
                     {/* Advanced Controls Dropdown Drawer */}
                     {isExpanded && (
-                      <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200/60 space-y-3 animate-in slide-in-from-top-2 duration-150">
+                      <div className="mt-4 pt-4 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200 flex flex-col gap-4">
                         {/* Table selector with best-fit badges */}
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Select Seating Table</label>
-                          <select
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pl-1">
+                            Assign Table
+                          </label>
+                          <CustomSelect
                             value={seatTable[entry.id] || "auto"}
-                            onChange={(e) => setSeatTable((p) => ({ ...p, [entry.id]: e.target.value }))}
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 outline-none"
-                          >
-                            <option value="auto">Auto-assign (best fit)</option>
-                            {tableOptions.map((table) => {
-                              const best = isBestFit(table, entry.party_size);
-                              const cap = table.capacity ?? 4;
-                              const tooSmall = cap < entry.party_size;
-                              return (
-                                <option key={table.id} value={table.id} disabled={tooSmall}>
-                                  {best ? "★ " : tooSmall ? "✗ " : ""}
-                                  Table {table.table_number} ({cap} seats)
-                                  {table.floor_name ? ` • ${table.floor_name}` : ""}
-                                  {best ? " — Best fit" : tooSmall ? " — Too small" : ""}
-                                </option>
-                              );
-                            })}
-                          </select>
+                            onChange={(val: string) => setSeatTable((p) => ({ ...p, [entry.id]: val }))}
+                            buttonClassName="!bg-slate-50 !border-slate-200 hover:!bg-slate-100 !h-11 !rounded-xl"
+                            options={[
+                              { value: "auto", label: "Auto-assign (best fit)" },
+                              ...tableOptions.map((table) => {
+                                const best = isBestFit(table, entry.party_size);
+                                const cap = table.capacity ?? 4;
+                                const tooSmall = cap < entry.party_size;
+                                const label = `${best ? "★ " : tooSmall ? "✗ " : ""}Table ${table.table_number} (${cap} seats)${table.floor_name ? ` • ${table.floor_name}` : ""}${best ? " — Best fit" : tooSmall ? " — Too small" : ""}`;
+                                return {
+                                  value: table.id,
+                                  label,
+                                  disabled: tooSmall,
+                                };
+                              })
+                            ]}
+                          />
                         </div>
 
-                        {/* Auto-session toggle */}
-                        <label className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 px-2.5 py-2">
-                          <div className="flex items-center gap-1.5">
-                            <Zap className={`h-3.5 w-3.5 ${isAutoSession ? "text-emerald-500" : "text-slate-400"}`} />
-                            <span className="text-[10px] font-bold text-slate-600">
-                              Auto-start dining session
-                            </span>
-                          </div>
-                          <div
-                            className={`relative h-4 w-7 rounded-full transition-colors ${
-                              isAutoSession ? "bg-emerald-500" : "bg-slate-300"
-                            }`}
-                            onClick={() =>
-                              setAutoSession((p) => ({ ...p, [entry.id]: !isAutoSession }))
-                            }
-                          >
-                            <span
-                              className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                                isAutoSession ? "translate-x-3.5" : "translate-x-0.5"
+                        {/* Extra controls */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {/* Auto-session toggle */}
+                          <label className="col-span-2 flex cursor-pointer items-center justify-between rounded-xl border border-slate-200/60 bg-white p-2.5 hover:bg-slate-50 transition-colors shadow-sm">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`p-1.5 rounded-md ${isAutoSession ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-500"}`}>
+                                <Zap className="h-3.5 w-3.5" />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700">
+                                Auto-start session
+                              </span>
+                            </div>
+                            <div
+                              className={`relative h-5 w-9 rounded-full transition-colors ${
+                                isAutoSession ? "bg-emerald-500" : "bg-slate-300"
                               }`}
-                            />
-                          </div>
-                        </label>
+                              onClick={() => setAutoSession((p) => ({ ...p, [entry.id]: !isAutoSession }))}
+                            >
+                              <span
+                                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                                  isAutoSession ? "translate-x-4" : "translate-x-0.5"
+                                }`}
+                              />
+                            </div>
+                          </label>
 
-                        {/* Extra controls: Bump / Remove */}
-                        <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                           <button
                             type="button"
-                            onClick={() => { bumpWaitlistEntry(entry.id); setExpandedWaitlistId(null); }}
-                            className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                            onClick={() => {
+                              bumpWaitlistEntry(entry.id);
+                              setExpandedWaitlistId(null);
+                            }}
+                            className="col-span-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
                           >
-                            <ArrowUpRight className="h-3.5 w-3.5" /> Bump
+                            <ArrowUpRight className="h-4 w-4" /> Bump
                           </button>
                           <button
                             type="button"
-                            onClick={() => { removeWaitlistEntry(entry.id); setExpandedWaitlistId(null); }}
-                            className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-rose-50 border border-rose-100 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                            onClick={() => {
+                              removeWaitlistEntry(entry.id);
+                              setExpandedWaitlistId(null);
+                            }}
+                            className="col-span-1 flex items-center justify-center gap-1.5 rounded-xl bg-rose-50 border border-rose-100 px-3 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition-all shadow-sm"
                           >
-                            <XCircle className="h-3.5 w-3.5" /> Remove
+                            <XCircle className="h-4 w-4" /> Remove
                           </button>
                         </div>
                       </div>
                     )}
+                    </div>
+                  </div>
                   </div>
                 );
               })
             )}
           </div>
         </section>
-      </div>
+        </div>
+      </main>
+    </div>
+
 
       {/* ── MODALS (Forms grouped off screen to save massive space) ──────────────────── */}
 
       {/* Book Reservation Modal */}
       {showResModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-100 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
-              <h3 className="text-base font-bold text-slate-900">Book Table Reservation</h3>
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl border border-slate-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="text-lg font-bold text-slate-900">Book Table Reservation</h3>
               <button 
                 onClick={() => setShowResModal(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all cursor-pointer"
               >
-                <XCircle className="h-5 w-5" />
+                <XCircle className="h-6 w-6" />
               </button>
             </div>
             
             {storeInfo?.reservation_deposit_required && (
-              <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200/50 p-3.5 text-xs text-amber-800 space-y-1">
-                <p className="font-bold flex items-center gap-1">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> Prepayment Deposit Required
-                </p>
+              <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200/50 p-4 text-sm text-amber-800 space-y-1">
+                <p className="font-bold flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 text-amber-600" /> Prepayment Deposit Required</p>
                 <p>A secure reservation deposit of <strong>{storeInfo.currency || "Rs."}{storeInfo.reservation_deposit_amount}</strong> is required to secure this table booking.</p>
               </div>
             )}
             
-            <form onSubmit={addReservation} className="mt-4 space-y-4">
+            <form onSubmit={addReservation} className="mt-6 space-y-6">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold text-slate-600">
                   Guest Name
                   <input
                     value={reservationForm.name}
                     onChange={(e) => setReservationForm((p) => ({ ...p, name: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 outline-none"
+                    className="mt-1 w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
                     placeholder="Aanya Sharma"
                   />
                 </label>
-                <label className="text-xs font-semibold text-slate-600">
+                <div className="text-xs font-semibold text-slate-600">
                   Party Size
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                    <Users className="h-4 w-4 text-slate-400" />
-                    <input
-                      type="number"
-                      min={1}
-                      value={reservationForm.partySize}
-                      onChange={(e) =>
-                        setReservationForm((p) => ({ ...p, partySize: Math.max(1, Number(e.target.value) || 1) }))
-                      }
-                      className="w-full bg-transparent text-sm outline-none"
-                    />
-                  </div>
-                </label>
+                  <PartySizeSelector
+                    value={reservationForm.partySize}
+                    onChange={(val) => setReservationForm(p => ({ ...p, partySize: val }))}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <label className="text-xs font-semibold text-slate-600">
+                <div className="text-xs font-semibold text-slate-600 col-span-1 md:col-span-2">
                   Date
-                  <input
-                    type="date"
+                  <DateSelector
                     value={reservationForm.date}
-                    onChange={(e) => setReservationForm((p) => ({ ...p, date: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 outline-none"
+                    onChange={(val) => setReservationForm(p => ({ ...p, date: val }))}
                   />
-                </label>
-                <label className="text-xs font-semibold text-slate-600">
+                </div>
+                <div className="text-xs font-semibold text-slate-600">
                   Time
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 focus-within:border-slate-400">
-                    <Clock className="h-4 w-4 text-slate-400" />
-                    <input
-                      type="time"
-                      value={reservationForm.time}
-                      onChange={(e) => setReservationForm((p) => ({ ...p, time: e.target.value }))}
-                      className="w-full bg-transparent text-sm outline-none"
-                    />
-                  </div>
-                </label>
+                  <TimeSelector
+                    value={reservationForm.time}
+                    onChange={(val) => setReservationForm(p => ({ ...p, time: val }))}
+                  />
+                </div>
+                <div className="text-xs font-semibold text-slate-600">
+                  Table Pre-assignment
+                  <CustomSelect
+                    className="mt-1"
+                    value={reservationForm.tableId}
+                    onChange={(val: string) => setReservationForm((p) => ({ ...p, tableId: val }))}
+                    placeholder="Any table"
+                    options={[
+                      { value: "any", label: "Any table" },
+                      ...tableOptions.map(table => {
+                        const best = isBestFit(table, reservationForm.partySize);
+                        const label = `${best ? "★ " : ""}Table ${table.table_number}${table.capacity ? ` (${table.capacity} seats)` : ""}${table.floor_name ? ` • ${table.floor_name}` : ""}${best ? " — Best fit" : ""}`;
+                        return { value: table.id, label };
+                      })
+                    ]}
+                  />
+                  {reservationForm.tableId !== "any" && (() => {
+                    const sel = tables.find((t) => t.id === reservationForm.tableId);
+                    if (!sel) return null;
+                    const best = isBestFit(sel, reservationForm.partySize);
+                    if (best) {
+                      return (
+                        <span className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+                          <Sparkles className="h-3 w-3" /> Perfect fit for {reservationForm.partySize} guests
+                        </span>
+                      );
+                    }
+                    const cap = sel.capacity ?? 4;
+                    const tooSmall = cap < reservationForm.partySize;
+                    if (tooSmall) {
+                      return (
+                        <span className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-rose-600">
+                          <AlertTriangle className="h-3 w-3" /> Warning: Only seats {cap} guests
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
               </div>
-
-              <label className="text-xs font-semibold text-slate-600 block">
-                Table Pre-assignment
-                <select
-                  value={reservationForm.tableId}
-                  onChange={(e) => setReservationForm((p) => ({ ...p, tableId: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 outline-none bg-white"
-                >
-                  <option value="any">Any table</option>
-                  {tableOptions.map((table) => {
-                    const best = isBestFit(table, reservationForm.partySize);
-                    return (
-                      <option key={table.id} value={table.id}>
-                        {best ? "★ " : ""}Table {table.table_number}
-                        {table.capacity ? ` (${table.capacity} seats)` : ""}
-                        {table.floor_name ? ` • ${table.floor_name}` : ""}
-                        {best ? " — Best fit" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-                {reservationForm.tableId !== "any" && (() => {
-                  const sel = tables.find((t) => t.id === reservationForm.tableId);
-                  if (!sel) return null;
-                  const best = isBestFit(sel, reservationForm.partySize);
-                  const cap = sel.capacity ?? 4;
-                  const tooSmall = cap < reservationForm.partySize;
-                  if (best) {
-                    return (
-                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-                        <Sparkles className="h-3 w-3" /> Perfect fit for {reservationForm.partySize} guests
-                      </span>
-                    );
-                  }
-                  if (tooSmall) {
-                    return (
-                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-500">
-                        ⚠ Table capacity ({cap}) is less than party size ({reservationForm.partySize})
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
-              </label>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold text-slate-600">
                   Phone (optional)
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                  <div className="mt-1 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 h-12 focus-within:bg-white focus-within:border-[#fe5c13] focus-within:ring-4 focus-within:ring-[#fe5c13]/10 transition-all">
                     <Phone className="h-4 w-4 text-slate-400" />
                     <input
+                      type="tel"
                       value={reservationForm.phone}
                       onChange={(e) => setReservationForm((p) => ({ ...p, phone: e.target.value }))}
-                      className="w-full bg-transparent text-sm outline-none"
-                      placeholder="+91 98xxxxxx"
+                      className="w-full bg-transparent text-sm font-semibold outline-none"
+                      placeholder="+91 98xxxxxxx"
                     />
                   </div>
                 </label>
@@ -848,7 +1052,7 @@ export default function ReservationsPage() {
                   <input
                     value={reservationForm.notes}
                     onChange={(e) => setReservationForm((p) => ({ ...p, notes: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 outline-none"
+                    className="mt-1 w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
                     placeholder="Anniversary seating"
                   />
                 </label>
@@ -880,73 +1084,67 @@ export default function ReservationsPage() {
       {/* Add Walk-in Modal */}
       {showWaitlistModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-100 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
-              <h3 className="text-base font-bold text-slate-900">Add to Walk-in Waitlist</h3>
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl border border-slate-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="text-lg font-bold text-slate-900">Add to Walk-in Waitlist</h3>
               <button 
                 onClick={() => setShowWaitlistModal(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all cursor-pointer"
               >
-                <XCircle className="h-5 w-5" />
+                <XCircle className="h-6 w-6" />
               </button>
             </div>
             
-            <form onSubmit={addWaitlist} className="mt-4 space-y-4">
+            <form onSubmit={addWaitlist} className="mt-6 space-y-6">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold text-slate-600">
                   Guest Name
                   <input
                     value={waitlistForm.name}
                     onChange={(e) => setWaitlistForm((p) => ({ ...p, name: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 outline-none"
-                    placeholder="Rahul Singh"
+                    className="mt-1 w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
+                    placeholder="Aanya Sharma"
                   />
                 </label>
-                <label className="text-xs font-semibold text-slate-600">
+                <div className="text-xs font-semibold text-slate-600">
                   Party Size
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                    <Users className="h-4 w-4 text-slate-400" />
-                    <input
-                      type="number"
-                      min={1}
-                      value={waitlistForm.partySize}
-                      onChange={(e) =>
-                        setWaitlistForm((p) => ({ ...p, partySize: Math.max(1, Number(e.target.value) || 1) }))
-                      }
-                      className="w-full bg-transparent text-sm outline-none"
-                    />
-                  </div>
-                </label>
+                  <PartySizeSelector
+                    value={waitlistForm.partySize}
+                    onChange={(val) => setWaitlistForm(p => ({ ...p, partySize: val }))}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold text-slate-600">
                   Phone (optional)
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                  <div className="mt-1 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 h-12 focus-within:bg-white focus-within:border-[#fe5c13] focus-within:ring-4 focus-within:ring-[#fe5c13]/10 transition-all">
                     <Phone className="h-4 w-4 text-slate-400" />
                     <input
+                      type="tel"
                       value={waitlistForm.phone}
                       onChange={(e) => setWaitlistForm((p) => ({ ...p, phone: e.target.value }))}
-                      className="w-full bg-transparent text-sm outline-none"
-                      placeholder="+91 98xxxxxx"
+                      className="w-full bg-transparent text-sm font-semibold outline-none"
+                      placeholder="+91 98xxxxxxx"
                     />
                   </div>
                 </label>
-                <label className="text-xs font-semibold text-slate-600">
-                  Quoted Wait (mins)
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                    <Clock className="h-4 w-4 text-slate-400" />
-                    <input
-                      type="number"
-                      min={5}
-                      value={waitlistForm.quotedMins}
-                      onChange={(e) =>
-                        setWaitlistForm((p) => ({ ...p, quotedMins: Math.max(5, Number(e.target.value) || 5) }))
-                      }
-                      className="w-full bg-transparent text-sm outline-none"
-                    />
-                  </div>
-                </label>
+                <div className="text-xs font-semibold text-slate-600">
+                  Quoted Wait Time
+                  <CustomSelect
+                    className="mt-1"
+                    value={waitlistForm.quotedMins.toString()}
+                    onChange={(val: string) => setWaitlistForm(p => ({ ...p, quotedMins: parseInt(val) }))}
+                    options={[
+                      { value: "10", label: "10 Minutes" },
+                      { value: "15", label: "15 Minutes" },
+                      { value: "20", label: "20 Minutes" },
+                      { value: "30", label: "30 Minutes" },
+                      { value: "45", label: "45 Minutes" },
+                      { value: "60", label: "1 Hour" },
+                    ]}
+                  />
+                </div>
               </div>
 
               <div className="pt-2">
@@ -972,6 +1170,6 @@ export default function ReservationsPage() {
         </div>
       )}
 
-    </SettingsPageLayout>
+    </div>
   );
 }

@@ -5,7 +5,7 @@
   --foreground: #0F1117;
 
   /* ─── QRAVE BRAND PALETTE ─── */
-  --qrave-saffron:        #E8900A;
+  --qrave-saffron:        #fe5c13;
   --qrave-saffron-light:  #FEF3C7;
   --qrave-saffron-dark:   #B45309;
   --qrave-obsidian:       #0F1117;
@@ -25,7 +25,7 @@
   --qrave-success:        #10B981;
   --qrave-error:          #EF4444;
   --qrave-info:           #3B82F6;
-  --qrave-warning:        #E8900A;
+  --qrave-warning:        #fe5c13;
 
   --qrave-text-primary:   #0F1117;
   --qrave-text-secondary: #6B7280;
@@ -40,13 +40,13 @@
   --font-mono: var(--font-geist-mono);
 
   /* Brand core & scales */
-  --color-qrave-saffron: #E8900A;
+  --color-qrave-saffron: #fe5c13;
   --color-qrave-saffron-50: #FFFBF0;
   --color-qrave-saffron-100: #FEF3C7;
   --color-qrave-saffron-200: #FDE68A;
   --color-qrave-saffron-300: #FCD34D;
   --color-qrave-saffron-400: #FBBF24;
-  --color-qrave-saffron-500: #E8900A;
+  --color-qrave-saffron-500: #fe5c13;
   --color-qrave-saffron-600: #D97706;
   --color-qrave-saffron-700: #B45309;
   --color-qrave-saffron-800: #92400E;
@@ -73,7 +73,7 @@
   --color-amber-200: #FDE68A;
   --color-amber-300: #FCD34D;
   --color-amber-400: #FBBF24;
-  --color-amber-500: #E8900A;
+  --color-amber-500: #fe5c13;
   --color-amber-600: #D97706;
   --color-amber-700: #B45309;
   --color-amber-800: #92400E;
@@ -85,7 +85,7 @@
   --color-orange-200: #FDE68A;
   --color-orange-300: #FCD34D;
   --color-orange-400: #FBBF24;
-  --color-orange-500: #E8900A;
+  --color-orange-500: #fe5c13;
   --color-orange-600: #D97706;
   --color-orange-700: #B45309;
   --color-orange-800: #92400E;
@@ -97,7 +97,7 @@
   --color-yellow-200: #FDE68A;
   --color-yellow-300: #FCD34D;
   --color-yellow-400: #FBBF24;
-  --color-yellow-500: #E8900A;
+  --color-yellow-500: #fe5c13;
   --color-yellow-600: #D97706;
   --color-yellow-700: #B45309;
   --color-yellow-800: #92400E;
@@ -175,7 +175,7 @@
   --color-qrave-info: #3B82F6;
   --color-qrave-info-bg: #EFF6FF;
   --color-qrave-info-text: #1E40AF;
-  --color-qrave-warning: #E8900A;
+  --color-qrave-warning: #fe5c13;
   --color-qrave-warning-bg: #FEF3C7;
   --color-qrave-warning-text: #92400E;
 
@@ -186,12 +186,11 @@
   --color-qrave-text-inverse: #FAFAF7;
 }
 
-/* ── Suppress OS dark-mode bleed into admin light UI ── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #FAFAF7;
-    --foreground: #0F1117;
-  }
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --background: #0F1117;
+  --foreground: #FAFAF7;
 }
 
 /* ── Global input / textarea polish (admin/settings only) ────────────────

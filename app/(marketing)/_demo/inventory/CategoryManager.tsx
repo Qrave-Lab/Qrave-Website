@@ -61,22 +61,22 @@ export default function CategoryManager({ onClose }: CategoryManagerProps) {
                 <div className="flex border-b border-gray-100 px-6">
                     <button
                         onClick={() => setTab('categories')}
-                        className={`relative px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${tab === 'categories' ? 'text-[#D9A016]' : 'text-gray-400'
+                        className={`relative px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${tab === 'categories' ? 'text-[#fe5c13]' : 'text-gray-400'
                             }`}
                     >
                         Categories
                         {tab === 'categories' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#FFC529]" />
+                            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#fe5c13]" />
                         )}
                     </button>
                     <button
                         onClick={() => setTab('subcategories')}
-                        className={`relative px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${tab === 'subcategories' ? 'text-[#D9A016]' : 'text-gray-400'
+                        className={`relative px-4 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${tab === 'subcategories' ? 'text-[#fe5c13]' : 'text-gray-400'
                             }`}
                     >
                         Subcategories
                         {tab === 'subcategories' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#FFC529]" />
+                            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#fe5c13]" />
                         )}
                     </button>
                 </div>
@@ -89,12 +89,12 @@ export default function CategoryManager({ onClose }: CategoryManagerProps) {
                             onChange={(e) => setNewName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
                             placeholder="New category name..."
-                            className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20"
+                            className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
                         />
                         <button
                             onClick={handleAddCategory}
                             disabled={!newName.trim()}
-                            className="rounded-lg bg-gradient-to-r from-[#FFC529] to-[#F0B820] px-4 py-2.5 text-sm font-bold text-black disabled:opacity-40 shadow-md shadow-[#FFC529]/20"
+                            className="rounded-lg bg-gradient-to-r from-[#fe5c13] to-[#fe5c13] px-4 py-2.5 text-sm font-bold text-black disabled:opacity-40 shadow-md shadow-[#fe5c13]/20"
                         >
                             <Plus className="h-4 w-4" />
                         </button>
@@ -129,7 +129,7 @@ export default function CategoryManager({ onClose }: CategoryManagerProps) {
                                                             onKeyDown={(e) =>
                                                                 e.key === 'Enter' && handleRenameCategory(cat.id)
                                                             }
-                                                            className="flex-1 rounded-lg border border-[#FFC529] bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none"
+                                                            className="flex-1 rounded-lg border border-[#fe5c13] bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none"
                                                         />
                                                         <button
                                                             onClick={() => handleRenameCategory(cat.id)}
@@ -203,7 +203,7 @@ export default function CategoryManager({ onClose }: CategoryManagerProps) {
                                                             onKeyDown={(e) =>
                                                                 e.key === 'Enter' && handleRenameSubcategory(sub.id)
                                                             }
-                                                            className="flex-1 rounded-lg border border-[#FFC529] bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none"
+                                                            className="flex-1 rounded-lg border border-[#fe5c13] bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none"
                                                         />
                                                         <button
                                                             onClick={() => handleRenameSubcategory(sub.id)}
@@ -223,7 +223,7 @@ export default function CategoryManager({ onClose }: CategoryManagerProps) {
                                                         <span className="flex-1 text-sm font-medium text-gray-700">
                                                             {sub.name}
                                                         </span>
-                                                        <span className="rounded-full bg-[#FFC529]/10 px-2 py-0.5 text-[10px] font-bold text-[#D9A016]">
+                                                        <span className="rounded-full bg-[#fe5c13]/10 px-2 py-0.5 text-[10px] font-bold text-[#fe5c13]">
                                                             {parent?.name || '—'}
                                                         </span>
                                                         <button

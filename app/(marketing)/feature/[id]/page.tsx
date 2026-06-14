@@ -301,14 +301,14 @@ const FeatureDetailPage = async ({ params }: { params: Promise<{ id: string }> }
                             </p>
 
                             <div className="flex flex-col sm:flex-row gap-4">
-                                <a href="/#demo" className="inline-flex justify-center items-center bg-[#FFC529] hover:bg-[#F0B820] text-[#1F2127] px-8 py-4 rounded-xl font-bold text-[15px] transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5">
+                                <a href="/#demo" className="inline-flex justify-center items-center bg-[#fe5c13] hover:bg-[#fe5c13] text-[#1F2127] px-8 py-4 rounded-xl font-bold text-[15px] transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5">
                                     Book A Demo
                                 </a>
                             </div>
                         </div>
 
                         <div className="relative">
-                            <div className="absolute inset-0 bg-[#FFC529]/10 rounded-[2rem] transform rotate-3 scale-105 z-0" />
+                            <div className="absolute inset-0 bg-[#fe5c13]/10 rounded-[2rem] transform rotate-3 scale-105 z-0" />
                             <Image
                                 src={feature.heroImage}
                                 alt={feature.title}
@@ -331,7 +331,7 @@ const FeatureDetailPage = async ({ params }: { params: Promise<{ id: string }> }
 
                         <div className="text-center mb-16 lg:mb-24">
                             <h2 className="text-3xl md:text-4xl font-black text-[#1F2127] tracking-tight">
-                                <span className="text-[#FFC529]">Everything</span> you need to succeed
+                                <span className="text-[#fe5c13]">Everything</span> you need to succeed
                             </h2>
                         </div>
 
@@ -364,7 +364,7 @@ const FeatureDetailPage = async ({ params }: { params: Promise<{ id: string }> }
                                             <ul className="space-y-3 mt-4">
                                                 {(subFeature.benefits || []).map((benefit: string, bIdx: number) => (
                                                     <li key={bIdx} className="flex items-center text-[#1F2127] font-semibold text-sm">
-                                                        <CheckCircle2 className="w-5 h-5 text-[#FFC529] mr-3 flex-shrink-0" />
+                                                        <CheckCircle2 className="w-5 h-5 text-[#fe5c13] mr-3 flex-shrink-0" />
                                                         <span>{benefit}</span>
                                                     </li>
                                                 ))}

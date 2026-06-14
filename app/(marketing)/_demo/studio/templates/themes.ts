@@ -24,10 +24,10 @@ export const THEMES: ThemePreset[] = [
         id: 'warm-gold',
         name: 'Warm Gold',
         colors: {
-            primary: '#FFC529',
+            primary: '#fe5c13',
             text: '#111827',
             heading: '#000000',
-            price: '#D9A016',
+            price: '#fe5c13',
             background: '#FFFFFF',
             divider: '#F3F4F6',
             accent: '#FEF3C7',

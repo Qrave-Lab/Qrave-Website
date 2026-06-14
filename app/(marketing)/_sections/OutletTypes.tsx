@@ -20,7 +20,7 @@ const OutletTypes = () => {
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-[#1F2127] tracking-tight mb-6 sm:mb-8 leading-[1.1]">
             Engineered for Every
             <br />
-            <span className="text-[#FFC529]">Culinary Concept</span>
+            <span className="text-[#fe5c13]">Culinary Concept</span>
           </h2>
           <p className="text-lg sm:text-xl md:text-2xl text-gray-500 font-medium max-w-3xl mx-auto">
             From intimate 20-seat cafés to bustling multi-location restaurants, Qrave's modular architecture adapts perfectly to your unique operational flow.
@@ -33,7 +33,7 @@ const OutletTypes = () => {
             <a
               key={outlet.name}
               href={`#${outlet.name.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and')}`}
-              className="group relative overflow-hidden rounded-2xl aspect-[4/3] border border-gray-100 shadow-sm hover:shadow-md hover:border-[#FFC529]/50 transition-shadow duration-200"
+              className="group relative overflow-hidden rounded-2xl aspect-[4/3] border border-gray-100 shadow-sm hover:shadow-md hover:border-[#fe5c13]/50 transition-shadow duration-200"
             >
               <div className="absolute inset-0 bg-gray-100" />
               <img
@@ -48,7 +48,7 @@ const OutletTypes = () => {
 
               {/* Content */}
               <div className="absolute inset-0 flex flex-col justify-end p-3 sm:p-5">
-                <h3 className="text-white font-bold text-sm sm:text-base lg:text-lg group-hover:text-[#FFC529] transition-colors duration-200">
+                <h3 className="text-white font-bold text-sm sm:text-base lg:text-lg group-hover:text-[#fe5c13] transition-colors duration-200">
                   {outlet.name}
                 </h3>
               </div>

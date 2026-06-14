@@ -406,7 +406,7 @@ export default function OnboardingPage() {
               email: data.email,
             },
             theme: {
-              color: "#FFC529",
+              color: "#fe5c13",
             },
           });
           rzp.on("payment.failed", function (response: any) {
@@ -632,7 +632,7 @@ export default function OnboardingPage() {
           <div className="flex gap-2 h-1.5 overflow-hidden">
             {[1, 2, 3, 4, 5, 6, 7].map((s) => (
               <div key={s} className="flex-1 h-full bg-slate-100 rounded-full relative">
-                <motion.div initial={false} animate={{ width: s <= step ? "100%" : "0%" }} className="absolute inset-0 bg-[#FFC529] rounded-full" transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} />
+                <motion.div initial={false} animate={{ width: s <= step ? "100%" : "0%" }} className="absolute inset-0 bg-[#fe5c13] rounded-full" transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} />
               </div>
             ))}
           </div>
@@ -648,10 +648,10 @@ export default function OnboardingPage() {
                     <p className="text-slate-500 font-medium">Enter your restaurant's legal or trade name.</p>
                   </div>
                   <div className="relative group">
-                    <Store className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#FFC529] transition-colors" />
-                    <input autoFocus placeholder="e.g. The Golden Truffle" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} className="w-full pl-10 text-2xl font-semibold border-b-2 border-slate-100 focus:border-[#FFC529] outline-none py-4 transition-all placeholder:text-slate-200" />
+                    <Store className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fe5c13] transition-colors" />
+                    <input autoFocus placeholder="e.g. The Golden Truffle" value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} className="w-full pl-10 text-2xl font-semibold border-b-2 border-slate-100 focus:border-[#fe5c13] outline-none py-4 transition-all placeholder:text-slate-200" />
                   </div>
-                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#FFC529]/10 border border-[#FFC529]/20 w-fit">
+                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#fe5c13]/10 border border-[#fe5c13]/20 w-fit">
                     <Wallet className="w-4 h-4 text-[#ECA918]" />
                     <span className="text-xs font-bold text-[#ECA918] uppercase tracking-widest">Base Currency: INR (₹)</span>
                   </div>
@@ -701,8 +701,8 @@ export default function OnboardingPage() {
                   )}
                   <div className="space-y-4">
                     <div className="relative group">
-                      <Mail className={`absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 transition-colors ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'text-red-400' : 'text-slate-300 group-focus-within:text-[#FFC529]'}`} />
-                      <input autoFocus type="email" placeholder="manager@restaurant.com" value={data.email} onChange={(e) => { setData({ ...data, email: e.target.value }); setEmailStatus('idle'); }} className={`w-full pl-10 text-2xl font-semibold border-b-2 outline-none py-4 transition-all placeholder:text-slate-200 ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'border-red-100 focus:border-red-500' : 'border-slate-100 focus:border-[#FFC529]'}`} />
+                      <Mail className={`absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 transition-colors ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'text-red-400' : 'text-slate-300 group-focus-within:text-[#fe5c13]'}`} />
+                      <input autoFocus type="email" placeholder="manager@restaurant.com" value={data.email} onChange={(e) => { setData({ ...data, email: e.target.value }); setEmailStatus('idle'); }} className={`w-full pl-10 text-2xl font-semibold border-b-2 outline-none py-4 transition-all placeholder:text-slate-200 ${emailStatus === 'taken' || emailStatus === 'invalid' ? 'border-red-100 focus:border-red-500' : 'border-slate-100 focus:border-[#fe5c13]'}`} />
                     </div>
 
                     <AnimatePresence>
@@ -731,7 +731,7 @@ export default function OnboardingPage() {
                   </div>
                   <motion.div animate={otpError ? { x: [-10, 10, -10, 10, 0] } : {}} transition={{ duration: 0.4 }} className="flex gap-4">
                     {otp.map((d, i) => (
-                      <input key={i} ref={otpRefs[i]} disabled={isVerifying} maxLength={1} value={d} onChange={(e) => handleOtpChange(i, e.target.value)} onKeyDown={(e) => e.key === "Backspace" && !otp[i] && i > 0 && otpRefs[i - 1].current?.focus()} className={`w-full h-20 rounded-2xl border-2 text-center text-3xl font-bold outline-none transition-all disabled:opacity-50 ${otpError ? "border-red-200 bg-red-50/50 text-red-600" : "border-slate-100 bg-slate-50/50 focus:border-[#FFC529] focus:bg-white focus:shadow-xl focus:shadow-[#FFC529]/10"}`} />
+                      <input key={i} ref={otpRefs[i]} disabled={isVerifying} maxLength={1} value={d} onChange={(e) => handleOtpChange(i, e.target.value)} onKeyDown={(e) => e.key === "Backspace" && !otp[i] && i > 0 && otpRefs[i - 1].current?.focus()} className={`w-full h-20 rounded-2xl border-2 text-center text-3xl font-bold outline-none transition-all disabled:opacity-50 ${otpError ? "border-red-200 bg-red-50/50 text-red-600" : "border-slate-100 bg-slate-50/50 focus:border-[#fe5c13] focus:bg-white focus:shadow-xl focus:shadow-[#fe5c13]/10"}`} />
                     ))}
                   </motion.div>
                   <div className="pt-2">
@@ -751,15 +751,15 @@ export default function OnboardingPage() {
                   </div>
                   <div className="space-y-6">
                     <div className="relative group">
-                      <Lock className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-[#FFC529] transition-colors" />
-                      <input autoFocus type={showPassword ? "text" : "password"} placeholder="New Password" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} className="w-full pl-8 text-xl font-semibold border-b border-slate-100 focus:border-[#FFC529] outline-none py-3 transition-all placeholder:text-slate-200" />
+                      <Lock className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-[#fe5c13] transition-colors" />
+                      <input autoFocus type={showPassword ? "text" : "password"} placeholder="New Password" value={data.password} onChange={(e) => setData({ ...data, password: e.target.value })} className="w-full pl-8 text-xl font-semibold border-b border-slate-100 focus:border-[#fe5c13] outline-none py-3 transition-all placeholder:text-slate-200" />
                       <button onClick={() => setShowPassword(!showPassword)} className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600">
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                     <div className="relative group">
                       <CheckCircle2 className={`absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${data.confirmPassword && data.password === data.confirmPassword ? "text-emerald-500" : "text-slate-300"}`} />
-                      <input type={showPassword ? "text" : "password"} placeholder="Confirm Password" value={data.confirmPassword} onChange={(e) => setData({ ...data, confirmPassword: e.target.value })} className="w-full pl-8 text-xl font-semibold border-b border-slate-100 focus:border-[#FFC529] outline-none py-3 transition-all placeholder:text-slate-200" />
+                      <input type={showPassword ? "text" : "password"} placeholder="Confirm Password" value={data.confirmPassword} onChange={(e) => setData({ ...data, confirmPassword: e.target.value })} className="w-full pl-8 text-xl font-semibold border-b border-slate-100 focus:border-[#fe5c13] outline-none py-3 transition-all placeholder:text-slate-200" />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -786,7 +786,7 @@ export default function OnboardingPage() {
                           type="time"
                           value={data.openTime}
                           onChange={(e) => setData({ ...data, openTime: e.target.value })}
-                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#FFC529]"
+                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#fe5c13]"
                         />
                       </div>
                     </div>
@@ -798,7 +798,7 @@ export default function OnboardingPage() {
                           type="time"
                           value={data.closeTime}
                           onChange={(e) => setData({ ...data, closeTime: e.target.value })}
-                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#FFC529]"
+                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#fe5c13]"
                         />
                       </div>
                     </div>
@@ -819,7 +819,7 @@ export default function OnboardingPage() {
                           value={data.address}
                           onChange={(e) => setData({ ...data, address: e.target.value })}
                           placeholder="Street, city, state"
-                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#FFC529] placeholder:text-slate-300"
+                          className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#fe5c13] placeholder:text-slate-300"
                         />
                       </div>
                     </div>
@@ -845,7 +845,7 @@ export default function OnboardingPage() {
                               phone: normalizePhoneInput(nextCode, prev.phone),
                             }));
                           }}
-                          className="w-[130px] px-3 py-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-[#FFC529]"
+                          className="w-[130px] px-3 py-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:border-[#fe5c13]"
                         >
                           {PHONE_COUNTRY_CODES.map((opt) => (
                             <option key={opt.code} value={opt.code}>{opt.label}</option>
@@ -858,7 +858,7 @@ export default function OnboardingPage() {
                             onChange={(e) => setData({ ...data, phone: normalizePhoneInput(data.phoneCountryCode, e.target.value) })}
                             placeholder={PHONE_RULES[data.phoneCountryCode]?.example || "Business contact number"}
                             inputMode="tel"
-                            className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#FFC529] placeholder:text-slate-300"
+                            className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 outline-none focus:border-[#fe5c13] placeholder:text-slate-300"
                           />
                         </div>
                       </div>
@@ -875,7 +875,7 @@ export default function OnboardingPage() {
                       <div className="text-8xl font-black text-slate-900 tabular-nums">{data.tableCount}</div>
                       <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ECA918] absolute -bottom-2 left-1/2 -translate-x-1/2">Tables</div>
                     </div>
-                    <input type="range" min={1} max={40} value={data.tableCount} onChange={(e) => setData({ ...data, tableCount: +e.target.value })} className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[#FFC529]" />
+                    <input type="range" min={1} max={40} value={data.tableCount} onChange={(e) => setData({ ...data, tableCount: +e.target.value })} className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[#fe5c13]" />
                   </div>
                 </div>
               )}
@@ -887,7 +887,7 @@ export default function OnboardingPage() {
                     <p className="text-slate-500 font-medium">Select a subscription. Your first 7 days are free.</p>
                   </div>
                   {googleEmail && (
-                    <div className="p-4 rounded-2xl bg-[#FFC529]/10 border border-[#FFC529]/20">
+                    <div className="p-4 rounded-2xl bg-[#fe5c13]/10 border border-[#fe5c13]/20">
                       <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ECA918]">Google account</div>
                       <div className="text-sm font-bold text-[#D99A00] mt-1">{googleEmail}</div>
                     </div>
@@ -898,7 +898,7 @@ export default function OnboardingPage() {
                         key={plan.code}
                         type="button"
                         onClick={() => setData((prev) => ({ ...prev, subscriptionPlan: plan.code }))}
-                        className={`text-left rounded-2xl border px-4 py-4 transition-all ${data.subscriptionPlan === plan.code ? "border-[#FFC529] bg-[#FFC529]/10" : "border-slate-200 bg-white"}`}
+                        className={`text-left rounded-2xl border px-4 py-4 transition-all ${data.subscriptionPlan === plan.code ? "border-[#fe5c13] bg-[#fe5c13]/10" : "border-slate-200 bg-white"}`}
                       >
                         <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{plan.name} • {plan.cadence}</div>
                         <div className="mt-1 text-xl font-black text-slate-900">{plan.price}</div>
@@ -920,7 +920,7 @@ export default function OnboardingPage() {
                     <p className="text-slate-500 font-medium px-8">Your digital menu and table management dashboard is ready.</p>
                   </div>
                   <div className="flex flex-col gap-3">
-                    <button onClick={() => router.push("/staff")} className="w-full py-5 rounded-2xl bg-[#FFC529] text-black font-bold text-lg hover:bg-[#ECA918] transition-all shadow-xl shadow-[#FFC529]/20 active:scale-[0.98]">Launch Dashboard</button>
+                    <button onClick={() => router.push("/staff")} className="w-full py-5 rounded-2xl bg-[#fe5c13] text-black font-bold text-lg hover:bg-[#ECA918] transition-all shadow-xl shadow-[#fe5c13]/20 active:scale-[0.98]">Launch Dashboard</button>
                   </div>
                 </div>
               )}
@@ -935,7 +935,7 @@ export default function OnboardingPage() {
             </button>
           ) : <div />}
           {step < 7 && step !== 3 && (
-            <button onClick={nextStep} disabled={isLoading || isGoogleLoading} className={`flex items-center gap-3 px-10 py-4 rounded-2xl text-black font-bold text-[11px] uppercase tracking-[0.15em] shadow-lg transition-all active:scale-95 group ${(isLoading || isGoogleLoading) ? 'bg-slate-300 cursor-not-allowed' : 'bg-[#FFC529] hover:bg-[#ECA918] shadow-[#FFC529]/20 hover:shadow-[#FFC529]/30'}`}>
+            <button onClick={nextStep} disabled={isLoading || isGoogleLoading} className={`flex items-center gap-3 px-10 py-4 rounded-2xl text-black font-bold text-[11px] uppercase tracking-[0.15em] shadow-lg transition-all active:scale-95 group ${(isLoading || isGoogleLoading) ? 'bg-slate-300 cursor-not-allowed' : 'bg-[#fe5c13] hover:bg-[#ECA918] shadow-[#fe5c13]/20 hover:shadow-[#fe5c13]/30'}`}>
               {(isLoading || isGoogleLoading)
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : <>{step === 6 ? "Start free trial" : "Continue"} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
@@ -946,10 +946,10 @@ export default function OnboardingPage() {
 
       <div className="hidden lg:flex flex-1 items-center justify-center relative bg-[#F8FAFC] overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1.5px,transparent_1.5px)] [background-size:32px_32px] opacity-30" />
-        <motion.div animate={{ y: [0, -40, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute top-20 right-20 w-32 h-32 bg-[#FFC529]/10 rounded-full blur-2xl" />
-        <motion.div initial={{ top: "0%" }} animate={{ top: "100%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FFC529]/20 to-transparent z-50 pointer-events-none" />
-        <motion.div animate={{ x: [0, 10, 0], y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className="absolute right-[15%] top-1/4 z-40 bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-[#FFC529]/10 shadow-2xl flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#FFC529] flex items-center justify-center text-black"><Box size={20} /></div>
+        <motion.div animate={{ y: [0, -40, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute top-20 right-20 w-32 h-32 bg-[#fe5c13]/10 rounded-full blur-2xl" />
+        <motion.div initial={{ top: "0%" }} animate={{ top: "100%" }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} className="absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#fe5c13]/20 to-transparent z-50 pointer-events-none" />
+        <motion.div animate={{ x: [0, 10, 0], y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className="absolute right-[15%] top-1/4 z-40 bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-[#fe5c13]/10 shadow-2xl flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#fe5c13] flex items-center justify-center text-black"><Box size={20} /></div>
           <div>
             <div className="text-[10px] font-black text-[#ECA918] uppercase tracking-widest">AR Enabled</div>
             <div className="text-xs font-bold text-slate-700">3D Interactive Menu</div>
@@ -959,11 +959,11 @@ export default function OnboardingPage() {
         <AnimatePresence mode="wait">
           {step < 7 ? (
             <motion.div key="phone-mockup" initial={{ opacity: 0, scale: 0.9, y: 20, rotateX: 10, rotateY: -10 }} animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0, rotateY: 0 }} exit={{ opacity: 0, scale: 1.1, y: -20 }} className="relative bg-white rounded-[3rem] p-4 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.12)] border-[8px] border-slate-900 w-[300px] h-[600px] z-10 overflow-hidden flex flex-col">
-              <div className="absolute inset-0 bg-gradient-to-br from-white via-transparent to-[#FFC529]/5 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white via-transparent to-[#fe5c13]/5 pointer-events-none" />
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-900 rounded-b-2xl z-20" />
               <div className="flex-1 flex flex-col pt-8">
                 <div className="px-6 py-6 space-y-4">
-                  <motion.div layoutId="logo-box" className="w-10 h-10 rounded-xl bg-[#FFC529] flex items-center justify-center text-black"><ChefHat size={20} /></motion.div>
+                  <motion.div layoutId="logo-box" className="w-10 h-10 rounded-xl bg-[#fe5c13] flex items-center justify-center text-black"><ChefHat size={20} /></motion.div>
                   <div className="space-y-1">
                     <h2 className="text-xl font-black text-slate-900 truncate">{data.name || "Your Restaurant"}</h2>
                     <div className="flex items-center gap-2">
@@ -973,18 +973,18 @@ export default function OnboardingPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 px-6 mb-8 overflow-hidden">
-                  {["Starters", "Mains", "Drinks"].map((cat, i) => (<div key={i} className={`px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest ${i === 0 ? "bg-[#FFC529] text-gray-900 font-bold" : "bg-slate-50 text-slate-400"}`}>{cat}</div>))}
+                  {["Starters", "Mains", "Drinks"].map((cat, i) => (<div key={i} className={`px-4 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest ${i === 0 ? "bg-[#fe5c13] text-gray-900 font-bold" : "bg-slate-50 text-slate-400"}`}>{cat}</div>))}
                 </div>
                 <div className="flex-1 px-6 space-y-6">
                   {[1, 2, 3].map((_, i) => (
                     <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className="flex gap-4 items-center">
                       <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center text-slate-200 relative group/item overflow-hidden">
                         {i === 0 ? <Pizza size={24} /> : i === 1 ? <IceCream size={24} /> : <Coffee size={24} />}
-                        <div className="absolute inset-0 bg-[#FFC529]/10 opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                        <div className="absolute inset-0 bg-[#fe5c13]/10 opacity-0 group-hover/item:opacity-100 transition-opacity" />
                       </div>
                       <div className="flex-1 space-y-2">
                         <div className="h-2.5 w-3/4 bg-slate-100 rounded-full overflow-hidden relative"><motion.div animate={{ x: ["-100%", "100%"] }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent" /></div>
-                        <div className="h-2 w-1/2 bg-slate-50 rounded-full" /><div className="h-2 w-1/4 bg-[#FFC529]/10 rounded-full" />
+                        <div className="h-2 w-1/2 bg-slate-50 rounded-full" /><div className="h-2 w-1/4 bg-[#fe5c13]/10 rounded-full" />
                       </div>
                     </motion.div>
                   ))}
@@ -995,12 +995,12 @@ export default function OnboardingPage() {
           ) : (
             <motion.div key="flyer-mockup" initial={{ opacity: 0, rotateY: -30, scale: 0.8, rotateX: 5 }} animate={{ opacity: 1, rotateY: 0, scale: 1, rotateX: 0 }} transition={{ type: "spring", damping: 15 }} className="relative z-20">
               <div className="w-[380px] aspect-[1/1.41] bg-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rounded-sm flex flex-col items-center p-10 relative overflow-hidden border border-slate-100">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#FFC529]" />
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#fe5c13]" />
                 <div className="mb-10 text-center"><div className="text-xs font-black tracking-[0.3em] text-slate-400 uppercase mb-4">{data.name || "Qrave"}</div><h2 className="text-3xl font-black text-slate-900 leading-tight">Scan to Order</h2><p className="text-slate-400 text-sm mt-2">View menu & pay from your phone</p></div>
-                <div className="relative p-6 bg-white rounded-3xl shadow-[0_20px_40px_rgba(255,197,41,0.15)] border border-[#FFC529]/10 mb-10 group">
-                  <div className="absolute inset-0 bg-[#FFC529]/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity blur-xl" />
+                <div className="relative p-6 bg-white rounded-3xl shadow-[0_20px_40px_rgba(255,197,41,0.15)] border border-[#fe5c13]/10 mb-10 group">
+                  <div className="absolute inset-0 bg-[#fe5c13]/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity blur-xl" />
                   <QRCodeSVG value={`https://qrave.ai/${data.name.toLowerCase().replace(/\s+/g, "-")}`} size={200} level="H" fgColor="#0f172a" />
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#FFC529] text-black text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest whitespace-nowrap shadow-lg">Table {data.tableCount}</div>
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#fe5c13] text-black text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest whitespace-nowrap shadow-lg">Table {data.tableCount}</div>
                 </div>
                 <div className="mt-auto w-full space-y-6">
                   <div className="flex items-center justify-center gap-6 py-4 border-y border-slate-50"><div className="flex items-center gap-2"><Smartphone className="w-4 h-4 text-slate-300" /><span className="text-[10px] font-bold text-slate-500 uppercase">Contactless</span></div><div className="flex items-center gap-2"><Wifi className="w-4 h-4 text-slate-300" /><span className="text-[10px] font-bold text-slate-500 uppercase">Free WiFi</span></div></div>
@@ -1011,13 +1011,13 @@ export default function OnboardingPage() {
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="absolute -bottom-10 -right-10 w-64 h-64 bg-[#FFC529]/5 rounded-full blur-3xl opacity-30 animate-pulse" /><div className="absolute -top-10 -left-10 w-64 h-64 bg-amber-100/20 rounded-full blur-3xl opacity-30" />
+        <div className="absolute -bottom-10 -right-10 w-64 h-64 bg-[#fe5c13]/5 rounded-full blur-3xl opacity-30 animate-pulse" /><div className="absolute -top-10 -left-10 w-64 h-64 bg-amber-100/20 rounded-full blur-3xl opacity-30" />
       </div>
 
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
         body { font-family: "Plus Jakarta Sans", sans-serif; -webkit-font-smoothing: antialiased; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: #FFC529; cursor: pointer; border: 4px solid white; box-shadow: 0 10px 15px -3px rgba(255, 197, 41, 0.4); transition: all 0.2s ease; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: #fe5c13; cursor: pointer; border: 4px solid white; box-shadow: 0 10px 15px -3px rgba(255, 197, 41, 0.4); transition: all 0.2s ease; }
         .perspective-1000 { perspective: 1000px; }
       `}</style>
     </div>

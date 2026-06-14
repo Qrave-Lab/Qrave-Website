@@ -108,7 +108,7 @@ const defaultQRConfig: QRConfig = {
 const defaultRestaurant: RestaurantProfile = {
     name: 'Qrave Bistro',
     tagline: 'Modern Indian Kitchen & Bar',
-    accentColor: '#FFC529',
+    accentColor: '#fe5c13',
     logoUrl: '',
     currency: 'INR',
 };

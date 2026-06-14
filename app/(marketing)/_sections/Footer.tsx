@@ -19,7 +19,7 @@ const Footer = () => {
           <div className="flex justify-center md:justify-start flex-1">
             <Link href="/" className="inline-block hover:opacity-90 transition-opacity">
               <span className="text-xl font-black tracking-[0.1em] border-b-2 border-transparent pb-1">
-                QR<span className="text-[#FFC529]">A</span>VE
+                QR<span className="text-[#fe5c13]">A</span>VE
               </span>
             </Link>
           </div>
@@ -37,7 +37,7 @@ const Footer = () => {
               <Link
                 key={link.name}
                 href={link.href}
-                className="text-xs font-medium text-gray-400 hover:text-[#FFC529] transition-colors whitespace-nowrap"
+                className="text-xs font-medium text-gray-400 hover:text-[#fe5c13] transition-colors whitespace-nowrap"
               >
                 {link.name}
               </Link>

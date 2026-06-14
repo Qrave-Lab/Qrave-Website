@@ -50,7 +50,7 @@ function TimePickerField({
 
   const update = (h: number, m: number, p: "AM" | "PM") => onChange(to24(h, m, p));
   const selectClass =
-    "h-10 rounded-lg border border-slate-200 bg-slate-50/30 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] transition-all cursor-pointer";
+    "h-10 rounded-lg border border-slate-200 bg-slate-50/30 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] transition-all cursor-pointer";
 
   return (
     <div>
@@ -145,18 +145,12 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
   const previewTotal = (inclusive ? PREVIEW_BASE : PREVIEW_BASE + taxAmount) + cessAmount + serviceAmount;
 
   const fmtPreview = (n: number) => `₹${n.toFixed(2)}`;
-  const inputCls = "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900";
+  const inputCls = "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900";
 
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-        <h2 className="font-bold text-slate-900 flex items-center gap-2">
-          Restaurant Profile
-        </h2>
-      </div>
-
-      <div className="p-6 space-y-6">
+    <div className="bg-white -m-6 p-8 min-h-[calc(100vh-73px)]">
+      <div className="max-w-4xl space-y-8">
         <div className="flex items-start gap-6">
           <div className="flex flex-col items-center gap-2 shrink-0">
             <div className="relative">
@@ -171,7 +165,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                   <ImageIcon className="w-8 h-8 text-slate-300" />
                 )}
               </div>
-              <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#FFC529] hover:brightness-95 text-gray-900 rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-90 border-2 border-white">
+              <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fe5c13] hover:brightness-95 text-gray-900 rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-90 border-2 border-white">
                 {isUploading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
@@ -208,7 +202,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                 value={data.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 placeholder="The Golden Bistro"
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 font-medium text-slate-900"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 font-medium text-slate-900"
               />
             </div>
           </div>
@@ -223,7 +217,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
               value={data.address}
               onChange={(e) => handleChange("address", e.target.value)}
               placeholder="123 Gourmet Ave, Food City"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
             />
           </div>
 
@@ -236,7 +230,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
               value={data.website || ""}
               onChange={(e) => handleChange("website", e.target.value)}
               placeholder="https://yourrestaurant.com"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
             />
           </div>
 
@@ -248,7 +242,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
               <select
                 value={data.phoneCountryCode}
                 onChange={(e) => handleChange("phoneCountryCode", e.target.value)}
-                className="w-[130px] border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
+                className="w-[130px] border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
               >
                 {PHONE_COUNTRY_CODES.map((opt) => (
                   <option key={opt.code} value={opt.code}>
@@ -265,7 +259,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                 }}
                 placeholder={PHONE_RULES[data.phoneCountryCode]?.example || "Business contact number"}
                 inputMode="tel"
-                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#FFC529] outline-none transition-all bg-slate-50/30 text-slate-900"
+                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
               />
             </div>
             {data.phone.trim() && !PHONE_RULES[data.phoneCountryCode]?.pattern.test(data.phone.trim()) && (
@@ -321,7 +315,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                     handleChange("taxPercent", slab);
                   }}
                   className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!customSlab && (data.taxPercent ?? 0) === slab
-                    ? "bg-[#FFC529] text-gray-900 border-[#FFC529] shadow-sm"
+                    ? "bg-[#fe5c13] text-gray-900 border-[#fe5c13] shadow-sm"
                     : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
                     }`}
                 >
@@ -332,7 +326,7 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
                 type="button"
                 onClick={() => setCustomSlab(true)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${customSlab
-                  ? "bg-[#FFC529] text-gray-900 border-[#FFC529]"
+                  ? "bg-[#fe5c13] text-gray-900 border-[#fe5c13]"
                   : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
                   }`}
               >
@@ -620,8 +614,8 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
               />
             </button>
           </div>
-        </div>
       </div>
-    </section>
+    </div>
+  </div>
   );
 }

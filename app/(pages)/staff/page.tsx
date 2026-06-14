@@ -22,13 +22,15 @@ import {
   LogOut,
   Trash2,
   Printer,
+  Plus,
   ShoppingBag,
   Bike,
   Frown
 } from "lucide-react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { CustomSelect } from "@/app/components/ui/CustomSelect";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import StaffSidebar from "../../components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import { printBillTicket, printKitchenTicket } from "@/app/lib/posPrinter";
@@ -1061,7 +1063,8 @@ export default function StaffDashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-6 divide-x divide-gray-100">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 divide-x divide-gray-100 hidden lg:flex">
             <div className="flex items-center gap-6 pr-6">
               <div className="flex flex-col items-end">
                 <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-0.5">
@@ -1107,130 +1110,167 @@ export default function StaffDashboardPage() {
               <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
                 Waitlist
               </span>
-              <span className="text-lg font-bold text-[#FFC529] flex items-center gap-1">
-                <Users className="w-4 h-4 text-[#FFC529]" />
+              <span className="text-lg font-bold text-[#fe5c13] flex items-center gap-1">
+                <Users className="w-4 h-4 text-[#fe5c13]" />
                 {waitlistCount} Waiting
               </span>
             </div>
+            </div>
+            <Link
+              href="/staff/takeaway?new=1"
+              className="bg-[#fe5c13] hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-transform active:scale-95 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Order
+            </Link>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="flex flex-col gap-6">
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Pending Orders</span>
-                  <div className="text-2xl font-bold text-gray-900 mt-1">{pendingOrdersCount}</div>
+        <main className="flex-1 overflow-y-auto bg-gray-50/30">
+          <div className="flex flex-col">
+            <div className="bg-white border-b border-gray-200 shadow-sm flex flex-col sticky top-0 z-30">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-0 divide-x divide-y lg:divide-y-0 divide-gray-100 border-b border-gray-100 px-4 sm:px-8">
+                <div className="py-4 sm:pr-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Pending Orders
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {pendingOrdersCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${pendingOrdersCount > 5 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-400"}`}>
+                    <ChefHat className="w-5 h-5" />
+                  </div>
                 </div>
-                <div className={`p-2 rounded-lg ${pendingOrdersCount > 5 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-400'}`}>
-                  <ChefHat className="w-5 h-5" />
+
+                <div className="p-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Bill Requests
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {billRequestedCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${billRequestedCount > 0 ? "bg-slate-50 text-[#fe5c13]" : "bg-gray-50 text-gray-400"}`}>
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="p-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Service Calls
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {activeServiceCallsCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${activeServiceCallsCount > 0 ? "bg-sky-50 text-sky-600" : "bg-gray-50 text-gray-400"}`}>
+                    <Bell className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="py-4 sm:pl-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Long Sitting
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {longSittingCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${longSittingCount > 0 ? "bg-rose-50 text-rose-600" : "bg-gray-50 text-gray-400"}`}>
+                    <Clock className="w-5 h-5" />
+                  </div>
                 </div>
               </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Bill Requests</span>
-                  <div className="text-2xl font-bold text-gray-900 mt-1">{billRequestedCount}</div>
-                </div>
-                <div className={`p-2 rounded-lg ${billRequestedCount > 0 ? 'bg-slate-50 text-[#FFC529]' : 'bg-gray-50 text-gray-400'}`}>
-                  <Receipt className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Service Calls</span>
-                  <div className="text-2xl font-bold text-gray-900 mt-1">{activeServiceCallsCount}</div>
-                </div>
-                <div className={`p-2 rounded-lg ${activeServiceCallsCount > 0 ? 'bg-sky-50 text-sky-600' : 'bg-gray-50 text-gray-400'}`}>
-                  <Bell className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Long Sitting</span>
-                  <div className="text-2xl font-bold text-gray-900 mt-1">{longSittingCount}</div>
-                </div>
-                <div className={`p-2 rounded-lg ${longSittingCount > 0 ? 'bg-rose-50 text-rose-600' : 'bg-gray-50 text-gray-400'}`}>
-                  <Clock className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm sticky top-0 z-30">
-              <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
-                <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
-                  {(["all", "occupied", "free", "bill_requested"] as TableFilter[]).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setTableFilter(f)}
-                      className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${tableFilter === f
-                        ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                        : "text-gray-500 hover:bg-gray-200/50"
+              <div className="flex flex-col 2xl:flex-row gap-4 items-start 2xl:items-center justify-between bg-white px-4 sm:px-8 py-4">
+                <div className="flex flex-wrap items-center gap-3 w-full 2xl:w-auto">
+                  {uniqueFloors.length > 1 && (
+                    <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
+                      <button
+                        onClick={() => setSelectedFloor("All Floors")}
+                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                          selectedFloor === "All Floors"
+                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                            : "text-gray-500 hover:bg-gray-200/50"
                         }`}
-                    >
-                      {f.replace("_", " ")}
-                    </button>
-                  ))}
+                      >
+                        All Floors
+                      </button>
+                      {uniqueFloors.map((floor) => (
+                        <button
+                          key={floor}
+                          onClick={() => setSelectedFloor(floor)}
+                          className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                            selectedFloor === floor
+                              ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                              : "text-gray-500 hover:bg-gray-200/50"
+                          }`}
+                        >
+                          {floor}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {uniqueFloors.length > 1 && <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>}
+
+                  <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
+                    {(
+                      [
+                        "all",
+                        "occupied",
+                        "free",
+                        "bill_requested",
+                      ] as TableFilter[]
+                    ).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setTableFilter(f)}
+                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                          tableFilter === f
+                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                            : "text-gray-500 hover:bg-gray-200/50"
+                        }`}
+                      >
+                        {f.replace("_", " ")}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
+
+                  <CustomSelect
+                    value={tableSort}
+                    onChange={(val: TableSort) => setTableSort(val)}
+                    className="w-48"
+                    buttonClassName="!h-10 !rounded-xl !bg-white"
+                    options={[
+                      { value: "table", label: "Sort by Number" },
+                      { value: "total", label: "Sort by Value" },
+                      { value: "seated", label: "Sort by Time" }
+                    ]}
+                  />
                 </div>
 
-                <div className="h-6 w-px bg-gray-200 mx-2 hidden sm:block"></div>
-
-                <select
-                  value={tableSort}
-                  onChange={(e) => setTableSort(e.target.value as TableSort)}
-                  className="bg-transparent text-xs font-medium text-gray-600 focus:outline-none cursor-pointer hover:text-gray-900"
-                >
-                  <option value="table">Sort by Number</option>
-                  <option value="total">Sort by Value</option>
-                  <option value="seated">Sort by Time</option>
-                </select>
-              </div>
-
-              <div className="relative group w-full sm:w-64">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search table..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900/10 bg-gray-50 focus:bg-white transition-all"
-                />
+                <div className="relative group w-full 2xl:w-64 shrink-0">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search table..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900/10 bg-gray-50 focus:bg-white transition-all"
+                  />
+                </div>
               </div>
             </div>
 
-            {uniqueFloors.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5 bg-gray-100/50 p-1.5 rounded-xl w-fit mb-6 border border-gray-200/50">
-                <button
-                  onClick={() => setSelectedFloor("All Floors")}
-                  className={`px-4.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                    selectedFloor === "All Floors"
-                      ? "bg-white text-gray-900 shadow-xs ring-1 ring-gray-200/50 font-extrabold"
-                      : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  All Floors
-                </button>
-                {uniqueFloors.map((floor) => (
-                  <button
-                    key={floor}
-                    onClick={() => setSelectedFloor(floor)}
-                    className={`px-4.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                      selectedFloor === floor
-                        ? "bg-white text-gray-900 shadow-xs ring-1 ring-gray-200/50 font-extrabold"
-                        : "text-gray-500 hover:text-gray-900"
-                    }`}
-                  >
-                    {floor}
-                  </button>
-                ))}
-              </div>
-            )}
-
+            <div className="p-4 sm:p-8">
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
               {filteredTables.length === 0 && (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
@@ -1253,18 +1293,18 @@ export default function StaffDashboardPage() {
                 else if (!isFree && isBillRequested) statusBar = "bg-indigo-400";
                 else if (!isFree && isPaid) statusBar = "bg-emerald-400";
                 else if (!isFree && longSit) statusBar = "bg-rose-400";
-                else if (!isFree) statusBar = "bg-emerald-500";
+                else if (!isFree) statusBar = "bg-[#fe5c13]";
 
                 let cardStyle = "bg-white border-gray-200 shadow-sm hover:shadow-md";
                 if (isDisabled) cardStyle = "bg-gray-50/60 border-gray-200 border-dashed opacity-60";
                 else if (isFree) cardStyle = "bg-gray-50 border-gray-200 border-dashed";
-                else if (isBillRequested) cardStyle = "bg-slate-50/40 border-[#FFC529] shadow-sm";
+                else if (isBillRequested) cardStyle = "bg-slate-50/40 border-indigo-400 shadow-sm";
                 else if (longSit) cardStyle = "bg-rose-50/40 border-rose-200 shadow-sm";
 
                 return (
                   <div
                     key={table.id}
-                    className={`relative flex flex-col w-full rounded-2xl border transition-all duration-200 hover:shadow-lg ${cardStyle}`}
+                    className={`relative flex flex-col w-full rounded-2xl border transition-all duration-200 hover:shadow-lg active:scale-[0.98] cursor-pointer ${cardStyle}`}
                   >
                     <div className={`h-1 w-full rounded-t-2xl ${statusBar}`} />
                     <div className="p-4 flex flex-col gap-3">
@@ -1422,6 +1462,7 @@ export default function StaffDashboardPage() {
                 );
               })}
             </div>
+          </div>
           </div>
         </main>
 

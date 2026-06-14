@@ -60,7 +60,7 @@ export default function ARPreview({ onClose, initialItemId }: ARPreviewProps) {
                         <X className="h-5 w-5 text-gray-900" />
                     </button>
                     <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 backdrop-blur-xl border border-gray-200 shadow-sm">
-                        <Camera className="h-4 w-4 text-[#D9A016]" />
+                        <Camera className="h-4 w-4 text-[#fe5c13]" />
                         <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">AR Preview</span>
                     </div>
                     <button className="rounded-full bg-white/80 p-2.5 backdrop-blur-xl border border-gray-200 shadow-sm">
@@ -75,7 +75,7 @@ export default function ARPreview({ onClose, initialItemId }: ARPreviewProps) {
                             {/* Shadow */}
                             <div
                                 className="absolute -bottom-4 left-1/2 h-6 w-48 -translate-x-1/2 rounded-full opacity-20 blur-xl"
-                                style={{ backgroundColor: '#D9A016' }}
+                                style={{ backgroundColor: '#fe5c13' }}
                             />
                             {/* Food image */}
                             <div
@@ -105,7 +105,7 @@ export default function ARPreview({ onClose, initialItemId }: ARPreviewProps) {
                                             {selectedItem.name}
                                         </h3>
                                     </div>
-                                    <p className="mt-0.5 text-lg font-black text-[#D9A016]">
+                                    <p className="mt-0.5 text-lg font-black text-[#fe5c13]">
                                         ₹{selectedItem.price}
                                     </p>
                                 </div>
@@ -115,9 +115,9 @@ export default function ARPreview({ onClose, initialItemId }: ARPreviewProps) {
                         <div className="text-center">
                             {/* Scanning animation */}
                             <div className="relative mx-auto h-48 w-48">
-                                <div className="absolute inset-0 rounded-3xl border-2 border-dashed border-[#FFC529]/30 animate-pulse" />
+                                <div className="absolute inset-0 rounded-3xl border-2 border-dashed border-[#fe5c13]/30 animate-pulse" />
                                 <div
-                                    className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#FFC529] to-transparent shadow-[0_0_15px_rgba(255,197,41,0.5)]"
+                                    className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#fe5c13] to-transparent shadow-[0_0_15px_rgba(255,197,41,0.5)]"
                                     style={{
                                         animation: 'scanLine 2s ease-in-out infinite',
                                         top: '50%',
@@ -155,7 +155,7 @@ export default function ARPreview({ onClose, initialItemId }: ARPreviewProps) {
                                     setPlaced(true);
                                 }}
                                 className={`flex-shrink-0 overflow-hidden rounded-2xl border-2 transition-all ${selectedItemId === item.id && placed
-                                    ? 'border-[#FFC529] shadow-lg shadow-[#FFC529]/20'
+                                    ? 'border-[#fe5c13] shadow-lg shadow-[#fe5c13]/20'
                                     : 'border-transparent bg-gray-50 hover:bg-white hover:border-gray-200'
                                     }`}
                             >

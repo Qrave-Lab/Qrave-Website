@@ -147,12 +147,12 @@ export default function MenuInventory() {
                             setViewMode('active');
                             setShowForm(true);
                         }}
-                        className="flex items-center gap-1.5 rounded-lg bg-[#FFC529] px-4 py-2 text-xs font-bold text-black"
+                        className="flex items-center gap-1.5 rounded-lg bg-[#fe5c13] px-4 py-2 text-xs font-bold text-black"
                     >
                         <Plus className="h-3.5 w-3.5" />
                         New Product
                     </button>
-                    <span className="rounded-full bg-[#FFC529]/10 px-3 py-1 text-[11px] font-bold text-[#FFC529]">
+                    <span className="rounded-full bg-[#fe5c13]/10 px-3 py-1 text-[11px] font-bold text-[#fe5c13]">
                         DEMO MODE
                     </span>
                 </div>
@@ -163,12 +163,12 @@ export default function MenuInventory() {
                 <div className="rounded-xl border border-gray-200 bg-gray-50/50 px-5 py-4">
                     <div className="mb-3 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            <Plus className="h-4 w-4 text-[#D9A016]" />
+                            <Plus className="h-4 w-4 text-[#fe5c13]" />
                             Add Subcategory
                         </div>
                         <button
                             onClick={() => setShowCategories(true)}
-                            className="text-xs font-semibold text-[#D9A016] hover:text-[#C4900F] transition-colors"
+                            className="text-xs font-semibold text-[#fe5c13] hover:text-[#C4900F] transition-colors"
                         >
                             Manage Names →
                         </button>
@@ -177,7 +177,7 @@ export default function MenuInventory() {
                         <select
                             value={subCatGroup}
                             onChange={(e) => setSubCatGroup(e.target.value)}
-                            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20"
+                            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
                         >
                             {state.categories.map((c) => (
                                 <option key={c.id} value={c.id}>
@@ -190,12 +190,12 @@ export default function MenuInventory() {
                             onChange={(e) => setSubCatName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAddSubCategory()}
                             placeholder="e.g. Pizzas, Burgers, Chinese"
-                            className="flex-1 min-w-[200px] rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20"
+                            className="flex-1 min-w-[200px] rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
                         />
                         <button
                             onClick={handleAddSubCategory}
                             disabled={!subCatName.trim()}
-                            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#FFC529] to-[#F0B820] px-5 py-2.5 text-sm font-bold text-black shadow-md shadow-[#FFC529]/20 disabled:opacity-40 transition-all"
+                            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#fe5c13] to-[#fe5c13] px-5 py-2.5 text-sm font-bold text-black shadow-md shadow-[#fe5c13]/20 disabled:opacity-40 transition-all"
                         >
                             <Plus className="h-4 w-4" />
                             Add
@@ -210,7 +210,7 @@ export default function MenuInventory() {
                     <button
                         onClick={() => setViewMode('active')}
                         className={`rounded-md px-3 py-1.5 text-xs font-bold ${viewMode === 'active'
-                            ? 'bg-[#FFC529] text-black'
+                            ? 'bg-[#fe5c13] text-black'
                             : 'text-gray-500'
                             }`}
                     >
@@ -219,7 +219,7 @@ export default function MenuInventory() {
                     <button
                         onClick={() => setViewMode('archived')}
                         className={`rounded-md px-3 py-1.5 text-xs font-bold ${viewMode === 'archived'
-                            ? 'bg-[#FFC529] text-black'
+                            ? 'bg-[#fe5c13] text-black'
                             : 'text-gray-500'
                             }`}
                     >
@@ -230,7 +230,7 @@ export default function MenuInventory() {
                     <button
                         onClick={() => setCategoryFilter('all')}
                         className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${categoryFilter === 'all'
-                            ? 'bg-gradient-to-r from-[#FFC529] to-[#F0B820] text-black shadow-md shadow-[#FFC529]/20'
+                            ? 'bg-gradient-to-r from-[#fe5c13] to-[#fe5c13] text-black shadow-md shadow-[#fe5c13]/20'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
@@ -241,7 +241,7 @@ export default function MenuInventory() {
                             key={cat.id}
                             onClick={() => setCategoryFilter(cat.id)}
                             className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${categoryFilter === cat.id
-                                ? 'bg-gradient-to-r from-[#FFC529] to-[#F0B820] text-black shadow-md shadow-[#FFC529]/20'
+                                ? 'bg-gradient-to-r from-[#fe5c13] to-[#fe5c13] text-black shadow-md shadow-[#fe5c13]/20'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
@@ -254,7 +254,7 @@ export default function MenuInventory() {
                         type="checkbox"
                         checked={selectAll}
                         onChange={handleSelectAll}
-                        className="h-4 w-4 rounded border-gray-300 text-[#FFC529] focus:ring-[#FFC529]/20"
+                        className="h-4 w-4 rounded border-gray-300 text-[#fe5c13] focus:ring-[#fe5c13]/20"
                     />
                     Select All
                 </label>
@@ -264,7 +264,7 @@ export default function MenuInventory() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search menu..."
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20"
+                        className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
                     />
                 </div>
             </div>

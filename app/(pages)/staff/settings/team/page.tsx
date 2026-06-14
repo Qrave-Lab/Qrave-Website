@@ -6,7 +6,7 @@ import StaffManager from "@/app/components/settings/StaffManager";
 
 export default function TeamSettingsPage() {
   return (
-    <SettingsPageLayout title="Team Members" description="Add, edit, or remove staff and manage their roles.">
+    <SettingsPageLayout title="Team Members" description="Add, edit, or remove staff and manage their roles." fullBleed>
       <StaffManager />
     </SettingsPageLayout>
   );

@@ -372,13 +372,13 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`relative shrink-0 whitespace-nowrap px-3 py-3.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeTab === tab
-                                ? 'text-[#D9A016]'
+                                ? 'text-[#fe5c13]'
                                 : 'text-gray-400 hover:text-gray-600'
                                 }`}
                         >
                             {tab}
                             {activeTab === tab && (
-                                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#FFC529]" />
+                                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#fe5c13]" />
                             )}
                         </button>
                     ))}
@@ -393,13 +393,13 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                 <div className="flex-1">
                                     {/* Product Name */}
                                     <div className="mb-6">
-                                        <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                        <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                             Product Name
                                         </label>
                                         <input
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
-                                            className="w-full border-b-2 border-gray-200 bg-transparent pb-2 text-xl font-semibold text-gray-900 placeholder:text-gray-300 focus:border-[#FFC529] focus:outline-none transition-colors"
+                                            className="w-full border-b-2 border-gray-200 bg-transparent pb-2 text-xl font-semibold text-gray-900 placeholder:text-gray-300 focus:border-[#fe5c13] focus:outline-none transition-colors"
                                             placeholder="e.g. Signature Truffle Burger"
                                         />
                                     </div>
@@ -407,13 +407,13 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                     {/* Description */}
                                     <div className="mb-6">
                                         <div className="mb-2 flex items-center justify-between">
-                                            <label className="text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                            <label className="text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                                 Description
                                             </label>
                                             <button
                                                 onClick={handleAiImprove}
                                                 disabled={isImproving || !name.trim()}
-                                                className="flex items-center gap-1.5 rounded-lg border border-[#FFC529]/30 bg-[#FFC529]/10 px-3 py-1.5 text-[11px] font-bold text-[#D9A016] hover:bg-[#FFC529]/20 transition-colors disabled:opacity-50"
+                                                className="flex items-center gap-1.5 rounded-lg border border-[#fe5c13]/30 bg-[#fe5c13]/10 px-3 py-1.5 text-[11px] font-bold text-[#fe5c13] hover:bg-[#fe5c13]/20 transition-colors disabled:opacity-50"
                                             >
                                                 <Sparkles className={`h-3 w-3 ${isImproving ? 'animate-spin' : ''}`} />
                                                 {isImproving ? 'GENERATING...' : 'AI IMPROVE'}
@@ -423,7 +423,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                             value={description}
                                             onChange={(e) => setDescription(e.target.value)}
                                             rows={4}
-                                            className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20 resize-y"
+                                            className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20 resize-y"
                                             placeholder="Describe taste, texture, and presentation..."
                                         />
                                     </div>
@@ -446,12 +446,12 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                         key={a}
                                                         onClick={() => toggleAllergen(a)}
                                                         className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${active
-                                                            ? 'border-[#FFC529]/40 bg-[#FFC529]/10 text-[#D9A016]'
+                                                            ? 'border-[#fe5c13]/40 bg-[#fe5c13]/10 text-[#fe5c13]'
                                                             : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
                                                             }`}
                                                     >
                                                         <div
-                                                            className={`h-2 w-2 rounded-full ${active ? 'bg-[#FFC529]' : 'bg-gray-300'}`}
+                                                            className={`h-2 w-2 rounded-full ${active ? 'bg-[#fe5c13]' : 'bg-gray-300'}`}
                                                         />
                                                         {a}
                                                     </button>
@@ -465,26 +465,26 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                             {/* Base Price + Calories */}
                             <div className="mt-6 grid grid-cols-2 gap-6">
                                 <div>
-                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                         Base Price (₹)
                                     </label>
                                     <input
                                         type="number"
                                         value={price}
                                         onChange={(e) => setPrice(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20"
+                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
                                         placeholder="₹"
                                     />
                                 </div>
                                 <div>
-                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                         Calories (kcal)
                                     </label>
                                     <input
                                         type="number"
                                         value={calories}
                                         onChange={(e) => setCalories(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20"
+                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
                                         placeholder="e.g. 320"
                                     />
                                 </div>
@@ -493,7 +493,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                             {/* Category Group + Subcategory */}
                             <div className="mt-6 grid grid-cols-2 gap-6">
                                 <div>
-                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                         Category Group
                                     </label>
                                     <select
@@ -502,7 +502,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                             setCategoryId(e.target.value);
                                             setSubcategoryId('');
                                         }}
-                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm font-semibold text-gray-900 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20 appearance-none cursor-pointer"
+                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm font-semibold text-gray-900 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20 appearance-none cursor-pointer"
                                     >
                                         {state.categories.map((c) => (
                                             <option key={c.id} value={c.id}>
@@ -512,13 +512,13 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                         Subcategory
                                     </label>
                                     <select
                                         value={subcategoryId}
                                         onChange={(e) => setSubcategoryId(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm font-semibold text-gray-900 focus:border-[#FFC529] focus:outline-none focus:ring-1 focus:ring-[#FFC529]/20 appearance-none cursor-pointer"
+                                        className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm font-semibold text-gray-900 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20 appearance-none cursor-pointer"
                                     >
                                         <option value="">None</option>
                                         {filteredSubcats.map((s) => (
@@ -532,8 +532,8 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
 
                             {/* Specials */}
                             <div className="mt-8">
-                                <div className="rounded-xl bg-gradient-to-r from-[#FFC529]/15 to-[#FFC529]/5 px-5 py-3">
-                                    <span className="text-xs font-extrabold uppercase tracking-widest text-[#D9A016]">
+                                <div className="rounded-xl bg-gradient-to-r from-[#fe5c13]/15 to-[#fe5c13]/5 px-5 py-3">
+                                    <span className="text-xs font-extrabold uppercase tracking-widest text-[#fe5c13]">
                                         Specials
                                     </span>
                                 </div>
@@ -570,14 +570,14 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                 value={variant.name}
                                                 onChange={(e) => updateVariant(variant.id, 'name', e.target.value)}
                                                 placeholder="Variant name (e.g. Large)"
-                                                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                             />
                                             <input
                                                 type="number"
                                                 value={variant.price}
                                                 onChange={(e) => updateVariant(variant.id, 'price', e.target.value)}
                                                 placeholder="Price"
-                                                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                             />
                                             <button
                                                 onClick={() => removeVariant(variant.id)}
@@ -627,7 +627,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                     value={group.name}
                                                     onChange={(e) => updateModifierGroup(group.id, 'name', e.target.value)}
                                                     placeholder="Group name (e.g. Extra Toppings)"
-                                                    className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                                    className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                                 />
                                                 <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
                                                     <input
@@ -636,7 +636,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                         onChange={(e) =>
                                                             updateModifierGroup(group.id, 'required', e.target.checked)
                                                         }
-                                                        className="h-4 w-4 rounded border-gray-300 text-[#FFC529]"
+                                                        className="h-4 w-4 rounded border-gray-300 text-[#fe5c13]"
                                                     />
                                                     Required
                                                 </label>
@@ -657,7 +657,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                                 updateModifierOption(group.id, option.id, 'name', e.target.value)
                                                             }
                                                             placeholder="Option name"
-                                                            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                                            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                                         />
                                                         <input
                                                             type="number"
@@ -666,7 +666,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                                 updateModifierOption(group.id, option.id, 'price', e.target.value)
                                                             }
                                                             placeholder="Add-on price"
-                                                            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                                            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                                         />
                                                         <button
                                                             onClick={() => removeModifierOption(group.id, option.id)}
@@ -697,7 +697,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                             <div className="grid grid-cols-2 gap-6">
                                 {/* Display Image */}
                                 <div>
-                                    <label className="mb-3 block text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                    <label className="mb-3 block text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                         Display Image
                                     </label>
                                     <input
@@ -710,7 +710,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                     <button
                                         type="button"
                                         onClick={() => imageInputRef.current?.click()}
-                                        className="flex h-52 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9FAFB] transition-colors hover:border-[#FFC529]/40 hover:bg-[#FFC529]/5"
+                                        className="flex h-52 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9FAFB] transition-colors hover:border-[#fe5c13]/40 hover:bg-[#fe5c13]/5"
                                     >
                                         <Upload className="mb-2 h-6 w-6 text-gray-400" />
                                         <span className="text-sm font-semibold text-gray-700">
@@ -728,7 +728,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                         <input
                                             value={image}
                                             onChange={(e) => setImage(e.target.value)}
-                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 focus:border-[#FFC529] focus:outline-none"
+                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 focus:border-[#fe5c13] focus:outline-none"
                                             placeholder="Image URL..."
                                         />
                                     </div>
@@ -736,23 +736,23 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
 
                                 {/* GLB Upload */}
                                 <div>
-                                    <label className="mb-3 block text-[11px] font-bold uppercase tracking-widest text-[#D9A016]">
+                                    <label className="mb-3 block text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                         3D Asset (.GLB)
                                     </label>
                                     <button
                                         onClick={() => setShowGlbNotice(true)}
-                                        className="flex h-52 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9FAFB] transition-colors hover:border-[#FFC529]/40 hover:bg-[#FFC529]/5"
+                                        className="flex h-52 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9FAFB] transition-colors hover:border-[#fe5c13]/40 hover:bg-[#fe5c13]/5"
                                     >
-                                        <Box className="mb-2 h-6 w-6 text-[#D9A016]/60" />
-                                        <span className="text-sm font-semibold text-[#D9A016]">Upload GLB for AR</span>
+                                        <Box className="mb-2 h-6 w-6 text-[#fe5c13]/60" />
+                                        <span className="text-sm font-semibold text-[#fe5c13]">Upload GLB for AR</span>
                                     </button>
                                 </div>
                             </div>
 
                             {/* GLB Not Available Notice */}
                             {showGlbNotice && (
-                                <div className="mt-6 flex items-start gap-3 rounded-xl border border-[#FFC529]/30 bg-[#FFC529]/5 p-4">
-                                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#D9A016]" />
+                                <div className="mt-6 flex items-start gap-3 rounded-xl border border-[#fe5c13]/30 bg-[#fe5c13]/5 p-4">
+                                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#fe5c13]" />
                                     <div>
                                         <p className="text-sm font-bold text-gray-900">Not available for demo</p>
                                         <p className="mt-0.5 text-xs text-gray-500">
@@ -774,7 +774,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                     {/* ━━━ INGREDIENTS ━━━ */}
                     {activeTab === 'Ingredients' && (
                         <div className="p-8">
-                            <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-[#FFC529]/10 to-transparent px-5 py-4">
+                            <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-[#fe5c13]/10 to-transparent px-5 py-4">
                                 <div>
                                     <h3 className="text-sm font-bold text-gray-900">Structured Ingredients</h3>
                                     <p className="mt-0.5 text-xs text-gray-400">
@@ -803,7 +803,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                 value={ingredient}
                                                 onChange={(e) => updateIngredient(index, e.target.value)}
                                                 placeholder="Ingredient name"
-                                                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                             />
                                             <button
                                                 onClick={() => removeIngredient(index)}
@@ -862,7 +862,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                 key={day}
                                                 onClick={() => toggleDay(day)}
                                                 className={`rounded-xl px-5 py-3 text-xs font-extrabold tracking-wider transition-all ${active
-                                                    ? 'bg-gradient-to-b from-[#FFC529] to-[#F0B820] text-white shadow-lg shadow-[#FFC529]/25'
+                                                    ? 'bg-gradient-to-b from-[#fe5c13] to-[#fe5c13] text-white shadow-lg shadow-[#fe5c13]/25'
                                                     : 'border border-gray-200 bg-white text-gray-400 hover:bg-gray-50'
                                                     }`}
                                             >
@@ -881,7 +881,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                             type="time"
                                             value={availableFrom}
                                             onChange={(e) => setAvailableFrom(e.target.value)}
-                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                         />
                                     </div>
                                     <div>
@@ -893,7 +893,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                             type="time"
                                             value={availableTo}
                                             onChange={(e) => setAvailableTo(e.target.value)}
-                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#FFC529] focus:outline-none"
+                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                         />
                                     </div>
                                 </div>

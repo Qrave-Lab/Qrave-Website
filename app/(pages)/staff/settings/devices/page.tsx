@@ -6,7 +6,7 @@ import DeviceSettings from "@/app/components/settings/DeviceSettings";
 
 export default function DeviceSettingsPage() {
   return (
-    <SettingsPageLayout title="Devices" description="Manage printers, terminals and connected hardware.">
+    <SettingsPageLayout title="Devices" description="Manage printers, terminals and connected hardware." fullBleed>
       <DeviceSettings />
     </SettingsPageLayout>
   );
