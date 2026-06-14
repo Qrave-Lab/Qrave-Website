@@ -200,11 +200,22 @@ type BranchOption = {
 const normalizeAssetUrl = (value: string): string => {
   const raw = String(value || "").trim();
   if (!raw) return "";
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-  if (raw.startsWith("//")) return `https:${raw}`;
-  if (/^[a-z0-9-]+\.cloudfront\.net\//i.test(raw)) return `https://${raw}`;
-  if (/^[a-z0-9.-]+\.amazonaws\.com\//i.test(raw)) return `https://${raw}`;
-  return raw;
+  let url = raw;
+  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+    if (raw.startsWith("//")) url = `https:${raw}`;
+    else if (/^[a-z0-9-]+\.cloudfront\.net\//i.test(raw)) url = `https://${raw}`;
+    else if (/^[a-z0-9.-]+\.amazonaws\.com\//i.test(raw)) url = `https://${raw}`;
+  }
+
+  // Rewrite CloudFront URLs through our local relative assets proxy to bypass CORS
+  if (url.includes("dzsxi8qe0pwwl.cloudfront.net")) {
+    const parts = url.split("dzsxi8qe0pwwl.cloudfront.net");
+    if (parts.length > 1) {
+      return `/api/proxy-model${parts[1]}`;
+    }
+  }
+
+  return url;
 };
 
 const toDateTimeLocal = (value: string | null | undefined) => {
