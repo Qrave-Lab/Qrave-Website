@@ -17,6 +17,7 @@ import {
   Printer,
   QrCode,
   Receipt,
+  RefreshCw,
   Sliders,
   Store,
   Users,
@@ -232,6 +233,7 @@ export default function SettingsPage() {
     { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
     { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
     { title: "Feedback & Issues", subtitle: "Report bugs, request features, or share thoughts about Qrave", href: "/staff/settings/feedback", icon: MessageSquare, show: canAccess("feedback", true) },
+    { title: "Sync Queue Monitor", subtitle: "View offline queues and sync statuses", href: "/staff/settings/sync-queue", icon: RefreshCw, show: true },
   ];
 
   return (
