@@ -120,7 +120,7 @@ export default function TitleManager() {
     const label = getSectionLabel(pathname);
     if (!label) return "";
 
-    let table =
+    const table =
       searchParams?.get("table") ||
       searchParams?.get("t") ||
       searchParams?.get("table_id") ||

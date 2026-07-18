@@ -302,7 +302,7 @@ const CheckoutPage: React.FC = () => {
 
     const ensureSession = async () => {
       if (typeof window === "undefined") return null;
-      let session = localStorage.getItem("session_id");
+      const session = localStorage.getItem("session_id");
       if (session) return session;
 
       const restaurantId =

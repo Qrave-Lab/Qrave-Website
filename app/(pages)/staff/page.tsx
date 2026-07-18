@@ -369,7 +369,7 @@ export default function StaffDashboardPage() {
       api<{ orders: any[] }>("/api/admin/takeaway/orders?status=active").catch(() => ({ orders: [] })),
     ]);
 
-    let ordersList = ordersRes?.orders || [];
+    const ordersList = ordersRes?.orders || [];
     const sessionsList = sessionsRes?.sessions || [];
     const takeawayOrdersList = takeawayRes?.orders || [];
     const tablesApi = tablesRes || [];
@@ -979,7 +979,7 @@ export default function StaffDashboardPage() {
     setIsMerging(true);
     try {
       for (const targetTableId of selectedMergeTableIds) {
-        // eslint-disable-next-line no-await-in-loop
+         
         await mergeTableInto(targetTableId, false);
       }
       await refreshDashboard();

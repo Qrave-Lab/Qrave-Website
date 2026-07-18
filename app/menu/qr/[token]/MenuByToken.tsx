@@ -19,7 +19,7 @@ export default function MenuByToken({ token }: Props) {
     const lastToken = localStorage.getItem("qr_token");
 
     if (existing && lastToken === token) {
-      setReady(true);
+      setTimeout(() => setReady(true), 0);
       return;
     }
 
