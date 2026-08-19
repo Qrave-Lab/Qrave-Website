@@ -45,7 +45,7 @@ interface FoodCardProps {
   item: MenuItem;
   ratingStyles: { container: string; icon: string };
   currentQty: number;
-  onAdd: (itemId: string, variantId?: string, price?: number) => void;
+  onAdd: (itemId: string, variantId?: string, price?: number, notes?: string) => void;
   onRemove: (itemId: string, variantId?: string) => void;
   onArClick: (item: MenuItem) => void;
   showArTour?: boolean;
@@ -69,6 +69,8 @@ const FoodCard: React.FC<FoodCardProps> = ({
   layout = "list",
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
   const { t } = useLanguageStore();
   const isAvailable = item.isAvailable !== false && !item.isOutOfStock;
 
@@ -119,7 +121,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
           </span>
           <motion.button
             whileTap={{ scale: 0.92 }}
-            onClick={() => onAdd(item.id, activeVariantId, displayPrice)}
+            onClick={() => onAdd(item.id, activeVariantId, displayPrice, notes)}
             className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#ede5d8] transition-colors"
           >
             <Plus className="w-[14px] h-[14px] text-[#3D2B1F]" strokeWidth={2.5} />
@@ -132,7 +134,11 @@ const FoodCard: React.FC<FoodCardProps> = ({
       <motion.button
         whileHover={{ scale: 1.05, backgroundColor: "#5C3D2A" }}
         whileTap={{ scale: 0.92 }}
-        onClick={() => onAdd(item.id, activeVariantId, displayPrice)}
+        onClick={() => {
+          onAdd(item.id, activeVariantId, displayPrice, notes);
+          setNotes("");
+          setShowNotes(false);
+        }}
         className="w-[30px] h-[30px] rounded-[10px] bg-[#3D2B1F] flex items-center justify-center flex-shrink-0 cursor-pointer shadow-sm transition-all"
       >
         <Plus className="w-4 h-4 text-[#F7F2EB]" strokeWidth={2.5} />
@@ -263,21 +269,41 @@ const FoodCard: React.FC<FoodCardProps> = ({
           </div>
         )}
 
-        <div className="flex flex-row justify-between items-center mt-2 h-[32px]">
-          <div className="flex items-baseline flex-wrap">
-            <span className="font-dm-sans text-[16px] font-[800] text-[#3D2B1F] tracking-[-0.02em] leading-none">
-             <span className="text-[12px] opacity-80 font-[700] mr-0.5 tracking-normal">₹</span>{formatPrice(displayPrice)}
-            </span>
-            {hasDiscount && (
-              <span className="ml-[5px] font-dm-sans text-[12px] text-[#B3A08E] line-through font-[500] leading-none">
-                ₹{formatPrice(displayBaseWithoutDiscount)}
+        <div className="flex flex-col mt-2">
+          <div className="flex flex-row justify-between items-center min-h-[32px]">
+            <div className="flex items-baseline flex-wrap">
+              <span className="font-dm-sans text-[16px] font-[800] text-[#3D2B1F] tracking-[-0.02em] leading-none">
+              <span className="text-[12px] opacity-80 font-[700] mr-0.5 tracking-normal">₹</span>{formatPrice(displayPrice)}
               </span>
-            )}
+              {hasDiscount && (
+                <span className="ml-[5px] font-dm-sans text-[12px] text-[#B3A08E] line-through font-[500] leading-none">
+                  ₹{formatPrice(displayBaseWithoutDiscount)}
+                </span>
+              )}
+            </div>
+            
+            <div className="relative z-10 flex items-center gap-2">
+              {currentQty === 0 && (
+                <button 
+                  onClick={() => setShowNotes(!showNotes)} 
+                  className="text-[10px] text-[#A03C00] font-semibold underline underline-offset-2"
+                >
+                  {showNotes ? "Cancel" : "+ Note"}
+                </button>
+              )}
+              <AddControls />
+            </div>
           </div>
           
-          <div className="relative z-10 flex items-center">
-            <AddControls />
-          </div>
+          {showNotes && currentQty === 0 && (
+            <input 
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. less spicy, no onions..."
+              className="mt-2 w-full text-xs p-1.5 rounded-md border border-[#EDE5D8] bg-[#F7F2EB] text-[#3D2B1F] focus:outline-none focus:border-[#C45200] transition-colors"
+            />
+          )}
         </div>
       </div>
       

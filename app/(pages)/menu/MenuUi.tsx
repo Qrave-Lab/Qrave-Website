@@ -604,12 +604,12 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     setExpandedCategories(initial);
   }, [translatedItems]);
 
-  const handleAdd = async (id: string, vId?: string, price?: number) => {
+  const handleAdd = async (id: string, vId?: string, price?: number, notes?: string) => {
     if (previewMode) {
       const key = getCartKey(id, vId || "");
       setPreviewCart((prev) => ({
         ...prev,
-        [key]: { quantity: (prev[key]?.quantity || 0) + 1, price: price || 0 },
+        [key]: { quantity: (prev[key]?.quantity || 0) + 1, price: price || 0, notes: notes || prev[key]?.notes },
       }));
       return;
     }
@@ -619,7 +619,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       });
       return;
     }
-    addItemStore(id, vId || "", price || 0);
+    addItemStore(id, vId || "", price || 0, [], notes);
   };
 
   const handleRemove = async (id: string, vId?: string) => {

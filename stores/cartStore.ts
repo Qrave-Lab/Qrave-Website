@@ -8,6 +8,7 @@ export const getCartKey = (id: string, variantId: string) =>
 type CartItemDTO = {
   quantity: number;
   price: number;
+  notes?: string;
 };
 
 type Cart = Record<string, CartItemDTO>;
@@ -48,7 +49,7 @@ type CartState = {
   addOrder: (order: Order) => void;
   setOrders: (orders: Order[]) => void;
   cart: Cart;
-  addItem: (id: string, variantId: string, price: number, modifierOptionIds?: string[]) => Promise<void>;
+  addItem: (id: string, variantId: string, price: number, modifierOptionIds?: string[], notes?: string) => Promise<void>;
   removeItem: (id: string, variantId: string) => Promise<void>;
   decrementItem: (id: string, variantId: string) => Promise<void>;
   clearCart: () => void;
@@ -65,7 +66,7 @@ export const useCartStore = create<CartState>()(
       setOrders: (orders) => set({ orders }),
       cart: {},
 
-      addItem: async (id, variantId, price, modifierOptionIds) => {
+      addItem: async (id, variantId, price, modifierOptionIds, notes) => {
         const key = getCartKey(id, variantId);
         set((state) => ({
           cart: {
@@ -73,13 +74,14 @@ export const useCartStore = create<CartState>()(
             [key]: {
               quantity: (state.cart[key]?.quantity || 0) + 1,
               price,
+              notes,
             },
           },
         }));
 
         return enqueueByKey(key, async () => {
           try {
-            await orderService.addItem(id, variantId, price, modifierOptionIds);
+            await orderService.addItem(id, variantId, price, modifierOptionIds, notes);
           } catch (error: any) {
             set((state) => {
               const current = state.cart[key];

@@ -44,6 +44,7 @@ type CartLine = {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  notes?: string;
 };
 
 type RecommendationItem = {
@@ -689,6 +690,7 @@ const CheckoutPage: React.FC = () => {
           quantity: cartItem.quantity,
           unitPrice,
           lineTotal: unitPrice * cartItem.quantity,
+          notes: cartItem.notes,
         };
       })
       .filter(Boolean) as CartLine[];
@@ -1410,6 +1412,11 @@ const CheckoutPage: React.FC = () => {
                             ₹{formatPrice(line.lineTotal)}
                           </p>
                         </div>
+                        {line.notes ? (
+                          <div className="mt-0.5 text-xs text-slate-500 italic">
+                            Note: {line.notes}
+                          </div>
+                        ) : null}
                         <div className="flex items-center justify-between mt-1">
                           <p
                             className="text-[11px]"

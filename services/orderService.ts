@@ -223,6 +223,7 @@ export const orderService = {
     variantId: string | null,
     price: number,
     modifierOptionIds?: string[],
+    notes?: string,
   ): Promise<any> {
     let sessionId = await orderService.ensureSession();
     if (!sessionId && typeof window !== "undefined") {
@@ -246,6 +247,7 @@ export const orderService = {
           modifier_option_ids: modifierOptionIds || [],
           quantity: 1,
           price,
+          notes,
         }),
         credentials: "include",
       });
