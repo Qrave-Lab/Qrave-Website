@@ -20,6 +20,9 @@ import {
   ChevronRight,
   Printer,
   Receipt,
+  Percent,
+  LineChart,
+  PieChart,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
@@ -94,7 +97,7 @@ const SimpleBars = ({ points }: { points: SalesPoint[] }) => {
 };
 
 export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState<"overview" | "profit" | "upsell" | "security" | "eod">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "profit" | "upsell" | "security" | "eod" | "food_cost" | "accounting" | "tally">("overview");
   const [analyticsCache, setAnalyticsCache] = useState<"live" | "degraded" | null>(null);
   const [bucket, setBucket] = useState<Bucket>("day");
   const [role, setRole] = useState<string>("");
@@ -133,6 +136,22 @@ export default function AnalyticsPage() {
   const [eodReport, setEodReport] = useState<any>(null);
   const [eodLoading, setEodLoading] = useState(false);
   const [eodError, setEodError] = useState("");
+
+  // Food Cost Data State
+  const [foodCostData, setFoodCostData] = useState<any>(null);
+  const [foodCostLoading, setFoodCostLoading] = useState(false);
+
+  const loadFoodCost = async () => {
+    setFoodCostLoading(true);
+    try {
+      const res = await api<any>("/api/admin/inventory/advanced/food-cost-report");
+      setFoodCostData(res);
+    } catch (err: any) {
+      console.error("Failed to load food cost:", err);
+    } finally {
+      setFoodCostLoading(false);
+    }
+  };
 
   const loadEOD = async (targetDate = eodDate) => {
     setEodLoading(true);
@@ -356,6 +375,8 @@ export default function AnalyticsPage() {
       loadSecurity();
     } else if (activeTab === "eod") {
       loadEOD();
+    } else if (activeTab === "food_cost") {
+      loadFoodCost();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, eodDate]);
@@ -527,6 +548,17 @@ export default function AnalyticsPage() {
             )}
           </button>
           <button
+            onClick={() => setActiveTab("food_cost")}
+            className={`py-4 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "food_cost"
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            <LineChart className="w-4 h-4" />
+            Food Cost
+          </button>
+          <button
             onClick={() => setActiveTab("eod")}
             className={`py-4 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === "eod"
@@ -537,9 +569,29 @@ export default function AnalyticsPage() {
             <Receipt className="w-4 h-4" />
             Daily Closing (EOD)
           </button>
-        </div>
-
-        {/* Cache Degraded Banner */}
+          <button
+            onClick={() => setActiveTab("accounting")}
+            className={`py-4 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "accounting"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            <PieChart className="w-4 h-4" />
+            Accounting (P&L)
+          </button>
+          <button
+            onClick={() => setActiveTab("tally")}
+            className={`py-4 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "tally"
+                ? "border-indigo-600 text-indigo-700"
+                : "border-transparent text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            <Download className="w-4 h-4" />
+            Tally Export
+          </button>
+        </div>        {/* Cache Degraded Banner */}
         {analyticsCache === "degraded" && (
           <div className="bg-amber-50 border-b border-amber-200 px-8 py-2 flex items-center gap-2 text-xs text-amber-800 font-semibold">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
@@ -1113,7 +1165,81 @@ export default function AnalyticsPage() {
                   </>
                 )}
               </div>
-            ) : (
+            ) : activeTab === "food_cost" ? (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold tracking-tight text-slate-900">Food Cost & Variance Report</h3>
+                  <p className="mt-1 text-sm text-slate-500">Compare actual consumption vs. expected consumption based on recipes to spot theft and portioning issues.</p>
+                </div>
+                
+                <div className="grid gap-6 md:grid-cols-3 mb-6">
+                  <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Target Food Cost</h3>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                        <Percent size={20} />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-slate-900">{foodCostData?.target_food_cost_percentage || "0.0"}%</p>
+                    <p className="mt-2 text-sm text-emerald-600">Optimal threshold</p>
+                  </article>
+
+                  <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Actual Food Cost</h3>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                        <LineChart size={20} />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-slate-900">{foodCostData?.actual_food_cost_percentage || "0.0"}%</p>
+                    <p className="mt-2 text-sm text-rose-600 font-medium">↑ +{((foodCostData?.actual_food_cost_percentage || 0) - (foodCostData?.target_food_cost_percentage || 0)).toFixed(1)}% over target</p>
+                  </article>
+
+                  <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Cost Variance (Value)</h3>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                        <AlertTriangle size={20} />
+                      </div>
+                    </div>
+                    <p className="text-3xl font-bold text-slate-900">₹{foodCostData?.cost_variance_value?.toLocaleString() || "0"}</p>
+                    <p className="mt-2 text-sm text-amber-600 font-medium">Lost to over-portioning/waste</p>
+                  </article>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h4 className="text-lg font-bold text-slate-900 mb-4">Actual vs. Expected Consumption</h4>
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 font-semibold text-slate-700">
+                        <tr>
+                          <th className="px-4 py-3">Ingredient</th>
+                          <th className="px-4 py-3">Expected (Recipes)</th>
+                          <th className="px-4 py-3">Actual (Ledger)</th>
+                          <th className="px-4 py-3">Variance</th>
+                          <th className="px-4 py-3">Value Lost</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {foodCostData?.consumption_breakdown?.map((item: any, i: number) => (
+                          <tr key={i} className={item.status === 'over' ? "bg-rose-50/30" : item.status === 'perfect' ? "bg-emerald-50/30" : ""}>
+                            <td className="px-4 py-3 font-medium text-slate-900">{item.ingredient_name}</td>
+                            <td className="px-4 py-3 text-slate-600">{item.expected_quantity} {item.unit}</td>
+                            <td className="px-4 py-3 text-slate-900">{item.actual_quantity} {item.unit}</td>
+                            <td className={`px-4 py-3 font-medium ${item.status === 'over' ? 'text-rose-600' : item.status === 'perfect' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              {item.variance > 0 ? `+${item.variance}` : item.variance} {item.unit} ({item.status === 'over' ? 'Over' : item.status === 'perfect' ? 'Perfect' : 'Under'})
+                            </td>
+                            <td className={`px-4 py-3 ${item.value_lost > 0 ? 'font-medium text-rose-700' : 'text-slate-600'}`}>
+                              {item.value_lost > 0 ? `₹${item.value_lost}` : '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === "eod" ? (
               /* ─── Daily Closing (EOD) Tab ─── */
               <div className="max-w-7xl mx-auto space-y-6 animate-fadeIn">
                 {/* EOD Header Control Bar */}
@@ -1314,7 +1440,42 @@ export default function AnalyticsPage() {
                   </>
                 )}
               </div>
-            )
+            ) : activeTab === "accounting" ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">General Ledger &amp; P&amp;L</h2>
+                    <p className="text-sm font-semibold text-slate-500 mt-1">Real-time profit and loss tracking with expense matching</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 shadow-sm">
+                  <PieChart className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="font-bold">Accounting dashboard rendering soon</p>
+                  <p className="text-sm mt-1">Fetching Live General Ledger &amp; Chart of Accounts...</p>
+                </div>
+              </div>
+            ) : activeTab === "tally" ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Tally ERP Export</h2>
+                    <p className="text-sm font-semibold text-slate-500 mt-1">Export GST-compliant Sales Vouchers for Tally Import</p>
+                  </div>
+                  <a
+                    href={`/api/admin/accounting/export/tally?start=${range.start}&end=${range.end}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-md shadow-indigo-600/20 hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download CSV
+                  </a>
+                </div>
+                <div className="bg-indigo-50/50 rounded-2xl border border-indigo-100 p-8 text-center text-indigo-800 shadow-sm">
+                  <p className="font-semibold text-sm">Download the Sales Register CSV which contains Invoice No, Party GSTIN, Taxable Value, and CGST/SGST/IGST breakdown.</p>
+                </div>
+              </div>
+            ) : null
           )}
         </main>
       </div>

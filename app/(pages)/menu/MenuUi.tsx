@@ -486,7 +486,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     mergeTheme(initialThemeConfig || previewThemeConfig || DEFAULT_THEME),
   );
   const [previewCart, setPreviewCart] = useState<
-    Record<string, { quantity: number; price: number }>
+    Record<string, { quantity: number; price: number; notes?: string }>
   >({});
   const [recommendations, setRecommendations] = useState<{
     frequently_bought_together: RecommendationItem[];

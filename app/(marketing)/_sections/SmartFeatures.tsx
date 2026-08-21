@@ -61,6 +61,33 @@ const SmartFeatures = () => {
       image: "/landing/feature_analytics.png",
       icon: <PieChart className="w-8 h-8 text-[#fe5c13]" />,
     },
+    {
+      title: (
+        <>
+          Advanced <span className="text-[#fe5c13]">Inventory & Recipes</span>
+        </>
+      ),
+      description:
+        "Multi-level Recipe Builders with yield factors, Auto Stock Deduction, fully-integrated Purchase Orders, Supplier Directory, and a live Food Cost Dashboard to maximize your margins.",
+      linkText: "Explore inventory management",
+      linkPath: "/feature/inventory",
+      image: "/landing/inventory-feature.png",
+      icon: <PieChart className="w-8 h-8 text-[#fe5c13]" />,
+    },
+    {
+      title: (
+        <>
+          Enterprise-Grade{" "}
+          <span className="text-[#fe5c13]">Accounting Suite</span> & GST
+        </>
+      ),
+      description:
+        "End-to-end financial operations with automated Accounts Payable, B2B Credit Notes, GSTR-1 & GSTR-3B Tax Liability Reports, and seamless Tally integration. Zero manual reconciliation.",
+      linkText: "Explore enterprise accounting",
+      linkPath: "/feature/accounting",
+      image: "/landing/reports-feature.png",
+      icon: <PieChart className="w-8 h-8 text-[#fe5c13]" />,
+    },
   ];
 
   return (
