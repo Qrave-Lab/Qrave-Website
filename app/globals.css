@@ -1458,3 +1458,68 @@ select option {
   from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* =========================================================================
+   LANDING PAGE (VITE MIGRATION) CUSTOM STYLES
+   ========================================================================= */
+
+@layer utilities {
+  .tracking-tightest {
+    letter-spacing: -0.055em;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Lenis smooth scroll */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Infinite marquee */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee-x 28s linear infinite;
+}
+.animate-marquee-slow {
+  animation: marquee-x 60s linear infinite;
+}
+
+/* Crosshair pulse in hero */
+@keyframes plus-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-plus-spin {
+  animation: plus-spin 14s linear infinite;
+}
+
+/* Reduced motion: respect user accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-marquee-slow {
+    animation: none;
+  }
+  .animate-plus-spin {
+    animation: none;
+  }
+}

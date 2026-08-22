@@ -1,79 +1,149 @@
-import { ArrowRight } from 'lucide-react';
-import Link from 'next/link';
-import Image from 'next/image';
+"use client";
 
-const Hero = () => {
+import { motion, useScroll, useTransform, useMotionValue, useMotionTemplate } from 'framer-motion'
+import type { MouseEvent } from 'react'
+
+
+
+const letterAnim = (i: number) => ({
+  initial: { y: '112%', rotate: 4, filter: 'blur(10px)' },
+  animate: { y: 0, rotate: 0, filter: 'blur(0px)' },
+  transition: { duration: 1, delay: 0.25 + i * 0.045, ease: [0.22, 1, 0.36, 1] as const },
+})
+
+export default function Hero({ started }: { started: boolean }) {
+  const { scrollY } = useScroll()
+  const scrollScale = useTransform(scrollY, [0, 800], [1, 0.85])
+  const word = 'qrave'.split('')
+
+  const mouseX = useMotionValue(-1000)
+  const mouseY = useMotionValue(-1000)
+  const isHovered = useMotionValue(0)
+
+  // Hoist motion templates out of JSX — created once, updated reactively
+  const maskImage = useMotionTemplate`radial-gradient(500px circle at ${mouseX}px ${mouseY}px, black 0%, transparent 100%)`
+
+  function handleMouseMove(e: MouseEvent<HTMLDivElement>) {
+    const { currentTarget, clientX, clientY } = e
+    const { left, top } = currentTarget.getBoundingClientRect()
+    mouseX.set(clientX - left)
+    mouseY.set(clientY - top)
+  }
+
   return (
-    <section className="relative min-h-[auto] sm:min-h-[90vh] pt-24 lg:pt-28 z-0 overflow-hidden bg-[#FAFAFA]">
-      {/* Abstract Background Decor */}
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `radial-gradient(#1c1d20 1px, transparent 1px)`,
-            backgroundSize: '32px 32px'
-          }}
-        />
-
-        <svg
-          viewBox="0 0 1440 800"
-          preserveAspectRatio="none"
-          className="absolute bottom-0 left-0 w-full h-full pointer-events-none"
+    <section id="top" className="sticky top-0 z-0 px-2 pt-[60px] pb-2 md:px-4 md:pt-[72px] md:pb-4">
+      <motion.div style={{ scale: scrollScale }} className="origin-top">
+        <motion.div
+          initial={{ scale: 0.97, opacity: 0 }}
+          animate={started ? { scale: 1, opacity: 1 } : {}}
+          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+          className="relative h-[calc(100vh-60px-8px)] md:h-[calc(100vh-72px-16px)] min-h-[620px] overflow-hidden rounded-[2rem] bg-black text-white cursor-crosshair"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={() => isHovered.set(1)}
+          onMouseLeave={() => isHovered.set(0)}
         >
-          <path d="M0,800 L0,600 C 400,600 800,100 1440,100 L1440,800 Z" fill="#fe5c13" fillOpacity="0.15" />
-          <path d="M0,800 L0,700 C 400,700 800,400 1440,400 L1440,800 Z" fill="#fe5c13" fillOpacity="0.35" />
-          <path d="M0,800 L0,760 C 400,780 1000,740 1440,760 L1440,800 Z" fill="#fe5c13" />
-        </svg>
-      </div>
+        {/* Background video (grayscale base) */}
+        <motion.video
+          src="/media/hero2.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          initial={{ scale: 1.15 }}
+          animate={started ? { scale: 1 } : {}}
+          transition={{ duration: 2.4, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 h-full w-full object-cover object-left opacity-90 grayscale"
+        />
+        
+        {/* Spotlight colored video — uses motion values directly, zero re-renders */}
+        {started && (
+          <motion.video
+            src="/media/hero2.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            initial={{ scale: 1.15, opacity: 0 }}
+            animate={{ scale: 1 }}
+            style={{
+              opacity: isHovered,
+              maskImage,
+              WebkitMaskImage: maskImage,
+            }}
+            transition={{
+              scale: { duration: 2.4, ease: [0.22, 1, 0.36, 1] },
+            }}
+            className="absolute inset-0 h-full w-full object-cover object-left pointer-events-none"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
 
-      <div className="section-padding relative z-10">
-        <div className="grid lg:grid-cols-2 gap-6 lg:gap-12 items-center min-h-[calc(100vh-7rem)] sm:min-h-[calc(100vh-7rem)]">
-          {/* Left Content - Hero Image */}
-          <div className="order-2 lg:order-1 flex justify-center lg:justify-start">
-            <div className="relative w-full max-w-[220px] sm:max-w-md lg:max-w-lg xl:max-w-xl">
-              <Image
-                src="/landing/Alternative Background Design.png"
-                alt="QRAVE POS System"
-                width={600}
-                height={600}
-                priority
-                className="w-full h-auto rounded-2xl"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              />
-            </div>
-          </div>
-
-          {/* Right Content */}
-          <div className="order-1 lg:order-2 py-4 lg:py-0">
-            <div className="space-y-5 lg:space-y-9 text-center lg:text-left">
-              <h1 className="text-[28px] sm:text-[42px] md:text-[52px] lg:text-[76px] font-black text-[#1F2127] tracking-tighter leading-[1.05]">
-                See what you,
-                <br />
-                crave <span className="relative inline-block text-[#fe5c13]">
-                  for
-                  <svg className="absolute -bottom-3 lg:-bottom-5 left-0 w-full h-3 lg:h-5 text-[#fe5c13]" viewBox="0 0 100 15" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M2.38883 12.8715C22.0833 7.8288 65.625 2.15833 97.5 10.375" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-                  </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+          <h1 className="flex select-none items-center justify-center text-[19vw] font-semibold leading-[0.85] tracking-tightest md:text-[15.5vw]">
+            {started &&
+              word.map((l, i) => (
+                <span key={i} className="inline-block overflow-hidden pb-[0.06em] px-[0.05em] mx-[-0.05em]">
+                  <motion.span className="inline-block will-change-transform" {...letterAnim(i)}>
+                    {l}
+                  </motion.span>
                 </span>
-              </h1>
-
-              <p className="text-[14px] sm:text-[18px] lg:text-[22px] font-medium text-gray-600 max-w-lg mx-auto lg:mx-0 leading-[1.65]">
-                Stop the chaos and start the crave. combine contactless 3D ordering, instant kitchen syncing, and smart analytics in one platform and run your café like a pro</p>
-              <div className="flex justify-center lg:justify-start">
-                <Link
-                  href="/demo"
-                  className="inline-flex items-center space-x-2 bg-[#fe5c13] text-black hover:bg-[#ECA918] px-7 py-3.5 sm:px-8 sm:py-4 rounded-xl font-bold text-[15px] sm:text-[16px] transition-colors duration-200 shadow-[0_4px_20px_rgba(255,197,41,0.3)] hover:shadow-[0_8px_25px_rgba(255,197,41,0.45)] group"
-                >
-                  <span>Take a free demo</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-            </div>
+              ))}
+          </h1>
+          <div className="overflow-hidden mt-2 md:mt-4">
+            <motion.p
+              initial={{ y: '110%', opacity: 0, filter: 'blur(6px)' }}
+              animate={started ? { y: 0, opacity: 1, filter: 'blur(0px)' } : {}}
+              transition={{ duration: 0.9, delay: 0.85, ease: [0.22, 1, 0.36, 1] }}
+              className="text-[4vw] font-semibold tracking-[0.15em] text-neutral-400 uppercase md:text-[1.6vw]"
+            >
+              SEE WHAT YOU CRAVE FOR
+            </motion.p>
           </div>
         </div>
-      </div>
-    </section>
-  );
-};
 
-export default Hero;
+
+
+        {/* Crosshair marks */}
+        <div className="absolute inset-x-0 bottom-[32%] hidden justify-between px-10 md:flex">
+          {[0, 1, 2, 3].map((i) => (
+            <motion.span
+              key={i}
+              initial={{ opacity: 0 }}
+              animate={started ? { opacity: 0.5 } : {}}
+              transition={{ delay: 1.2 + i * 0.1 }}
+              className="animate-plus-spin text-xl font-light text-white"
+              style={{ animationDelay: `${i * -3}s` }}
+            >
+              +
+            </motion.span>
+          ))}
+        </div>
+
+        {/* Tagline */}
+        <motion.p
+          initial={{ opacity: 0, y: 24, filter: 'blur(6px)' }}
+          animate={started ? { opacity: 1, y: 0, filter: 'blur(0px)' } : {}}
+          transition={{ duration: 0.9, delay: 1.25, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute bottom-24 left-6 max-w-[460px] text-[15px] font-medium leading-relaxed tracking-tight text-white/80 md:bottom-10 md:left-10 md:text-[17px] flex flex-col gap-1 text-left"
+        >
+          <span className="font-semibold text-white">Zero paper. Frictionless ordering.</span>
+          <span className="text-white/70">QRAVE modernizes dining with interactive QR menus, 3D previews, and intelligent analytics.</span>
+        </motion.p>
+
+        {/* Copyright */}
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={started ? { opacity: 0.6 } : {}}
+          transition={{ delay: 1.4 }}
+          className="absolute bottom-24 right-6 text-sm tracking-tight md:bottom-10 md:right-auto md:left-1/2 md:-translate-x-1/2"
+        >
+          © 2026 qrave® tech
+        </motion.span>
+
+      </motion.div>
+      </motion.div>
+    </section>
+  )
+}
