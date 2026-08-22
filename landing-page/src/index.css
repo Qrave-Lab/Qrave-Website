@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: 'Inter Tight', ui-sans-serif, system-ui, sans-serif;
+    background: #f2f1ee;
+    color: #111110;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: #111110;
+    color: #f2f1ee;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f2f1ee;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c9c7c2;
+    border-radius: 8px;
+  }
+}
+
+@layer utilities {
+  .tracking-tightest {
+    letter-spacing: -0.055em;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Lenis smooth scroll */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Infinite marquee */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee-x 28s linear infinite;
+}
+.animate-marquee-slow {
+  animation: marquee-x 60s linear infinite;
+}
+
+/* Crosshair pulse in hero */
+@keyframes plus-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-plus-spin {
+  animation: plus-spin 14s linear infinite;
+}
+
+/* Reduced motion: respect user accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-marquee-slow {
+    animation: none;
+  }
+  .animate-plus-spin {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

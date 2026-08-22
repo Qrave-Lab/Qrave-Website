@@ -1,137 +1,158 @@
 "use client";
 
-import { useRef } from 'react'
-import { motion, useScroll, useTransform } from 'framer-motion'
-import { Reveal, BlurWords } from '../_components/Reveal'
-import { ArrowUpRight, Check } from 'lucide-react'
+import { useState } from 'react';
+import { Check } from 'lucide-react';
 
-export default function Pricing() {
-  const containerRef = useRef<HTMLDivElement>(null)
-  
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start end", "end start"]
-  })
+const Pricing = () => {
+    const [isYearly, setIsYearly] = useState(false);
+    const plans = [
+        {
+            name: "Base",
+            monthlyPrice: "799",
+            yearlyPrice: "8,299",
+            description: "7-day free trial included",
+            highlight: false,
+            badge: "",
+            features: [
+                "Real-time Menu Updates",
+                "Immersive AR Menu View",
+                "Custom QR Code Generator",
+                "Premium Branding Tools",
+                "Basic Performance Insights",
+                "Standard Email Support"
+            ],
+            buttonText: "Start 7-Day Free Trial",
+            buttonVariant: "outline"
+        },
+        {
+            name: "Pro",
+            monthlyPrice: "1,299",
+            yearlyPrice: "15,299",
+            description: "Includes Advanced POS Ordering",
+            highlight: true,
+            badge: "MOST POPULAR",
+            features: [
+                "Everything in Base",
+                "Table-side POS Ordering",
+                "Table Reservation System",
+                "Takeaway & Delivery Support",
+                "Cash Drawer & Staff Control",
+                "Advanced Sales & Reports Insights",
+                "Priority VIP Support"
+            ],
+            buttonText: "Subscribe Pro",
+            buttonVariant: "solid"
+        }
+    ];
 
-  // Line animation that draws down as you scroll
-  const lineDraw = useTransform(scrollYProgress, [0.2, 0.6], [0, 1])
+    return (
+        <section id="pricing" className="py-24 bg-white relative">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-  return (
-    <section id="pricing" className="px-6 py-24 md:px-16 md:py-32 bg-[#f2f1ee] text-[#111110]">
-      <div className="mx-auto max-w-[90rem]">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
-          <div>
-            <Reveal className="text-sm font-medium text-neutral-400 mb-4">(06) PRICING</Reveal>
-            <h2 className="text-[12vw] md:text-[6vw] font-bold leading-[0.9] tracking-tightest">
-              <BlurWords text="Pricing &" />
-              <br />
-              <BlurWords text="Plans." />
-            </h2>
-          </div>
-          <Reveal delay={0.2} className="max-w-xs text-[16px] font-medium leading-relaxed tracking-tight text-neutral-500">
-            Select the engagement model that fits your goals. We tailor everything to your specific needs.
-          </Reveal>
-        </div>
+                {/* Header */}
+                <div className="text-center mb-12">
+                    <h2 className="text-4xl md:text-5xl font-black text-[#1F2127] tracking-tight mb-4">
+                        Simple, Transparent <span className="text-[#fe5c13]">Pricing</span>
+                    </h2>
+                    <p className="text-gray-500 font-medium text-lg mb-8 max-w-xl mx-auto">
+                        Start with a 7-day free trial. No credit card required. Cancel anytime.
+                    </p>
 
-        <div ref={containerRef} className="relative grid md:grid-cols-2 gap-6 lg:gap-8 mt-12">
-          
-          {/* Animated SVG Line separating the cards */}
-          <div className="hidden md:block absolute top-0 bottom-0 left-1/2 w-[1px] -translate-x-1/2 pointer-events-none z-10">
-            <svg width="2" height="100%" preserveAspectRatio="none">
-              <motion.line 
-                x1="1" y1="0" x2="1" y2="100%" 
-                stroke="#111110" 
-                strokeWidth="1" 
-                strokeOpacity="0.15"
-                style={{ pathLength: lineDraw }}
-              />
-            </svg>
-          </div>
+                    {/* Billing Toggle */}
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                        <span className={`text-sm font-bold ${!isYearly ? 'text-[#1F2127]' : 'text-gray-400'} transition-colors`}>
+                            Monthly
+                        </span>
 
-          {/* Tier 1 Card */}
-          <Reveal delay={0.1}>
-            <div className="group relative flex flex-col h-full bg-white rounded-[2.5rem] p-8 md:p-14 border border-neutral-200 transition-all duration-500 hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] hover:-translate-y-2">
-              
-              <div className="mb-8 border-b border-neutral-200 pb-10">
-                <h3 className="text-3xl font-bold tracking-tight mb-3">Essential</h3>
-                <p className="text-neutral-500 font-medium leading-relaxed">For growing brands needing a solid digital foundation.</p>
-                <div className="mt-8 flex items-baseline gap-2">
-                  <span className="text-5xl font-bold tracking-tight">Custom</span>
-                  <span className="text-sm text-neutral-400 font-medium">/ project</span>
+                        {/* Interactive Toggle Button */}
+                        <button
+                            onClick={() => setIsYearly(!isYearly)}
+                            className="relative w-16 h-8 bg-[#1F2127] rounded-full p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#fe5c13] focus:ring-offset-2"
+                            aria-label="Toggle billing duration"
+                        >
+                            <div className={`w-6 h-6 bg-[#fe5c13] rounded-full shadow-md transform transition-transform duration-300 ease-in-out ${isYearly ? 'translate-x-8' : 'translate-x-0'}`} />
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                            <span className={`text-sm font-bold ${isYearly ? 'text-[#1F2127]' : 'text-gray-400'} transition-colors`}>
+                                Annually
+                            </span>
+                            <span className="hidden sm:inline-block bg-[#fe5c13]/10 text-[#fe5c13] text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+                                Save up to 13%
+                            </span>
+                        </div>
+                    </div>
+                    <span className="sm:hidden inline-block bg-[#fe5c13]/10 text-[#fe5c13] text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mt-2">
+                        Save up to 13% on Annual
+                    </span>
                 </div>
-              </div>
 
-              <ul className="flex flex-col gap-5 mb-14 flex-grow">
-                {[
-                  'Digital Strategy & Positioning',
-                  'Custom UI/UX Design',
-                  'Responsive Web Development',
-                  'Basic SEO Optimization',
-                  '1 Month Post-Launch Support'
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-4">
-                    <Check className="w-5 h-5 text-neutral-300 shrink-0 mt-0.5" />
-                    <span className="text-neutral-600 font-medium">{feature}</span>
-                  </li>
-                ))}
-              </ul>
+                {/* Pricing Cards */}
+                <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                    {plans.map((plan, index) => (
+                        <div
+                            key={index}
+                            className={`relative rounded-3xl p-8 lg:p-12 ${plan.highlight
+                                ? 'bg-white border-2 border-[#fe5c13] shadow-[0_20px_60px_-15px_rgba(255,197,41,0.2)]'
+                                : 'bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200'
+                                }`}
+                        >
+                            {plan.badge && (
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                                    <span className="bg-[#fe5c13] text-[#1F2127] text-xs font-black tracking-widest uppercase px-4 py-1 rounded-full shadow-sm">
+                                        {plan.badge}
+                                    </span>
+                                </div>
+                            )}
 
-              <a 
-                href="#contact" 
-                className="flex w-full items-center justify-between overflow-hidden rounded-full border border-neutral-200 bg-transparent px-8 py-5 text-black transition-all hover:bg-[#111110] hover:text-white hover:border-[#111110]"
-              >
-                <span className="font-bold tracking-tight">Get in Touch</span>
-                <ArrowUpRight className="h-5 w-5" />
-              </a>
+                            <div className="text-center mb-8">
+                                <h3 className="text-2xl font-bold text-[#1F2127] mb-4">{plan.name}</h3>
+                                <div className="flex items-end justify-center gap-1 h-14">
+                                    <span className="text-5xl font-black text-[#1F2127]">
+                                        <span className="text-3xl">₹</span>
+                                        {isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                                    </span>
+                                    <span className="text-gray-500 font-medium mb-1">{isYearly ? '/year' : '/month'}</span>
+                                </div>
+                                <p className="text-gray-400 text-[13px] font-bold mb-3 mt-1">+ 2.5% GST</p>
+                                <p className="text-[#fe5c13] font-medium text-sm">
+                                    {plan.description}
+                                </p>
+                            </div>
+
+                            <div className="space-y-4 mb-10">
+                                {plan.features.map((feature, idx) => (
+                                    <div key={idx} className="flex items-center gap-3">
+                                        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-[#fe5c13]/10 flex items-center justify-center">
+                                            <Check className="w-3.5 h-3.5 text-[#fe5c13]" strokeWidth={3} />
+                                        </div>
+                                        <span className={`text-sm md:text-base font-medium ${feature === 'Advanced Analytics' ? 'text-[#1F2127] font-bold' : 'text-gray-600'}`}>
+                                            {feature}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="text-center">
+                                <button
+                                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${plan.buttonVariant === 'solid'
+                                        ? 'bg-[#fe5c13] hover:bg-[#eebb1d] text-[#1F2127] shadow-lg hover:shadow-xl'
+                                        : 'bg-white border-2 border-[#fe5c13] text-[#1F2127] hover:bg-[#fe5c13]/5'
+                                        }`}
+                                >
+                                    {plan.buttonText}
+                                </button>
+                                <p className="text-[10px] text-gray-400 font-bold tracking-wider mt-4 uppercase">
+                                    7 DAYS FREE • CANCEL ANYTIME
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
             </div>
-          </Reveal>
+        </section>
+    );
+};
 
-          {/* Tier 2 Card (Dark Theme) */}
-          <Reveal delay={0.2}>
-            <div className="group relative flex flex-col h-full bg-[#0c0c0c] text-[#f2f1ee] rounded-[2.5rem] p-8 md:p-14 shadow-2xl transition-all duration-500 hover:-translate-y-2">
-              
-              <div className="absolute inset-0 border border-white/5 rounded-[2.5rem] pointer-events-none" />
-              <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.03] blur-[100px] rounded-full pointer-events-none" />
-
-              <div className="relative z-10 mb-8 border-b border-white/10 pb-10">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-3xl font-bold tracking-tight">All-Access</h3>
-                  <span className="bg-white text-black px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase">Pro</span>
-                </div>
-                <p className="text-neutral-400 font-medium leading-relaxed">For visionary teams seeking complete digital transformation.</p>
-                <div className="mt-8 flex items-baseline gap-2">
-                  <span className="text-5xl font-bold tracking-tight">Tailored</span>
-                  <span className="text-sm text-neutral-500 font-medium">/ partnership</span>
-                </div>
-              </div>
-
-              <ul className="relative z-10 flex flex-col gap-5 mb-14 flex-grow">
-                {[
-                  'Everything in Essential',
-                  'Advanced E-commerce Integration',
-                  'Complex Web App Architecture',
-                  'Continuous Conversion Optimization',
-                  'Priority Lifetime Support'
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-4">
-                    <Check className="w-5 h-5 text-white/40 shrink-0 mt-0.5" />
-                    <span className="text-neutral-300 font-medium">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <a 
-                href="#contact" 
-                className="relative z-10 flex w-full items-center justify-between overflow-hidden rounded-full bg-white px-8 py-5 text-black transition-transform hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <span className="font-bold tracking-tight">Get in Touch</span>
-                <ArrowUpRight className="h-5 w-5" />
-              </a>
-            </div>
-          </Reveal>
-
-        </div>
-      </div>
-    </section>
-  )
-}
+export default Pricing;
