@@ -1,44 +1,22 @@
 "use client";
 
 import { useState, useEffect, useRef, type MouseEvent } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const NAV_ITEMS = [
+  { name: 'Features', href: '#features' },
+  { name: 'Ecosystem', href: '#addons' },
+  { name: 'Concepts', href: '#concepts' },
+  { name: 'Contact Us', href: '#demo' },
+];
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const rafRef = useRef<number>(0);
-  const scrollAnimRef = useRef<number>(0);
-
-  const animateScrollTo = (targetY: number, durationMs = 900) => {
-    const startY = window.scrollY;
-    const distance = targetY - startY;
-    const startTime = performance.now();
-
-    const easeInOutCubic = (t: number) => {
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    };
-
-    if (scrollAnimRef.current) {
-      cancelAnimationFrame(scrollAnimRef.current);
-      scrollAnimRef.current = 0;
-    }
-
-    const step = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / durationMs, 1);
-      const eased = easeInOutCubic(progress);
-      window.scrollTo(0, Math.round(startY + distance * eased));
-
-      if (progress < 1) {
-        scrollAnimRef.current = requestAnimationFrame(step);
-      } else {
-        scrollAnimRef.current = 0;
-      }
-    };
-
-    scrollAnimRef.current = requestAnimationFrame(step);
-  };
 
   const scrollToHash = (hash: string) => {
     const id = hash.replace('#', '').trim();
@@ -48,16 +26,10 @@ const Navbar = () => {
     if (!element) return;
 
     const nav = document.querySelector('[data-landing-nav="true"]') as HTMLElement | null;
-    const navHeight = nav?.offsetHeight ?? 88;
-    const top = element.getBoundingClientRect().top + window.scrollY - navHeight - 18;
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const navHeight = nav?.offsetHeight ?? 80;
+    const top = element.getBoundingClientRect().top + window.scrollY - navHeight - 16;
 
-    if (reducedMotion) {
-      window.scrollTo({ top, behavior: 'auto' });
-      return;
-    }
-
-    animateScrollTo(top, 950);
+    window.scrollTo({ top, behavior: 'smooth' });
   };
 
   const handleSectionLinkClick = (e: MouseEvent<HTMLAnchorElement>, hash: string) => {
@@ -71,7 +43,6 @@ const Navbar = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Throttle scroll updates with requestAnimationFrame
       if (rafRef.current) return;
       rafRef.current = requestAnimationFrame(() => {
         setScrollY(window.scrollY);
@@ -82,9 +53,7 @@ const Navbar = () => {
     const handleHashScroll = () => {
       const hash = window.location.hash;
       if (hash) {
-        setTimeout(() => {
-          scrollToHash(hash);
-        }, 80);
+        scrollToHash(hash);
       }
     };
 
@@ -96,119 +65,138 @@ const Navbar = () => {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('hashchange', handleHashScroll);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
     };
   }, []);
 
   const isScrolled = scrollY > 20;
 
   return (
-    <nav
-      data-landing-nav="true"
-      className={`fixed z-50 transition-all duration-300 ease-out will-change-transform left-1/2 -translate-x-1/2 ${isScrolled
-        ? 'top-4 w-[95%] max-w-[1100px] rounded-[2rem] border bg-white/95 backdrop-blur-md border-gray-100 shadow-md py-0'
-        : 'top-0 w-full max-w-7xl rounded-none border-transparent bg-transparent shadow-none py-2'
+    <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none flex justify-center">
+      <nav
+        data-landing-nav="true"
+        className={`pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isScrolled
+            ? 'top-4 mt-3 w-[92%] max-w-5xl rounded-full border border-slate-200/80 bg-white/85 backdrop-blur-xl shadow-[0_12px_32px_-8px_rgba(0,0,0,0.09),0_4px_12px_-2px_rgba(0,0,0,0.04)] px-5 py-2'
+            : 'top-0 mt-0 w-full max-w-7xl rounded-none border-b border-transparent bg-transparent px-6 lg:px-8 py-4'
         }`}
-    >
-      <div className="px-6 lg:px-8 w-full max-w-7xl mx-auto">
-        <div className={`flex items-center justify-between transition-all duration-500 ease-in-out ${isScrolled ? 'h-14 lg:h-[68px]' : 'h-20 lg:h-[88px]'
-          }`}>
-          {/* Logo */}
-          <div className="flex w-[200px] justify-start">
-            <Link href="/" className="flex items-center">
-              <img src="/landing/image.png" alt="Qrave Logo" className="h-8 md:h-9 w-auto object-contain translate-y-[1px]" />
+      >
+        <div className="flex items-center justify-between">
+          
+          {/* Brand Logo */}
+          <div className="flex items-center">
+            <Link href="/" className="group flex items-center gap-2">
+              <img
+                src="/landing/image.png"
+                alt="Qrave Logo"
+                className={`w-auto object-contain transition-all duration-300 ${
+                  isScrolled ? 'h-7 md:h-8' : 'h-8 md:h-9'
+                }`}
+              />
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex flex-1 absolute left-1/2 -translate-x-1/2 justify-center">
-            <div className="flex items-center space-x-8">
-              <Link
-                href="/#features"
-                className="text-gray-500 hover:text-[#fe5c13] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
-                onClick={(e) => handleSectionLinkClick(e, '#features')}
-              >
-                Features
-              </Link>
-
-
-              <Link
-                href="/#about"
-                className="text-gray-500 hover:text-[#fe5c13] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
-                onClick={(e) => handleSectionLinkClick(e, '#about')}
-              >
-                About Us
-              </Link>
-              <Link
-                href="/#demo"
-                className="text-gray-500 hover:text-[#fe5c13] transition-all duration-200 font-semibold text-[13px] tracking-wide px-3 py-1.5 rounded-full hover:bg-gray-100"
-                onClick={(e) => handleSectionLinkClick(e, '#demo')}
-              >
-                Contact Us
-              </Link>
+          {/* Desktop Navigation Links */}
+          <div className="hidden lg:flex items-center justify-center">
+            <div
+              className="flex items-center gap-2"
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+              {NAV_ITEMS.map((item, idx) => (
+                <Link
+                  key={item.name}
+                  href={`/${item.href}`}
+                  onClick={(e) => handleSectionLinkClick(e, item.href)}
+                  onMouseEnter={() => setHoveredIndex(idx)}
+                  className="relative px-4 py-1.5 text-xs font-semibold tracking-wide text-slate-600 hover:text-slate-950 transition-colors duration-200"
+                >
+                  {hoveredIndex === idx && (
+                    <motion.div
+                      layoutId="navbar-hover-pill"
+                      className="absolute inset-0 bg-white rounded-full shadow-sm border border-slate-200/60"
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{item.name}</span>
+                </Link>
+              ))}
             </div>
           </div>
 
-          {/* CTA Button and Additional Actions */}
-          <div className="hidden lg:flex w-[200px] justify-end items-center">
-            <div className="h-4 w-px bg-gray-200 mr-2"></div>
-
-            <Link href="/login" className="text-gray-500 hover:text-gray-900 font-semibold text-[13px] transition-all duration-200 mr-2 px-3 py-1.5 rounded-full hover:bg-gray-100">
+          {/* Action Buttons */}
+          <div className="hidden lg:flex items-center gap-3">
+            <Link
+              href="/login"
+              className="text-xs font-semibold text-slate-600 hover:text-slate-950 px-4 py-2 rounded-full hover:bg-slate-100/80 transition-all duration-200"
+            >
               Sign In
             </Link>
-            <Link href="/onboarding" className="bg-[#fe5c13] hover:bg-[#fe5c13] text-[#1c1d20] px-5 py-[0.4rem] rounded-full font-bold text-[13px] transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap">
-              Get Started
+
+            <Link
+              href="/onboarding"
+              className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#fe5c13] via-[#ff6a26] to-[#fe5c13] px-5 py-2 text-xs font-bold text-white shadow-md shadow-[#fe5c13]/25 transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-[#fe5c13]/35 active:scale-[0.98]"
+            >
+              <span className="relative z-10">Get Started</span>
+              <ArrowRight className="relative z-10 w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+              <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Toggle Button */}
           <button
-            className="lg:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden relative p-2 text-slate-700 hover:text-slate-950 bg-slate-100/80 hover:bg-slate-200/80 rounded-full transition-colors"
+            aria-label="Toggle Navigation Menu"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-100 py-4 animate-in slide-in-from-top duration-200 mt-2 rounded-b-xl shadow-lg">
-            <div className="space-y-2">
-              <Link
-                href="/#features"
-                className="block px-6 py-3 text-gray-600 hover:text-[#fe5c13] hover:bg-gray-50 font-medium transition-colors"
-                onClick={(e) => handleSectionLinkClick(e, '#features')}
-              >
-                Features
-              </Link>
-              <Link
-                href="/#about"
-                className="block px-6 py-3 text-gray-600 hover:text-[#fe5c13] hover:bg-gray-50 font-medium transition-colors"
-                onClick={(e) => handleSectionLinkClick(e, '#about')}
-              >
-                About Us
-              </Link>
-              <Link
-                href="/#demo"
-                className="block px-6 py-3 text-gray-600 hover:text-[#fe5c13] hover:bg-gray-50 font-medium transition-colors"
-                onClick={(e) => handleSectionLinkClick(e, '#demo')}
-              >
-                Contact Us
-              </Link>
+        {/* Mobile Navigation Dropdown */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="lg:hidden absolute top-full left-0 right-0 mt-3 p-4 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl shadow-2xl space-y-3"
+            >
+              <div className="flex flex-col space-y-1">
+                {NAV_ITEMS.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={`/${item.href}`}
+                    onClick={(e) => handleSectionLinkClick(e, item.href)}
+                    className="px-4 py-3 text-sm font-semibold text-slate-700 hover:text-[#fe5c13] hover:bg-orange-50/60 rounded-2xl transition-colors"
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
 
-              <div className="px-4 pt-4 border-t border-gray-100 flex flex-col space-y-3">
-                <Link href="/login" className="block text-center text-gray-600 hover:text-gray-900 font-medium py-2 transition-colors" onClick={() => setMobileMenuOpen(false)}>
+              <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-2xl transition-colors"
+                >
                   Sign In
                 </Link>
-                <Link href="/onboarding" className="bg-[#fe5c13] hover:bg-[#fe5c13] text-[#1F2127] px-5 py-2.5 rounded-full font-bold text-center transition-colors shadow-sm" onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href="/onboarding"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#fe5c13] to-[#ff6a26] rounded-2xl shadow-md shadow-[#fe5c13]/25 active:scale-[0.98] transition-all"
+                >
                   Get Started
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </nav>
+    </header>
   );
 };
 

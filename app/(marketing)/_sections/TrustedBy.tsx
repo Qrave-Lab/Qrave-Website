@@ -1,69 +1,47 @@
-import { CheckCircle2 } from 'lucide-react';
+"use client";
+
+const RESTAURANT_LOGOS = [
+  { name: 'BISTRO & CO.', font: 'font-serif tracking-widest' },
+  { name: 'URBAN TABLE', font: 'font-sans font-black tracking-tight' },
+  { name: 'SAFFRON LOUNGE', font: 'font-mono tracking-widest' },
+  { name: 'CRAFT BAKERY', font: 'font-serif italic font-bold' },
+  { name: 'ARTISAN PIZZA', font: 'font-sans font-extrabold tracking-wider' },
+  { name: 'THE TACO BAR', font: 'font-mono font-bold tracking-tighter' },
+  { name: 'NATIVE EATS', font: 'font-sans font-black tracking-widest' },
+  { name: 'ROAST & BREW', font: 'font-serif tracking-wide' },
+];
 
 const TrustedBy = () => {
-  const row1Features = [
-    'Contactless Ordering',
-    'Eco-friendly Solution',
-    'Mobile Optimized',
-    'Multi-Language Support',
-    'Conversion Optimized',
-    'No App Download Required',
-  ];
-
-  const row2Features = [
-    'Custom Branding',
-    '500+ Restaurants',
-    '10k+ Menus Created',
-    '99.9% Uptime',
-    '24/7 Support',
-    'Zero Commissions',
-  ];
-
   return (
-    <section className="relative py-16 md:py-20 bg-white border-y border-gray-100 overflow-hidden">
-      {/* Container Context */}
-      <div className="section-padding relative z-10">
-        <p className="text-center text-[11px] md:text-[13px] font-bold text-gray-400 tracking-[0.2em] mb-10 md:mb-12 uppercase">
-          Trusted by forward-thinking restaurants
+    <section className="relative py-14 md:py-16 bg-[#FAF9F6] border-y border-slate-200/80 overflow-hidden">
+      
+      {/* Section Header */}
+      <div className="max-w-7xl mx-auto px-4 text-center mb-8 relative z-10">
+        <p className="text-[11px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.25em]">
+          Trusted by 500+ forward-thinking restaurants
         </p>
       </div>
 
-      {/* Fade Masks for Marquee Edges */}
-      <div className="absolute left-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
-      <div className="absolute right-0 top-0 bottom-0 w-16 md:w-48 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+      {/* Fade Masks for Edge Smoothness */}
+      <div className="absolute left-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-r from-[#FAF9F6] to-transparent z-20 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-l from-[#FAF9F6] to-transparent z-20 pointer-events-none" />
 
-      {/* Row 1 - Marquee */}
-      <div className="relative w-full overflow-hidden mb-8 md:mb-10 flex">
-        <div className="flex animate-marquee whitespace-nowrap">
-          {[...row1Features, ...row1Features, ...row1Features, ...row1Features].map((feature, index) => (
+      {/* Ultra-Sleek Monochrome Logo Marquee */}
+      <div className="relative w-full overflow-hidden flex items-center py-3">
+        <div className="flex animate-marquee whitespace-nowrap items-center gap-12 md:gap-20">
+          {[...RESTAURANT_LOGOS, ...RESTAURANT_LOGOS, ...RESTAURANT_LOGOS].map((brand, index) => (
             <div
               key={index}
-              className="flex items-center space-x-3 mx-6 md:mx-12 flex-shrink-0"
+              className="flex items-center justify-center flex-shrink-0 cursor-pointer group"
             >
-              <CheckCircle2 className="w-5 h-5 text-[#fe5c13]" strokeWidth={2} />
-              <span className="text-[15px] md:text-[17px] font-bold text-gray-700">
-                {feature}
+              <span className={`text-lg md:text-xl text-slate-400/70 group-hover:text-[#fe5c13] transition-all duration-300 select-none ${brand.font}`}>
+                {brand.name}
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Row 2 - Marquee (Reverse or slightly faded) */}
-      <div className="relative w-full overflow-hidden flex">
-        <div className="flex animate-marquee whitespace-nowrap overflow-visible" style={{ animationDirection: 'reverse', animationDuration: '40s' }}>
-          {[...row2Features, ...row2Features, ...row2Features, ...row2Features].map((feature, index) => (
-            <div
-              key={index}
-              className="flex items-center space-x-3 mx-8 md:mx-14 flex-shrink-0"
-            >
-              <span className="text-[14px] md:text-[16px] font-bold text-gray-300">
-                {feature}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
     </section>
   );
 };

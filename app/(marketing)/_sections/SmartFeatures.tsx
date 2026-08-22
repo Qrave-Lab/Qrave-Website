@@ -1,207 +1,197 @@
-import { ArrowRight, CreditCard, PieChart, QrCode, View } from "lucide-react";
-import Image from "next/image";
+"use client";
+
+import { useEffect, useRef } from "react";
+import { ArrowUpRight, CreditCard, PieChart, QrCode, View, Boxes, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
+import gsap from "gsap";
 
 const SmartFeatures = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const cards = gsap.utils.toArray<HTMLElement>('.bento-feature-card');
+      
+      gsap.set(cards, { opacity: 0, y: 35 });
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              gsap.to(cards, {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                stagger: 0.1,
+                ease: 'power3.out',
+              });
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '50px 0px' }
+      );
+
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
+      }
+
+      return () => observer.disconnect();
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
+
   const features = [
     {
+      num: "01",
       title: (
         <>
-          Immersive <span className="text-[#fe5c13]">WebAR Menu</span>{" "}
-          Visualization
+          Immersive <span className="text-[#fe5c13]">WebAR Menu</span>
         </>
       ),
       description:
         'Allow customers to visualize photorealistic 3D representations of dishes directly in their mobile browser—no app installation required. Amplifies appetite appeal and reduces "order regret".',
-      linkText: "Explore WebAR integration",
+      linkText: "Explore WebAR",
       linkPath: "/feature/webar",
-      image: "/landing/feature_ar.png",
-      icon: <View className="w-8 h-8 text-[#fe5c13]" />,
+      icon: <View className="w-5 h-5 text-[#fe5c13]" />,
     },
     {
+      num: "02",
       title: (
         <>
-          Zero-Friction <span className="text-[#fe5c13]">QR Ordering</span>{" "}
-          Ecosystem
+          Zero-Friction <span className="text-[#fe5c13]">QR Ordering</span>
         </>
       ),
       description:
         "Diners scan a table-specific QR code to browse, customize, and place orders directly to the kitchen. Removes the waiter as a bottleneck and improves peak-hour order latency by up to 40%.",
-      linkText: "Explore QR ordering features",
+      linkText: "Explore QR Ordering",
       linkPath: "/feature/qr-ordering",
-      image: "/landing/feature_qr.png",
-      icon: <QrCode className="w-8 h-8 text-[#fe5c13]" />,
+      icon: <QrCode className="w-5 h-5 text-[#fe5c13]" />,
     },
     {
+      num: "03",
       title: (
         <>
-          Integrated <span className="text-[#fe5c13]">UPI Billing</span> &
-          Payment Suite
+          Integrated <span className="text-[#fe5c13]">UPI Payments</span>
         </>
       ),
       description:
         'Seamlessly integrates with the UPI ecosystem, allowing customers to pay instantly using any major payment app. Collapses the "Wait Time Paradox" for billing.',
-      linkText: "Explore payment integrations",
+      linkText: "Explore Payment Suite",
       linkPath: "/feature/upi-billing",
-      image: "/landing/feature_upi.png",
-      icon: <CreditCard className="w-8 h-8 text-[#fe5c13]" />,
+      icon: <CreditCard className="w-5 h-5 text-[#fe5c13]" />,
     },
     {
+      num: "04",
       title: (
         <>
-          Strategic{" "}
-          <span className="text-[#fe5c13]">Business Intelligence</span> &
-          Analytics
+          Business <span className="text-[#fe5c13]">Intelligence</span>
         </>
       ),
       description:
         "Real-time tracking of revenue, hourly sales breakdowns, and customer flow heatmaps. Analytics that categorize dishes by profitability to help optimize your menu.",
-      linkText: "Explore analytics dashboard",
+      linkText: "Explore Analytics",
       linkPath: "/feature/analytics",
-      image: "/landing/feature_analytics.png",
-      icon: <PieChart className="w-8 h-8 text-[#fe5c13]" />,
+      icon: <PieChart className="w-5 h-5 text-[#fe5c13]" />,
     },
     {
+      num: "05",
       title: (
         <>
-          Advanced <span className="text-[#fe5c13]">Inventory & Recipes</span>
+          Inventory & <span className="text-[#fe5c13]">Recipe Manager</span>
         </>
       ),
       description:
         "Multi-level Recipe Builders with yield factors, Auto Stock Deduction, fully-integrated Purchase Orders, Supplier Directory, and a live Food Cost Dashboard to maximize your margins.",
-      linkText: "Explore inventory management",
+      linkText: "Explore Inventory",
       linkPath: "/feature/inventory",
-      image: "/landing/inventory-feature.png",
-      icon: <PieChart className="w-8 h-8 text-[#fe5c13]" />,
+      icon: <Boxes className="w-5 h-5 text-[#fe5c13]" />,
     },
     {
+      num: "06",
       title: (
         <>
-          Enterprise-Grade{" "}
-          <span className="text-[#fe5c13]">Accounting Suite</span> & GST
+          Enterprise <span className="text-[#fe5c13]">Accounting & GST</span>
         </>
       ),
       description:
         "End-to-end financial operations with automated Accounts Payable, B2B Credit Notes, GSTR-1 & GSTR-3B Tax Liability Reports, and seamless Tally integration. Zero manual reconciliation.",
-      linkText: "Explore enterprise accounting",
+      linkText: "Explore Accounting",
       linkPath: "/feature/accounting",
-      image: "/landing/reports-feature.png",
-      icon: <PieChart className="w-8 h-8 text-[#fe5c13]" />,
+      icon: <FileSpreadsheet className="w-5 h-5 text-[#fe5c13]" />,
     },
   ];
 
   return (
     <section
+      ref={containerRef}
       id="features"
-      className="bg-white pb-24 lg:pb-32 relative overflow-hidden"
+      className="bg-[#FAF9F6] pt-28 pb-28 lg:pt-36 lg:pb-36 relative overflow-hidden text-slate-900"
     >
-      {/* Background Flowing Waves for entire section */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.20]">
-        {/* Top Wave */}
-        <div className="absolute top-0 left-0 w-full overflow-hidden leading-none">
-          <svg
-            viewBox="0 0 1440 320"
-            preserveAspectRatio="none"
-            className="w-[150%] lg:w-full h-[200px] lg:h-[400px]"
-          >
-            <path
-              fill="#fe5c13"
-              d="M0,192L48,197.3C96,203,192,213,288,208C384,203,480,181,576,149.3C672,117,768,75,864,80C960,85,1056,139,1152,154.7C1248,171,1344,149,1392,138.7L1440,128L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"
-            ></path>
-          </svg>
-        </div>
-
-        {/* Middle decorative wave */}
-        <div className="absolute top-1/3 right-0 w-full overflow-hidden leading-none transform rotate-180 opacity-50">
-          <svg
-            viewBox="0 0 1440 320"
-            preserveAspectRatio="none"
-            className="w-[150%] lg:w-full h-[300px]"
-          >
-            <path
-              fill="#fe5c13"
-              d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,138.7C672,149,768,203,864,202.7C960,203,1056,149,1152,128C1248,107,1344,117,1392,122.7L1440,128L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"
-            ></path>
-          </svg>
-        </div>
-
-        {/* Bottom wave */}
-        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none opacity-80">
-          <svg
-            viewBox="0 0 1440 320"
-            preserveAspectRatio="none"
-            className="w-[150%] lg:w-full h-[250px]"
-          >
-            <path
-              fill="#fe5c13"
-              d="M0,256L48,245.3C96,235,192,213,288,213.3C384,213,480,235,576,224C672,213,768,171,864,160C960,149,1056,171,1152,165.3C1248,160,1344,128,1392,112L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
-            ></path>
-          </svg>
-        </div>
-      </div>
-
-      <div className="section-padding max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full pt-16 lg:pt-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+        
         {/* Section Header */}
-        <div className="text-center mb-24 lg:mb-32">
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#1F2127] tracking-tight mb-8 max-w-4xl mx-auto leading-[1.1] text-center">
+        <div className="text-center mb-16 lg:mb-24 pt-6">
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-950 tracking-tight mb-6 max-w-4xl mx-auto leading-[1.1]">
             Beyond the POS: <br className="hidden md:block" />
             Immersive Dining &{" "}
-            <span className="text-[#fe5c13]">Intelligent Control</span>
+            <span className="bg-gradient-to-r from-[#fe5c13] to-amber-600 bg-clip-text text-transparent">
+              Intelligent Control
+            </span>
           </h2>
-          <p className="text-xl md:text-2xl text-gray-500 font-medium max-w-3xl mx-auto text-center">
-            Captivate guests with 3D visuals while powering your operations with
-            next-gen smart tools.
+          
+          <p className="text-base sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
+            Captivate guests with 3D visuals while powering your operations with next-gen smart tools.
           </p>
         </div>
 
-        {/* Features List */}
-        <div className="space-y-24 lg:space-y-40">
-          {features.map((feature, index) => {
-            const isEven = index % 2 === 0;
-
-            return (
-              <div
-                key={index}
-                className={`flex flex-col lg:flex-row items-center gap-12 lg:gap-24 ${isEven ? "" : "lg:flex-row-reverse"}`}
-              >
-                {/* Text Content */}
-                <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left relative z-10">
-                  <h3 className="text-3xl lg:text-[40px] font-black mb-6 text-[#1F2127] leading-[1.1]">
-                    {feature.title}
-                  </h3>
-                  <p className="text-lg md:text-xl leading-relaxed text-gray-500 font-medium max-w-lg mb-8">
-                    {feature.description}
-                  </p>
-                  <Link
-                    href={feature.linkPath}
-                    className="inline-flex items-center text-[#1F2127] font-bold text-lg hover:text-[#fe5c13] transition-colors group"
-                  >
-                    <span className="border-b-2 border-transparent group-hover:border-[#fe5c13] pb-0.5 transition-colors">
-                      Explore all features
-                    </span>
-                    <ArrowRight className="ml-2 w-5 h-5 transform group-hover:translate-x-1 transition-transform" />
-                  </Link>
+        {/* Agency-Grade Bento Feature Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+          {features.map((feature, index) => (
+            <div
+              key={index}
+              className="bento-feature-card bg-white border border-slate-200/90 rounded-[2rem] p-8 sm:p-10 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:shadow-2xl hover:border-orange-300 transition-all duration-300 flex flex-col justify-between group relative overflow-hidden"
+            >
+              {/* Top Card Header Bar */}
+              <div>
+                <div className="flex items-center justify-between mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-100/80 flex items-center justify-center text-[#fe5c13] group-hover:scale-110 transition-transform">
+                    {feature.icon}
+                  </div>
+                  <span className="text-2xl font-black text-slate-200 group-hover:text-[#fe5c13]/30 transition-colors select-none">
+                    {feature.num}
+                  </span>
                 </div>
 
-                {/* Image Content - Blended natively, no boxes, glowing shadow */}
-                <div className="w-full lg:w-1/2 relative flex justify-center items-center z-10">
-                  {/* Decorative soft glow behind image to help it pop against white/wave background */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-[#fe5c13]/15 blur-[100px] rounded-full -z-10" />
+                <h3 className="text-xl lg:text-2xl font-black text-slate-950 tracking-tight leading-snug mb-4">
+                  {feature.title}
+                </h3>
 
-                  <Image
-                    src={feature.image}
-                    alt=""
-                    width={640}
-                    height={480}
-                    loading="lazy"
-                    sizes="(min-width: 1024px) 50vw, 100vw"
-                    className="w-full max-w-lg h-auto object-contain mix-blend-multiply drop-shadow-[0_30px_60px_rgba(0,0,0,0.15)]"
-                  />
-                </div>
+                <p className="text-sm text-slate-600 font-medium leading-relaxed mb-8">
+                  {feature.description}
+                </p>
               </div>
-            );
-          })}
+
+              {/* Action Button Footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <Link
+                  href={feature.linkPath}
+                  className="text-xs font-bold uppercase tracking-wider text-slate-700 group-hover:text-[#fe5c13] transition-colors"
+                >
+                  {feature.linkText}
+                </Link>
+                <Link
+                  href={feature.linkPath}
+                  className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-[#fe5c13] text-slate-600 group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+                >
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+          ))}
         </div>
+
       </div>
     </section>
   );

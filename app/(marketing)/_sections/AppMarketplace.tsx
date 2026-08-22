@@ -1,112 +1,295 @@
 "use client";
 
 import { useState } from 'react';
+import { Camera, Monitor, Boxes, BarChart3, Building2, Globe, ArrowRight, Sparkles, Clock, ShieldCheck, TrendingUp, Layers, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+
+const ADDONS = [
+  {
+    id: 'virtual-studio',
+    title: 'Virtual Studio 3D',
+    subtitle: 'Food Photography & 3D AR Modeling',
+    description: 'We bring your menu to life. Our team handles professional food photography and photorealistic 3D modeling so your dishes jump off the screen.',
+    icon: <Camera className="w-5 h-5" />,
+    badge: '3D AR Engine',
+    link: '/feature/virtual-studio',
+    mockupType: '3d'
+  },
+  {
+    id: 'kds-integration',
+    title: 'Kitchen Display System (KDS)',
+    subtitle: 'Real-Time Kitchen Order Sync',
+    description: 'Ditch noisy ticket printers. Send orders directly to a smart kitchen screen that prioritizes prep times, organizes courses, and alerts chefs instantly.',
+    icon: <Monitor className="w-5 h-5" />,
+    badge: '200ms Latency',
+    link: '/feature/kds-integration',
+    mockupType: 'kds'
+  },
+  {
+    id: 'advanced-inventory',
+    title: 'Advanced Inventory & Stock',
+    subtitle: 'Auto Stock Deduction & Recipes',
+    description: 'Automatically hide out-of-stock items from your digital menu in real-time as ingredients are consumed from completed orders.',
+    icon: <Boxes className="w-5 h-5" />,
+    badge: 'Auto Deduction',
+    link: '/feature/advanced-inventory',
+    mockupType: 'inventory'
+  },
+  {
+    id: 'chefs-insights',
+    title: '"Chef\'s Insights" Analytics Pro',
+    subtitle: 'Margin & Profitability Reports',
+    description: 'Know what sells and who sells it best. Get deep insights into dish popularity, peak hours, food cost margins, and waiter performance.',
+    icon: <BarChart3 className="w-5 h-5" />,
+    badge: 'Live Reports',
+    link: '/feature/chefs-insights',
+    mockupType: 'analytics'
+  },
+  {
+    id: 'multi-location',
+    title: 'Multi-Location HQ',
+    subtitle: 'Central Chain Management',
+    description: 'Control menus, pricing, promotional campaigns, and financial reports for all your restaurant outlets from one single headquarters account.',
+    icon: <Building2 className="w-5 h-5" />,
+    badge: 'HQ Control',
+    link: '/feature/multi-location-management',
+    mockupType: 'hq'
+  },
+  {
+    id: 'custom-domain',
+    title: 'Custom Subdomain Routing',
+    subtitle: 'White-Label Branding',
+    description: 'Serve your digital menus natively on your custom subdomain like restaurantname.qravetech.in when customers scan table QR codes.',
+    icon: <Globe className="w-5 h-5" />,
+    badge: 'DNS Auto-Sync',
+    link: '/feature/custom-domains',
+    mockupType: 'domain'
+  }
+];
 
 const AppMarketplace = () => {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const addons = [
-    {
-      id: 'virtual-studio',
-      title: 'The "Virtual Studio" Service',
-      description: "We bring your menu to life. Our team handles professional food photography and 3D modeling so you don't have to lift a finger.",
-      image: "/landing/img-25c303f5.webp"
-    },
-    {
-      id: 'kds-integration',
-      title: 'Kitchen Display System (KDS)',
-      description: "Ditch the noisy printers. Send orders directly to a smart kitchen screen that prioritizes prep times and alerts chefs instantly.",
-      image: "/landing/photo-1556742049-0cfed4f6a45d-2b030839.webp"
-    },
-    {
-      id: 'advanced-inventory',
-      title: 'Advanced Inventory & Stock',
-      description: "Never disappoint a customer again. Automatically hide out-of-stock items from your digital menu in real-time.",
-      image: "/landing/img-616cde4d.webp"
-    },
-    {
-      id: 'chefs-insights',
-      title: '"Chef\'s Insights" Analytics Pro',
-      description: "Know what sells and who sells it best. Get deep insights into dish popularity, peak hours, and waiter performance.",
-      image: "/landing/img-cac69d81.webp"
-    },
-    {
-      id: 'multi-location-management',
-      title: 'Multi-Location Management',
-      description: "Growing fast? Control menus, pricing, and reports for all your outlets from one single headquarters account.",
-      image: "/landing/photo-1554224155-8d04cb21cd6c-b969db81.webp"
-    }
-  ];
+  const [activeTab, setActiveTab] = useState(ADDONS[0].id);
+  const currentAddon = ADDONS.find((a) => a.id === activeTab) || ADDONS[0];
 
   return (
-    <section id="addons" className="py-24 lg:py-32 bg-[#FCFBF8] relative overflow-hidden">
+    <section id="addons" className="pt-28 pb-24 lg:pt-36 lg:pb-32 bg-[#FAF9F6] text-slate-900 relative overflow-hidden">
+      {/* Background Ambient Glow */}
+      <div className="absolute top-1/4 left-1/3 w-[600px] h-[300px] bg-orange-400/5 rounded-full blur-[140px] pointer-events-none" />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
         {/* Section Header */}
-        <div className="text-center mb-16 lg:mb-24">
-          <h2 className="text-4xl md:text-5xl lg:text-5xl font-black text-[#1F2127] tracking-tight">
+        <div className="text-center mb-16 pt-4">
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-950 tracking-tight mb-6 max-w-4xl mx-auto leading-[1.1]">
             Unlock the Full Power of <br className="hidden md:block" />
-            <span className="text-[#fe5c13]"> the Qrave Ecosystem</span>
+            <span className="bg-gradient-to-r from-[#fe5c13] to-amber-600 bg-clip-text text-transparent">
+              the Qrave Ecosystem
+            </span>
           </h2>
+          <p className="text-base sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
+            Supercharge your venue operations with modular extensions designed to scale with your business.
+          </p>
         </div>
 
-        {/* Split Layout */}
-        <div className="grid md:grid-cols-[1fr_1.5fr] gap-8 lg:gap-24 items-start">
-
-          {/* Left Side - Vertical Interactive List */}
-          <div className="flex flex-col relative w-full border-l-[3px] border-gray-200/60">
-            {addons.map((addon, index) => {
-              const isActive = activeIndex === index;
-
+        {/* Open 2-Column Showcase (No Nested Box-in-Box Cards) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          
+          {/* Left Column: Clean Minimalist Tabs List */}
+          <div className="lg:col-span-5 space-y-1.5">
+            {ADDONS.map((addon) => {
+              const isActive = activeTab === addon.id;
               return (
-                <div
+                <button
                   key={addon.id}
-                  onClick={() => setActiveIndex(index)}
-                  className={`group relative py-5 -ml-[3px] pl-6 md:pl-8 cursor-pointer transition-colors duration-300 ${isActive ? 'border-l-[3px] border-[#fe5c13]' : 'border-l-[3px] border-transparent hover:border-gray-300'
-                    }`}
+                  onClick={() => setActiveTab(addon.id)}
+                  className={`w-full text-left px-5 py-4 rounded-2xl transition-all duration-300 flex items-center justify-between gap-3 ${
+                    isActive
+                      ? 'bg-white shadow-md border-l-4 border-l-[#fe5c13] border-t border-r border-b border-slate-200/80 text-slate-950 scale-[1.01]'
+                      : 'hover:bg-slate-100/60 text-slate-600 hover:text-slate-900 border-l-4 border-l-transparent'
+                  }`}
                 >
-                  <h3 className={`text-xl md:text-[22px] font-bold transition-colors duration-200 ${isActive ? 'text-[#1F2127]' : 'text-gray-400 hover:text-gray-600'
-                    }`}>
-                    {addon.title}
-                  </h3>
-
-                  {/* Expandable Content */}
-                  <div
-                    className={`grid transition-all duration-400 ease-in-out ${isActive ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0 mt-0'
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                        isActive ? 'bg-[#fe5c13] text-white shadow-sm' : 'bg-slate-200/70 text-slate-500'
                       }`}
-                  >
-                    <div className="overflow-hidden">
-                      <p className="text-gray-500 font-medium leading-[1.6] mb-5 text-[15px] pr-4">
-                        {addon.description}
+                    >
+                      {addon.icon}
+                    </div>
+
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-extrabold truncate leading-snug">
+                        {addon.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium truncate">
+                        {addon.subtitle}
                       </p>
-                      <Link
-                        href={`/feature/${addon.id}`}
-                        className="inline-flex items-center text-[14px] font-bold text-[#1F2127] hover:text-[#fe5c13] transition-colors"
-                      >
-                        <span>Learn more</span>
-                        <ArrowRight className="w-4 h-4 ml-1.5" />
-                      </Link>
                     </div>
                   </div>
-                </div>
+
+                  <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full shrink-0 ${
+                    isActive ? 'bg-orange-50 text-[#fe5c13] border border-orange-200' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {addon.badge}
+                  </span>
+                </button>
               );
             })}
           </div>
 
-          {/* Right Side - Dynamic Image Display */}
-          <div className="relative w-full h-full min-h-[280px] sm:min-h-[400px] lg:min-h-[500px] rounded-3xl overflow-hidden shadow-md bg-white border border-gray-100">
-            <img
-              key={addons[activeIndex].id}
-              src={addons[activeIndex].image}
-              alt={addons[activeIndex].title}
-              loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-            />
+          {/* Right Column: Single High-Fidelity Feature Display Widget */}
+          <div className="lg:col-span-7">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentAddon.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                className="bg-white border border-slate-200/90 rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.06)] flex flex-col justify-between min-h-[440px]"
+              >
+                <div>
+                  {/* Card Header */}
+                  <div className="flex items-center justify-between pb-6 mb-6 border-b border-slate-100">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-orange-100/90 text-[#fe5c13] border border-orange-200 flex items-center justify-center">
+                        {currentAddon.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-black text-slate-950 tracking-tight">{currentAddon.title}</h4>
+                        <span className="text-xs text-slate-500 font-medium">{currentAddon.subtitle}</span>
+                      </div>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Active Module
+                    </span>
+                  </div>
+
+                  <p className="text-sm sm:text-base text-slate-600 font-medium leading-relaxed mb-8">
+                    {currentAddon.description}
+                  </p>
+
+                  {/* DYNAMIC LIVE WIDGET PREVIEWS (No emojis) */}
+                  <div className="bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                    
+                    {currentAddon.mockupType === '3d' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-[#fe5c13] flex items-center justify-center">
+                              <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h5 className="text-xs font-extrabold text-slate-900">Truffle Smash Burger 3D</h5>
+                              <p className="text-[10px] font-medium text-slate-500">4,200 Polygons • AR QuickLook Enabled</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-[#fe5c13] bg-white border border-orange-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            360° AR View
+                          </span>
+                        </div>
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600 font-medium">
+                          <span>Appetite Conversion Rate</span>
+                          <span className="text-emerald-600 font-extrabold">+34% vs Static Photo</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {currentAddon.mockupType === 'kds' && (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-extrabold text-slate-900">Table #04 Order Queue</span>
+                          <span className="text-amber-700 font-mono font-bold flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" /> 02m 45s Prep Time
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-700 flex justify-between bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                          <span>2x Smash Burgers, 1x Passion Mocktail</span>
+                          <span className="text-emerald-600 font-extrabold">Dispatched to Line ✓</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {currentAddon.mockupType === 'inventory' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                            <div>
+                              <h5 className="text-xs font-extrabold text-slate-900">Atlantic Salmon Stock: 0 kg</h5>
+                              <p className="text-[10px] text-rose-600 font-bold">Auto-Disabled on QR Menu</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-extrabold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-full shadow-2xs">
+                            Auto Sync
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {currentAddon.mockupType === 'analytics' && (
+                      <div className="flex justify-between items-center text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-widest block font-bold">Today Net Sales</span>
+                          <span className="text-2xl font-black text-slate-950">₹94,820</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 justify-end">
+                            <TrendingUp className="w-3.5 h-3.5" /> +34% vs Last Week
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">Top Item: Smash Burger</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {currentAddon.mockupType === 'hq' && (
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-slate-900 font-extrabold block">3 Outlets Operational</span>
+                          <span className="text-[10px] text-slate-500 font-medium">Mumbai • Bangalore • Delhi</span>
+                        </div>
+                        <span className="text-xs font-extrabold text-[#fe5c13] bg-white border border-orange-200 px-3 py-1 rounded-full shadow-2xs">
+                          Global Menu Pushed
+                        </span>
+                      </div>
+                    )}
+
+                    {currentAddon.mockupType === 'domain' && (
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="font-mono text-slate-800 flex items-center gap-2 font-semibold">
+                          <Globe className="w-3.5 h-3.5 text-[#fe5c13]" />
+                          <span>gourmetbistro.qravetech.in</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-white px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                          <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                          SSL Verified
+                        </span>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+
+                {/* Card Footer Link */}
+                <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+                  <Link
+                    href={currentAddon.link}
+                    className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#fe5c13] hover:text-[#fe5c13]/80 transition-colors group/link"
+                  >
+                    <span>Explore {currentAddon.title} Module</span>
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover/link:translate-x-1" />
+                  </Link>
+                </div>
+
+              </motion.div>
+            </AnimatePresence>
           </div>
 
         </div>
+
       </div>
     </section>
   );

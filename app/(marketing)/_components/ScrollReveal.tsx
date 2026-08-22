@@ -24,8 +24,18 @@ const ScrollReveal = ({
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    // Safety fallback: Ensure content becomes visible even if observer fails or threshold isn't hit
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, 250);
+
     const node = ref.current;
     if (!node) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setIsVisible(true);
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -39,13 +49,16 @@ const ScrollReveal = ({
         });
       },
       {
-        threshold: 0.18,
-        rootMargin: "0px 0px -8% 0px",
+        threshold: 0.01,
+        rootMargin: "100px 0px 100px 0px",
       }
     );
 
     observer.observe(node);
-    return () => observer.disconnect();
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
   }, [once]);
 
   return (

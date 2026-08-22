@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { Suspense } from "react";
 import TitleManager from "./(pages)/TitleManager";
 import { ThemeProvider } from "./providers";
+import RouteLoadingBar from "./_components/RouteLoadingBar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,6 +41,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <Suspense fallback={null}>
             <TitleManager />
+            <RouteLoadingBar />
           </Suspense>
           {children}
           <Toaster
