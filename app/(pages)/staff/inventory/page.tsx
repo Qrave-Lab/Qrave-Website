@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '@/app/lib/api';
-import { PackageOpen, Truck, FileText, CheckCircle, Plus, Search, MapPin, Store } from 'lucide-react';
+import { PackageOpen, Truck, FileText, CheckCircle, Plus, Search, MapPin, Store, Edit2, Trash2 } from 'lucide-react';
+import StaffSidebar from '@/app/components/StaffSidebar';
+import { toast } from 'react-hot-toast';
 
 type Vendor = {
   id: string;
@@ -29,6 +31,12 @@ export default function InventoryDashboard() {
   // New Vendor Form
   const [vendorName, setVendorName] = useState('');
   const [leadTime, setLeadTime] = useState('3');
+
+  // Edit Vendor Form
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editLeadTime, setEditLeadTime] = useState('3');
+  const [editActive, setEditActive] = useState(true);
 
   // PO State
   const [showAddPO, setShowAddPO] = useState(false);
@@ -80,8 +88,49 @@ export default function InventoryDashboard() {
       setShowAddVendor(false);
       setVendorName('');
       fetchVendors();
-    } catch (e) {
-      console.error(e);
+      toast.success("Supplier added successfully");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to add supplier");
+    }
+  };
+
+  const handleStartEdit = (v: Vendor) => {
+    setEditingVendor(v);
+    setEditName(v.name);
+    setEditLeadTime(v.lead_time_days.toString());
+    setEditActive(v.is_active);
+  };
+
+  const handleUpdateVendor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVendor) return;
+    try {
+      await api(`/api/admin/inventory/advanced/vendors/${editingVendor.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: editName,
+          lead_time_days: parseInt(editLeadTime),
+          is_active: editActive
+        })
+      });
+      setEditingVendor(null);
+      fetchVendors();
+      toast.success("Supplier updated successfully");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update supplier");
+    }
+  };
+
+  const handleDeleteVendor = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this supplier?")) return;
+    try {
+      await api(`/api/admin/inventory/advanced/vendors/${id}`, {
+        method: 'DELETE'
+      });
+      fetchVendors();
+      toast.success("Supplier deleted successfully");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete supplier");
     }
   };
 
@@ -160,50 +209,56 @@ export default function InventoryDashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 border-r border-slate-200 bg-white p-6">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-            <PackageOpen size={24} />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight">Inventory</h1>
-        </div>
-        
-        <nav className="space-y-2">
-          <button
-            onClick={() => setActiveTab('pos')}
-            className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'pos' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-          >
-            <FileText size={18} />
-            Purchase Orders
-          </button>
-          <button
-            onClick={() => setActiveTab('vendors')}
-            className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'vendors' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-          >
-            <Truck size={18} />
-            Suppliers
-          </button>
-          <button
-            onClick={() => setActiveTab('recipes')}
-            className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'recipes' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-          >
-            <MapPin size={18} />
-            Conversions & Recipes
-          </button>
-          <button
-            onClick={() => setActiveTab('kitchen')}
-            className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${activeTab === 'kitchen' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-          >
-            <Store size={18} />
-            Central Kitchen
-          </button>
-        </nav>
-      </aside>
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      <StaffSidebar />
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top Header & Tab Bar */}
+        <header className="border-b border-slate-200 bg-white px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+              <PackageOpen size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">Inventory Hub</h1>
+              <p className="text-xs text-slate-500">Manage suppliers, purchase orders, recipes, and kitchen stock</p>
+            </div>
+          </div>
+          
+          <nav className="flex gap-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto overflow-x-auto max-w-full">
+            <button
+              onClick={() => setActiveTab('pos')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'pos' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+            >
+              <FileText size={15} />
+              Purchase Orders
+            </button>
+            <button
+              onClick={() => setActiveTab('vendors')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'vendors' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+            >
+              <Truck size={15} />
+              Suppliers
+            </button>
+            <button
+              onClick={() => setActiveTab('recipes')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'recipes' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+            >
+              <MapPin size={15} />
+              Conversions & Recipes
+            </button>
+            <button
+              onClick={() => setActiveTab('kitchen')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'kitchen' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+            >
+              <Store size={15} />
+              Central Kitchen
+            </button>
+          </nav>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto p-8">
         {activeTab === 'vendors' && (
           <div className="animate-in fade-in duration-300 slide-in-from-bottom-4">
             <div className="mb-8 flex items-end justify-between">
@@ -226,7 +281,23 @@ export default function InventoryDashboard() {
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {vendors.map(v => (
                   <div key={v.id} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
-                    <div className="mb-4 flex items-center gap-3">
+                    <div className="absolute right-4 top-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => handleStartEdit(v)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-emerald-600 transition-colors"
+                        title="Edit Supplier"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteVendor(v.id)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-rose-600 transition-colors"
+                        title="Delete Supplier"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="mb-4 flex items-center gap-3 pr-10">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                         <Truck size={24} />
                       </div>
@@ -351,6 +422,7 @@ export default function InventoryDashboard() {
           </div>
         )}
       </main>
+      </div>
 
       {/* Add Vendor Modal */}
       {showAddVendor && (
@@ -393,6 +465,64 @@ export default function InventoryDashboard() {
                   className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow"
                 >
                   Save Supplier
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Vendor Modal */}
+      {editingVendor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="mb-6 text-xl font-bold text-slate-900">Edit Supplier</h3>
+            <form onSubmit={handleUpdateVendor} className="space-y-5">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Vendor Name</label>
+                <input 
+                  type="text" 
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="e.g. Sysco Foods"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Lead Time (Days)</label>
+                <input 
+                  type="number" 
+                  value={editLeadTime}
+                  onChange={(e) => setEditLeadTime(e.target.value)}
+                  min="0"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  required
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox"
+                  id="editActive"
+                  checked={editActive}
+                  onChange={(e) => setEditActive(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <label htmlFor="editActive" className="text-sm font-medium text-slate-700">Active</label>
+              </div>
+              <div className="mt-8 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingVendor(null)}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

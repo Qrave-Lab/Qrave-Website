@@ -172,6 +172,15 @@ type BillTicketInput = {
   orderRefs?: Array<{ dailyOrderNumber?: number | null; orderNumber?: number | null }>;
   items: Array<{ name: string; qty: number; amount: number }>;
   total: number;
+  gstin?: string;
+  invoiceNumber?: string;
+  financialYear?: string;
+  cgst?: number;
+  sgst?: number;
+  taxableValue?: number;
+  lineItems?: any[];
+  isDuplicate?: boolean;
+  reprintAuditFn?: () => Promise<void>;
 };
 
 export type BillTemplate = "cafe" | "fine_dining" | "retail" | "fast_food" | "tax_invoice" | "compact";
