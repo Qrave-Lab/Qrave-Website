@@ -300,10 +300,11 @@ async function apiInner<T>(
     }
 
     const isKnownError =
-      res.status === 400 &&
-      (message.includes("order not found") ||
-        message.includes("violates foreign key constraint") ||
-        message.includes("session_id is required"));
+      (res.status === 400 &&
+        (message.includes("order not found") ||
+          message.includes("violates foreign key constraint") ||
+          message.includes("session_id is required"))) ||
+      (res.status === 404 && message.includes("feature is disabled"));
     const isExpectedUnauthorized = res.status === 401 && skipAuthRedirect;
 
     if (!suppressErrorLog && !isKnownError && !isExpectedUnauthorized) {
