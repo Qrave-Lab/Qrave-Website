@@ -159,6 +159,9 @@ const normalizeItem = (item: any) => {
       typeof item.calories === "number"
         ? item.calories
         : item.kcal || item.nutrition?.calories,
+    proteinG: item.protein_g ?? item.proteinG ?? null,
+    carbsG: item.carbs_g ?? item.carbsG ?? null,
+    fatG: item.fat_g ?? item.fatG ?? null,
     estimatedPrepMinutes:
       typeof item.estimatedPrepMinutes === "number"
         ? item.estimatedPrepMinutes
@@ -1501,6 +1504,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               </p>
                               <p className="mt-1 text-[15px] font-bold text-[#3D2B1F] font-dm-sans leading-none">
                                 {arItem.calories} kcal
+                                {(arItem.proteinG != null || arItem.carbsG != null || arItem.fatG != null) && (
+                                  <span className="block text-[10px] font-medium text-[#8B6E4F] mt-1">
+                                    P:{arItem.proteinG || 0} C:{arItem.carbsG || 0} F:{arItem.fatG || 0}
+                                  </span>
+                                )}
                               </p>
                             </div>
                           )}

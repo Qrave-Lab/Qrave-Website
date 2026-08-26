@@ -354,7 +354,14 @@ export default function ImmersiveMenu({
                                 {currentItem.calories && (
                                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full">
                                         <Flame size={12} className="text-rose-500" />
-                                        <span className="text-xs font-semibold text-slate-600">{currentItem.calories} kcal</span>
+                                        <span className="text-xs font-semibold text-slate-600">
+                                            {currentItem.calories} kcal
+                                            {(currentItem.proteinG != null || currentItem.carbsG != null || currentItem.fatG != null) && (
+                                                <span className="ml-1 opacity-75">
+                                                    (P:{currentItem.proteinG || 0} C:{currentItem.carbsG || 0} F:{currentItem.fatG || 0})
+                                                </span>
+                                            )}
+                                        </span>
                                     </div>
                                 )}
                                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full">
