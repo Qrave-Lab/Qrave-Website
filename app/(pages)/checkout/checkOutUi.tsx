@@ -13,6 +13,8 @@ import {
   ReceiptText,
   Trash2,
   UtensilsCrossed,
+  CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
@@ -242,6 +244,7 @@ const CheckoutPage: React.FC = () => {
   const [isSyncingAfterPlace, setIsSyncingAfterPlace] = useState(false);
   const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
   const [billRequested, setBillRequested] = useState(false);
+  const [isRequestingBill, setIsRequestingBill] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [lastPlacedNums, setLastPlacedNums] = useState<{
     orderNumber: number;
@@ -294,6 +297,10 @@ const CheckoutPage: React.FC = () => {
     setIsMounted(true);
     setIsSeparateBill(localStorage.getItem("separate_bill") === "1");
     setIsTableOccupied(localStorage.getItem("table_occupied") === "1");
+    const sessionId = localStorage.getItem("session_id") || "default";
+    if (localStorage.getItem(`bill_requested_${sessionId}`) === "true") {
+      setBillRequested(true);
+    }
     try {
       const stored = JSON.parse(localStorage.getItem("my_order_ids") || "[]");
       if (Array.isArray(stored)) setMyOrderIds(new Set(stored));
@@ -400,7 +407,14 @@ const CheckoutPage: React.FC = () => {
         .then(([menu, cartRes, ordersRes, recoRes]) => {
           const mapped =
             menu?.map((i: any) => {
-              const basePrice = Number(i.price || 0);
+              const basePrice = Number(
+                (i.price && Number(i.price) > 0 ? i.price : null) ??
+                (i.base_price && Number(i.base_price) > 0 ? i.base_price : null) ??
+                (i.basePrice && Number(i.basePrice) > 0 ? i.basePrice : null) ??
+                (i.variants?.[0]?.price && Number(i.variants[0].price) > 0 ? i.variants[0].price : null) ??
+                i.price ??
+                0
+              );
               const variants = Array.isArray(i.variants)
                 ? i.variants.map((v: any) => {
                     const variantPrice = Number(v.price ?? 0);
@@ -776,11 +790,10 @@ const CheckoutPage: React.FC = () => {
       }, 0)
   );
 
-  const subtotal = formatPrice(cartSubtotal + previousOrdersTotal);
   const couponDiscount = formatPrice(Math.min(appliedCouponDiscount, cartSubtotal));
-  const subtotalAfterDiscount = formatPrice(Math.max(0, subtotal - couponDiscount));
-  const tax = formatPrice(Math.round(subtotalAfterDiscount * 0.05));
-  const grandTotal = formatPrice(subtotalAfterDiscount + tax);
+  const cartSubtotalAfterDiscount = formatPrice(Math.max(0, cartSubtotal - couponDiscount));
+  const tax = lines.length > 0 ? formatPrice(Math.round(cartSubtotalAfterDiscount * 0.05)) : 0;
+  const grandTotal = formatPrice(previousOrdersTotal + cartSubtotalAfterDiscount + tax);
 
   const handlePlaceOrder = async () => {
     if (lines.length === 0 || isPlacingOrder) return;
@@ -923,13 +936,25 @@ const CheckoutPage: React.FC = () => {
   // Merge reco data with menuItems (reco has image_url/name/price from backend)
   const recommendationItems = recommendations
     .map((rec) => {
-      const cached = menuItems.find((m) => m.id === String(rec.id));
+      const cached = menuItems.find(
+        (m) =>
+          String(m.id).toLowerCase() === String(rec.id).toLowerCase() ||
+          (m.name && rec.name && m.name.trim().toLowerCase() === rec.name.trim().toLowerCase())
+      );
+      const rawPrice = Number(
+        (cached?.offerPrice && Number(cached.offerPrice) > 0 ? cached.offerPrice : null) ??
+        (cached?.price && Number(cached.price) > 0 ? cached.price : null) ??
+        (cached?.variants?.[0]?.price && Number(cached.variants[0].price) > 0 ? cached.variants[0].price : null) ??
+        (rec.price && Number(rec.price) > 0 ? rec.price : null) ??
+        0
+      );
       return {
-        id: String(rec.id),
+        id: String(cached?.id || rec.id),
         name: cached?.name || rec.name || "Item",
-        price: cached?.price ?? rec.price ?? 0,
-        offerPrice: cached?.offerPrice,
-        image: cached?.image || rec.image_url || "",
+        price: rawPrice,
+        offerPrice: cached?.offerPrice && Number(cached.offerPrice) > 0 ? Number(cached.offerPrice) : undefined,
+        image: cached?.image || rec.image_url || (rec as any).image || "",
+        variantId: cached?.variants?.[0]?.id || "",
       };
     })
     .filter((r) => r.price > 0);
@@ -1087,38 +1112,49 @@ const CheckoutPage: React.FC = () => {
             {/* ── Previous Orders ─────────────────────────────────────── */}
             {hasPlacedOrders && (
               <section>
-                {/* success nudge after the most recent placement */}
-                {lastPlacedNums && (
-                  <div
-                    className="mb-3 flex items-center gap-3 rounded-2xl px-4 py-3"
-                    style={{
-                      background: "rgba(16,185,129,0.10)",
-                      border: "1px solid rgba(16,185,129,0.25)",
-                    }}
-                  >
-                    <span className="text-xl">✅</span>
-                    <div>
-                      <p className="text-sm font-black text-emerald-700">
-                        Order&nbsp;
-                        <span className="text-base">
-                          #{lastPlacedNums.dailyOrderNumber}
-                        </span>
-                        &nbsp;placed!
-                      </p>
-                      <p className="text-[10px] text-emerald-600 mt-0.5">
-                        Kitchen is on it!
-                      </p>
-                    </div>
-                  </div>
-                )}
+                {/* Animated success banner after placement */}
+                <AnimatePresence>
+                  {lastPlacedNums && (
+                    <motion.div
+                      key={`placed-${lastPlacedNums.dailyOrderNumber}`}
+                      initial={{ opacity: 0, y: -16, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      className="mb-3.5 flex items-center gap-3.5 rounded-2xl p-3.5 shadow-sm overflow-hidden relative"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.06) 100%)",
+                        border: "1px solid rgba(16,185,129,0.3)",
+                      }}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0 shadow-xs">
+                        <CheckCircle2 size={22} strokeWidth={2.5} className="animate-in zoom-in-50 duration-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-black text-emerald-800 tracking-tight font-dm-sans">
+                            Order&nbsp;
+                            <span className="text-base font-extrabold text-emerald-950">
+                              #{lastPlacedNums.dailyOrderNumber}
+                            </span>
+                            &nbsp;placed!
+                          </p>
+                        </div>
+                        <p className="text-xs font-semibold text-emerald-700/90 mt-0.5 font-dm-sans">
+                          Kitchen is preparing your dishes now!
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <p
-                  className="mb-3 text-[10px] font-black uppercase tracking-widest px-1"
+                  className="mb-3 text-[10px] font-black uppercase tracking-widest px-1 font-dm-sans"
                   style={{ color: "var(--co-muted)" }}
                 >
                   Previous Orders
                 </p>
                 <div className="space-y-3">
-                  {placedOrders.map((order) => {
+                  {placedOrders.map((order, idx) => {
                     const isCancelled = order.status === "cancelled";
                     const isCompleted =
                       order.status === "completed" || order.status === "served";
@@ -1144,9 +1180,19 @@ const CheckoutPage: React.FC = () => {
                     const progressLabel = breakdown?.progress_label;
 
                     return (
-                      <div
+                      <motion.div
+                        layout
+                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 420,
+                          damping: 28,
+                          delay: idx === 0 ? 0.04 : 0,
+                        }}
                         key={order.id}
-                        className="rounded-2xl border overflow-hidden"
+                        className="rounded-2xl border overflow-hidden shadow-xs"
                         style={{
                           ...themedSurfaceStyle,
                           borderColor: isCancelled
@@ -1326,7 +1372,7 @@ const CheckoutPage: React.FC = () => {
                             );
                           })}
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -1334,146 +1380,154 @@ const CheckoutPage: React.FC = () => {
             )}
 
             {/* ── Your Selection ───────────────────────────────────────── */}
-            {currentCartHasItems && (
-              <section>
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div>
-                    <p
-                      className="text-[10px] font-black uppercase tracking-widest"
-                      style={{ color: "var(--co-muted)" }}
-                    >
-                      Your Selection
-                    </p>
-                    <p
-                      className="text-lg font-black"
-                      style={{ color: "var(--co-text)" }}
-                    >
-                      {lines.length} {lines.length === 1 ? "item" : "items"}
-                    </p>
+            <AnimatePresence mode="popLayout">
+              {currentCartHasItems && (
+                <motion.section
+                  layout
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <div>
+                      <p
+                        className="text-[10px] font-black uppercase tracking-widest"
+                        style={{ color: "var(--co-muted)" }}
+                      >
+                        Your Selection
+                      </p>
+                      <p
+                        className="text-lg font-black"
+                        style={{ color: "var(--co-text)" }}
+                      >
+                        {lines.length} {lines.length === 1 ? "item" : "items"}
+                      </p>
+                    </div>
+                    {!isWaitingConfirmation && (
+                      <button
+                        onClick={clearCart}
+                        className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold text-rose-500 transition-all active:scale-95"
+                        style={{ background: "rgba(239,68,68,0.08)" }}
+                      >
+                        <Trash2 className="h-3 w-3" /> Clear
+                      </button>
+                    )}
                   </div>
-                  {!isWaitingConfirmation && (
-                    <button
-                      onClick={clearCart}
-                      className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-bold text-rose-500 transition-all active:scale-95"
-                      style={{ background: "rgba(239,68,68,0.08)" }}
-                    >
-                      <Trash2 className="h-3 w-3" /> Clear
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-2.5">
-                  {lines.map((line) => (
-                    <div
-                      key={line.key}
-                      className="flex gap-3 rounded-2xl p-3 border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
-                      style={themedSurfaceStyle}
-                    >
-                      <div className="h-[72px] w-[72px] shrink-0 rounded-xl overflow-hidden relative">
-                        {line.item.image ? (
-                          <img
-                            src={line.item.image}
-                            alt={line.item.name}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                              const p = e.currentTarget.parentElement;
-                              if (p) {
-                                p.style.background =
-                                  "linear-gradient(135deg,#667eea,#764ba2)";
-                                p.innerHTML =
-                                  "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:1.5rem'>🍽️</div>";
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div
-                            className="w-full h-full flex items-center justify-center text-2xl"
-                            style={{
-                              background:
-                                "linear-gradient(135deg,#667eea,#764ba2)",
-                            }}
-                          >
-                            🍽️
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-1 flex-col justify-between min-w-0 py-0.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <p
-                            className="text-sm font-extrabold tracking-tight leading-snug line-clamp-2"
-                            style={{ color: "var(--co-text)" }}
-                          >
-                            {line.item.name}
-                          </p>
-                          <p
-                            className="text-sm font-black shrink-0"
-                            style={{ color: "var(--co-text)" }}
-                          >
-                            ₹{formatPrice(line.lineTotal)}
-                          </p>
-                        </div>
-                        {line.notes ? (
-                          <div className="mt-0.5 text-xs text-slate-500 italic">
-                            Note: {line.notes}
-                          </div>
-                        ) : null}
-                        <div className="flex items-center justify-between mt-1">
-                          <p
-                            className="text-[11px]"
-                            style={{ color: "var(--co-muted)" }}
-                          >
-                            ₹{formatPrice(line.unitPrice)} each
-                          </p>
-                          {!isWaitingConfirmation && (
+                  <div className="space-y-2.5">
+                    {lines.map((line) => (
+                      <div
+                        key={line.key}
+                        className="flex gap-3 rounded-2xl p-3 border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
+                        style={themedSurfaceStyle}
+                      >
+                        <div className="h-[72px] w-[72px] shrink-0 rounded-xl overflow-hidden relative">
+                          {line.item.image ? (
+                            <img
+                              src={line.item.image}
+                              alt={line.item.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const p = e.currentTarget.parentElement;
+                                if (p) {
+                                  p.style.background =
+                                    "linear-gradient(135deg,#667eea,#764ba2)";
+                                  p.innerHTML =
+                                    "<div style='display:flex;align-items:center;justify-content:center;height:100%;font-size:1.5rem'>🍽️</div>";
+                                }
+                              }}
+                            />
+                          ) : (
                             <div
-                              className="flex items-center rounded-lg overflow-hidden border"
+                              className="w-full h-full flex items-center justify-center text-2xl"
                               style={{
-                                borderColor: "#DDD5C5",
+                                background:
+                                  "linear-gradient(135deg,#667eea,#764ba2)",
                               }}
                             >
-                              <button
-                                onClick={() =>
-                                  decrementItem(line.item.id, line.variantId)
-                                }
-                                className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
-                                style={{
-                                  color: "#3D2B1F",
-                                  background: "#EDE5D8",
-                                }}
-                              >
-                                <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                              </button>
-                              <span
-                                className="w-8 text-center text-xs font-bold font-dm-sans"
-                                style={{ color: "#3D2B1F" }}
-                              >
-                                {line.quantity}
-                              </span>
-                              <button
-                                onClick={() =>
-                                  addItem(
-                                    line.item.id,
-                                    line.variantId,
-                                    line.unitPrice,
-                                  )
-                                }
-                                className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
-                                style={{
-                                  background: "#3D2B1F",
-                                  color: "#F7F2EB",
-                                }}
-                              >
-                                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                              </button>
+                              🍽️
                             </div>
                           )}
                         </div>
+                        <div className="flex flex-1 flex-col justify-between min-w-0 py-0.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p
+                              className="text-sm font-extrabold tracking-tight leading-snug line-clamp-2"
+                              style={{ color: "var(--co-text)" }}
+                            >
+                              {line.item.name}
+                            </p>
+                            <p
+                              className="text-sm font-black shrink-0"
+                              style={{ color: "var(--co-text)" }}
+                            >
+                              ₹{formatPrice(line.lineTotal)}
+                            </p>
+                          </div>
+                          {line.notes ? (
+                            <div className="mt-0.5 text-xs text-slate-500 italic">
+                              Note: {line.notes}
+                            </div>
+                          ) : null}
+                          <div className="flex items-center justify-between mt-1">
+                            <p
+                              className="text-[11px]"
+                              style={{ color: "var(--co-muted)" }}
+                            >
+                              ₹{formatPrice(line.unitPrice)} each
+                            </p>
+                            {!isWaitingConfirmation && (
+                              <div
+                                className="flex items-center rounded-lg overflow-hidden border"
+                                style={{
+                                  borderColor: "#DDD5C5",
+                                }}
+                              >
+                                <button
+                                  onClick={() =>
+                                    decrementItem(line.item.id, line.variantId)
+                                  }
+                                  className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
+                                  style={{
+                                    color: "#3D2B1F",
+                                    background: "#EDE5D8",
+                                  }}
+                                >
+                                  <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                </button>
+                                <span
+                                  className="w-8 text-center text-xs font-bold font-dm-sans"
+                                  style={{ color: "#3D2B1F" }}
+                                >
+                                  {line.quantity}
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    addItem(
+                                      line.item.id,
+                                      line.variantId,
+                                      line.unitPrice,
+                                    )
+                                  }
+                                  className="flex h-7 w-7 items-center justify-center transition-all active:scale-75"
+                                  style={{
+                                    background: "#3D2B1F",
+                                    color: "#F7F2EB",
+                                  }}
+                                >
+                                  <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+            </AnimatePresence>
 
             {/* ── AI Recommendations ───────────────────────────────────── */}
             {recommendationItems.length > 0 && (
@@ -1561,7 +1615,7 @@ const CheckoutPage: React.FC = () => {
                             onClick={() =>
                               addItem(
                                 item.id,
-                                "",
+                                item.variantId || "",
                                 Number(item.offerPrice ?? item.price),
                               )
                             }
@@ -1835,15 +1889,17 @@ const CheckoutPage: React.FC = () => {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: "var(--co-muted)" }}>GST (5%)</span>
-                  <span
-                    className="font-mono font-bold"
-                    style={{ color: "var(--co-text)" }}
-                  >
-                    ₹{tax}
-                  </span>
-                </div>
+                {tax > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span style={{ color: "var(--co-muted)" }}>GST (5%)</span>
+                    <span
+                      className="font-mono font-bold"
+                      style={{ color: "var(--co-text)" }}
+                    >
+                      ₹{tax}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="co-receipt-line" />
               <div className="flex items-center justify-between">
@@ -1889,33 +1945,51 @@ const CheckoutPage: React.FC = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => router.push("/menu")}
-                  className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-sm transition-all active:scale-95 border"
+                  className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-sm transition-all active:scale-95 border cursor-pointer"
                   style={{ ...themedSurfaceStyle, color: "var(--co-text)" }}
                 >
                   + Add Items
                 </button>
-                {!billRequested && (
+                {billRequested ? (
+                  <button
+                    disabled
+                    className="flex-1 rounded-2xl py-4 text-sm font-bold opacity-80 cursor-not-allowed flex items-center justify-center gap-2 border border-emerald-500/30 bg-emerald-50 text-emerald-800"
+                  >
+                    <CheckCircle2 size={16} className="text-emerald-600" />
+                    <span>Bill Requested</span>
+                  </button>
+                ) : (
                   <button
                     onClick={async () => {
+                      if (isRequestingBill || billRequested) return;
+                      setIsRequestingBill(true);
                       try {
                         await orderService.requestBill();
-                        toast.success("Bill requested!");
-                        const sessionId = localStorage.getItem("session_id");
-                        if (sessionId) {
-                          localStorage.setItem(`bill_requested_${sessionId}`, "true");
-                        }
+                        toast.success("Bill requested! Waiter is on their way.");
+                        const sessionId = localStorage.getItem("session_id") || "default";
+                        localStorage.setItem(`bill_requested_${sessionId}`, "true");
                         setBillRequested(true);
                       } catch (err: any) {
                         toast.error(err?.message || "Failed to request bill");
+                      } finally {
+                        setIsRequestingBill(false);
                       }
                     }}
-                    className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-xl transition-all active:scale-95"
+                    disabled={isRequestingBill}
+                    className="flex-1 rounded-2xl py-4 text-sm font-bold shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-75 cursor-pointer font-dm-sans"
                     style={{
                       background: "var(--co-accent)",
                       color: "var(--co-accent-text)",
                     }}
                   >
-                    Request Bill
+                    {isRequestingBill ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Requesting…</span>
+                      </>
+                    ) : (
+                      <span>Request Bill</span>
+                    )}
                   </button>
                 )}
               </div>

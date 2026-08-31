@@ -265,7 +265,7 @@ const animationStyles = `
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 20px;
-    background: #FAF9F6;
+    background: #FFFFFF;
     position: relative; overflow: hidden;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     padding: 32px;

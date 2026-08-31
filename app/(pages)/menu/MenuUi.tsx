@@ -1,5 +1,7 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
+
 import CustomerBottomNav, {
   type CustomerTab,
 } from "@/app/components/menu/CustomerBottomNav";
@@ -20,6 +22,10 @@ import {
   X,
   HelpCircle,
   Smartphone,
+  ArrowUp,
+  Plus,
+  Minus,
+  ShoppingBag,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -109,7 +115,14 @@ const getRatingStyles = (rating: number) => {
 // initial state — prevents the first render from ever seeing raw sql.NullString
 // objects ({String,Valid}) leaking into JSX via useState(rawItems).
 const normalizeItem = (item: any) => {
-  const basePrice = Number(item.price || 0);
+  const basePrice = Number(
+    (item.price && Number(item.price) > 0 ? item.price : null) ??
+    (item.base_price && Number(item.base_price) > 0 ? item.base_price : null) ??
+    (item.basePrice && Number(item.basePrice) > 0 ? item.basePrice : null) ??
+    (item.variants?.[0]?.price && Number(item.variants[0].price) > 0 ? item.variants[0].price : null) ??
+    item.price ??
+    0
+  );
   const variants = Array.isArray(item.variants)
     ? item.variants.map((v: any) => {
         const variantPrice = Number(v.price ?? 0);
@@ -119,7 +132,7 @@ const normalizeItem = (item: any) => {
           priceDelta:
             typeof v.priceDelta === "number"
               ? v.priceDelta
-              : variantPrice - basePrice,
+              : variantPrice > 0 ? variantPrice - basePrice : 0,
         };
       })
     : [];
@@ -254,7 +267,7 @@ const DEFAULT_THEME: ThemeConfig = {
   section_icon: "•",
   icon_pack: "auto",
   colors: {
-    bg: "#FAF9F6",
+    bg: "#FFFFFF",
     surface: "#FFFFFF",
     text: "#0F172A",
     muted: "#64748B",
@@ -465,14 +478,19 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const [expandedCategories, setExpandedCategories] = useState<
     Record<string, boolean>
   >({});
+  const [isMenuDrawerOpen, setIsMenuDrawerOpen] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<
     Record<string, string>
   >({});
   const [tourReady, setTourReady] = useState(false);
   const [hasArItems, setHasArItems] = useState(false);
   const [scrolledHeader, setScrolledHeader] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const [isImmersive, setIsImmersive] = useState(!orderingEnabled);
   const [arItem, setArItem] = useState<any | null>(null);
+  const [detailItem, setDetailItem] = useState<any | null>(null);
+  const [detailNotes, setDetailNotes] = useState<string>("");
+  const [selectedDetailVariantId, setSelectedDetailVariantId] = useState<string>("");
   const modelViewerRef = React.useRef<any>(null);
   const [isBrowser, setIsBrowser] = useState(false);
   const [modelViewerReady, setModelViewerReady] = useState(false);
@@ -526,11 +544,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     return () => window.removeEventListener("cart-error", handleError);
   }, [previewMode]);
 
-  useEffect(() => {
-    if (!orderingEnabled) {
-      setIsImmersive(true);
-    }
-  }, [orderingEnabled]);
 
   useEffect(() => {
     const normalized = Array.isArray(initialMenu)
@@ -627,19 +640,42 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
   const handleRemove = async (id: string, vId?: string) => {
     if (previewMode) {
-      const key = getCartKey(id, vId || "");
+      const currentKey = getCartKey(id, vId || "");
+      const blankKey = getCartKey(id, "");
+      const targetKey =
+        previewCart[currentKey]
+          ? currentKey
+          : previewCart[blankKey]
+            ? blankKey
+            : Object.keys(previewCart).find((k) => k.split("::")[0] === String(id)) || currentKey;
+
       setPreviewCart((prev) => {
-        const current = prev[key];
+        const current = prev[targetKey];
         if (!current) return prev;
         const next = { ...prev };
-        if (current.quantity <= 1) delete next[key];
-        else next[key] = { ...current, quantity: current.quantity - 1 };
+        if (current.quantity <= 1) delete next[targetKey];
+        else next[targetKey] = { ...current, quantity: current.quantity - 1 };
         return next;
       });
       return;
     }
     if (!orderingEnabled) return;
-    decrementItemStore(id, vId || "");
+
+    const currentKey = getCartKey(id, vId || "");
+    const blankKey = getCartKey(id, "");
+    if (cart[currentKey]) {
+      decrementItemStore(id, vId || "");
+    } else if (cart[blankKey]) {
+      decrementItemStore(id, "");
+    } else {
+      const match = Object.keys(cart).find((k) => k.split("::")[0] === String(id));
+      if (match) {
+        const [, varPart] = match.split("::");
+        decrementItemStore(id, varPart || "");
+      } else {
+        decrementItemStore(id, vId || "");
+      }
+    }
   };
 
   // ── Category-aware filtering ──
@@ -681,6 +717,72 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       translatedItems.map((item: any) => getParentName(item)).filter(Boolean),
     ),
   ).map((cat) => ({ id: cat as string, name: cat as string }));
+
+  const allNavCategories = React.useMemo(() => {
+    const list: {
+      id: string;
+      name: string;
+      count: number;
+      vegCount: number;
+      nonVegCount: number;
+      sectionId: string;
+      catKey: string;
+      isSpecial?: boolean;
+    }[] = [];
+
+    if (todaySpecialItems.length > 0) {
+      list.push({
+        id: "specials",
+        name: t("todaysSpecials"),
+        count: todaySpecialItems.length,
+        vegCount: todaySpecialItems.filter((i: any) => i.isVeg).length,
+        nonVegCount: todaySpecialItems.filter((i: any) => !i.isVeg).length,
+        sectionId: "category-specials",
+        catKey: "__specials",
+        isSpecial: true,
+      });
+    }
+
+    if (chefSpecialItems.length > 0) {
+      list.push({
+        id: "chef",
+        name: t("chefSpecials"),
+        count: chefSpecialItems.length,
+        vegCount: chefSpecialItems.filter((i: any) => i.isVeg).length,
+        nonVegCount: chefSpecialItems.filter((i: any) => !i.isVeg).length,
+        sectionId: "category-chef",
+        catKey: "__chef",
+        isSpecial: true,
+      });
+    }
+
+    categories.forEach((cat) => {
+      const catItems = filteredItems.filter(
+        (item: any) => getParentName(item) === cat.id,
+      );
+      if (catItems.length > 0) {
+        list.push({
+          id: cat.id,
+          name: cat.name,
+          count: catItems.length,
+          vegCount: catItems.filter((i: any) => i.isVeg).length,
+          nonVegCount: catItems.filter((i: any) => !i.isVeg).length,
+          sectionId: `category-${cat.id}`,
+          catKey: cat.id,
+        });
+      }
+    });
+
+    return list;
+  }, [todaySpecialItems, chefSpecialItems, categories, filteredItems, t]);
+
+  const handleJumpToCategory = (sectionId: string, catKey: string) => {
+    setExpandedCategories((p) => ({ ...p, [catKey]: true }));
+    setIsMenuDrawerOpen(false);
+    setTimeout(() => {
+      scrollToSection(sectionId);
+    }, 150);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -916,6 +1018,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     setIsBrowser(true);
     const handleScroll = () => {
       setScrolledHeader(window.scrollY > 40);
+      setShowScrollTop(window.scrollY > 300);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -1218,16 +1321,103 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     </button>
   );
 
+  const handleOpenDetail = (item: any) => {
+    const defaultVId = selectedVariants[item.id] || item.variants?.[0]?.id || "";
+    const cartKey = getCartKey(item.id, defaultVId);
+    const existingNotes = cartState[cartKey]?.notes || "";
+    setDetailItem(item);
+    setSelectedDetailVariantId(defaultVId);
+    setDetailNotes(existingNotes);
+  };
+
+  const detailBasePrice = detailItem ? Number(detailItem.price || 0) : 0;
+  const detailDiscountedBase =
+    detailItem &&
+    typeof detailItem.offerPrice === "number" &&
+    detailItem.offerPrice > 0 &&
+    detailItem.offerPrice < detailBasePrice
+      ? Number(detailItem.offerPrice)
+      : detailBasePrice;
+  const detailVariant = detailItem?.variants?.find(
+    (v: any) => String(v.id) === String(selectedDetailVariantId),
+  );
+  const detailVariantDelta = detailVariant?.priceDelta || 0;
+  const detailDisplayPrice = detailDiscountedBase + detailVariantDelta;
+  const detailOriginalPrice = detailBasePrice + detailVariantDelta;
+
+  const detailCalVal = detailItem
+    ? typeof detailItem.calories === "number" && detailItem.calories > 0
+      ? detailItem.calories
+      : typeof detailItem.kcal === "number" && detailItem.kcal > 0
+        ? detailItem.kcal
+        : detailItem.proteinG || detailItem.carbsG || detailItem.fatG
+          ? Math.round(
+              (detailItem.proteinG || 0) * 4 +
+                (detailItem.carbsG || 0) * 4 +
+                (detailItem.fatG || 0) * 9,
+            )
+          : 0
+    : 0;
+
+  const detailVariants = (detailItem?.variants || []).filter((v: any) => {
+    const label = (v?.name || v?.label || "").trim().toLowerCase();
+    return !(
+      ["", "default", "regular", "standard"].includes(label) &&
+      (v.priceDelta || 0) === 0
+    );
+  });
+
+  const hasDetailMacros = Boolean(
+    detailItem && (
+      detailCalVal > 0 ||
+      (detailItem.proteinG || 0) > 0 ||
+      (detailItem.carbsG || 0) > 0 ||
+      (detailItem.fatG || 0) > 0
+    )
+  );
+
+  const detailCartKey = detailItem ? getCartKey(detailItem.id, selectedDetailVariantId) : "";
+  const detailBlankKey = detailItem ? getCartKey(detailItem.id, "") : "";
+  const detailBareKey = detailItem ? String(detailItem.id) : "";
+  const detailMatchingKeys = detailItem
+    ? Object.keys(cartState || {}).filter((k) => {
+        const [idPart] = k.split("::");
+        return String(idPart).toLowerCase() === String(detailItem.id).toLowerCase();
+      })
+    : [];
+  const detailQuantity = detailItem
+    ? (cartState?.[detailCartKey]?.quantity ||
+        cartState?.[detailBlankKey]?.quantity ||
+        cartState?.[detailBareKey]?.quantity ||
+        (selectedDetailVariantId
+          ? 0
+          : detailMatchingKeys.reduce((acc, k) => acc + (cartState?.[k]?.quantity || 0), 0)))
+    : 0;
+
   /* ── Render food card helper ── */
   const renderCard = (item: any, keyPrefix: string, idx?: number) => {
     const currentVId =
       selectedVariants[item.id] || item.variants?.[0]?.id || "";
-    const cartKey = getCartKey(item.id, currentVId);
-    const cartItem = cartState[cartKey];
-    const quantity = cartItem ? cartItem.quantity : 0;
+    const currentKey = getCartKey(item.id, currentVId);
+    const blankKey = getCartKey(item.id, "");
+    const bareKey = String(item.id);
+    const matchingKeys = Object.keys(cartState).filter((k) => {
+      const [idPart] = k.split("::");
+      return String(idPart).toLowerCase() === String(item.id).toLowerCase();
+    });
+    const quantity =
+      cartState[currentKey]?.quantity ||
+      cartState[blankKey]?.quantity ||
+      cartState[bareKey]?.quantity ||
+      matchingKeys.reduce((acc, k) => acc + (cartState[k]?.quantity || 0), 0);
     const isFirstCard = keyPrefix === "main" && idx === 0;
     return (
-      <div
+      <motion.div
+        layout="position"
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
         key={`${keyPrefix}-${item.id}`}
         id={isFirstCard ? "tour-food-card" : undefined}
       >
@@ -1238,6 +1428,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             name: item.name,
             description: item.description,
             category: item.categoryName || "General",
+            calories: typeof item.calories === "number" ? item.calories : item.kcal || item.nutrition?.calories,
           }}
           ratingStyles={getRatingStyles(item.rating)}
           selectedVariantId={currentVId}
@@ -1248,10 +1439,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
           onAdd={handleAdd}
           onRemove={handleRemove}
           onArClick={handleArOpen}
+          onCardClick={(clickedItem) => handleOpenDetail(clickedItem)}
           orderingEnabled={orderingEnabled}
           layout={activeTheme.layout as any}
         />
-      </div>
+      </motion.div>
     );
   };
 
@@ -1272,7 +1464,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       <div className="qr-theme-corner qr-theme-corner-bl" aria-hidden />
       <div className="qr-theme-corner qr-theme-corner-br" aria-hidden />
 
-      {isImmersive && (
+      {(!orderingEnabled || isImmersive) && (
         <ImmersiveMenu
           items={filteredItems}
           categories={categories}
@@ -1288,14 +1480,20 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
         />
       )}
 
-      {arItem && isBrowser
+      {isBrowser
         ? createPortal(
-            <div
-              onClick={(e) => {
-                if (e.target === e.currentTarget) handleArClose();
-              }}
-              className="fixed inset-0 z-[9999] bg-[#3D2B1F]/30 backdrop-blur-[4px] flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all"
-            >
+            <AnimatePresence>
+              {arItem && (
+                <motion.div
+                  initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) handleArClose();
+                  }}
+                  className="fixed inset-0 z-[9999] bg-[#3D2B1F]/30 backdrop-blur-[4px] flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all"
+                >
               <style dangerouslySetInnerHTML={{__html: `
                 @keyframes arSteamRise {
                   0% {
@@ -1555,7 +1753,408 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                   </button>
                 </div>
               </div>
-            </div>,
+            </motion.div>
+              )}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
+
+      {/* ── ITEM DETAILS BOTTOM SHEET / MODAL ── */}
+      {isBrowser && typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>
+              {detailItem && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setDetailItem(null)}
+                  className="fixed inset-0 z-[9999] bg-[#3D2B1F]/40 backdrop-blur-[6px] flex items-end sm:items-center justify-center p-0 sm:p-4"
+                >
+                  <motion.div
+                    initial={{ y: "100%", opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: "100%", opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-[#FFFFFF] w-full max-w-lg rounded-t-[32px] sm:rounded-[32px] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-[#EDE5D8]"
+                  >
+                    {/* Drag handle for mobile */}
+                    <div className="flex justify-center pt-3 pb-1 sm:hidden">
+                      <div className="w-10 h-1 rounded-full bg-[#EDE5D8]" />
+                    </div>
+
+                    {/* Media Area (3D model or Image) */}
+                    <div className="relative shrink-0">
+                      <button
+                        onClick={() => setDetailItem(null)}
+                        className="absolute top-4 right-4 z-30 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center active:scale-90 transition-transform shadow-md hover:bg-black/60"
+                        aria-label="Close"
+                      >
+                        <X size={16} />
+                      </button>
+
+                      <div className="relative w-full h-[220px] sm:h-[260px] bg-[#F4F4F5] flex items-center justify-center overflow-hidden">
+                        {Boolean(detailItem.arModelGlb) && modelViewerReady ? (
+                          <div className="w-full h-full relative">
+                            <model-viewer
+                              ref={modelViewerRef}
+                              src={sanitizeModelUrl(detailItem.arModelGlb)}
+                              ios-src={sanitizeModelUrl(detailItem.arModelUsdz) || undefined}
+                              alt={detailItem.name}
+                              auto-rotate
+                              camera-controls
+                              interaction-prompt="none"
+                              tone-mapping="commerce"
+                              shadow-intensity="1"
+                              style={{ width: "100%", height: "100%", background: "transparent" }}
+                            />
+                            <button
+                              onClick={activateAr}
+                              className="absolute bottom-3 right-3 px-3.5 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1.5 uppercase tracking-wider bg-[#18181B]/90 backdrop-blur-md text-white shadow-lg z-20 active:scale-95 hover:bg-[#18181B]"
+                            >
+                              <Smartphone size={12} />
+                              View in AR
+                            </button>
+                          </div>
+                        ) : detailItem.image ? (
+                          <img
+                            src={detailItem.image}
+                            alt={detailItem.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center opacity-30">
+                            <UtensilsCrossed size={48} className="text-[#71717A]" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Scrollable Body */}
+                    <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
+                      {/* Name + Price */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {detailItem.isVeg !== undefined && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  detailItem.isVeg
+                                    ? "bg-[#EFFDF4] text-[#15803D] border border-[#BBF7D0]"
+                                    : "bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]"
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    detailItem.isVeg ? "bg-[#10B981]" : "bg-[#EF4444]"
+                                  }`}
+                                />
+                                {detailItem.isVeg ? "VEG" : "NON-VEG"}
+                              </span>
+                            )}
+                            {detailItem.categoryName && (
+                              <span className="text-[11px] font-bold text-[#71717A] uppercase tracking-wider font-dm-sans">
+                                {detailItem.categoryName}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-xl sm:text-2xl font-extrabold text-[#18181B] tracking-tight font-dm-sans">
+                            {detailItem.name}
+                          </h2>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="text-xl sm:text-2xl font-extrabold text-[#18181B] font-dm-sans">
+                            ₹{detailDisplayPrice}
+                          </span>
+                          {detailOriginalPrice > detailDisplayPrice && (
+                            <span className="text-xs text-[#A1A1AA] line-through font-medium font-dm-sans">
+                              ₹{detailOriginalPrice}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      {detailItem.description && (
+                        <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed font-normal font-dm-sans">
+                          {detailItem.description}
+                        </p>
+                      )}
+
+                      {/* Variants / Options */}
+                      {detailVariants.length > 0 && (
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#18181B] uppercase tracking-wider mb-2 font-dm-sans">
+                            Options
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {detailVariants.map((v: any) => (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={() => setSelectedDetailVariantId(String(v.id))}
+                                className={`px-3.5 py-2 rounded-xl text-xs font-bold border font-dm-sans transition-all ${
+                                  String(selectedDetailVariantId) === String(v.id)
+                                    ? "bg-[#18181B] border-[#18181B] text-white shadow-sm"
+                                    : "bg-[#F4F4F5] border-[#E4E4E7] text-[#52525B] hover:border-[#18181B]"
+                                }`}
+                              >
+                                {v.name} {v.priceDelta > 0 ? `(+₹${v.priceDelta})` : ""}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Nutrition Information (only when macros exist) */}
+                      {hasDetailMacros && (
+                        <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
+                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#71717A] mb-2.5 font-dm-sans">
+                            Nutrition Information
+                          </h4>
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                              <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Calories</span>
+                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                                {detailCalVal} kcal
+                              </span>
+                            </div>
+                            <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                              <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Protein</span>
+                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                                {detailItem.proteinG || 0} g
+                              </span>
+                            </div>
+                            <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                              <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Carbs</span>
+                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                                {detailItem.carbsG || 0} g
+                              </span>
+                            </div>
+                            <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                              <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Fat</span>
+                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                                {detailItem.fatG || 0} g
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ingredients */}
+                      {getIngredients(detailItem).length > 0 && (
+                        <div>
+                          <label className="block text-[10px] font-bold text-[#71717A] uppercase tracking-wider mb-1 font-dm-sans">
+                            Ingredients
+                          </label>
+                          <p className="text-xs text-[#52525B] leading-relaxed font-dm-sans">
+                            {getIngredients(detailItem).join(", ")}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Special Instructions */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#18181B] uppercase tracking-wider mb-1.5 font-dm-sans">
+                          Special instructions
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={detailNotes}
+                          onChange={(e) => setDetailNotes(e.target.value)}
+                          placeholder="Less sweet, no nuts..."
+                          className="w-full text-xs sm:text-sm p-3 rounded-xl border border-[#E4E4E7] bg-[#F4F4F5] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none focus:border-[#18181B] focus:bg-white transition-all resize-none font-dm-sans"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bottom Action Bar */}
+                    <div className="p-4 sm:p-5 border-t border-[#F1F1F1] bg-white flex items-center shrink-0">
+                      {detailQuantity === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleAdd(
+                              detailItem.id,
+                              selectedDetailVariantId,
+                              detailDisplayPrice,
+                              detailNotes
+                            );
+                          }}
+                          className="w-full h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-sm sm:text-base flex items-center justify-between px-5 shadow-sm transition-all font-dm-sans cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Plus size={18} strokeWidth={2.5} className="text-[#fe5c13]" />
+                            <span>Add to order</span>
+                          </span>
+                          <span className="font-extrabold text-sm sm:text-base">₹{detailDisplayPrice}</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-3 w-full animate-in fade-in duration-150">
+                          {/* Stepper */}
+                          <div className="flex items-center bg-zinc-100 rounded-2xl h-[52px] px-1 border border-zinc-200/80 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleRemove(detailItem.id, selectedDetailVariantId)}
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-900 bg-white shadow-xs hover:bg-zinc-50 active:scale-95 transition-transform cursor-pointer"
+                              aria-label="Decrease quantity"
+                            >
+                              <Minus size={15} strokeWidth={2.5} />
+                            </button>
+                            <span className="w-9 text-center text-base font-extrabold text-zinc-900 tabular-nums font-dm-sans">
+                              {detailQuantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAdd(
+                                  detailItem.id,
+                                  selectedDetailVariantId,
+                                  detailDisplayPrice,
+                                  detailNotes
+                                )
+                              }
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-900 bg-white shadow-xs hover:bg-zinc-50 active:scale-95 transition-transform cursor-pointer"
+                              aria-label="Increase quantity"
+                            >
+                              <Plus size={15} strokeWidth={2.5} />
+                            </button>
+                          </div>
+
+                          {/* View Cart Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDetailItem(null);
+                              router.push("/checkout");
+                            }}
+                            className="flex-1 h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <ShoppingBag size={17} strokeWidth={2.5} />
+                              <span>View Cart</span>
+                              {totalItems > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-extrabold">
+                                  {totalItems}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-extrabold text-sm">₹{cartTotal}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
+
+      {/* ── BROWSE MENU BOTTOM SHEET DRAWER ── */}
+      {isBrowser && typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>
+              {isMenuDrawerOpen && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsMenuDrawerOpen(false)}
+                  className="fixed inset-0 z-[9999] bg-black/45 backdrop-blur-[6px] flex items-end justify-center p-0 sm:p-4"
+                >
+                  <motion.div
+                    initial={{ y: "100%", opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: "100%", opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] max-h-[82vh] flex flex-col overflow-hidden shadow-2xl border border-zinc-100"
+                  >
+                    {/* Header */}
+                    <div className="pt-3 pb-3.5 px-6 border-b border-zinc-100 shrink-0">
+                      <div className="w-10 h-1 rounded-full bg-zinc-300 mx-auto mb-3" />
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-extrabold text-zinc-900 tracking-tight font-dm-sans">
+                            Browse Menu
+                          </h3>
+                          <p className="text-[11.5px] text-zinc-400 font-medium font-dm-sans mt-0.5">
+                            {allNavCategories.length} categories available
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setIsMenuDrawerOpen(false)}
+                          className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 flex items-center justify-center transition-colors active:scale-95"
+                          aria-label="Close"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Category List */}
+                    <div className="p-3.5 overflow-y-auto flex-1 divide-y divide-zinc-100/80">
+                      {allNavCategories.map((cat) => {
+                        const isActive =
+                          activeCategory === cat.id ||
+                          (cat.id === "specials" && activeCategory === "specials") ||
+                          (cat.id === "chef" && activeCategory === "chef");
+
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => handleJumpToCategory(cat.sectionId, cat.catKey)}
+                            className="w-full p-3.5 rounded-2xl flex items-center justify-between text-left hover:bg-zinc-50 active:bg-zinc-100/70 transition-colors"
+                          >
+                            <div className="flex items-center gap-3.5">
+                              <div
+                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                  cat.isSpecial
+                                    ? "bg-amber-500"
+                                    : "bg-zinc-400"
+                                }`}
+                              />
+                              <div>
+                                <span className="text-[13.5px] font-bold font-dm-sans block text-zinc-900">
+                                  {cat.name}
+                                </span>
+                                {(cat.vegCount > 0 || cat.nonVegCount > 0) && (
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {cat.vegCount > 0 && (
+                                      <span className="text-[10.5px] font-semibold text-emerald-600">
+                                        {cat.vegCount} Veg
+                                      </span>
+                                    )}
+                                    {cat.vegCount > 0 && cat.nonVegCount > 0 && (
+                                      <span className="text-[10px] text-zinc-300">
+                                        •
+                                      </span>
+                                    )}
+                                    {cat.nonVegCount > 0 && (
+                                      <span className="text-[10.5px] font-semibold text-rose-500">
+                                        {cat.nonVegCount} Non-Veg
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0 font-dm-sans bg-zinc-100 text-zinc-600">
+                              {cat.count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>,
             document.body,
           )
         : null}
@@ -1566,74 +2165,92 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       >
         <div className="mu-header-inner">
           <div className="mu-header-left">
-            <div className="mu-logo-wrap">
+            <div className="w-10 h-10 rounded-2xl overflow-hidden bg-zinc-100 flex-shrink-0 flex items-center justify-center border border-zinc-200/70 shadow-sm">
               {restaurantLogoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={restaurantLogoUrl}
                   alt={`${restaurantName} logo`}
-                  className="mu-logo-img"
+                  className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="mu-logo-fallback">
-                  <UtensilsCrossed className="w-5 h-5" />
+                <div className="w-full h-full bg-zinc-100 text-zinc-500 flex items-center justify-center">
+                  <UtensilsCrossed className="w-4 h-4" />
                 </div>
               )}
             </div>
             <div>
-              <h1 className="mu-restaurant-name">{restaurantName}</h1>
-              <div className="mu-table-chip">
-                <span className="mu-table-chip-dot" />
-                <span className="mu-table-label">Table {tableId || "7"}</span>
+              <h1 className="text-sm sm:text-base font-extrabold text-zinc-900 leading-tight tracking-tight font-dm-sans">
+                {restaurantName}
+              </h1>
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-[10.5px] font-bold text-emerald-700 border border-emerald-200/60 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Table {tableId || "7"}</span>
               </div>
             </div>
           </div>
 
-          <div className="mu-header-right">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Veg Switch Filter */}
             <button
               id="tour-veg-filter"
               onClick={() => setIsVegOnly(!isVegOnly)}
-              className={`mu-veg-btn ${isVegOnly ? "mu-veg-btn--active" : ""}`}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none ${
+                isVegOnly ? "bg-[#10B981]" : "bg-zinc-200"
+              }`}
               aria-label="Vegetarian filter"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <span
+                className={`inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-sm transition-transform duration-300 ${
+                  isVegOnly ? "translate-x-6" : "translate-x-1"
+                }`}
               >
-                <path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 19 2c1 2 2 4.5 2 8 0 5.5-4.5 10-10 10Z" />
-                <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
-              </svg>
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={isVegOnly ? "#10B981" : "#94A3B8"}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 19 2c1 2 2 4.5 2 8 0 5.5-4.5 10-10 10Z" />
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+                </svg>
+              </span>
             </button>
+
             {orderingEnabled && (
               <button
                 id="tour-immersive"
                 onClick={() => setIsImmersive(true)}
-                className="mu-header-btn"
+                className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center transition-colors active:scale-95"
                 aria-label="Immersive menu"
               >
-                <Smartphone size={16} />
+                <Smartphone size={15} />
               </button>
             )}
+
             <button
               id="tour-search"
               onClick={() => setIsSearchOpen(!isSearchOpen)}
-              className="mu-header-btn"
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors active:scale-95 ${
+                isSearchOpen
+                  ? "bg-zinc-900 text-white"
+                  : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
+              }`}
               aria-label="Search menu"
             >
-              <Search size={16} />
+              <Search size={15} />
             </button>
+
             <button
               onClick={() => startTour()}
-              className="mu-header-btn"
+              className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-500 flex items-center justify-center transition-colors active:scale-95"
               aria-label="Replay tour"
             >
-              <HelpCircle size={16} />
+              <HelpCircle size={15} />
             </button>
           </div>
         </div>
@@ -1662,216 +2279,276 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             </div>
           </div>
         )}
-
-        {/* Occupied notice */}
-        {isTableOccupied && orderingEnabled && (
-          <div className="mu-occupied-notice">
-            This table already has an active session. You are viewing the active
-            table.
-          </div>
-        )}
-
-        {/* Category pills — only on menu tab */}
-        {activeTab === "menu" && categories.length > 0 && (
-          <div className="mu-category-pills">
-            {offerItems.length > 0 && (
-              <button
-                onClick={() => scrollToSection("category-offers")}
-                className={`mu-pill ${activeCategory === "offers" ? "mu-pill--active" : ""}`}
-              >
-                Offers
-              </button>
-            )}
-            {todaySpecialItems.length > 0 && (
-              <button
-                onClick={() => scrollToSection("category-specials")}
-                className={`mu-pill ${activeCategory === "specials" ? "mu-pill--active" : ""}`}
-              >
-                Specials
-              </button>
-            )}
-            {chefSpecialItems.length > 0 && (
-              <button
-                onClick={() => scrollToSection("category-chef")}
-                className={`mu-pill ${activeCategory === "chef" ? "mu-pill--active" : ""}`}
-              >
-                Chef&apos;s Pick
-              </button>
-            )}
-
-            {categories.map((cat) => {
-              const count = filteredItems.filter(
-                (item: any) => getParentName(item) === cat.id,
-              ).length;
-              if (count === 0) return null;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => scrollToSection(`category-${cat.id}`)}
-                  className={`mu-pill ${activeCategory === cat.id ? "mu-pill--active" : ""}`}
-                >
-                  {cat.name}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </header>
+
+      {/* ── FLOATING QUICK-NAV MENU BUTTON (ICON FAB - RIGHT ALIGNED) ── */}
+      {activeTab === "menu" && allNavCategories.length > 0 && !isSearchOpen && (
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          className="fixed right-4 sm:right-6 z-40 transition-all duration-300 pointer-events-auto"
+          style={{
+            bottom: orderingEnabled && totalItems > 0 ? "130px" : "74px",
+          }}
+        >
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setIsMenuDrawerOpen(true)}
+            className="relative w-11 h-11 rounded-full bg-[#18181B] hover:bg-zinc-800 active:bg-black text-white shadow-[0_8px_24px_rgba(0,0,0,0.22)] flex items-center justify-center border border-white/15 backdrop-blur-md cursor-pointer transition-colors"
+            aria-label="Browse Menu"
+          >
+            <UtensilsCrossed size={17} className="text-[#fe5c13]" />
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#18181B] text-white text-[9.5px] font-black flex items-center justify-center border border-white/30 shadow-sm">
+              {allNavCategories.length}
+            </span>
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* ── MAIN CONTENT ── */}
       <main className="mu-main">
         {activeTab === "menu" && (
           <div className="mu-menu-content">
+            {/* Search States */}
+            {isSearchOpen && !searchQuery && recommendationItems.length > 0 && (
+              <div className="px-5 py-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#fe5c13] animate-pulse"></span>
+                  Popular right now
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {recommendationItems.slice(0, 8).map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setSearchQuery(item.name)}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-full text-sm font-semibold text-slate-700 transition-colors shadow-sm active:scale-95"
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {searchQuery && filteredItems.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 px-5 text-center animate-in fade-in duration-300">
+                <div className="w-48 h-48 mb-6 text-slate-200 relative">
+                  <svg viewBox="0 0 200 200" fill="none" className="w-full h-full">
+                    {/* Empty Plate Illustration */}
+                    <circle cx="100" cy="100" r="80" stroke="currentColor" strokeWidth="8" strokeDasharray="10 10" />
+                    <circle cx="100" cy="100" r="60" stroke="currentColor" strokeWidth="4" />
+                    <path d="M85 85 Q100 70 115 85 Q130 100 115 115 Q100 130 85 115 Q70 100 85 85" stroke="currentColor" strokeWidth="4" />
+                    {/* Magnifying Glass */}
+                    <circle cx="130" cy="130" r="25" fill="white" stroke="#94A3B8" strokeWidth="8" />
+                    <line x1="148" y1="148" x2="175" y2="175" stroke="#94A3B8" strokeWidth="12" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">No results found</h3>
+                <p className="text-slate-500 text-sm max-w-[260px] mx-auto leading-relaxed">
+                  We couldn't find anything matching &quot;<span className="font-semibold text-slate-700">{searchQuery}</span>&quot;. Try searching for a different dish or ingredient.
+                </p>
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="mt-8 px-8 py-3 bg-[#fe5c13] text-white rounded-full font-bold hover:bg-[#d94e10] transition-colors shadow-md active:scale-95"
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
 
             {/* Today's Specials */}
-            {todaySpecialItems.length > 0 && (
-              <section className="mu-section">
-                <SectionToggle
-                  title={t("todaysSpecials")}
-                  color="#B45309"
-                  count={todaySpecialItems.length}
-                  sectionId="category-specials"
-                  expanded={expandedCategories["__specials"] !== false}
-                  onToggle={() =>
-                    setExpandedCategories((p) => ({
-                      ...p,
-                      __specials: p["__specials"] === false,
-                    }))
-                  }
-                />
-                {expandedCategories["__specials"] !== false && (
-                  <div className={layoutGridClass}>
-                    {todaySpecialItems.map((item: any) =>
-                      renderCard(item, "todays"),
-                    )}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* Offers */}
-            {offerItems.length > 0 && (
-              <section className="mu-section">
-                <SectionToggle
-                  title={t("offerProducts")}
-                  color="#15803D"
-                  count={offerItems.length}
-                  sectionId="category-offers"
-                  expanded={expandedCategories["__offers"] !== false}
-                  onToggle={() =>
-                    setExpandedCategories((p) => ({
-                      ...p,
-                      __offers: p["__offers"] === false,
-                    }))
-                  }
-                />
-                {expandedCategories["__offers"] !== false && (
-                  <div className={layoutGridClass}>
-                    {offerItems
-                      .slice(0, 8)
-                      .map((item: any) => renderCard(item, "offer"))}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* Chef Specials */}
-            {chefSpecialItems.length > 0 && (
-              <section className="mu-section">
-                <SectionToggle
-                  title={t("chefSpecials")}
-                  color="#B45309"
-                  count={chefSpecialItems.length}
-                  sectionId="category-chef"
-                  expanded={expandedCategories["__chef"] !== false}
-                  onToggle={() =>
-                    setExpandedCategories((p) => ({
-                      ...p,
-                      __chef: p["__chef"] === false,
-                    }))
-                  }
-                />
-                {expandedCategories["__chef"] !== false && (
-                  <div className={layoutGridClass}>
-                    {chefSpecialItems.map((item: any) =>
-                      renderCard(item, "chef"),
-                    )}
-                  </div>
-                )}
-              </section>
-            )}
-
-
-            {/* Regular categories */}
-            {categories.map((category) => {
-              const items = filteredItems.filter(
-                (item: any) => getParentName(item) === category.id,
-              );
-              if (items.length === 0) return null;
-
-              const subcategories = Array.from(
-                new Set(
-                  items
-                    .map((item: any) => getSubcategoryName(item))
-                    .filter(Boolean),
-                ),
-              ) as string[];
-
-              const catColor =
-                (category.name || "").toLowerCase().includes("drink") ||
-                (category.name || "").toLowerCase().includes("beverage")
-                  ? "#1D4ED8"
-                  : "#8B6E4F";
-
-              return (
-                <section key={category.id} className="mu-section">
+            <AnimatePresence>
+              {todaySpecialItems.length > 0 && (
+                <motion.section
+                  layout="position"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="mu-section"
+                >
                   <SectionToggle
-                    title={category.name}
-                    color={catColor}
-                    count={items.length}
-                    sectionId={`category-${category.id}`}
-                    expanded={expandedCategories[category.id] !== false}
+                    title={t("todaysSpecials")}
+                    color="#B45309"
+                    count={todaySpecialItems.length}
+                    sectionId="category-specials"
+                    expanded={expandedCategories["__specials"] !== false}
                     onToggle={() =>
                       setExpandedCategories((p) => ({
                         ...p,
-                        [category.id]: !p[category.id],
+                        __specials: p["__specials"] === false,
                       }))
                     }
                   />
-
-                  {expandedCategories[category.id] && (
-                    <div className="mu-subcategories">
-                      {subcategories.map((subcat: string) => {
-                        const subItems = items.filter(
-                          (item: any) => getSubcategoryName(item) === subcat,
-                        );
-                        if (subItems.length === 0) return null;
-
-                        return (
-                          <div key={`${category.id}-${subcat}`}>
-                            {subcategories.length > 1 && (
-                              <h3 className="mu-subcategory-name">{subcat}</h3>
+                  <AnimatePresence initial={false}>
+                    {expandedCategories["__specials"] !== false && (
+                      <motion.div
+                        key="specials-content"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <div className={layoutGridClass}>
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            {todaySpecialItems.map((item: any) =>
+                              renderCard(item, "todays"),
                             )}
-                            <div className={layoutGridClass}>
-                              {subItems.map((item: any, itemIdx: number) =>
-                                renderCard(
-                                  item,
-                                  categories.indexOf(category) === 0 &&
-                                    subcategories.indexOf(subcat) === 0
-                                    ? "main"
-                                    : `cat-${category.id}`,
-                                  itemIdx,
-                                ),
-                              )}
-                            </div>
+                          </AnimatePresence>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* Chef Specials */}
+            <AnimatePresence>
+              {chefSpecialItems.length > 0 && (
+                <motion.section
+                  layout="position"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="mu-section"
+                >
+                  <SectionToggle
+                    title={t("chefSpecials")}
+                    color="#B45309"
+                    count={chefSpecialItems.length}
+                    sectionId="category-chef"
+                    expanded={expandedCategories["__chef"] !== false}
+                    onToggle={() =>
+                      setExpandedCategories((p) => ({
+                        ...p,
+                        __chef: p["__chef"] === false,
+                      }))
+                    }
+                  />
+                  <AnimatePresence initial={false}>
+                    {expandedCategories["__chef"] !== false && (
+                      <motion.div
+                        key="chef-content"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <div className={layoutGridClass}>
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            {chefSpecialItems.map((item: any) =>
+                              renderCard(item, "chef"),
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* Regular categories */}
+            <AnimatePresence>
+              {categories.map((category) => {
+                const items = filteredItems.filter(
+                  (item: any) => getParentName(item) === category.id,
+                );
+                if (items.length === 0) return null;
+
+                const subcategories = Array.from(
+                  new Set(
+                    items
+                      .map((item: any) => getSubcategoryName(item))
+                      .filter(Boolean),
+                  ),
+                ) as string[];
+
+                const catColor =
+                  (category.name || "").toLowerCase().includes("drink") ||
+                  (category.name || "").toLowerCase().includes("beverage")
+                    ? "#1D4ED8"
+                    : "#8B6E4F";
+
+                const isExpanded = expandedCategories[category.id] !== false;
+
+                return (
+                  <motion.section
+                    key={category.id}
+                    layout="position"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="mu-section"
+                  >
+                    <SectionToggle
+                      title={category.name}
+                      color={catColor}
+                      count={items.length}
+                      sectionId={`category-${category.id}`}
+                      expanded={isExpanded}
+                      onToggle={() =>
+                        setExpandedCategories((p) => ({
+                          ...p,
+                          [category.id]: p[category.id] === false,
+                        }))
+                      }
+                    />
+
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          key={`cat-content-${category.id}`}
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mu-subcategories">
+                            {subcategories.map((subcat: string) => {
+                              const subItems = items.filter(
+                                (item: any) => getSubcategoryName(item) === subcat,
+                              );
+                              if (subItems.length === 0) return null;
+
+                              return (
+                                <div key={`${category.id}-${subcat}`}>
+                                  {subcategories.length > 1 && (
+                                    <h3 className="mu-subcategory-name">{subcat}</h3>
+                                  )}
+                                  <div className={layoutGridClass}>
+                                    <AnimatePresence mode="popLayout" initial={false}>
+                                      {subItems.map((item: any, itemIdx: number) =>
+                                        renderCard(
+                                          item,
+                                          categories.indexOf(category) === 0 &&
+                                            subcategories.indexOf(subcat) === 0
+                                            ? "main"
+                                            : `cat-${category.id}`,
+                                          itemIdx,
+                                        ),
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              );
-            })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.section>
+                );
+              })}
+            </AnimatePresence>
           </div>
         )}
 
@@ -1886,26 +2563,63 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       </main>
 
       {/* ── CHECKOUT BAR ── */}
-      {orderingEnabled && totalItems > 0 && (
-        <div className="mu-checkout-bar-wrap">
-          <button
-            onClick={() => {
-              if (previewMode) return;
-              router.push(`/checkout`);
-            }}
-            className="mu-checkout-bar"
+      <AnimatePresence>
+        {orderingEnabled && totalItems > 0 && (
+          <motion.div
+            initial={{ y: 50, opacity: 0, x: "-50%" }}
+            animate={{ y: 0, opacity: 1, x: "-50%" }}
+            exit={{ y: 50, opacity: 0, x: "-50%" }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="mu-checkout-bar-wrap"
+            style={{ left: "50%", transform: "translateX(-50%)" }}
           >
-            <div className="mu-checkout-left">
-              <span className="mu-checkout-badge">{totalItems}</span>
-              <span className="mu-checkout-label">View Cart</span>
-            </div>
-            <div className="mu-checkout-right">
-              <span className="mu-checkout-total">₹{cartTotal}</span>
-              <ChevronRight size={16} className="mu-checkout-arrow" />
-            </div>
-          </button>
-        </div>
-      )}
+            <button
+              onClick={() => {
+                if (previewMode) return;
+                router.push(`/checkout`);
+              }}
+              className="mu-checkout-bar"
+            >
+              <div className="mu-checkout-left">
+                <motion.span 
+                  key={totalItems}
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: [1.3, 1] }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="mu-checkout-badge"
+                >
+                  {totalItems}
+                </motion.span>
+                <span className="mu-checkout-label">View Cart</span>
+              </div>
+              <div className="mu-checkout-right">
+                <span className="mu-checkout-total">₹{cartTotal}</span>
+                <ChevronRight size={16} className="mu-checkout-arrow" />
+              </div>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── SCROLL TO TOP BUTTON ── */}
+      <AnimatePresence>
+        {showScrollTop && activeTab === "menu" && !isImmersive && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 10 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className={`fixed right-4 sm:right-6 z-40 w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.12)] border border-[#E4E4E7] flex items-center justify-center text-[#18181B] active:scale-90 transition-all hover:bg-white ${
+              orderingEnabled && totalItems > 0 ? "bottom-[180px]" : "bottom-[126px]"
+            }`}
+            title="Scroll to top"
+            aria-label="Scroll to top"
+          >
+            <ArrowUp size={18} strokeWidth={2.5} />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* ── BOTTOM NAV ── */}
       {orderingEnabled && (

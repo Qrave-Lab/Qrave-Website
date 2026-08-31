@@ -42,7 +42,11 @@ export default function MenuClient({ table }: { table: string | null }) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [currentTableNumber, setCurrentTableNumber] = useState<string | null>(null);
   const [isOccupiedNotice, setIsOccupiedNotice] = useState(false);
-  const [isOrderingEnabled, setIsOrderingEnabled] = useState(true);
+  const [isOrderingEnabled, setIsOrderingEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const cached = localStorage.getItem("ordering_enabled");
+    return cached === "0" ? false : true;
+  });
   const [initialThemeConfig, setInitialThemeConfig] = useState<ThemeConfig | undefined>(() => {
     if (typeof window === "undefined") return undefined;
     try {
@@ -370,52 +374,58 @@ export default function MenuClient({ table }: { table: string | null }) {
     );
   }
 
-  if (!items) return (
-    <>
-      <style>{menuLoadingStyles}</style>
-      <div className="ml-loader">
-        <div className="ml-orb ml-orb-1" />
-        <div className="ml-orb ml-orb-2" />
-        <div className="ml-orb ml-orb-3" />
-
-        <div className="ml-ring-wrap">
-          <svg className="ml-ring-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="60" cy="60" r="54" stroke="rgba(15,23,42,0.08)" strokeWidth="2.5"/>
-            <circle cx="60" cy="60" r="54" stroke="url(#mlRingGrad)" strokeWidth="2.5"
-              strokeLinecap="round" strokeDasharray="100 240" className="ml-ring-arc"/>
-            <defs>
-              <linearGradient id="mlRingGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#0F172A"/>
-                <stop offset="1" stopColor="#0F172A" stopOpacity="0"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <div className="ml-ring-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <ellipse cx="16" cy="24" rx="10" ry="2.5" fill="rgba(15,23,42,0.08)"/>
-              <path d="M8 16c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#0F172A" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="16" cy="20" r="2.5" fill="#0F172A"/>
-              <path d="M7 23h18" stroke="rgba(15,23,42,0.25)" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </div>
+  if (!items) {
+    if (!isOrderingEnabled) {
+      return (
+        <div className="fixed inset-0 bg-[#111111] flex flex-col items-center justify-center animate-pulse">
+           <div className="w-16 h-16 border-4 border-white/10 border-t-white/80 rounded-full animate-spin" />
         </div>
+      );
+    }
 
-        <div className="ml-wordmark">
-          {"Qrave".split("").map((char, i) => (
-            <span key={i} className="ml-letter" style={{ animationDelay: `${0.07 * i + 0.25}s` }}>
-              {char}
-            </span>
+    return (
+      <div className="min-h-[100dvh] bg-white flex flex-col font-dm-sans animate-pulse">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md pt-[env(safe-area-inset-top)] border-b border-[#F1F1F1]">
+        <div className="h-[60px] flex items-center px-4 justify-between">
+          <div className="w-[120px] h-[24px] bg-[#F4F4F5] rounded-[8px]"></div>
+          <div className="w-[36px] h-[36px] bg-[#F4F4F5] rounded-full"></div>
+        </div>
+        <div className="flex px-4 py-3 gap-3 overflow-hidden">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="h-[36px] w-[90px] bg-[#F4F4F5] rounded-full shrink-0"></div>
           ))}
         </div>
+      </header>
 
-        <p className="ml-tagline">Loading your menu…</p>
-
-        <div className="ml-progress">
-          <div className="ml-progress-fill" />
-        </div>
+      <div className="flex-1 pb-24">
+        {[1,2,3].map(section => (
+          <div key={section} className="mb-6">
+            <div className="px-4 py-3">
+              <div className="w-[140px] h-[24px] bg-[#E5DFD6] rounded-[8px]"></div>
+            </div>
+            <div className="flex flex-col">
+              {[1,2,3].map(item => (
+                <div key={item} className="flex flex-row p-[18px_16px] bg-[#FFFFFF] border-b border-[#EDE5D8] gap-4 items-start">
+                  <div className="shrink-0 w-[104px] h-[104px] rounded-[16px] bg-[#E5DFD6]"></div>
+                  <div className="flex-1 flex flex-col justify-between self-stretch py-1">
+                    <div className="space-y-2.5">
+                      <div className="w-[85%] h-[18px] bg-[#E5DFD6] rounded-[6px]"></div>
+                      <div className="w-[60%] h-[14px] bg-[#E5DFD6] rounded-[4px]"></div>
+                    </div>
+                    <div className="flex justify-between items-end mt-auto pt-4">
+                      <div className="w-[60px] h-[18px] bg-[#E5DFD6] rounded-[6px]"></div>
+                      <div className="w-[80px] h-[32px] bg-[#E5DFD6] rounded-[8px]"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-    </>
+    </div>
   );
+  }
 
   return (
     <ModernFoodUI

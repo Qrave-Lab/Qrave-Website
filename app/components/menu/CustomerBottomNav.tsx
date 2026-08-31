@@ -27,7 +27,7 @@ export default function CustomerBottomNav({
   orderingEnabled = true,
 }: CustomerBottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-[rgba(247,242,235,0.97)] backdrop-blur-[16px] border-t border-[#EDE5D8] h-[56px] z-50 flex items-center justify-around pb-[env(safe-area-inset-bottom)] px-2 font-dm-sans">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white/95 backdrop-blur-[16px] border-t border-[#F1F1F1] h-[56px] z-50 flex items-center justify-around pb-[env(safe-area-inset-bottom)] px-2 font-dm-sans shadow-[0_-2px_12px_rgba(0,0,0,0.03)]">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         const Icon = tab.icon;
@@ -46,9 +46,15 @@ export default function CustomerBottomNav({
                 className={`transition-colors ${isActive ? 'text-[#8B6E4F]' : 'text-[#B3A08E]'}`} 
               />
               {tab.id === "menu" && cartItemCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-[#3D2B1F] text-[#F7F2EB] text-[9px] font-[700] rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                <motion.span 
+                  key={cartItemCount}
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: [1.3, 1] }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                  className="absolute -top-1.5 -right-2 bg-[#3D2B1F] text-[#F7F2EB] text-[9px] font-[700] rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1"
+                >
                   {cartItemCount > 9 ? "9+" : cartItemCount}
-                </span>
+                </motion.span>
               )}
             </div>
             <span className={`text-[10px] ${isActive ? 'font-[600] text-[#8B6E4F]' : 'font-[400] text-[#B3A08E]'}`}>

@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { Star, Scan, Minus, Plus, Flame } from "lucide-react";
 import { useLanguageStore } from "@/stores/languageStore";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Variant = {
   id: string;
@@ -27,6 +27,7 @@ type MenuItem = {
   arModelUsdz?: string | null;
   ingredients?: string[] | string;
   calories?: number | string;
+  kcal?: number | string;
   proteinG?: number | null;
   carbsG?: number | null;
   fatG?: number | null;
@@ -51,6 +52,7 @@ interface FoodCardProps {
   onAdd: (itemId: string, variantId?: string, price?: number, notes?: string) => void;
   onRemove: (itemId: string, variantId?: string) => void;
   onArClick: (item: MenuItem) => void;
+  onCardClick?: (item: MenuItem) => void;
   showArTour?: boolean;
   selectedVariantId?: string;
   onVariantChange?: (variantId: string) => void;
@@ -65,6 +67,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
   onAdd,
   onRemove,
   onArClick,
+  onCardClick,
   showArTour,
   selectedVariantId,
   onVariantChange,
@@ -72,8 +75,6 @@ const FoodCard: React.FC<FoodCardProps> = ({
   layout = "list",
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [showNotes, setShowNotes] = useState(false);
   const { t } = useLanguageStore();
   const isAvailable = item.isAvailable !== false && !item.isOutOfStock;
 
@@ -87,13 +88,22 @@ const FoodCard: React.FC<FoodCardProps> = ({
   const activeVariantId = selectedVariantId || visibleVariants[0]?.id || item.variants?.[0]?.id || "";
   const basePrice = item.price;
   const discountedBasePrice =
-    typeof item.offerPrice === "number" && item.offerPrice >= 0 && item.offerPrice < basePrice
+    typeof item.offerPrice === "number" && item.offerPrice > 0 && item.offerPrice < basePrice
       ? item.offerPrice
       : basePrice;
   const variantDelta = item.variants?.find((v) => v.id === activeVariantId)?.priceDelta || 0;
   const displayPrice = discountedBasePrice + variantDelta;
   const displayBaseWithoutDiscount = basePrice + variantDelta;
   const hasDiscount = displayBaseWithoutDiscount > displayPrice;
+  
+  const calVal =
+    typeof item.calories === "number" && item.calories > 0
+      ? item.calories
+      : typeof item.kcal === "number" && item.kcal > 0
+        ? item.kcal
+        : (item.proteinG || item.carbsG || item.fatG)
+          ? Math.round((item.proteinG || 0) * 4 + (item.carbsG || 0) * 4 + (item.fatG || 0) * 9)
+          : 0;
   
   const isSpecial = item.isTodaysSpecial || item.isChefSpecial;
   const hasOffer = hasDiscount || item.offerLabel;
@@ -111,23 +121,29 @@ const FoodCard: React.FC<FoodCardProps> = ({
     
     if (currentQty > 0) {
       return (
-        <div className="flex flex-row bg-[#F7F2EB] rounded-[10px] border border-[#EDE5D8] overflow-hidden shrink-0 items-center">
+        <div className="flex flex-row bg-[#F4F4F5] rounded-[10px] border border-[#E4E4E7] overflow-hidden shrink-0 items-center">
           <motion.button
             whileTap={{ scale: 0.92 }}
-            onClick={() => onRemove(item.id, activeVariantId)}
-            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#ede5d8] transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(item.id, activeVariantId);
+            }}
+            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#E4E4E7] transition-colors"
           >
-            <Minus className="w-[14px] h-[14px] text-[#3D2B1F]" strokeWidth={2.5}/>
+            <Minus className="w-[14px] h-[14px] text-[#18181B]" strokeWidth={2.5}/>
           </motion.button>
-          <span className="w-[22px] text-center text-[#3D2B1F] text-[13px] font-[700] tabular-nums leading-none">
+          <span className="w-[22px] text-center text-[#18181B] text-[13px] font-[700] tabular-nums leading-none">
             {currentQty}
           </span>
           <motion.button
             whileTap={{ scale: 0.92 }}
-            onClick={() => onAdd(item.id, activeVariantId, displayPrice, notes)}
-            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#ede5d8] transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd(item.id, activeVariantId, displayPrice);
+            }}
+            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#E4E4E7] transition-colors"
           >
-            <Plus className="w-[14px] h-[14px] text-[#3D2B1F]" strokeWidth={2.5} />
+            <Plus className="w-[14px] h-[14px] text-[#18181B]" strokeWidth={2.5} />
           </motion.button>
         </div>
       );
@@ -135,16 +151,15 @@ const FoodCard: React.FC<FoodCardProps> = ({
     
     return (
       <motion.button
-        whileHover={{ scale: 1.05, backgroundColor: "#5C3D2A" }}
+        whileHover={{ scale: 1.05, backgroundColor: "#27272A" }}
         whileTap={{ scale: 0.92 }}
-        onClick={() => {
-          onAdd(item.id, activeVariantId, displayPrice, notes);
-          setNotes("");
-          setShowNotes(false);
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd(item.id, activeVariantId, displayPrice);
         }}
-        className="w-[30px] h-[30px] rounded-[10px] bg-[#3D2B1F] flex items-center justify-center flex-shrink-0 cursor-pointer shadow-sm transition-all"
+        className="w-[30px] h-[30px] rounded-[10px] bg-[#18181B] flex items-center justify-center flex-shrink-0 cursor-pointer shadow-sm transition-all"
       >
-        <Plus className="w-4 h-4 text-[#F7F2EB]" strokeWidth={2.5} />
+        <Plus className="w-4 h-4 text-[#FFFFFF]" strokeWidth={2.5} />
       </motion.button>
     );
   };
@@ -155,10 +170,13 @@ const FoodCard: React.FC<FoodCardProps> = ({
   };
 
   return (
-    <div className="flex flex-row p-[18px_16px] bg-[#FFFFFF] border-b border-[#EDE5D8] gap-4 items-start">
+    <div 
+      onClick={() => onCardClick?.(item)}
+      className="flex flex-row p-[18px_16px] bg-[#FFFFFF] border-b border-[#F1F1F1] gap-4 items-start cursor-pointer hover:bg-slate-50/70 transition-colors active:bg-slate-100/50"
+    >
       
       {/* 104x104 Premium Thumb */}
-      <div className="relative shrink-0 w-[104px] h-[104px] rounded-[16px] bg-[#F7F2EB] overflow-hidden">
+      <div className="relative shrink-0 w-[104px] h-[104px] rounded-[16px] bg-[#F4F4F5] overflow-hidden">
         {item.image ? (
           <img 
              src={item.image} 
@@ -189,15 +207,11 @@ const FoodCard: React.FC<FoodCardProps> = ({
           </div>
         )}
         
-        {hasOffer ? (
-          <div className="absolute top-0 right-0 bg-[#15803D] px-1.5 py-0.5 rounded-bl-[8px] text-[#FFFFFF] text-[9px] font-[700] tracking-tight font-dm-sans">
-             {item.offerLabel || "OFFER"}
-          </div>
-        ) : isSpecial ? (
+        {isSpecial && (
           <div className="absolute top-0 right-0 bg-[#B45309] px-1.5 py-0.5 rounded-bl-[8px] text-[#FFFFFF] text-[9px] font-[700] tracking-tight font-dm-sans">
              ✦ SPECIAL
           </div>
-        ) : null}
+        )}
 
         {item.isBestseller && (
           <div className="absolute bottom-0 left-0 w-full bg-[rgba(254,243,199,0.95)] backdrop-blur-[2px] py-[2px] flex justify-center text-[#92400E] text-[9px] uppercase font-[700] tracking-wider leading-none">
@@ -228,6 +242,11 @@ const FoodCard: React.FC<FoodCardProps> = ({
                 {item.spiceLabel}
               </span>
             )}
+            {item.calories && (
+              <span className="inline-flex items-center mt-1 px-1.5 py-[2px] rounded-[4px] text-[10px] font-[600] leading-none bg-[#F5F5F5] text-[#555] border border-[#E0E0E0]">
+                {item.calories} kcal
+              </span>
+            )}
           </div>
 
           {item.description && (
@@ -237,22 +256,24 @@ const FoodCard: React.FC<FoodCardProps> = ({
           )}
 
           {/* Metadata: Calories & Prep Time */}
-          {(item.calories || item.estimatedPrepMinutes) && (
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              {item.calories && (
-                <span className="inline-flex items-center bg-[#F7F2EB] text-[#6B5B4E] rounded-full px-2 py-0.5 text-[10px] font-[600] border border-[#EDE5D8] gap-1 leading-none">
-                  <Flame className="w-2.5 h-2.5 text-[#3D2B1F]" />
-                  {item.calories} kcal
+          {(calVal > 0 || item.estimatedPrepMinutes || item.proteinG != null || item.carbsG != null || item.fatG != null) && (
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              {(calVal > 0 || item.proteinG != null || item.carbsG != null || item.fatG != null) && (
+                <span className="inline-flex items-center bg-[#F4F4F5] text-[#18181B] rounded-md px-1.5 py-0.5 text-[9.5px] font-[600] border border-[#E4E4E7] gap-1 leading-none whitespace-nowrap">
+                  <Flame className="w-2.5 h-2.5 text-[#71717A] fill-[#71717A] shrink-0" />
+                  <span className="font-bold text-[#18181B]">{calVal} kcal</span>
                   {(item.proteinG != null || item.carbsG != null || item.fatG != null) && (
-                    <span className="ml-0.5 opacity-80 border-l border-[#6B5B4E]/20 pl-1">
-                      P:{item.proteinG || 0} C:{item.carbsG || 0} F:{item.fatG || 0}
+                    <span className="border-l border-[#A1A1AA]/30 pl-1 flex items-center gap-1 text-[8.5px] text-[#71717A]">
+                      <span><b className="text-[#18181B]">P:</b>{item.proteinG || 0}g</span>
+                      <span><b className="text-[#18181B]">C:</b>{item.carbsG || 0}g</span>
+                      <span><b className="text-[#18181B]">F:</b>{item.fatG || 0}g</span>
                     </span>
                   )}
                 </span>
               )}
               {item.estimatedPrepMinutes && (
-                <span className="inline-flex items-center bg-[#F7F2EB] text-[#6B5B4E] rounded-full px-2 py-0.5 text-[10px] font-[600] border border-[#EDE5D8] leading-none">
-                  ⏱ {item.estimatedPrepMinutes} mins
+                <span className="inline-flex items-center bg-[#F4F4F5] text-[#71717A] rounded-md px-1.5 py-0.5 text-[9.5px] font-[600] border border-[#E4E4E7] leading-none whitespace-nowrap">
+                  ⏱ {item.estimatedPrepMinutes}m
                 </span>
               )}
             </div>
@@ -264,11 +285,14 @@ const FoodCard: React.FC<FoodCardProps> = ({
             {visibleVariants.map((v) => (
               <button
                 key={v.id}
-                onClick={() => onVariantChange?.(v.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVariantChange?.(v.id);
+                }}
                 className={`px-2 py-[3px] rounded-[6px] text-[11px] font-[600] border transition-colors ${
                   activeVariantId === v.id
-                    ? "bg-[#3D2B1F] border-[#3D2B1F] text-[#F7F2EB]"
-                    : "bg-[#FFFFFF] border-[#DDD5C5] text-[#6B5B4E]"
+                    ? "bg-[#18181B] border-[#18181B] text-[#FFFFFF]"
+                    : "bg-[#FFFFFF] border-[#E4E4E7] text-[#52525B] hover:border-[#18181B]"
                 }`}
               >
                 {v.name}
@@ -291,27 +315,9 @@ const FoodCard: React.FC<FoodCardProps> = ({
             </div>
             
             <div className="relative z-10 flex items-center gap-2">
-              {currentQty === 0 && (
-                <button 
-                  onClick={() => setShowNotes(!showNotes)} 
-                  className="text-[10px] text-[#A03C00] font-semibold underline underline-offset-2"
-                >
-                  {showNotes ? "Cancel" : "+ Note"}
-                </button>
-              )}
               <AddControls />
             </div>
           </div>
-          
-          {showNotes && currentQty === 0 && (
-            <input 
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. less spicy, no onions..."
-              className="mt-2 w-full text-xs p-1.5 rounded-md border border-[#EDE5D8] bg-[#F7F2EB] text-[#3D2B1F] focus:outline-none focus:border-[#C45200] transition-colors"
-            />
-          )}
         </div>
       </div>
       

@@ -501,6 +501,31 @@ export default function StaffDashboardPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  // Auto-free sessions that have been occupied for 15+ minutes with zero orders placed
+  useEffect(() => {
+    const autoFreeIdle = async () => {
+      const idleTables = tables.filter((t) => {
+        if (!t.isOccupied || !t.activeSessionId) return false;
+        const mins = getMinutesDiff(t.seatedAt);
+        const hasAnyOrder = activeOrders.some((o) => o.table_id === t.id);
+        return mins >= 15 && !hasAnyOrder && (t.itemsCount === 0 || t.itemsCount == null);
+      });
+      for (const t of idleTables) {
+        try {
+          await api(`/api/admin/sessions/${t.activeSessionId}/end`, { method: "POST" });
+        } catch {
+          // silently skip — will retry next tick
+        }
+      }
+      if (idleTables.length > 0) {
+        await refreshDashboard().catch(() => {});
+        toast(`${idleTables.length} idle table${idleTables.length > 1 ? "s" : ""} auto-freed (no orders in 15 min)`, { icon: "🪑" });
+      }
+    };
+    const autoFreeTimer = window.setInterval(autoFreeIdle, 60000);
+    return () => window.clearInterval(autoFreeTimer);
+  }, [tables, activeOrders]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onFocus = () => refreshDashboard().catch(() => { });
@@ -747,6 +772,7 @@ export default function StaffDashboardPage() {
             status: "paid",
             payment_mode: "cash",
             reason: "staff_free_table",
+            amount: Number((tableToFree.currentTotal || 0).toFixed(2)),
           }),
         });
       }
@@ -830,6 +856,7 @@ export default function StaffDashboardPage() {
         status: "paid",
         payment_mode: "cash",
         reason: "printed_bill_close",
+        amount: Number(total.toFixed(2)),
       }),
     });
 
@@ -1277,187 +1304,232 @@ export default function StaffDashboardPage() {
                   <UtensilsCrossed className="w-10 h-10 mb-3 opacity-40" />
                   <p className="text-sm font-semibold">No tables match this filter</p>
                 </div>
+
               )}
+
               {filteredTables.map((table) => {
+
                 const isFree = !table.isOccupied;
                 const isDisabled = table.isEnabled === false;
                 const seatedMinutes = getMinutesDiff(table.seatedAt);
-                const longSit = table.isOccupied && seatedMinutes > 90;
                 const isBillRequested = serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
                 const isPaid = table.billStatus === "paid";
 
                 const activeOrdersForTable = orders.filter((o) => o.tableCode === table.tableCode && (o.status === "pending" || o.status === "cooking")).length;
 
+                let ringStyle = "";
+                if (!isFree && !isDisabled) {
+                  ringStyle = "border-gray-200";
+                } else if (isDisabled) {
+                  ringStyle = "border-gray-200 border-dashed opacity-60";
+                } else {
+                  ringStyle = "border-gray-200 border-dashed";
+                }
+
+                let cardStyle = "bg-white shadow-sm hover:shadow-md";
+                if (isDisabled || isFree) cardStyle = "bg-gray-50 shadow-none";
+                else if (isBillRequested) cardStyle = "bg-slate-50/40";
+
                 let statusBar = "bg-gray-200";
                 if (isDisabled) statusBar = "bg-gray-200";
                 else if (!isFree && isBillRequested) statusBar = "bg-indigo-400";
                 else if (!isFree && isPaid) statusBar = "bg-emerald-400";
-                else if (!isFree && longSit) statusBar = "bg-rose-400";
                 else if (!isFree) statusBar = "bg-[#fe5c13]";
 
-                let cardStyle = "bg-white border-gray-200 shadow-sm hover:shadow-md";
-                if (isDisabled) cardStyle = "bg-gray-50/60 border-gray-200 border-dashed opacity-60";
-                else if (isFree) cardStyle = "bg-gray-50 border-gray-200 border-dashed";
-                else if (isBillRequested) cardStyle = "bg-slate-50/40 border-indigo-400 shadow-sm";
-                else if (longSit) cardStyle = "bg-rose-50/40 border-rose-200 shadow-sm";
+                const timeStr = seatedMinutes < 60 ? `${seatedMinutes}m` : `${Math.floor(seatedMinutes / 60)}h ${seatedMinutes % 60}m`;
+                const headline = !isFree && !isDisabled ? `${table.tableCode} · ₹${(table.currentTotal ?? 0).toLocaleString()} · ${timeStr}` : table.tableCode;
 
                 return (
                   <div
                     key={table.id}
-                    className={`relative flex flex-col w-full rounded-2xl border transition-all duration-200 hover:shadow-lg active:scale-[0.98] cursor-pointer ${cardStyle}`}
+                    className={`relative w-full rounded-2xl border bg-slate-100/90 ${ringStyle} ${openMenuId === table.id ? "z-30 overflow-visible" : "z-0 overflow-hidden"}`}
                   >
-                    <div className={`h-1 w-full rounded-t-2xl ${statusBar}`} />
-                    <div className="p-4 flex flex-col gap-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className={`text-xl font-black tracking-tight leading-none ${isFree ? "text-gray-400" : "text-gray-900"}`}>
-                            {table.tableCode}
-                          </span>
-                          {table.isOccupied && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Clock className="w-3 h-3 text-gray-400" />
-                              <span className={`text-[10px] font-semibold ${longSit ? "text-rose-600" : "text-gray-500"}`}>
-                                {seatedMinutes < 60 ? `${seatedMinutes}m` : `${Math.floor(seatedMinutes / 60)}h ${seatedMinutes % 60}m`}
-                              </span>
+                    {/* Background Actions (Swipe to reveal) */}
+                    {table.isOccupied && (
+                      <div className="absolute inset-y-0 right-0 w-[140px] flex items-center justify-end px-3 gap-2 bg-slate-100 rounded-r-2xl">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markBillPrinted(table.id);
+                          }}
+                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans"
+                        >
+                          <Receipt className="w-4 h-4" />
+                          <span className="text-[9px] font-extrabold uppercase tracking-wider">Bill</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTables((prev) =>
+                              prev.map((t) =>
+                                t.id === table.id ? { ...t, billStatus: "paid" } : t
+                              )
+                            );
+                          }}
+                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-[9px] font-extrabold uppercase tracking-wider">Paid</span>
+                        </button>
+                      </div>
+                    )}
+
+                    <motion.div
+                      drag={table.isOccupied ? "x" : false}
+                      dragConstraints={{ left: -130, right: 0 }}
+                      dragElastic={{ left: 0.12, right: 0.02 }}
+                      dragTransition={{ bounceStiffness: 600, bounceDamping: 32 }}
+                      whileTap={{ cursor: "grabbing" }}
+                      className={`relative flex flex-col w-full h-full rounded-2xl bg-white border border-gray-100/80 shadow-xs ${openMenuId === table.id ? "overflow-visible z-40" : "overflow-hidden"} transition-colors cursor-pointer ${cardStyle}`}
+                    >
+                      <div className={`h-1 w-full rounded-t-2xl ${statusBar}`} />
+                      
+                      {/* Giant Unmissable Bill Request Overlay */}
+                      {isBillRequested && (
+                        <div className="absolute inset-x-0 top-1 bottom-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-b-2xl pointer-events-none">
+                          <Bell className="w-16 h-16 text-indigo-600 animate-[bounce_1s_infinite] drop-shadow-2xl" />
+                          <span className="mt-2 text-indigo-900 font-black text-sm uppercase tracking-widest bg-white/80 px-3 py-1 rounded-full shadow-sm">Bill Requested</span>
+                        </div>
+                      )}
+
+                      <div className="p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className={`text-[15px] font-black tracking-tight leading-none ${isFree ? "text-gray-400" : "text-gray-900"}`}>
+                              {headline}
+                            </span>
+                          </div>
+
+                          {table.isOccupied ? (
+                            <div className="flex items-center gap-1.5 relative z-20">
+                              {isPaid && (
+                                <span className="flex items-center gap-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
+                                  <Check className="w-2.5 h-2.5" /> Paid
+                                </span>
+                              )}
+
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setOpenMenuId(openMenuId === table.id ? null : table.id);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                <AnimatePresence>
+                                  {openMenuId === table.id && (
+                                    <motion.div
+                                      initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                      className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden ring-1 ring-black/10"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <div className="py-1">
+                                        <button onClick={() => { setActiveTableId(table.id); setShowMoveModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                          <ArrowRightLeft className="w-3.5 h-3.5" /> Move Table
+                                        </button>
+                                        <button onClick={() => { setActiveTableId(table.id); setSelectedMergeTableIds([]); setShowMergeModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                          <Merge className="w-3.5 h-3.5" /> Merge Bill
+                                        </button>
+                                      </div>
+                                      <div className="border-t border-gray-100 py-1">
+                                        <button onClick={() => { setConfirmAction({
+                                          title: `Print and close ${table.tableCode}?`,
+                                          message: "This will mark bill action and end the active session.",
+                                          onConfirm: async () => markBillPrinted(table.id),
+                                        }); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                          <Receipt className="w-3.5 h-3.5" /> Print Bill
+                                        </button>
+                                        <button onClick={() => { setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "paid" } : t)); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
+                                          <CheckCircle2 className="w-3.5 h-3.5" /> Mark Paid
+                                        </button>
+                                        <button onClick={() => { requestFreeTable(table.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">
+                                          <LogOut className="w-3.5 h-3.5" /> Free Table
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
                             </div>
+                          ) : (
+                            isDisabled ? (
+                              <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                                Disabled
+                              </span>
+                            ) : (
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                              Free
+                            </span>
+                            )
                           )}
                         </div>
 
-                        {table.isOccupied ? (
-                          <div className="flex items-center gap-1.5">
-                            {isBillRequested && (
-                              <span className="flex items-center gap-0.5 bg-indigo-100 text-gray-900 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
-                                <Receipt className="w-2.5 h-2.5" /> Bill
-                              </span>
-                            )}
-                            {isPaid && (
-                              <span className="flex items-center gap-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
-                                <Check className="w-2.5 h-2.5" /> Paid
-                              </span>
-                            )}
-
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setOpenMenuId(openMenuId === table.id ? null : table.id);
-                                }}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-900 transition-colors"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-
-                              <AnimatePresence>
-                                {openMenuId === table.id && (
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                    className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden ring-1 ring-black/5"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <div className="py-1">
-                                      <button onClick={() => { setActiveTableId(table.id); setShowMoveModal(true); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        <ArrowRightLeft className="w-3.5 h-3.5" /> Move Table
-                                      </button>
-                                      <button onClick={() => { setActiveTableId(table.id); setSelectedMergeTableIds([]); setShowMergeModal(true); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        <Merge className="w-3.5 h-3.5" /> Merge Bill
-                                      </button>
-                                    </div>
-                                    <div className="border-t border-gray-100 py-1">
-                                      <button onClick={() => setConfirmAction({
-                                        title: `Print and close ${table.tableCode}?`,
-                                        message: "This will mark bill action and end the active session.",
-                                        onConfirm: async () => markBillPrinted(table.id),
-                                      })} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        <Receipt className="w-3.5 h-3.5" /> Print Bill
-                                      </button>
-                                      <button onClick={() => setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "paid" } : t))} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> Mark Paid
-                                      </button>
-                                      <button onClick={() => requestFreeTable(table.id)} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">
-                                        <LogOut className="w-3.5 h-3.5" /> Free Table
-                                      </button>
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
+                        {isDisabled ? (
+                          <div className="flex flex-col items-center justify-center py-6 opacity-40">
+                            <XCircle className="w-7 h-7 mb-1.5" />
+                            <span className="text-xs font-semibold">Not in use</span>
+                          </div>
+                        ) : isFree ? (
+                          <div className="flex flex-col items-center justify-center py-6 opacity-25">
+                            <UtensilsCrossed className="w-7 h-7 mb-1.5" />
+                            <span className="text-xs font-semibold">Available</span>
                           </div>
                         ) : (
-                          isDisabled ? (
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                              Disabled
-                            </span>
-                          ) : (
-                          <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                            Free
-                          </span>
-                          )
+                          <Link
+                            href={`/staff/table/${table.activeSessionId}`}
+                            className="flex flex-col gap-2 group"
+                            draggable="false"
+                            onClick={(e) => {
+                              // Let drag events through without triggering navigation if it's a drag
+                              if (e.defaultPrevented) return;
+                            }}
+                          >
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
+                                <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">Items</span>
+                                <span className="text-base font-extrabold text-gray-800">{table.itemsCount ?? "—"}</span>
+                              </div>
+                              <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
+                                <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">ETA</span>
+                                <span className="text-base font-extrabold text-gray-800">
+                                  {(() => {
+                                    const first = activeOrders.find((o) => o.table_id === table.id && (o.status === "pending" || o.status === "accepted" || o.status === "preparing"));
+                                    if (!first) return "—";
+                                    if (first.estimated_prep_minutes) return `${first.estimated_prep_minutes}m`;
+                                    return "—";
+                                  })()}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {buildTableTimeline(table).map((step) => (
+                                <span
+                                  key={`${table.id}-${step.key}`}
+                                  className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${step.done ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-400 border-gray-200"}`}
+                                >
+                                  {step.label}
+                                </span>
+                              ))}
+                            </div>
+                            
+                            {activeOrdersForTable > 0 && (
+                              <div className="pt-1">
+                                  <span className="inline-flex text-[9px] text-amber-700 font-extrabold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" /> {activeOrdersForTable} active orders
+                                  </span>
+                              </div>
+                            )}
+                          </Link>
                         )}
                       </div>
-
-                      {isDisabled ? (
-                        <div className="flex flex-col items-center justify-center py-6 opacity-40">
-                          <XCircle className="w-7 h-7 mb-1.5" />
-                          <span className="text-xs font-semibold">Not in use</span>
-                        </div>
-                      ) : isFree ? (
-                        <div className="flex flex-col items-center justify-center py-6 opacity-25">
-                          <UtensilsCrossed className="w-7 h-7 mb-1.5" />
-                          <span className="text-xs font-semibold">Available</span>
-                        </div>
-                      ) : (
-                        <Link
-                          href={`/staff/table/${table.activeSessionId}`}
-                          className="flex flex-col gap-2 group"
-                        >
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
-                              <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">Items</span>
-                              <span className="text-base font-extrabold text-gray-800">{table.itemsCount ?? "—"}</span>
-                            </div>
-                            <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
-                              <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">ETA</span>
-                              <span className="text-base font-extrabold text-gray-800">
-                                {(() => {
-                                  const first = activeOrders.find((o) => o.table_id === table.id && (o.status === "pending" || o.status === "accepted" || o.status === "preparing"));
-                                  if (!first) return "—";
-                                  if (first.estimated_prep_minutes) return `${first.estimated_prep_minutes}m`;
-                                  return "—";
-                                })()}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-1">
-                            {buildTableTimeline(table).map((step) => (
-                              <span
-                                key={`${table.id}-${step.key}`}
-                                className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${step.done ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-400 border-gray-200"}`}
-                              >
-                                {step.label}
-                              </span>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center justify-between pt-1">
-                            <div>
-                              {activeOrdersForTable > 0 && (
-                                <span className="text-[9px] text-amber-700 font-extrabold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 flex items-center gap-1">
-                                  <Clock className="w-2.5 h-2.5" /> {activeOrdersForTable} active
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <span className="block text-[9px] text-gray-400 uppercase font-bold">Total</span>
-                              <span className="text-sm font-extrabold text-gray-900 group-hover:text-emerald-600 transition-colors">₹{(table.currentTotal ?? 0).toLocaleString()}</span>
-                            </div>
-                          </div>
-                        </Link>
-                      )}
-                    </div>
+                    </motion.div>
                   </div>
                 );
               })}
@@ -1482,6 +1554,22 @@ export default function StaffDashboardPage() {
               </div>
 
               <div className="p-6">
+                <div className="mb-6 flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="flex items-center gap-6">
+                    <div className="w-14 h-14 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center text-lg font-black text-gray-700 shadow-sm">
+                      {tables.find((t) => t.id === activeTableId)?.tableCode}
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+                         <ArrowRight className="w-5 h-5 text-gray-400" />
+                      </motion.div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Move to</span>
+                    </div>
+                    <div className="w-14 h-14 rounded-full bg-transparent border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-black text-gray-400">
+                      ?
+                    </div>
+                  </div>
+                </div>
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Select Destination</h4>
                 <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                   {tables.filter((t) => !t.isOccupied).map((t) => (
@@ -1523,6 +1611,28 @@ export default function StaffDashboardPage() {
               </div>
 
               <div className="p-6">
+                {selectedMergeTableIds.length > 0 && (
+                  <div className="mb-6 flex flex-col items-center justify-center p-4 bg-amber-50/50 rounded-xl border border-amber-100">
+                    <div className="flex items-center gap-6">
+                      <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-black text-gray-700 shadow-sm relative">
+                        {tables.find((t) => t.id === activeTableId)?.tableCode}
+                      </div>
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+                           <ArrowRight className="w-5 h-5 text-amber-500" />
+                        </motion.div>
+                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Merge</span>
+                      </div>
+                      <div className="flex -space-x-4">
+                        {selectedMergeTableIds.map((id, i) => (
+                           <div key={id} className="w-14 h-14 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-lg font-black text-amber-700 shadow-sm relative" style={{ zIndex: 10 - i }}>
+                             {tables.find((t) => t.id === id)?.tableCode}
+                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Select Target Table</h4>
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                   {tables.filter((t) => t.isOccupied && t.id !== activeTableId).map((t) => (

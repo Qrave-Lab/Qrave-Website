@@ -377,20 +377,20 @@ select option {
   animation: marquee 30s linear infinite;
 }
 
-/* ── Customer Menu Design Tokens (Warm Luxury) ── */
+/* ── Customer Menu Design Tokens ── */
 :root {
-  --mu-bg: #F7F2EB;
+  --mu-bg: #FFFFFF;
   --mu-card-bg: #FFFFFF;
-  --mu-surface: #EDE5D8;
-  --mu-border: #F0E9DF;
-  --mu-border-interactive: #DDD5C5;
-  --mu-text: #3D2B1F;
-  --mu-text-secondary: #6B5B4E;
-  --mu-text-muted: #9B8677;
-  --mu-text-hint: #B3A08E;
-  --mu-decorative: #C9B89A;
-  --mu-accent: #3D2B1F;
-  --mu-accent-text: #F7F2EB;
+  --mu-surface: #F4F4F5;
+  --mu-border: #F1F1F1;
+  --mu-border-interactive: #E4E4E7;
+  --mu-text: #18181B;
+  --mu-text-secondary: #52525B;
+  --mu-text-muted: #71717A;
+  --mu-text-hint: #A1A1AA;
+  --mu-decorative: #D4D4D8;
+  --mu-accent: #18181B;
+  --mu-accent-text: #FFFFFF;
   --mu-font: 'DM Sans', sans-serif;
   --mu-radius: 12px;
   --mu-radius-sm: 10px;
@@ -977,20 +977,20 @@ select option {
 .qr-theme-root main,
 .qr-theme-root header { position: relative; z-index: 2; }
 
-/* ── HEADER (Warm Luxury) ── */
+/* ── HEADER (Pure White) ── */
 .mu-header {
   position: sticky;
   top: 0;
   z-index: 50;
   width: 100%;
-  background: rgba(247, 242, 235, 0.97);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid #EDE5D8;
+  border-bottom: 1px solid #F1F1F1;
   transition: box-shadow 0.3s ease;
 }
 .mu-header--scrolled {
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
 }
 .mu-header-inner {
   max-width: 480px;
@@ -1006,7 +1006,7 @@ select option {
   height: 38px;
   border-radius: 10px;
   overflow: hidden;
-  background: #EDE5D8;
+  background: #F4F4F5;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -1016,8 +1016,8 @@ select option {
 .mu-logo-fallback {
   width: 100%;
   height: 100%;
-  background: #EDE5D8;
-  color: #8B6E4F;
+  background: #F4F4F5;
+  color: #71717A;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1026,7 +1026,7 @@ select option {
   font-family: var(--mu-font);
   font-size: 15px;
   font-weight: 700;
-  color: #3D2B1F;
+  color: #18181B;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -1052,7 +1052,7 @@ select option {
   font-family: var(--mu-font);
   font-size: 11px;
   font-weight: 500;
-  color: #6B5B4E;
+  color: #71717A;
   letter-spacing: 0;
 }
 .mu-header-right { display: flex; align-items: center; gap: 6px; }
@@ -1065,13 +1065,13 @@ select option {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background: #EDE5D8;
-  color: #6B5B4E;
+  background: #F4F4F5;
+  color: #3D2B1F;
   transition: all 0.2s;
   -webkit-tap-highlight-color: transparent;
   position: relative;
 }
-.mu-header-btn:hover { background: #DDD5C5; }
+.mu-header-btn:hover { background: #E4E4E7; }
 .mu-header-btn:active { transform: scale(0.92); }
 .mu-veg-btn {
   width: 34px;
@@ -1082,13 +1082,13 @@ select option {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background: #EDE5D8;
-  color: #6B5B4E;
+  background: #F4F4F5;
+  color: #3D2B1F;
   transition: all 0.2s;
   -webkit-tap-highlight-color: transparent;
   position: relative;
 }
-.mu-veg-btn:hover { background: #DDD5C5; }
+.mu-veg-btn:hover { background: #E4E4E7; }
 .mu-veg-btn:active { transform: scale(0.92); }
 .mu-veg-btn--active {
   color: #2E7D32;
@@ -1120,12 +1120,12 @@ select option {
   height: 38px;
   display: flex;
   align-items: center;
-  background: #EDE5D8;
+  background: #F4F4F5;
   border-radius: 10px;
   padding: 0 12px;
   gap: 8px;
 }
-.mu-search-icon { color: #9B8677; flex-shrink: 0; }
+.mu-search-icon { color: #A1A1AA; flex-shrink: 0; }
 .mu-search-input {
   width: 100%;
   height: 100%;
@@ -1135,19 +1135,19 @@ select option {
   font-size: 13px;
   font-weight: 500;
   outline: none;
-  color: #3D2B1F;
+  color: #18181B;
 }
-.mu-search-input::placeholder { color: #B3A08E; }
+.mu-search-input::placeholder { color: #A1A1AA; }
 .mu-search-clear {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(61, 43, 31, 0.1);
+  background: rgba(0, 0, 0, 0.08);
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6B5B4E;
+  color: #71717A;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -1175,9 +1175,9 @@ select option {
   flex-shrink: 0;
   padding: 5px 12px;
   border-radius: 20px;
-  border: 1px solid #DDD5C5;
+  border: 1px solid #E4E4E7;
   background: #FFFFFF;
-  color: #6B5B4E;
+  color: #52525B;
   font-family: var(--mu-font);
   font-size: 12px;
   font-weight: 500;
@@ -1188,9 +1188,9 @@ select option {
 }
 .mu-pill:active { transform: scale(0.96); }
 .mu-pill--active {
-  background: #3D2B1F;
-  border-color: #3D2B1F;
-  color: #F7F2EB;
+  background: #18181B;
+  border-color: #18181B;
+  color: #FFFFFF;
 }
 
 /* ── MAIN ── */
@@ -1199,7 +1199,7 @@ select option {
   margin: 0 auto;
   padding: 0;
   padding-bottom: 140px;
-  background: #F7F2EB;
+  background: #FFFFFF;
 }
 .mu-menu-content {
   display: flex;
@@ -1217,7 +1217,7 @@ select option {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #B3A08E;
+  color: #A1A1AA;
   margin-bottom: 6px;
 }
 .mu-hero-title {
@@ -1225,7 +1225,7 @@ select option {
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #3D2B1F;
+  color: #18181B;
   line-height: 1.15;
 }
 
@@ -1238,7 +1238,7 @@ select option {
   padding: 14px 20px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid #F0E9DF;
+  border-bottom: 1px solid #F4F4F5;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1257,21 +1257,21 @@ select option {
   font-family: var(--mu-font);
   font-size: 16px;
   font-weight: 700;
-  color: #3D2B1F;
+  color: #18181B;
   letter-spacing: -0.02em;
 }
 .mu-section-count {
   font-family: var(--mu-font);
   font-size: 11px;
   font-weight: 600;
-  color: #9B8677;
-  background: #EDE5D8;
+  color: #71717A;
+  background: #F4F4F5;
   padding: 2px 8px;
   border-radius: 10px;
   margin-left: 4px;
 }
 .mu-section-chevron {
-  color: #C9B89A;
+  color: #A1A1AA;
   transition: transform 0.3s ease;
   flex-shrink: 0;
 }
@@ -1337,7 +1337,7 @@ select option {
   z-index: 65;
   width: calc(100% - 32px);
   max-width: 448px;
-  animation: mu-checkout-spring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  /* animation handled by framer-motion */
 }
 @keyframes mu-checkout-spring {
   from { transform: translateX(-50%) translateY(20px) scale(0.95); opacity: 0; }
@@ -1457,4 +1457,30 @@ select option {
 @keyframes mu-toast-in {
   from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+/* ─── Public waitlist page utilities ──────────────────────────────── */
+.label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6B7280;
+  margin-bottom: 0.375rem;
+}
+
+.input {
+  display: block;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1.5px solid #CED4DA;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: #fff;
+}
+.input:focus {
+  border-color: #fe5c13;
+  box-shadow: 0 0 0 4px rgba(254, 92, 19, 0.1);
 }

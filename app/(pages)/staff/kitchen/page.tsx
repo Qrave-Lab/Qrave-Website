@@ -39,6 +39,38 @@ type ActiveOrder = {
   items: ActiveOrderItem[];
 };
 
+
+const playKdsAlert = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = "sine";
+    
+    // Ding
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + 0.3);
+    
+    // Dong
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.6, ctx.currentTime + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.8);
+  } catch (e) {
+    console.error("Audio play failed:", e);
+  }
+};
+
 export default function KitchenDisplayPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
@@ -197,6 +229,7 @@ export default function KitchenDisplayPage() {
 
         if (data.status === "accepted" && !wasAccepted) {
           toast.success("New accepted order in kitchen");
+          playKdsAlert();
           if (!autoPrintedIds.current.has(nextId)) {
             autoPrintedIds.current.add(nextId);
             setTimeout(() => {

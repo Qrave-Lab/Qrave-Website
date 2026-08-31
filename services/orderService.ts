@@ -416,8 +416,9 @@ export const orderService = {
   },
 
   requestBill: () => {
-    return api("/api/customer/orders/bill-request", {
+    return api("/api/customer/service-calls", {
       method: "POST",
+      body: JSON.stringify({ type: "bill" }),
     });
   },
 };

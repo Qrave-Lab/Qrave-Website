@@ -19,14 +19,16 @@ import {
   ChevronDown,
   Settings,
   AlertTriangle,
+  QrCode,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/app/lib/api";
 import type { Table } from "@/app/components/settings/types";
 import StaffSidebar from "@/app/components/StaffSidebar";
+import { QRCodeSVG } from "qrcode.react";
 
-export const CustomSelect = ({ value, onChange, options, placeholder, className = "" }: any) => {
+const CustomSelect = ({ value, onChange, options, placeholder, className = "" }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -262,6 +264,8 @@ export default function ReservationsPage() {
   // Modals and Expands State
   const [showResModal, setShowResModal] = useState(false);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [waitlistSlug, setWaitlistSlug] = useState<string | null>(null);
   const [expandedWaitlistId, setExpandedWaitlistId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -440,6 +444,16 @@ export default function ReservationsPage() {
     }
   };
 
+  const openQRModal = async () => {
+    try {
+      const data = await api<{ slug: string }>("/api/admin/waitlist/qr-slug");
+      setWaitlistSlug(data.slug);
+      setShowQRModal(true);
+    } catch {
+      toast.error("Failed to load waitlist QR");
+    }
+  };
+
   const addWaitlist = async (event: React.FormEvent) => {
     event.preventDefault();
     if (isSubmitting) return;
@@ -530,6 +544,12 @@ export default function ReservationsPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => void openQRModal()}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+            >
+              <QrCode className="h-4 w-4" /> Waitlist QR
+            </button>
             <button
               onClick={() => setShowResModal(true)}
               className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer"
@@ -1166,6 +1186,44 @@ export default function ReservationsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Waitlist QR Modal ────────────────────────────────────────────────── */}
+      {showQRModal && waitlistSlug && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-xs flex flex-col items-center gap-5">
+            <div className="text-center">
+              <p className="text-sm font-bold text-slate-900">Waitlist QR Code</p>
+              <p className="text-xs text-slate-400 mt-0.5">Customers scan this to join the queue</p>
+            </div>
+            <div className="p-4 bg-white rounded-xl border-2 border-slate-100">
+              <QRCodeSVG
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/waitlist/${waitlistSlug}`}
+                size={192}
+                bgColor="#ffffff"
+                fgColor="#0F1117"
+                level="M"
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 text-center break-all">
+              {typeof window !== "undefined" ? window.location.origin : ""}/waitlist/{waitlistSlug}
+            </p>
+            <div className="w-full flex flex-col gap-2">
+              <button
+                onClick={() => window.print()}
+                className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors"
+              >
+                Print QR
+              </button>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="w-full rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

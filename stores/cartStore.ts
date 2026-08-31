@@ -2,8 +2,8 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { orderService } from "@/services/orderService";
 
-export const getCartKey = (id: string, variantId: string) =>
-  `${id}::${variantId}`;
+export const getCartKey = (id: string, variantId?: string) =>
+  `${id}::${variantId || ""}`;
 
 type CartItemDTO = {
   quantity: number;

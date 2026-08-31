@@ -343,18 +343,23 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
               >
                 View Bill & Checkout
               </button>
-              {!billRequested && (
+              {billRequested ? (
+                <button
+                  disabled
+                  className="ov-btn-request opacity-80 cursor-not-allowed"
+                >
+                  ✓ Bill Requested
+                </button>
+              ) : (
                 <button
                   onClick={async () => {
                     try {
                       const { orderService } = await import("@/services/orderService");
                       await orderService.requestBill();
                       const { toast } = await import("react-hot-toast");
-                      toast.success("Bill requested!");
-                      const sessionId = localStorage.getItem("session_id");
-                      if (sessionId) {
-                        localStorage.setItem(`bill_requested_${sessionId}`, "true");
-                      }
+                      toast.success("Bill requested! Waiter is on their way.");
+                      const sessionId = localStorage.getItem("session_id") || "default";
+                      localStorage.setItem(`bill_requested_${sessionId}`, "true");
                       setBillRequested(true);
                     } catch (err: any) {
                       const { toast } = await import("react-hot-toast");
@@ -382,7 +387,9 @@ function OrdersStyles() {
     <style jsx global>{`
       .ov-root {
         padding: 20px 20px 120px;
-        min-height: 60vh;
+        min-height: 80vh;
+        display: flex;
+        flex-direction: column;
         font-family: 'DM Sans', sans-serif;
       }
       .ov-header {
@@ -475,6 +482,8 @@ function OrdersStyles() {
         border-radius: 8px;
         background: #EDE5D8;
         color: #6B5B4E;
+        background: #F4F4F5;
+        color: #71717A;
       }
       .ov-card-status-badge[data-cancelled="true"] {
         background: #fee2e2;
@@ -525,24 +534,24 @@ function OrdersStyles() {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #F7F2EB;
-        color: #9B8677;
+        background: #F4F4F5;
+        color: #71717A;
         transition: all 0.3s ease;
       }
       .ov-step--done .ov-step-icon {
-        background: #3D2B1F;
-        color: #F7F2EB;
+        background: #18181B;
+        color: #FFFFFF;
       }
       .ov-step--active .ov-step-icon {
-        background: #3D2B1F;
-        color: #F7F2EB;
-        box-shadow: 0 4px 14px rgba(61, 43, 31, 0.25);
+        background: #18181B;
+        color: #FFFFFF;
+        box-shadow: 0 4px 14px rgba(24, 24, 27, 0.25);
       }
       .ov-step-pulse {
         position: absolute;
         inset: -4px;
         border-radius: 14px;
-        border: 2px solid #3D2B1F;
+        border: 2px solid #18181B;
         opacity: 0.4;
         animation: ov-pulse 1.8s ease-in-out infinite;
       }
@@ -561,7 +570,7 @@ function OrdersStyles() {
         font-size: 9px;
         font-weight: 700;
         text-align: center;
-        color: #9B8677;
+        color: #71717A;
         line-height: 1.2;
         max-width: 65px;
       }
@@ -569,31 +578,31 @@ function OrdersStyles() {
         font-size: 9px;
         font-weight: 800;
         text-align: center;
-        color: #3D2B1F;
-        background: rgba(61, 43, 31, 0.08);
+        color: #18181B;
+        background: rgba(0, 0, 0, 0.05);
         padding: 2px 6px;
         border-radius: 6px;
         margin-top: 2px;
         white-space: nowrap;
       }
       .ov-step--done .ov-step-label {
-        color: #3D2B1F;
+        color: #18181B;
       }
       .ov-step--active .ov-step-label {
-        color: #3D2B1F;
+        color: #18181B;
         font-weight: 800;
       }
       .ov-step-line {
         flex: 1;
         height: 2px;
         min-width: 12px;
-        background: #EDE5D8;
+        background: #E4E4E7;
         margin-top: 15px;
         border-radius: 1px;
         transition: background 0.3s;
       }
       .ov-step-line--done {
-        background: #3D2B1F;
+        background: #18181B;
       }
 
       /* Items */
@@ -605,7 +614,7 @@ function OrdersStyles() {
         align-items: center;
         gap: 8px;
         padding: 8px 0;
-        border-bottom: 1px solid #F7F2EB;
+        border-bottom: 1px solid #F4F4F5;
       }
       .ov-item:last-child {
         border-bottom: none;
@@ -729,6 +738,7 @@ function OrdersStyles() {
         justify-content: center;
         text-align: center;
         padding: 60px 24px;
+        flex-grow: 1;
       }
       .ov-empty-icon {
         width: 80px;
