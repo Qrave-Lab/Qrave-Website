@@ -119,12 +119,14 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
         else setRefreshing(true);
         const data = await api<Order[] | { orders?: Order[] }>(
           "/api/customer/orders",
-          { credentials: "include" },
+          { credentials: "include", suppressErrorLog: true },
         );
         const list = Array.isArray(data) ? data : (data?.orders ?? []);
         setOrders(list.filter((order: any) => order.status !== "cart"));
-      } catch {
-        // keep current state
+      } catch (err: any) {
+        if (err?.status === 401 || String(err?.message || "").includes("session expired")) {
+          if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customer_session_expired"));
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);

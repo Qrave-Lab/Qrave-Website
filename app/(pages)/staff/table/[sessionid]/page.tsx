@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "react-hot-toast";
 
 import { useEffect, useMemo, useState, use } from "react";
 import { useRouter } from "next/navigation";
@@ -27,8 +28,9 @@ import {
   Coins,
   Percent,
   Edit,
+  Search,
 } from "lucide-react";
-import { api } from "@/app/lib/api";
+import { api, requestManagerPin } from "@/app/lib/api";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
 import { printBillTicket } from "@/app/lib/posPrinter";
 
@@ -102,7 +104,8 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [items, setItems] = useState<BillItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "split">(null);
+  const [splitAmounts, setSplitAmounts] = useState({ cash: "", card: "", upi: "" });
   const [isProcessing, setIsProcessing] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [taxPercent, setTaxPercent] = useState<number>(5);
@@ -467,9 +470,29 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     await refreshOrders();
   };
 
+
+  
   const handleCheckout = async () => {
     if (!paymentMethod) return;
     if (!restaurantId) return;
+
+    const isSplitPayment = paymentMethod === "split";
+    const checkoutAmount = Number((billBreakdown?.total ?? total).toFixed(2));
+    const splitTotal =
+      (parseFloat(splitAmounts.cash) || 0) +
+      (parseFloat(splitAmounts.card) || 0) +
+      (parseFloat(splitAmounts.upi) || 0);
+
+    if (isSplitPayment) {
+      if (splitTotal <= 0) {
+        toast.error("Split payment amounts must be greater than zero");
+        return;
+      }
+      if (Math.abs(splitTotal - checkoutAmount) > 0.01) {
+        toast.error("Split amounts must exactly match the bill total");
+        return;
+      }
+    }
 
     setIsProcessing(true);
     try {
@@ -487,14 +510,24 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       }
 
       if (isTakeaway) {
+        const payload: any = {
+          status: "completed",
+          payment_status: "paid",
+          amount: checkoutAmount,
+        };
+        if (isSplitPayment) {
+          payload.payment_mode = "split";
+          payload.payments = [
+            { mode: "cash", amount: parseFloat(splitAmounts.cash) || 0 },
+            { mode: "card", amount: parseFloat(splitAmounts.card) || 0 },
+            { mode: "upi", amount: parseFloat(splitAmounts.upi) || 0 },
+          ].filter((p) => p.amount > 0);
+        } else {
+          payload.payment_mode = paymentMethod;
+        }
         await api(`/api/admin/takeaway/orders/${sessionid}/status`, {
           method: "PATCH",
-          body: JSON.stringify({
-            status: "completed",
-            payment_status: "paid",
-            payment_mode: paymentMethod,
-            amount: Number((billBreakdown?.total ?? total).toFixed(2)),
-          }),
+          body: JSON.stringify(payload),
         });
       } else {
         const checkoutAmount = Number((billBreakdown?.total ?? total).toFixed(2));
@@ -1395,11 +1428,75 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   </div>
                   {paymentMethod === "upi" && <div className="w-3.5 h-3.5 rounded-full bg-slate-900" />}
                 </button>
+
+                <button
+                  onClick={() => setPaymentMethod("split")}
+                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all ${
+                    paymentMethod === "split"
+                      ? "border-slate-900 bg-slate-50 ring-1 ring-slate-900"
+                      : "border-slate-200 hover:border-slate-350"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded bg-slate-100 text-slate-800 flex items-center justify-center">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-bold text-slate-900 text-xs block">Split Tender</span>
+                    </div>
+                  </div>
+                  {paymentMethod === "split" && <div className="w-3.5 h-3.5 rounded-full bg-slate-900" />}
+                </button>
               </div>
+
+              {paymentMethod === "split" && (
+                <div className="px-5 pb-5">
+                  <div className="space-y-3 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-20 text-xs font-bold text-slate-600 flex items-center gap-1">Cash</div>
+                      <input
+                        type="number"
+                        value={splitAmounts.cash}
+                        onChange={(e) => setSplitAmounts({ ...splitAmounts, cash: e.target.value })}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-20 text-xs font-bold text-slate-600 flex items-center gap-1">Card</div>
+                      <input
+                        type="number"
+                        value={splitAmounts.card}
+                        onChange={(e) => setSplitAmounts({ ...splitAmounts, card: e.target.value })}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-20 text-xs font-bold text-slate-600 flex items-center gap-1">UPI</div>
+                      <input
+                        type="number"
+                        value={splitAmounts.upi}
+                        onChange={(e) => setSplitAmounts({ ...splitAmounts, upi: e.target.value })}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-bold mt-2 pt-2 border-t border-slate-200">
+                      <span className="text-slate-500">
+                        Split Total: ₹{((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0)).toFixed(2)}
+                      </span>
+                      <span className={Math.abs(((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0)))) < 0.01 ? "text-emerald-600" : "text-rose-600"}>
+                        Remaining: ₹{((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0))).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="p-5 pt-0">
                 <button
-                  disabled={!paymentMethod || isProcessing}
+                  disabled={!paymentMethod || isProcessing || (paymentMethod === "split" && Math.abs((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0))) > 0.01)}
                   onClick={handleCheckout}
                   className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
@@ -1414,6 +1511,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                     </>
                   )}
                 </button>
+                
               </div>
             </motion.div>
           </div>
@@ -1725,29 +1823,71 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                       Add New Item
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Type to filter menu items..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-100"
-                    />
-                    <select
-                      value={selectedMenuItem?.id || ""}
-                      onChange={(e) => {
-                        const item = menuItems.find((m) => m.id === e.target.value);
-                        setSelectedMenuItem(item || null);
-                        setSelectedVariantId("");
-                      }}
-                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-100"
-                    >
-                      <option value="">Select menu item...</option>
-                      {filteredMenuItems.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} {item.categoryName ? `(${item.categoryName})` : ""} - ₹{item.price}
-                        </option>
-                      ))}
-                    </select>
+                    
+                    <div className="space-y-3 relative">
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search for dishes, drinks..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full h-10 pl-9 pr-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                        />
+                      </div>
+
+                      {!selectedMenuItem ? (
+                        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+                          {filteredMenuItems.map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => setSelectedMenuItem(item)}
+                              className="flex items-center text-left gap-3 p-2 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all bg-white group"
+                            >
+                              {item.image_url ? (
+                                <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0 shadow-sm" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                  <UtensilsCrossed className="w-5 h-5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
+                                <p className="text-[10px] font-semibold text-indigo-600 mt-0.5">₹{item.price}</p>
+                                {item.categoryName && <p className="text-[9px] text-slate-400 truncate mt-0.5">{item.categoryName}</p>}
+                              </div>
+                            </button>
+                          ))}
+                          {filteredMenuItems.length === 0 && (
+                            <div className="text-center py-6 text-xs text-slate-400 font-medium">
+                              No items found matching "{searchQuery}"
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between p-3 rounded-xl border border-indigo-200 bg-indigo-50/50">
+                          <div className="flex items-center gap-3">
+                            {selectedMenuItem.image_url ? (
+                              <img src={selectedMenuItem.image_url} alt={selectedMenuItem.name} className="w-12 h-12 rounded-lg object-cover shadow-sm" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center shadow-sm">
+                                <UtensilsCrossed className="w-5 h-5 text-indigo-400" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{selectedMenuItem.name}</p>
+                              <p className="text-[11px] font-semibold text-indigo-600">₹{selectedMenuItem.price}</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => { setSelectedMenuItem(null); setSelectedVariantId(""); }}
+                            className="w-8 h-8 rounded-full bg-white border border-indigo-100 flex items-center justify-center hover:bg-rose-50 hover:text-rose-500 hover:border-rose-100 text-slate-400 transition-all shadow-sm"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {selectedMenuItem?.variants && selectedMenuItem.variants.length > 0 && (

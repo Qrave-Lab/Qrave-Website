@@ -366,3 +366,23 @@ export async function api<T>(
   _inflight.set(key, request);
   return request;
 }
+
+let pinPromiseResolver: ((pin: string | null) => void) | null = null;
+
+export function requestManagerPin(): Promise<string | null> {
+  return new Promise((resolve) => {
+    pinPromiseResolver = resolve;
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("show-manager-pin-modal"));
+    } else {
+      resolve(null);
+    }
+  });
+}
+
+export function submitManagerPin(pin: string | null) {
+  if (pinPromiseResolver) {
+    pinPromiseResolver(pin);
+    pinPromiseResolver = null;
+  }
+}
