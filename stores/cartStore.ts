@@ -13,8 +13,12 @@ type CartItemDTO = {
 
 type Cart = Record<string, CartItemDTO>;
 const mutationQueueByKey = new Map<string, Promise<void>>();
+const pendingAddKeys = new Set<string>();
+const lastAddAtByKey = new Map<string, number>();
+const pendingAddItemIds = new Set<string>();
+const lastAddAtByItemId = new Map<string, number>();
 
-const enqueueByKey = (key: string, op: () => Promise<void>) => {
+const enqueueByKey = (key: string, itemId: string, op: () => Promise<void>) => {
   const prev = mutationQueueByKey.get(key) || Promise.resolve();
   const next = prev
     .catch(() => { })
@@ -23,6 +27,10 @@ const enqueueByKey = (key: string, op: () => Promise<void>) => {
       if (mutationQueueByKey.get(key) === next) {
         mutationQueueByKey.delete(key);
       }
+      pendingAddKeys.delete(key);
+      lastAddAtByKey.delete(key);
+      pendingAddItemIds.delete(itemId);
+      lastAddAtByItemId.delete(itemId);
     });
   mutationQueueByKey.set(key, next);
   return next;
@@ -68,6 +76,24 @@ export const useCartStore = create<CartState>()(
 
       addItem: async (id, variantId, price, modifierOptionIds, notes) => {
         const key = getCartKey(id, variantId);
+        const now = Date.now();
+        const recentKeyAt = lastAddAtByKey.get(key) || 0;
+        const recentItemAt = lastAddAtByItemId.get(id) || 0;
+        
+        if (
+          mutationQueueByKey.has(key) ||
+          pendingAddKeys.has(key) ||
+          pendingAddItemIds.has(id) ||
+          now - recentKeyAt < 180 ||
+          now - recentItemAt < 180
+        ) {
+          return mutationQueueByKey.get(key) || Promise.resolve();
+        }
+
+        lastAddAtByKey.set(key, now);
+        lastAddAtByItemId.set(id, now);
+        pendingAddKeys.add(key);
+        pendingAddItemIds.add(id);
         set((state) => ({
           cart: {
             ...state.cart,
@@ -79,7 +105,7 @@ export const useCartStore = create<CartState>()(
           },
         }));
 
-        return enqueueByKey(key, async () => {
+        return enqueueByKey(key, id, async () => {
           try {
             await orderService.addItem(id, variantId, price, modifierOptionIds, notes);
           } catch (error: any) {
@@ -114,7 +140,7 @@ export const useCartStore = create<CartState>()(
         delete next[key];
         set({ cart: next });
 
-        return enqueueByKey(key, async () => {
+        return enqueueByKey(key, id, async () => {
           try {
             await orderService.removeItem(id, variantId);
           } catch (error: any) {
@@ -142,7 +168,7 @@ export const useCartStore = create<CartState>()(
         }
         set({ cart: next });
 
-        return enqueueByKey(key, async () => {
+        return enqueueByKey(key, id, async () => {
           try {
             await orderService.decrementItem(id, variantId);
           } catch (error: any) {

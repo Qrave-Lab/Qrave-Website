@@ -455,63 +455,53 @@ const CheckoutPage: React.FC = () => {
             const localCart = useCartStore.getState().cart;
             const localKeys = Object.keys(localCart);
             const remoteKeys = Object.keys(cartRes.items);
+            const needsSync = localKeys.some((key) => {
+              const localQty = localCart[key]?.quantity ?? 0;
+              const remoteQty = cartRes.items[key]?.quantity ?? 0;
+              return localQty !== remoteQty;
+            }) || remoteKeys.some((key) => !(key in localCart));
 
-            if (localKeys.length > 0) {
-              let mismatch = false;
-              if (localKeys.length !== remoteKeys.length) {
-                mismatch = true;
-              } else {
-                for (const key of localKeys) {
-                  if (!cartRes.items[key] || cartRes.items[key].quantity !== localCart[key].quantity) {
-                    mismatch = true;
-                    break;
+            if (needsSync) {
+              (async () => {
+                try {
+                  const mergedCart: Record<string, { quantity: number; price: number; notes?: string }> = { ...localCart };
+
+                  for (const [key, remoteItem] of Object.entries(cartRes.items || {})) {
+                    const localItem = mergedCart[key];
+                    if (!localItem) {
+                      mergedCart[key] = { ...remoteItem };
+                    } else {
+                      mergedCart[key] = {
+                        ...localItem,
+                        ...remoteItem,
+                        quantity: Math.max(localItem.quantity, remoteItem.quantity),
+                        price: localItem.price || remoteItem.price,
+                      };
+                    }
                   }
+
+                  for (const key of remoteKeys) {
+                    if (localCart[key]) continue;
+                    const [itemId, variantId] = key.split("::");
+                    const cleanVariantId =
+                      variantId === "undefined" ||
+                      variantId === "null" ||
+                      variantId === "__base__" ||
+                      !variantId
+                        ? null
+                        : variantId;
+                    try {
+                      await orderService.removeItem(itemId, cleanVariantId || undefined);
+                    } catch (e) {
+                      console.error(`Failed to remove stale item ${itemId}:`, e);
+                    }
+                  }
+
+                  syncCart(mergedCart);
+                } catch (err) {
+                  console.error("Failed to sync cart safely:", err);
                 }
-              }
-
-              if (mismatch) {
-                (async () => {
-                  try {
-                    await orderService.ensureOrderId();
-                    // 1. Remove all items from remote cart
-                    for (const key of remoteKeys) {
-                      const [itemId, variantId] = key.split("::");
-                      const cleanVariantId =
-                        variantId === "undefined" ||
-                        variantId === "null" ||
-                        variantId === "__base__" ||
-                        !variantId
-                          ? null
-                          : variantId;
-                      try {
-                        await orderService.removeItem(itemId, cleanVariantId || undefined);
-                      } catch (e) {
-                        console.error(`Failed to remove item ${itemId}:`, e);
-                      }
-                    }
-                    // 2. Add all items from local cart
-                    for (const [key, item] of Object.entries(localCart)) {
-                      const [itemId, variantId] = key.split("::");
-                      const cleanVariantId =
-                        variantId === "undefined" ||
-                        variantId === "null" ||
-                        variantId === "__base__" ||
-                        !variantId
-                          ? null
-                          : variantId;
-                      for (let q = 0; q < item.quantity; q++) {
-                        await orderService.addItem(itemId, cleanVariantId, item.price);
-                      }
-                    }
-                    const updatedCartRes = await orderService.getCart();
-                    if (updatedCartRes?.items) {
-                      syncCart(updatedCartRes.items);
-                    }
-                  } catch (err) {
-                    console.error("Failed to sync mismatched cart to backend:", err);
-                  }
-                })();
-              }
+              })();
             } else if (remoteKeys.length > 0) {
               syncCart(cartRes.items);
             }
@@ -1251,57 +1241,6 @@ const CheckoutPage: React.FC = () => {
                             </button>
                           )}
                         </div>
-                        {/* live tracking timeline for active orders */}
-                        {!isCancelled && (
-                          <div className="px-4 py-4 bg-[#F7F2EB]/50 border-t border-[#F0E9DF] flex items-center justify-between text-center gap-1">
-                            {(() => {
-                              const currentIdx = getCurrentStepIndex(order.status);
-                              return [
-                                { label: "Received", index: 0 },
-                                { label: "Preparing", index: 1 },
-                                { label: "Ready", index: 2 },
-                                { label: "Served", index: 3 }
-                              ].map((step, sIdx, sArr) => {
-                                const isCompleted = sIdx < currentIdx;
-                                const isCurrent = sIdx === currentIdx;
-                                const isActive = isCompleted || isCurrent;
-                                const isNextActive = sIdx < sArr.length - 1 && (sIdx + 1 <= currentIdx);
-                                return (
-                                  <React.Fragment key={step.label}>
-                                    <div className="flex flex-col items-center gap-1.5 shrink-0">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border transition-all ${
-                                        isCurrent
-                                          ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-200 animate-pulse relative"
-                                          : isCompleted
-                                            ? "bg-emerald-600 border-emerald-600 text-white"
-                                            : "bg-[#FFFFFF] border-[#DDD5C5] text-[#9B8677]"
-                                      }`}>
-                                        {isCurrent ? (
-                                          <span className="flex h-2.5 w-2.5 relative">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-                                          </span>
-                                        ) : isCompleted ? (
-                                          "✓"
-                                        ) : (
-                                          sIdx + 1
-                                        )}
-                                      </div>
-                                      <span className={`text-[9px] font-black uppercase tracking-wider ${isActive ? "text-[#3D2B1F]" : "text-[#9B8677]"}`}>
-                                        {step.label}
-                                      </span>
-                                    </div>
-                                    {sIdx < sArr.length - 1 && (
-                                      <div className={`flex-1 h-0.5 -mt-4 mx-1 border-t-2 border-dashed transition-all ${
-                                        isNextActive ? "border-emerald-500" : "border-[#DDD5C5]"
-                                      }`} />
-                                    )}
-                                  </React.Fragment>
-                                );
-                              });
-                            })()}
-                          </div>
-                        )}
                         <div className="px-4 py-3 space-y-2">
                           {isCancelled && (
                             <p className="text-[10px] font-semibold text-rose-500 mb-1">
