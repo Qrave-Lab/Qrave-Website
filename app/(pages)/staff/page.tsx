@@ -205,6 +205,18 @@ export default function StaffDashboardPage() {
     destructive?: boolean;
   }>(null);
 
+  // Inline "Free Table" modal — shown when table has an unpaid balance
+  const [freeTableModal, setFreeTableModal] = useState<{
+    isOpen: boolean;
+    tableId: string;
+    tableCode: string;
+    sessionId: string;
+    totalAmount: number;
+    currentTotal: number;
+    selectedPayment: string;
+    isProcessing: boolean;
+  } | null>(null);
+
   const [tableFilter, setTableFilter] = useState<TableFilter>("all");
   const [tableSort, setTableSort] = useState<TableSort>("table");
   const [activeSidebarTab, setActiveSidebarTab] = useState<"kitchen" | "service">("kitchen");
@@ -426,17 +438,31 @@ export default function StaffDashboardPage() {
         api<TakeawaySummary>("/api/admin/takeaway/summary"),
         api<{ waitlist?: any[] }>("/api/admin/waitlist").catch(() => ({ waitlist: [] })),
       ]);
-      setServiceCalls(
-        (serviceRes || []).map((c) => ({
-          id: c.id,
-          tableCode: `T${c.table_number}`,
-          type: c.type,
-          status: c.status,
-          createdAt: new Date(c.created_at),
-          rating: c.rating,
-          comment: c.comment,
-        }))
-      );
+      // Get the current set of occupied table codes from the latest tables state
+      // We read it lazily here so we can cross-filter stale service calls
+      setTables((currentTables) => {
+        const occupiedTableCodes = new Set(
+          currentTables.filter((t) => t.isOccupied).map((t) => t.tableCode)
+        );
+
+        setServiceCalls(
+          (serviceRes || [])
+            .filter((c) => c.status !== "done")
+            // Drop any service call whose table is no longer occupied
+            .filter((c) => occupiedTableCodes.has(`T${c.table_number}`))
+            .map((c) => ({
+              id: c.id,
+              tableCode: `T${c.table_number}`,
+              type: c.type,
+              status: c.status,
+              createdAt: new Date(c.created_at),
+              rating: c.rating,
+              comment: c.comment,
+            }))
+        );
+
+        return currentTables; // no change to tables
+      });
       if (typeof salesRes?.total === "number") {
         setTodaySales(salesRes.total);
       }
@@ -758,36 +784,36 @@ export default function StaffDashboardPage() {
     }
   };
 
-  const handleFreeTable = async (tableId: string, markPaid = false) => {
+  const handleFreeTable = async (tableId: string) => {
     const tableToFree = tables.find(t => t.id === tableId);
     if (!tableToFree) return;
     if (!tableToFree.activeSessionId) return;
 
     try {
-      if (markPaid) {
-        await api(`/api/admin/payments/status`, {
-          method: "POST",
-          body: JSON.stringify({
-            session_id: tableToFree.activeSessionId,
-            status: "paid",
-            payment_mode: "cash",
-            reason: "staff_free_table",
-            amount: Number((tableToFree.currentTotal || 0).toFixed(2)),
-          }),
-        });
-      }
       await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
         method: "POST",
       });
     } catch (err: any) {
       const status = err?.status;
       const msg = String(err?.message || "").toLowerCase();
-      if (!markPaid && status === 409 && (msg.includes("mark paid") || msg.includes("pending bill") || msg.includes("unpaid"))) {
-        setConfirmAction({
-          title: `Pending bill on ${tableToFree.tableCode}`,
-          message: "This table has unpaid orders. Mark all orders paid and free table?",
-          confirmText: "Mark Paid & Free",
-          onConfirm: async () => handleFreeTable(tableId, true),
+      if (status === 409 && (msg.includes("mark paid") || msg.includes("pending bill") || msg.includes("unpaid"))) {
+        // Fallback: if API still rejects, open the payment modal
+        const tableOrders = activeOrders.filter((o) => o.table_id === tableToFree.id);
+        let total = 0;
+        for (const order of tableOrders) {
+          for (const item of order.items || []) {
+            total += item.price * item.quantity;
+          }
+        }
+        setFreeTableModal({
+          isOpen: true,
+          tableId: tableToFree.id,
+          tableCode: tableToFree.tableCode,
+          sessionId: tableToFree.activeSessionId!,
+          totalAmount: total,
+          currentTotal: tableToFree.currentTotal || 0,
+          selectedPayment: "cash",
+          isProcessing: false,
         });
         return;
       }
@@ -796,18 +822,73 @@ export default function StaffDashboardPage() {
     }
 
     await refreshDashboard();
-    toast.success(markPaid ? "Table closed and bill marked paid" : "Table freed");
+    toast.success("Table freed");
     setOpenMenuId(null);
   };
 
   const requestFreeTable = (tableId: string) => {
     const tableToFree = tables.find(t => t.id === tableId);
     if (!tableToFree) return;
-    setConfirmAction({
-      title: `Free ${tableToFree.tableCode}?`,
-      message: "This will end the active session immediately.",
-      onConfirm: async () => handleFreeTable(tableId, false),
-    });
+    setOpenMenuId(null);
+
+    // Check if there is an unpaid balance for this table
+    const tableOrders = activeOrders.filter((o) => o.table_id === tableToFree.id);
+    let total = 0;
+    for (const order of tableOrders) {
+      for (const item of order.items || []) {
+        total += item.price * item.quantity;
+      }
+    }
+    const hasUnpaidBalance = total > 0 && tableToFree.billStatus !== "paid";
+
+    if (hasUnpaidBalance && tableToFree.activeSessionId) {
+      // Show inline modal: let staff choose payment + free the table in one tap
+      setFreeTableModal({
+        isOpen: true,
+        tableId: tableToFree.id,
+        tableCode: tableToFree.tableCode,
+        sessionId: tableToFree.activeSessionId,
+        totalAmount: total,
+        currentTotal: tableToFree.currentTotal || 0,
+        selectedPayment: "cash",
+        isProcessing: false,
+      });
+    } else {
+      // No balance — just confirm and free
+      setConfirmAction({
+        title: `Free ${tableToFree.tableCode}?`,
+        message: "This will end the active session immediately.",
+        onConfirm: async () => handleFreeTable(tableId),
+      });
+    }
+  };
+
+  const handleConfirmFreeWithPayment = async () => {
+    if (!freeTableModal || freeTableModal.isProcessing) return;
+    setFreeTableModal(prev => prev ? { ...prev, isProcessing: true } : null);
+    try {
+      // 1. Mark the bill as paid via the payments API
+      await api(`/api/admin/payments/status`, {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: freeTableModal.sessionId,
+          status: "paid",
+          payment_mode: freeTableModal.selectedPayment,
+          reason: "staff_free_table",
+          amount: Number((freeTableModal.currentTotal || freeTableModal.totalAmount).toFixed(2)),
+        }),
+      });
+      // 2. End the session (free the table)
+      await api(`/api/admin/sessions/${freeTableModal.sessionId}/end`, {
+        method: "POST",
+      });
+      setFreeTableModal(null);
+      await refreshDashboard();
+      toast.success(`${freeTableModal.tableCode} — bill paid & table freed`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to settle and free table");
+      setFreeTableModal(prev => prev ? { ...prev, isProcessing: false } : null);
+    }
   };
 
   const markBillPrinted = async (tableId: string) => {
@@ -1871,6 +1952,84 @@ export default function StaffDashboardPage() {
           </motion.aside>
         )}
       </AnimatePresence>
+
+      {/* Free Table — Inline Payment Modal */}
+      {freeTableModal?.isOpen && (
+        <div className="absolute inset-0 z-[90] bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Free {freeTableModal.tableCode}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Unpaid bill — choose payment to continue</p>
+              </div>
+              <button
+                onClick={() => setFreeTableModal(null)}
+                disabled={freeTableModal.isProcessing}
+                className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Bill Amount */}
+            <div className="px-6 py-4">
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 mb-5">
+                <span className="text-sm font-semibold text-emerald-800">Bill Total</span>
+                <span className="text-xl font-black text-emerald-700">
+                  ₹{freeTableModal.totalAmount.toLocaleString()}
+                </span>
+              </div>
+
+              {/* Payment Method */}
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Payment Method</p>
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                {(["cash", "card", "upi"] as const).map((method) => (
+                  <button
+                    key={method}
+                    onClick={() =>
+                      setFreeTableModal(prev => prev ? { ...prev, selectedPayment: method } : null)
+                    }
+                    disabled={freeTableModal.isProcessing}
+                    className={`py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${
+                      freeTableModal.selectedPayment === method
+                        ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
+                    {method === "cash" ? "💵 Cash" : method === "card" ? "💳 Card" : "📱 UPI"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFreeTableModal(null)}
+                  disabled={freeTableModal.isProcessing}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmFreeWithPayment}
+                  disabled={freeTableModal.isProcessing}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  {freeTableModal.isProcessing ? (
+                    "Processing..."
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Mark Paid & Free Table
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
