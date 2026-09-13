@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/app/lib/api";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import { isArMenuPlan } from "@/app/lib/plans";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -420,7 +421,7 @@ export default function StaffSidebar() {
       // Even if logout fails, proceed to clear local tokens.
     } finally {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("session_id");
+        await removeTokenCookie("session_id");
         localStorage.removeItem("order_id");
         localStorage.removeItem("table_number");
         router.replace("/login");
@@ -463,7 +464,7 @@ export default function StaffSidebar() {
       localStorage.removeItem(ME_CACHE_KEY);
       localStorage.removeItem("restaurant_name");
       localStorage.removeItem("restaurant_logo_url");
-      localStorage.removeItem("session_id");
+      await removeTokenCookie("session_id");
       localStorage.removeItem("order_id");
       localStorage.removeItem("table_number");
       // Hard redirect — soft router.replace on the same route doesn't

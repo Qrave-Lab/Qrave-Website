@@ -1,4 +1,5 @@
 import { api } from "@/app/lib/api";
+import { setTokenCookie, getTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 
 export type CartItemDTO = {
@@ -31,7 +32,7 @@ export const orderService = {
     if (typeof window === "undefined") {
       throw new Error("order_id is required");
     }
-    const existing = localStorage.getItem("order_id");
+    const existing = await getTokenCookie("order_id");
     if (isValidOrderId(existing)) return existing;
 
     if (orderCreationPromise) {
@@ -39,7 +40,7 @@ export const orderService = {
     }
 
     orderCreationPromise = (async () => {
-      let sessionId = localStorage.getItem("session_id");
+      let sessionId = await getTokenCookie("session_id");
       if (!sessionId) {
         sessionId = await orderService.ensureSession();
       }
@@ -54,7 +55,7 @@ export const orderService = {
         }),
         credentials: "include",
       });
-      localStorage.setItem("order_id", created.order_id);
+      await setTokenCookie("order_id", created.order_id);
       return created.order_id;
     })().finally(() => {
       orderCreationPromise = null;
@@ -65,7 +66,7 @@ export const orderService = {
 
   ensureSession: async () => {
     if (typeof window === "undefined") return null;
-    let sessionId = localStorage.getItem("session_id");
+    let sessionId = await getTokenCookie("session_id");
     if (sessionId) return sessionId;
 
     const searchParams = new URLSearchParams(window.location.search);
@@ -97,8 +98,8 @@ export const orderService = {
     const nextContextKey = `${restaurantId || "na"}::${rawTable || "na"}`;
     const prevContextKey = localStorage.getItem("session_context_key");
     if (prevContextKey && prevContextKey !== nextContextKey) {
-      localStorage.removeItem("session_id");
-      localStorage.removeItem("order_id");
+      await removeTokenCookie("session_id");
+      await removeTokenCookie("order_id");
       localStorage.removeItem("cart-storage");
       sessionId = null;
     }
@@ -135,7 +136,7 @@ export const orderService = {
           credentials: "include",
         });
         sessionId = res.session_id;
-        localStorage.setItem("session_id", sessionId);
+        await setTokenCookie("session_id", sessionId);
         return sessionId;
       }
 
@@ -153,7 +154,7 @@ export const orderService = {
           credentials: "include",
         });
         sessionId = res.session_id;
-        localStorage.setItem("session_id", sessionId);
+        await setTokenCookie("session_id", sessionId);
         if (res.restaurant_id) {
           localStorage.setItem("restaurant_id", res.restaurant_id);
         }
@@ -163,14 +164,14 @@ export const orderService = {
         return sessionId;
       }
     } catch {
-      localStorage.removeItem("session_id");
+      await removeTokenCookie("session_id");
     }
 
     return null;
   },
-  getMenu: () => {
+  getMenu: async () => {
     const sessionId =
-      typeof window !== "undefined" ? localStorage.getItem("session_id") : null;
+      typeof window !== "undefined" ? await getTokenCookie("session_id") : null;
     const suffix = sessionId ? `?session_id=${sessionId}` : "";
     return api<any[]>(`/api/customer/menu${suffix}`);
   },
@@ -178,7 +179,7 @@ export const orderService = {
   getCart: async (orderIdOverride?: string): Promise<CartRes> => {
     let orderId = orderIdOverride;
     if (!orderId && typeof window !== "undefined") {
-      const fromStore = localStorage.getItem("order_id") || undefined;
+      const fromStore = await getTokenCookie("order_id") || undefined;
       orderId = isValidOrderId(fromStore) ? fromStore : undefined;
     }
     try {
@@ -187,9 +188,9 @@ export const orderService = {
       );
       if (res.order_id) {
         if (isValidOrderId(res.order_id)) {
-          localStorage.setItem("order_id", res.order_id);
+          await setTokenCookie("order_id", res.order_id);
         } else {
-          localStorage.removeItem("order_id");
+          await removeTokenCookie("order_id");
         }
       }
       return res;
@@ -201,16 +202,16 @@ export const orderService = {
         msg.includes("order_id is required") ||
         msg.includes("uuid")
       ) {
-        localStorage.removeItem("order_id");
+        await removeTokenCookie("order_id");
         return orderService.getCart();
       }
       throw e;
     }
   },
 
-  getOrders: () => {
+  getOrders: async () => {
     const sessionId =
-      typeof window !== "undefined" ? localStorage.getItem("session_id") : null;
+      typeof window !== "undefined" ? await getTokenCookie("session_id") : null;
     if (!sessionId) {
       return Promise.resolve({ orders: [] });
     }
@@ -227,12 +228,12 @@ export const orderService = {
   ): Promise<any> {
     let sessionId = await orderService.ensureSession();
     if (!sessionId && typeof window !== "undefined") {
-      sessionId = localStorage.getItem("session_id");
+      sessionId = await getTokenCookie("session_id");
     }
-    let orderId = localStorage.getItem("order_id");
+    let orderId = await getTokenCookie("order_id");
 
     if (!isValidOrderId(orderId)) {
-      localStorage.removeItem("order_id");
+      await removeTokenCookie("order_id");
       orderId = await orderService.ensureOrderId();
     }
 
@@ -253,9 +254,9 @@ export const orderService = {
       });
       if (res.order_id) {
         if (isValidOrderId(res.order_id)) {
-          localStorage.setItem("order_id", res.order_id);
+          await setTokenCookie("order_id", res.order_id);
         } else {
-          localStorage.removeItem("order_id");
+          await removeTokenCookie("order_id");
         }
       }
       return res;
@@ -265,7 +266,7 @@ export const orderService = {
         (e.message.includes("session_id is required") ||
           e.message.includes("session expired"))
       ) {
-        localStorage.removeItem("session_id");
+        await removeTokenCookie("session_id");
         return await orderService.addItem(
           id,
           variantId,
@@ -278,7 +279,7 @@ export const orderService = {
         (e.message.includes("order not found") ||
           e.message.includes("violates foreign key constraint"))
       ) {
-        localStorage.removeItem("order_id");
+        await removeTokenCookie("order_id");
         return await orderService.addItem(
           id,
           variantId,
@@ -292,7 +293,7 @@ export const orderService = {
 
   decrementItem: async (itemId: string, variantId?: string | number) => {
     let orderId =
-      typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
+      typeof window !== "undefined" ? await getTokenCookie("order_id") : null;
     if (!isValidOrderId(orderId)) {
       orderId = null;
     }
@@ -310,9 +311,9 @@ export const orderService = {
       );
       if (res.order_id) {
         if (isValidOrderId(res.order_id)) {
-          localStorage.setItem("order_id", res.order_id);
+          await setTokenCookie("order_id", res.order_id);
         } else {
-          localStorage.removeItem("order_id");
+          await removeTokenCookie("order_id");
         }
       }
       return res;
@@ -324,7 +325,7 @@ export const orderService = {
         msg.includes("order_id is required") ||
         msg.includes("uuid")
       ) {
-        localStorage.removeItem("order_id");
+        await removeTokenCookie("order_id");
       }
       throw e;
     }
@@ -332,7 +333,7 @@ export const orderService = {
 
   removeItem: async (itemId: string, variantId?: string | number) => {
     let orderId =
-      typeof window !== "undefined" ? localStorage.getItem("order_id") : null;
+      typeof window !== "undefined" ? await getTokenCookie("order_id") : null;
     if (!isValidOrderId(orderId)) {
       orderId = null;
     }
@@ -350,9 +351,9 @@ export const orderService = {
       );
       if (res.order_id) {
         if (isValidOrderId(res.order_id)) {
-          localStorage.setItem("order_id", res.order_id);
+          await setTokenCookie("order_id", res.order_id);
         } else {
-          localStorage.removeItem("order_id");
+          await removeTokenCookie("order_id");
         }
       }
       return res;
@@ -364,7 +365,7 @@ export const orderService = {
         msg.includes("order_id is required") ||
         msg.includes("uuid")
       ) {
-        localStorage.removeItem("order_id");
+        await removeTokenCookie("order_id");
       }
       throw e;
     }

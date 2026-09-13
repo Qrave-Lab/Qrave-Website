@@ -3,6 +3,7 @@
 import { api } from "@/app/lib/api";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { orderService } from "@/services/orderService";
+import { setTokenCookie, getTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import { useCartStore } from "@/stores/cartStore";
 import {
   ChevronLeft,
@@ -297,10 +298,12 @@ const CheckoutPage: React.FC = () => {
     setIsMounted(true);
     setIsSeparateBill(localStorage.getItem("separate_bill") === "1");
     setIsTableOccupied(localStorage.getItem("table_occupied") === "1");
-    const sessionId = localStorage.getItem("session_id") || "default";
-    if (localStorage.getItem(`bill_requested_${sessionId}`) === "true") {
-      setBillRequested(true);
-    }
+    getTokenCookie("session_id").then(sessionId => {
+      const sid = sessionId || "default";
+      if (localStorage.getItem(`bill_requested_${sid}`) === "true") {
+        setBillRequested(true);
+      }
+    });
     try {
       const stored = JSON.parse(localStorage.getItem("my_order_ids") || "[]");
       if (Array.isArray(stored)) setMyOrderIds(new Set(stored));
@@ -310,7 +313,7 @@ const CheckoutPage: React.FC = () => {
 
     const ensureSession = async () => {
       if (typeof window === "undefined") return null;
-      const session = localStorage.getItem("session_id");
+      const session = (await getTokenCookie("session_id"));
       if (session) return session;
 
       const restaurantId =
@@ -348,7 +351,7 @@ const CheckoutPage: React.FC = () => {
               credentials: "include",
             },
           );
-          localStorage.setItem("session_id", res.session_id);
+          await setTokenCookie("session_id", res.session_id);
           return res.session_id;
         }
 
@@ -365,7 +368,7 @@ const CheckoutPage: React.FC = () => {
             }),
             credentials: "include",
           });
-          localStorage.setItem("session_id", res.session_id);
+          await setTokenCookie("session_id", res.session_id);
           if (res.restaurant_id) {
             localStorage.setItem("restaurant_id", res.restaurant_id);
           }
@@ -375,7 +378,7 @@ const CheckoutPage: React.FC = () => {
           return res.session_id;
         }
       } catch (e) {
-        localStorage.removeItem("session_id");
+        await removeTokenCookie("session_id");
       }
 
       return null;
@@ -383,13 +386,13 @@ const CheckoutPage: React.FC = () => {
 
     const load = async () => {
       if (typeof window !== "undefined") {
-        setCurrentOrderId(localStorage.getItem("order_id"));
+        setCurrentOrderId((await getTokenCookie("order_id")));
       }
 
       await ensureSession();
 
       if (typeof window !== "undefined") {
-        const sessionId = localStorage.getItem("session_id");
+        const sessionId = (await getTokenCookie("session_id"));
         if (sessionId && localStorage.getItem(`bill_requested_${sessionId}`) === "true") {
           setBillRequested(true);
         }
@@ -456,63 +459,7 @@ const CheckoutPage: React.FC = () => {
             const localKeys = Object.keys(localCart);
             const remoteKeys = Object.keys(cartRes.items);
 
-            if (localKeys.length > 0) {
-              let mismatch = false;
-              if (localKeys.length !== remoteKeys.length) {
-                mismatch = true;
-              } else {
-                for (const key of localKeys) {
-                  if (!cartRes.items[key] || cartRes.items[key].quantity !== localCart[key].quantity) {
-                    mismatch = true;
-                    break;
-                  }
-                }
-              }
-
-              if (mismatch) {
-                (async () => {
-                  try {
-                    await orderService.ensureOrderId();
-                    // 1. Remove all items from remote cart
-                    for (const key of remoteKeys) {
-                      const [itemId, variantId] = key.split("::");
-                      const cleanVariantId =
-                        variantId === "undefined" ||
-                        variantId === "null" ||
-                        variantId === "__base__" ||
-                        !variantId
-                          ? null
-                          : variantId;
-                      try {
-                        await orderService.removeItem(itemId, cleanVariantId || undefined);
-                      } catch (e) {
-                        console.error(`Failed to remove item ${itemId}:`, e);
-                      }
-                    }
-                    // 2. Add all items from local cart
-                    for (const [key, item] of Object.entries(localCart)) {
-                      const [itemId, variantId] = key.split("::");
-                      const cleanVariantId =
-                        variantId === "undefined" ||
-                        variantId === "null" ||
-                        variantId === "__base__" ||
-                        !variantId
-                          ? null
-                          : variantId;
-                      for (let q = 0; q < item.quantity; q++) {
-                        await orderService.addItem(itemId, cleanVariantId, item.price);
-                      }
-                    }
-                    const updatedCartRes = await orderService.getCart();
-                    if (updatedCartRes?.items) {
-                      syncCart(updatedCartRes.items);
-                    }
-                  } catch (err) {
-                    console.error("Failed to sync mismatched cart to backend:", err);
-                  }
-                })();
-              }
-            } else if (remoteKeys.length > 0) {
+            if (localKeys.length === 0 && remoteKeys.length > 0) {
               syncCart(cartRes.items);
             }
           }
@@ -544,8 +491,7 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const id = localStorage.getItem("order_id");
-      setCurrentOrderId(id);
+      getTokenCookie("order_id").then(id => setCurrentOrderId(id));
     }
   }, [cart]);
 
@@ -751,9 +697,13 @@ const CheckoutPage: React.FC = () => {
       await Promise.all(
         placedOrders.map(async (order) => {
           try {
-            breakdowns[order.id] = await orderService.getTotalBreakdown(
-              order.id,
-            );
+            if (String(order.id).startsWith("temp-")) {
+              breakdowns[order.id] = null;
+            } else {
+              breakdowns[order.id] = await orderService.getTotalBreakdown(
+                order.id,
+              );
+            }
           } catch {
             breakdowns[order.id] = null;
           }
@@ -792,19 +742,50 @@ const CheckoutPage: React.FC = () => {
 
   const couponDiscount = formatPrice(Math.min(appliedCouponDiscount, cartSubtotal));
   const cartSubtotalAfterDiscount = formatPrice(Math.max(0, cartSubtotal - couponDiscount));
-  const tax = lines.length > 0 ? formatPrice(Math.round(cartSubtotalAfterDiscount * 0.05)) : 0;
-  const grandTotal = formatPrice(previousOrdersTotal + cartSubtotalAfterDiscount + tax);
+  const combinedSubtotal = formatPrice(previousOrdersTotal + cartSubtotalAfterDiscount);
+  const tax = combinedSubtotal > 0 ? formatPrice(Math.round(combinedSubtotal * 0.05)) : 0;
+  const grandTotal = formatPrice(combinedSubtotal + tax);
 
   const handlePlaceOrder = async () => {
     if (lines.length === 0 || isPlacingOrder) return;
     setIsPlacingOrder(true);
     setIsSyncingAfterPlace(false);
 
+    // Optimistic UI for placing order
+    const tempOrderId = "temp-" + Date.now();
+    const optimisticOrder = {
+      id: tempOrderId,
+      items: lines.map((l) => ({
+        menu_item_id: l.item.id,
+        variant_id: l.variantId,
+        quantity: l.quantity,
+        price: l.unitPrice,
+      })),
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    const prevOrders = [...orders];
+    setOrders([...prevOrders, optimisticOrder]);
+    
+    const prevMyOrderIds = Array.from(myOrderIds);
+    const newMyOrderIds = [...prevMyOrderIds, tempOrderId];
+    setMyOrderIds(new Set(newMyOrderIds));
+    localStorage.setItem("my_order_ids", JSON.stringify(newMyOrderIds));
+    
+    // Save current order details for the API call before clearing
+    const currentLines = [...lines];
+    const currentCartData = { ...cart };
+    const orderIdToPlace = currentOrderId || (await getTokenCookie("order_id"));
+    
+    clearCart();
+    setCurrentOrderId(null);
+    setAppliedCouponDiscount(0);
+    setCouponCode("");
+
     try {
-      let orderId = localStorage.getItem("order_id");
+      let orderId = orderIdToPlace;
       if (!orderId) {
-        toast.error("Session expired");
-        return;
+        throw new Error("Session expired");
       }
       let finalizeRes;
       try {
@@ -817,12 +798,11 @@ const CheckoutPage: React.FC = () => {
           msg.includes("order_id is required") ||
           msg.includes("uuid")
         ) {
-          localStorage.removeItem("order_id");
+          await removeTokenCookie("order_id");
           const freshOrderId = await orderService.ensureOrderId();
           if (freshOrderId) {
             orderId = freshOrderId;
-            const currentCart = useCartStore.getState().cart;
-            for (const [key, item] of Object.entries(currentCart)) {
+            for (const [key, item] of Object.entries(currentCartData)) {
               const [menuItemId, variantId] = key.split("::");
               const cleanVariantId =
                 variantId === "undefined" || variantId === "null" || !variantId
@@ -859,19 +839,32 @@ const CheckoutPage: React.FC = () => {
         localStorage.getItem("my_order_ids") || "[]",
       );
       if (!prevIds.includes(orderId)) prevIds.push(orderId);
-      localStorage.setItem("my_order_ids", JSON.stringify(prevIds));
-      setMyOrderIds(new Set(prevIds));
-      setIsSyncingAfterPlace(true);
-      const res = await orderService.getOrders();
-      if (res?.orders) {
-        setOrders(res.orders);
-      }
-      localStorage.removeItem("order_id");
-      clearCart();
-      setCurrentOrderId(null);
-      setAppliedCouponDiscount(0);
-      setCouponCode("");
+      // Remove tempOrderId from myOrderIds just in case
+      const filteredIds = prevIds.filter(id => id !== tempOrderId);
+      localStorage.setItem("my_order_ids", JSON.stringify(filteredIds));
+      setMyOrderIds(new Set(filteredIds));
+
+      const currentOrders = useCartStore.getState().orders;
+      setOrders(currentOrders.map(o => {
+        if (o.id === tempOrderId) {
+          return {
+            ...o,
+            id: orderId,
+            daily_order_number: dailyOrderNumber,
+            order_number: orderNumber,
+            status: "pending"
+          };
+        }
+        return o;
+      }));
+
+      await removeTokenCookie("order_id");
     } catch {
+      setOrders(prevOrders);
+      setMyOrderIds(new Set(prevMyOrderIds));
+      localStorage.setItem("my_order_ids", JSON.stringify(prevMyOrderIds));
+      syncCart(currentCartData);
+      setCurrentOrderId(orderIdToPlace);
       toast.error("Failed to place order");
     } finally {
       setIsSyncingAfterPlace(false);
@@ -885,11 +878,18 @@ const CheckoutPage: React.FC = () => {
   };
 
   const handleCancelOrder = async (orderId: string) => {
+    if (String(orderId).startsWith("temp-")) {
+      toast.error("Please wait for order to be confirmed");
+      return;
+    }
+    const prevOrders = [...orders];
+    setOrders(orders.map(o => o.id === orderId ? { ...o, status: "cancelled" } : o));
     try {
       await orderService.cancelOrder(orderId);
       toast.success("Order cancelled");
       await reloadOrders();
     } catch {
+      setOrders(prevOrders);
       toast.error("Unable to cancel order");
     }
   };
@@ -899,11 +899,26 @@ const CheckoutPage: React.FC = () => {
     itemId: string,
     variantId: string,
   ) => {
+    if (String(orderId).startsWith("temp-")) {
+      toast.error("Please wait for order to be confirmed");
+      return;
+    }
+    const prevOrders = [...orders];
+    setOrders(orders.map(o => {
+      if (o.id === orderId) {
+        return {
+          ...o,
+          items: o.items.filter(i => !(i.menu_item_id === itemId && (i.variant_id || "") === (variantId || "")))
+        };
+      }
+      return o;
+    }));
     try {
       await orderService.cancelOrderItem(orderId, itemId, variantId || null, 1);
       toast.success("Item cancelled");
       await reloadOrders();
     } catch {
+      setOrders(prevOrders);
       toast.error("Unable to cancel item");
     }
   };
@@ -1251,57 +1266,13 @@ const CheckoutPage: React.FC = () => {
                             </button>
                           )}
                         </div>
-                        {/* live tracking timeline for active orders */}
+                        {/* live tracking timeline for active orders (Commented out as per request)
                         {!isCancelled && (
                           <div className="px-4 py-4 bg-[#F7F2EB]/50 border-t border-[#F0E9DF] flex items-center justify-between text-center gap-1">
-                            {(() => {
-                              const currentIdx = getCurrentStepIndex(order.status);
-                              return [
-                                { label: "Received", index: 0 },
-                                { label: "Preparing", index: 1 },
-                                { label: "Ready", index: 2 },
-                                { label: "Served", index: 3 }
-                              ].map((step, sIdx, sArr) => {
-                                const isCompleted = sIdx < currentIdx;
-                                const isCurrent = sIdx === currentIdx;
-                                const isActive = isCompleted || isCurrent;
-                                const isNextActive = sIdx < sArr.length - 1 && (sIdx + 1 <= currentIdx);
-                                return (
-                                  <React.Fragment key={step.label}>
-                                    <div className="flex flex-col items-center gap-1.5 shrink-0">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border transition-all ${
-                                        isCurrent
-                                          ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-200 animate-pulse relative"
-                                          : isCompleted
-                                            ? "bg-emerald-600 border-emerald-600 text-white"
-                                            : "bg-[#FFFFFF] border-[#DDD5C5] text-[#9B8677]"
-                                      }`}>
-                                        {isCurrent ? (
-                                          <span className="flex h-2.5 w-2.5 relative">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-                                          </span>
-                                        ) : isCompleted ? (
-                                          "✓"
-                                        ) : (
-                                          sIdx + 1
-                                        )}
-                                      </div>
-                                      <span className={`text-[9px] font-black uppercase tracking-wider ${isActive ? "text-[#3D2B1F]" : "text-[#9B8677]"}`}>
-                                        {step.label}
-                                      </span>
-                                    </div>
-                                    {sIdx < sArr.length - 1 && (
-                                      <div className={`flex-1 h-0.5 -mt-4 mx-1 border-t-2 border-dashed transition-all ${
-                                        isNextActive ? "border-emerald-500" : "border-[#DDD5C5]"
-                                      }`} />
-                                    )}
-                                  </React.Fragment>
-                                );
-                              });
-                            })()}
+                            ...
                           </div>
                         )}
+                        */}
                         <div className="px-4 py-3 space-y-2">
                           {isCancelled && (
                             <p className="text-[10px] font-semibold text-rose-500 mb-1">
@@ -1966,7 +1937,7 @@ const CheckoutPage: React.FC = () => {
                       try {
                         await orderService.requestBill();
                         toast.success("Bill requested! Waiter is on their way.");
-                        const sessionId = localStorage.getItem("session_id") || "default";
+                        const sessionId = (await getTokenCookie("session_id")) || "default";
                         localStorage.setItem(`bill_requested_${sessionId}`, "true");
                         setBillRequested(true);
                       } catch (err: any) {

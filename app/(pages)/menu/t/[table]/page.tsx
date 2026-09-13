@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/lib/api";
+import { setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { useCartStore } from "@/stores/cartStore";
 
@@ -58,7 +59,7 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
         redirectTable = nextTable;
         redirectRestaurant = restaurantId || "";
         localStorage.setItem("session_context_key", `${restaurantId || "na"}::${nextTable || "na"}`);
-        localStorage.removeItem("session_id");
+        await removeTokenCookie("session_id");
         localStorage.removeItem("order_id");
         localStorage.removeItem("cart-storage");
         localStorage.removeItem("separate_bill");
@@ -93,7 +94,7 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
           return;
         }
 
-        localStorage.setItem("session_id", res.session_id);
+        await setTokenCookie("session_id", res.session_id);
         if (res.table_number) {
           localStorage.setItem("table_number", String(res.table_number));
           redirectTable = String(res.table_number);
@@ -120,7 +121,7 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
         }
       } catch (e: any) {
         console.error("Failed to start session:", e);
-        localStorage.removeItem("session_id");
+        await removeTokenCookie("session_id");
         if (e?.status === 403 && String(e?.message || "").toLowerCase().includes("disabled")) {
           setTableError("This table is currently disabled. Please contact the staff.");
         } else if (e?.status === 404) {

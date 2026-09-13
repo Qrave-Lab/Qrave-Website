@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import { api } from "@/app/lib/api";
 import { useCartStore } from "@/stores/cartStore";
 import MenuClient from "../../MenuClient";
@@ -15,55 +16,57 @@ export default function MenuByToken({ token }: Props) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const existing = localStorage.getItem("session_id");
-    const lastToken = localStorage.getItem("qr_token");
+    (async () => {
+      const existing = await getTokenCookie("session_id");
+      const lastToken = localStorage.getItem("qr_token");
 
-    if (existing && lastToken === token) {
-      setTimeout(() => setReady(true), 0);
-      return;
-    }
+      if (existing && lastToken === token) {
+        setTimeout(() => setReady(true), 0);
+        return;
+      }
 
-    localStorage.removeItem("session_id");
-    localStorage.removeItem("order_id");
-    localStorage.removeItem("cart-storage");
-    localStorage.removeItem("table_number");
-    localStorage.removeItem("restaurant_id");
-    clearCart();
+      await removeTokenCookie("session_id");
+      localStorage.removeItem("order_id");
+      localStorage.removeItem("cart-storage");
+      localStorage.removeItem("table_number");
+      localStorage.removeItem("restaurant_id");
+      clearCart();
 
-    api<{
-      session_id: string;
-      restaurant_id: string;
-      table_number: number;
-      is_occupied?: boolean;
-      ordering_enabled?: boolean;
-    }>("/public/session/start-by-token", {
-      method: "POST",
-      body: JSON.stringify({ token }),
-      credentials: "include",
-    })
-      .then((res) => {
-        localStorage.setItem("session_id", res.session_id);
-        localStorage.setItem("restaurant_id", res.restaurant_id);
-        localStorage.setItem("table_number", String(res.table_number));
-        localStorage.setItem("qr_token", token);
-        if (res.is_occupied) localStorage.setItem("table_occupied", "1");
-        else localStorage.removeItem("table_occupied");
-        if (typeof res.ordering_enabled === "boolean") {
-          localStorage.setItem("ordering_enabled", res.ordering_enabled ? "1" : "0");
-        }
-        setReady(true);
+      api<{
+        session_id: string;
+        restaurant_id: string;
+        table_number: number;
+        is_occupied?: boolean;
+        ordering_enabled?: boolean;
+      }>("/public/session/start-by-token", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+        credentials: "include",
       })
-      .catch((err) => {
-        if (err?.status === 404) {
-          setError("This QR code is no longer valid. Please scan the QR code on your table again.");
-        } else if (err?.status === 403) {
-          setError("This table is currently disabled. Please ask staff for assistance.");
-        } else if (err?.status === 402) {
-          setError("This restaurant is not currently accepting orders.");
-        } else {
-          setError("Something went wrong. Please try scanning the QR code again.");
-        }
-      });
+        .then(async (res) => {
+          await setTokenCookie("session_id", res.session_id);
+          localStorage.setItem("restaurant_id", res.restaurant_id);
+          localStorage.setItem("table_number", String(res.table_number));
+          localStorage.setItem("qr_token", token);
+          if (res.is_occupied) localStorage.setItem("table_occupied", "1");
+          else localStorage.removeItem("table_occupied");
+          if (typeof res.ordering_enabled === "boolean") {
+            localStorage.setItem("ordering_enabled", res.ordering_enabled ? "1" : "0");
+          }
+          setReady(true);
+        })
+        .catch((err) => {
+          if (err?.status === 404) {
+            setError("This QR code is no longer valid. Please scan the QR code on your table again.");
+          } else if (err?.status === 403) {
+            setError("This table is currently disabled. Please ask staff for assistance.");
+          } else if (err?.status === 402) {
+            setError("This restaurant is not currently accepting orders.");
+          } else {
+            setError("Something went wrong. Please try scanning the QR code again.");
+          }
+        });
+    })();
   }, [token, clearCart]);
 
   if (error) {

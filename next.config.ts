@@ -1,12 +1,18 @@
 import type { NextConfig } from "next";
 
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  throw new Error("NEXT_PUBLIC_API_URL environment variable is required");
+}
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+
 const nextConfig: NextConfig = {
   devIndicators: false,
   async rewrites() {
     return [
       {
         source: "/uploads/:path*",
-        destination: "http://localhost:9090/uploads/:path*",
+        destination: `${apiUrl}/uploads/:path*`,
       },
       {
         source: "/api/proxy-model/:path*",

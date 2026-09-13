@@ -43,7 +43,16 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   }, [router]);
 
   if (isChecking) {
-    return <div className="h-screen w-full bg-[#f8fafc]" />;
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#f8fafc]">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <h1 className="text-4xl font-black tracking-tighter text-slate-900">
+            Qrave<span className="text-[#fe5c13]">.</span>
+          </h1>
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#fe5c13]" />
+        </div>
+      </div>
+    );
   }
 
   if (!isAllowed) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import { useRouter, useSearchParams } from "next/navigation";
 import ModernFoodUI from "../(pages)/menu/MenuUi";
 import { api } from "@/app/lib/api";
@@ -41,6 +42,7 @@ export default function MenuClient({ table }: { table: string | null }) {
   });
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [sessionExpiredRescan, setSessionExpiredRescan] = useState(false);
   const [currentTableNumber, setCurrentTableNumber] = useState<string | null>(null);
   const [isOccupiedNotice, setIsOccupiedNotice] = useState(false);
   const [isOrderingEnabled, setIsOrderingEnabled] = useState(() => {
@@ -83,8 +85,8 @@ export default function MenuClient({ table }: { table: string | null }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    const sessionId = localStorage.getItem("session_id");
+    (async () => {
+      const sessionId = await getTokenCookie("session_id");
     const previousTable = localStorage.getItem("table_number");
     const previousRestaurant = localStorage.getItem("restaurant_id");
     const normalizedTable =
@@ -105,7 +107,7 @@ export default function MenuClient({ table }: { table: string | null }) {
       (!!normalizedTable && previousTable !== normalizedTable) ||
       (!!resolvedRestaurant && previousRestaurant !== resolvedRestaurant);
     if (contextChanged && !sessionId) {
-      localStorage.removeItem("session_id");
+      await removeTokenCookie("session_id");
       localStorage.removeItem("order_id");
       localStorage.removeItem("cart-storage");
       clearCart();
@@ -121,6 +123,7 @@ export default function MenuClient({ table }: { table: string | null }) {
       "session_context_key",
       `${resolvedRestaurant || "na"}::${normalizedTable || resolvedTable || "na"}`
     );
+    })();
   }, [resolvedTable, resolvedRestaurant, clearCart]);
 
   useEffect(() => {
@@ -165,7 +168,7 @@ export default function MenuClient({ table }: { table: string | null }) {
     };
 
     const ensureSessionAndLoad = async () => {
-      let session = localStorage.getItem("session_id");
+      let session = (await getTokenCookie("session_id"));
       let restaurantForSession =
         resolvedRestaurant || localStorage.getItem("restaurant_id");
       if (!restaurantForSession) {
@@ -200,7 +203,7 @@ export default function MenuClient({ table }: { table: string | null }) {
               credentials: "include",
             });
             session = res.session_id;
-            localStorage.setItem("session_id", res.session_id);
+            await setTokenCookie("session_id", res.session_id);
             const occupied = Boolean(res?.is_occupied);
             if (occupied) localStorage.setItem("table_occupied", "1");
             else localStorage.removeItem("table_occupied");
@@ -213,7 +216,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             }
           } catch (err) {
             console.error("Failed to start session", err);
-            localStorage.removeItem("session_id");
+            await removeTokenCookie("session_id");
             if ((err as any)?.status === 403) {
               setSessionError("This table is currently disabled. Please ask staff for assistance.");
             }
@@ -232,7 +235,7 @@ export default function MenuClient({ table }: { table: string | null }) {
               credentials: "include",
             });
             session = res.session_id;
-            localStorage.setItem("session_id", res.session_id);
+            await setTokenCookie("session_id", res.session_id);
             if (res?.is_occupied) localStorage.setItem("table_occupied", "1");
             else localStorage.removeItem("table_occupied");
             if (typeof res?.ordering_enabled === "boolean") {
@@ -247,7 +250,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             }
           } catch (err) {
             console.error("Failed to start session", err);
-            localStorage.removeItem("session_id");
+            await removeTokenCookie("session_id");
             if ((err as any)?.status === 403) {
               setSessionError("This table is currently disabled. Please ask staff for assistance.");
             }
@@ -267,7 +270,7 @@ export default function MenuClient({ table }: { table: string | null }) {
         const menuPath = sessionId
           ? `/api/customer/menu?session_id=${sessionId}`
           : "/api/customer/menu";
-        return api<any[]>(menuPath, { credentials: "include" });
+        return api<any[]>(menuPath, { credentials: "include", suppressErrorLog: true });
       };
 
       try {
@@ -300,57 +303,9 @@ export default function MenuClient({ table }: { table: string | null }) {
         await syncSessionDetails();
       } catch (err: any) {
         if (err?.status === 401 || String(err?.message || "").includes("session expired")) {
-          localStorage.removeItem("session_id");
+          await removeTokenCookie("session_id");
           session = null;
-          if (resolvedTable && restaurantForSession) {
-            const tableNumber = Number.parseInt(resolvedTable, 10);
-            if (!Number.isNaN(tableNumber)) {
-              try {
-                const res = await api<{ session_id: string; is_occupied?: boolean; ordering_enabled?: boolean }>("/public/session/start", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    restaurant_id: restaurantForSession,
-                    table_number: tableNumber,
-                  }),
-                  credentials: "include",
-                });
-                session = res.session_id;
-                localStorage.setItem("session_id", res.session_id);
-                const occupied = Boolean(res?.is_occupied);
-                if (occupied) localStorage.setItem("table_occupied", "1");
-                else localStorage.removeItem("table_occupied");
-                if (typeof res?.ordering_enabled === "boolean") {
-                  setIsOrderingEnabled(res.ordering_enabled);
-                  localStorage.setItem("ordering_enabled", res.ordering_enabled ? "1" : "0");
-                }
-                if (restaurantForSession) {
-                  localStorage.setItem("restaurant_id", restaurantForSession);
-                }
-                try {
-                  const rid = localStorage.getItem("restaurant_id");
-                  if (rid) {
-                    const themeRes = await api<{ theme_config?: ThemeConfig }>(`/public/restaurants/${rid}/theme`, {
-                      skipAuthRedirect: true,
-                      suppressErrorLog: true,
-                    });
-                    if (themeRes?.theme_config) {
-                      setInitialThemeConfig(themeRes.theme_config);
-                      localStorage.setItem("menu_theme_config", JSON.stringify(themeRes.theme_config));
-                    }
-                  }
-                } catch { }
-                const menu = await loadMenu(session);
-                setItems(menu);
-                setMenuCache(menu);
-                setIsOccupiedNotice(localStorage.getItem("table_occupied") === "1");
-                await syncSessionDetails();
-                return;
-              } catch (e) {
-                console.error("Menu fetch failed after session refresh", e);
-              }
-            }
-          }
+          setSessionExpiredRescan(true);
         } else {
           console.error("Menu fetch failed", err);
         }
@@ -369,6 +324,18 @@ export default function MenuClient({ table }: { table: string | null }) {
       if (interval !== null) window.clearInterval(interval);
     };
   }, [resolvedTable, resolvedRestaurant, router, tableFromUrl]);
+
+  if (sessionExpiredRescan) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] px-6 text-center space-y-6">
+        <div className="w-24 h-24 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        </div>
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Session Expired</h1>
+        <p className="text-lg text-slate-600 max-w-md mx-auto">Your session has expired. Please rescan the QR code on your table to continue ordering.</p>
+      </div>
+    );
+  }
 
   if (sessionEnded) {
     return (

@@ -750,11 +750,10 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="flex">
-        <StaffSidebar />
-        <main className="flex-1 p-8">
-          <div className="mx-auto max-w-7xl">
+    <div className="flex h-screen bg-white overflow-hidden">
+      <StaffSidebar />
+      <main className="flex-1 flex flex-col bg-white overflow-y-auto">
+        <div className="flex-1 flex flex-col w-full h-full">
             {hasAccess === false ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="mb-4 rounded-full bg-rose-100 p-4">
@@ -764,9 +763,9 @@ export default function InvoicesPage() {
                 <p className="mt-2 text-sm text-slate-600">Your role does not have permission to view Tax Invoices.</p>
               </div>
             ) : (
-              <>
+              <div className="flex-1 flex flex-col">
                 {/* ─── Header ─────────────────────────────────────────────── */}
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-8 py-5">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
                   <FileText className="h-5 w-5" />
@@ -807,7 +806,7 @@ export default function InvoicesPage() {
             </div>
 
             {/* ─── Filters ─────────────────────────────────────────────── */}
-            <div className="mb-6 flex flex-wrap items-end gap-3">
+            <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-slate-50 px-8 py-4">
               {/* Search */}
               <div className="relative flex-1 min-w-[220px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -861,7 +860,7 @@ export default function InvoicesPage() {
             </div>
 
             {/* ─── Stats strip ─────────────────────────────────────────── */}
-            <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100 bg-white">
               {[
                 {
                   label: "Total Invoices",
@@ -890,7 +889,7 @@ export default function InvoicesPage() {
               ].map(({ label, value, color }) => (
                 <div
                   key={label}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                  className="px-8 py-5"
                 >
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
                     {label}
@@ -901,7 +900,7 @@ export default function InvoicesPage() {
             </div>
 
             {/* ─── Table ───────────────────────────────────────────────── */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex-1 overflow-auto bg-white">
               {isLoading ? (
                 <div className="flex h-64 items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
@@ -1023,11 +1022,10 @@ export default function InvoicesPage() {
                 </div>
               )}
             </div>
-              </>
+              </div>
             )}
           </div>
         </main>
-      </div>
 
       {/* Modals */}
       <AnimatePresence>

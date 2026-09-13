@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 
 import CustomerBottomNav, {
   type CustomerTab,
@@ -583,7 +584,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       try {
         if (
           typeof window !== "undefined" &&
-          !localStorage.getItem("session_id")
+          !(await getTokenCookie("session_id"))
         )
           return;
         const data = await api<{
@@ -1139,40 +1140,22 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
   useEffect(() => {
     if (!arItem) return;
-    const currentVariant = arItem.variants?.find(
-      (v: any) => v.id === selectedArVariantId,
-    );
-
-    const viewer = modelViewerRef.current;
-    const cachedX = viewer?.getAttribute("data-base-scale-x");
-    const cachedY = viewer?.getAttribute("data-base-scale-y");
-    const cachedZ = viewer?.getAttribute("data-base-scale-z");
-
-    const baseScaleX = cachedX ? parseFloat(cachedX) : 1.0;
-    const baseScaleY = cachedY ? parseFloat(cachedY) : 1.0;
-    const baseScaleZ = cachedZ ? parseFloat(cachedZ) : 1.0;
-
-    let variantYMultiplier = 1.0;
-    if (currentVariant) {
-      const name = (currentVariant.name || "").toLowerCase();
-      if (
-        name.includes("triple") ||
-        name.includes("jumbo") ||
-        name.includes("xl")
-      ) {
-        variantYMultiplier = 1.55;
-      } else if (
-        name.includes("double") ||
-        name.includes("large") ||
-        name.includes("big")
-      ) {
-        variantYMultiplier = 1.3;
+    const viewer = modelViewerRef.current as any;
+    if (!viewer) return;
+    
+    try {
+      const dim = viewer.getDimensions();
+      if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
+        const currentVariant = arItem.variants?.find((v: any) => v.id === selectedArVariantId);
+        const targetW = currentVariant?.width_cm || arItem.width_cm || arItem.widthCM || 20;
+        const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
+        
+        const ratio = (targetW / (dim.x * 100)) * scaleMultiplier;
+        setArScale(`${ratio} ${ratio} ${ratio}`);
       }
+    } catch(err) {
+      // Dimensions not ready yet
     }
-
-    setArScale(
-      `${baseScaleX} ${baseScaleY * variantYMultiplier} ${baseScaleZ}`,
-    );
   }, [selectedArVariantId, arItem]);
 
   const handleArOpen = (item: any) => {
@@ -1562,10 +1545,37 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                 >
                   {/* Hot Steam Effect */}
                   {steamEnabled && (
-                    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-32 h-40 pointer-events-none z-10 flex justify-around opacity-80">
-                      <div className="ar-steam-particle w-4 h-24" style={{ animationDelay: "0s", animationDuration: "4s" }} />
-                      <div className="ar-steam-particle w-5 h-24" style={{ animationDelay: "1.2s", animationDuration: "4.5s" }} />
-                      <div className="ar-steam-particle w-4 h-24" style={{ animationDelay: "2.5s", animationDuration: "3.5s" }} />
+                    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-32 h-40 pointer-events-none z-10 flex justify-around opacity-80"
+                      style={{
+                        background: arItem.steamColor === 'warm' ? 'radial-gradient(circle, rgba(255,200,150,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                    arItem.steamColor === 'cool' ? 'radial-gradient(circle, rgba(200,220,255,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                    'none' // We can just use the particle backgrounds
+                      }}>
+                      <div className="ar-steam-particle w-4 h-24" style={{ 
+                        animationDelay: "0s", 
+                        animationDuration: "4s",
+                        background: arItem.steamColor === 'warm' ? 'radial-gradient(circle, rgba(255,200,150,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                    arItem.steamColor === 'cool' ? 'radial-gradient(circle, rgba(200,220,255,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                    'radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%)'
+                      }} />
+                      {arItem.steamIntensity !== 'gentle' && (
+                        <div className="ar-steam-particle w-5 h-24" style={{ 
+                          animationDelay: "1.2s", 
+                          animationDuration: "4.5s",
+                          background: arItem.steamColor === 'warm' ? 'radial-gradient(circle, rgba(255,200,150,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                      arItem.steamColor === 'cool' ? 'radial-gradient(circle, rgba(200,220,255,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                      'radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%)'
+                        }} />
+                      )}
+                      {arItem.steamIntensity === 'heavy' && (
+                        <div className="ar-steam-particle w-4 h-24" style={{ 
+                          animationDelay: "2.5s", 
+                          animationDuration: "3.5s",
+                          background: arItem.steamColor === 'warm' ? 'radial-gradient(circle, rgba(255,200,150,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                      arItem.steamColor === 'cool' ? 'radial-gradient(circle, rgba(200,220,255,0.22) 0%, rgba(255,255,255,0) 70%)' :
+                                      'radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%)'
+                        }} />
+                      )}
                     </div>
                   )}
 
@@ -1586,9 +1596,16 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       key={`${arItem.id || arItem.name}-${arModelRenderKey}`}
                       ref={modelViewerRef}
                       src={sanitizeModelUrl(arItem.arModelGlb)}
-                      ios-src={
-                        sanitizeModelUrl(arItem.arModelUsdz) || undefined
-                      }
+                      ios-src={(() => {
+                        const base = sanitizeModelUrl(arItem.arModelUsdz);
+                        if (!base) return undefined;
+                        const cal = Math.round((arItem.proteinG || 0) * 4 + (arItem.carbsG || 0) * 4 + (arItem.fatG || 0) * 9);
+                        if (cal > 0) {
+                          const macros = `🔥 ${cal} Cal | 🥩 ${arItem.proteinG || 0}g P | 🍚 ${arItem.carbsG || 0}g C | 🥑 ${arItem.fatG || 0}g F`;
+                          return `${base}#callToAction=Close&checkoutTitle=${encodeURIComponent(arItem.name)}&checkoutSubtitle=${encodeURIComponent(macros)}`;
+                        }
+                        return base;
+                      })()}
                       alt={arItem.name}
                       auto-rotate
                       ar
@@ -1607,27 +1624,12 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                           try {
                             const dim = (viewer as any).getDimensions();
                             if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
-                              const targetW = arItem.width_cm || arItem.widthCM;
-                              const targetH =
-                                arItem.height_cm || arItem.heightCM;
-                              const targetD = arItem.depth_cm || arItem.depthCM;
-                              if (targetW && targetH && targetD) {
-                                const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
-                                const scaleX = (targetW / (dim.x * 100)) * scaleMultiplier;
-                                const scaleY = (targetH / (dim.y * 100)) * scaleMultiplier;
-                                const scaleZ = (targetD / (dim.z * 100)) * scaleMultiplier;
-                                viewer.setAttribute("data-base-scale-x", String(scaleX));
-                                viewer.setAttribute("data-base-scale-y", String(scaleY));
-                                viewer.setAttribute("data-base-scale-z", String(scaleZ));
-                                setArScale(`${scaleX} ${scaleY} ${scaleZ}`);
-                              } else if (targetW) {
-                                const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
-                                const scaleX = (targetW / (dim.x * 100)) * scaleMultiplier;
-                                viewer.setAttribute("data-base-scale-x", String(scaleX));
-                                viewer.setAttribute("data-base-scale-y", String(scaleX));
-                                viewer.setAttribute("data-base-scale-z", String(scaleX));
-                                setArScale(`${scaleX} ${scaleX} ${scaleX}`);
-                              }
+                              const currentVariant = arItem.variants?.find((v: any) => v.id === selectedArVariantId);
+                              const targetW = currentVariant?.width_cm || arItem.width_cm || arItem.widthCM || 20;
+                              const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
+                              
+                              const ratio = (targetW / (dim.x * 100)) * scaleMultiplier;
+                              setArScale(`${ratio} ${ratio} ${ratio}`);
                             }
                           } catch {}
                         }
@@ -1636,7 +1638,29 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                         setArModelError("3D model failed to load.")
                       }
                       style={{ width: "100%", height: "300px" }}
-                    />
+                    >
+                      <style>{`
+                        model-viewer:not([ar-status="session-started"]) > [slot="ar-ui"] {
+                          display: none !important;
+                        }
+                      `}</style>
+                      <div slot="ar-ui" className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md text-white px-5 py-2.5 rounded-full flex gap-4 text-sm font-bold shadow-xl whitespace-nowrap z-50 pointer-events-none">
+                        {(() => {
+                           const cal = Math.round((arItem.proteinG || 0) * 4 + (arItem.carbsG || 0) * 4 + (arItem.fatG || 0) * 9);
+                           if (cal > 0) {
+                             return (
+                               <>
+                                 <span>🔥 {cal} Cal</span>
+                                 <span>🥩 {arItem.proteinG || 0}g P</span>
+                                 <span>🍚 {arItem.carbsG || 0}g C</span>
+                                 <span>🥑 {arItem.fatG || 0}g F</span>
+                               </>
+                             );
+                           }
+                           return null;
+                        })()}
+                      </div>
+                    </model-viewer>
                   )}
                   {arModelError && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#FFFFFF]/90 gap-2">

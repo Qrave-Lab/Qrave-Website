@@ -1,0 +1,2044 @@
+"use client";
+
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { processDashboardData } from "../../lib/processDashboardData";
+import {
+  CheckCircle2,
+  Clock,
+  ChefHat,
+  Search,
+  XCircle,
+  Check,
+  ArrowRight,
+  MoreVertical,
+  ArrowRightLeft,
+  Merge,
+  Users,
+  Filter,
+  Bell,
+  Droplets,
+  AlertTriangle,
+  Receipt,
+  UtensilsCrossed,
+  LogOut,
+  Trash2,
+  Printer,
+  Plus,
+  ShoppingBag,
+  Bike,
+  Frown
+} from "lucide-react";
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { CustomSelect } from "@/app/components/ui/CustomSelect";
+import { useRouter } from "next/navigation";
+import StaffSidebar from "../../components/StaffSidebar";
+import { api } from "@/app/lib/api";
+import { printBillTicket, printKitchenTicket } from "@/app/lib/posPrinter";
+import { toast } from "react-hot-toast";
+import { connectEventSocket, type EventSocketMessage } from "@/app/lib/eventSocket";
+
+type BillStatus = "open" | "bill_requested" | "bill_printed" | "paid";
+
+type StaffTable = {
+  id: string;
+  tableCode: string;
+  restaurantName: string;
+  isOccupied: boolean;
+  isEnabled?: boolean;
+  activeSessionId?: string;
+  isTakeaway?: boolean;
+  currentTotal?: number;
+  itemsCount?: number;
+  guests?: number;
+  billStatus?: BillStatus;
+  seatedAt?: Date;
+  floorName?: string;
+};
+
+type OrderStatus = "pending" | "cooking";
+
+type PendingOrder = {
+  id: string;
+  orderId: string;
+  tableCode: string;
+  itemName: string;
+  quantity: number;
+  orderedAt: Date;
+  status: OrderStatus;
+  orderNumber?: number | null;
+  dailyOrderNumber?: number | null;
+};
+
+type ServiceCallType = "waiter" | "water" | "help" | "bill" | "low-rating";
+type ServiceCallStatus = "open" | "attending" | "done";
+
+type ServiceCall = {
+  id: string;
+  tableCode: string;
+  type: ServiceCallType;
+  createdAt: Date;
+  status: ServiceCallStatus;
+  rating?: number;
+  comment?: string;
+};
+
+type TakeawaySummary = {
+  takeout_count: number;
+  delivery_count: number;
+  takeout_revenue: number;
+  delivery_revenue: number;
+  delivery_fee_total: number;
+};
+
+type TableFilter =
+  | "all"
+  | "occupied"
+  | "free"
+  | "bill_requested"
+  | "long_sitting";
+
+type TableSort = "table" | "total" | "seated";
+
+type TableAPI = {
+  id: string;
+  table_number: number;
+  is_enabled: boolean;
+  floor_name?: string;
+};
+
+type ActiveOrderItem = {
+  menu_item_id: string;
+  variant_id: string;
+  quantity: number;
+  price: number;
+  menu_item_name: string;
+  variant_label?: string | null;
+};
+
+type ActiveOrder = {
+  id?: string;
+  order_id?: string;
+  status: string;
+  created_at: string;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
+  session_id: string;
+  table_id: string;
+  table_number: number;
+  order_number?: number | null;
+  daily_order_number?: number | null;
+  items: ActiveOrderItem[];
+  is_takeaway?: boolean;
+};
+
+type ActiveOrdersResponse = {
+  orders: ActiveOrder[];
+};
+
+type ActiveSessionAPI = {
+  session_id: string;
+  table_id: string;
+  table_number: number;
+  started_at: string;
+  last_active_at: string;
+};
+
+type ActiveSessionsResponse = {
+  sessions: ActiveSessionAPI[];
+};
+
+type ServiceCallAPI = {
+  id: string;
+  table_id: string;
+  table_number: number;
+  session_id: string;
+  type: ServiceCallType;
+  status: ServiceCallStatus;
+  created_at: string;
+  rating?: number;
+  comment?: string;
+};
+
+const getTimeAgo = (date: Date) => {
+  const diff = Math.floor((new Date().getTime() - date.getTime()) / 60000);
+  if (diff < 1) return "Just now";
+  if (diff < 60) return `${diff}m ago`;
+  const hours = Math.floor(diff / 60);
+  const mins = diff % 60;
+  if (hours >= 3) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+};
+
+const getMinutesDiff = (date?: Date) => {
+  if (!date) return 0;
+  return Math.floor((new Date().getTime() - date.getTime()) / 60000);
+};
+
+export default function StaffDashboardPage({ initialData }: { initialData?: any }) {
+  const router = useRouter();
+
+  const initialProcessed = useMemo(() => processDashboardData(initialData), [initialData]);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [tables, setTables] = useState<StaffTable[]>(initialProcessed?.tables || []);
+  const [selectedFloor, setSelectedFloor] = useState<string>("All Floors");
+  const [orders, setOrders] = useState<PendingOrder[]>(initialProcessed?.orders || []);
+  const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(initialProcessed?.activeOrders || []);
+  const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>(initialProcessed?.serviceCalls || []);
+  const [todaySales, setTodaySales] = useState<number>(initialProcessed?.todaySales || 0);
+  const [profitMetrics, setProfitMetrics] = useState<any>(null);
+  const [waitlistCount, setWaitlistCount] = useState<number>(initialProcessed?.waitlistCount || 0);
+  const [takeawaySummary, setTakeawaySummary] = useState<TakeawaySummary | null>(initialProcessed?.takeawaySummary || null);
+  const [orderActionPending, setOrderActionPending] = useState<Record<string, boolean>>({});
+  const [isLoading, setIsLoading] = useState(!initialProcessed);
+
+
+  const [activeTableId, setActiveTableId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+  const [selectedMergeTableIds, setSelectedMergeTableIds] = useState<string[]>([]);
+  const [confirmAction, setConfirmAction] = useState<null | {
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void>;
+    confirmText?: string;
+    cancelText?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+  }>(null);
+
+  // Inline "Free Table" modal — shown when table has an unpaid balance
+  const [freeTableModal, setFreeTableModal] = useState<{
+    isOpen: boolean;
+    tableId: string;
+    tableCode: string;
+    sessionId: string;
+    totalAmount: number;
+    currentTotal: number;
+    selectedPayment: string;
+    isProcessing: boolean;
+  } | null>(null);
+
+  const [tableFilter, setTableFilter] = useState<TableFilter>("all");
+  const [tableSort, setTableSort] = useState<TableSort>("table");
+  const [activeSidebarTab, setActiveSidebarTab] = useState<"kitchen" | "service">("kitchen");
+
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const refreshLockRef = useRef(false);
+  const socketRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const guardRole = async () => {
+      try {
+        const me = await api<{ role?: string }>("/api/admin/me", { method: "GET", suppressErrorLog: true });
+        if (!mounted) return;
+        const role = (me?.role || "").toLowerCase();
+        if (role === "kitchen") {
+          router.replace("/staff/kitchen");
+          return;
+        }
+        if (role === "cashier") {
+          router.replace("/staff/cashier");
+          return;
+        }
+      } catch {
+        // staff layout already handles unauthenticated redirects
+      }
+    };
+    guardRole();
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "/" && document.activeElement === document.body) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        setOpenMenuId(null);
+        setShowMoveModal(false);
+        setShowMergeModal(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  const buildPendingOrders = (ordersList: ActiveOrder[]) => {
+    const next: PendingOrder[] = [];
+    for (const order of ordersList) {
+      const orderId = order.id || order.order_id;
+      if (!orderId) continue;
+      // Kitchen list should only show active work; hide served/completed/cancelled.
+      if (order.status === "served" || order.status === "completed" || order.status === "cancelled") {
+        continue;
+      }
+      const mappedStatus: OrderStatus =
+        order.status === "pending" ? "pending" : "cooking";
+      for (const item of order.items || []) {
+        const variantSuffix = item.variant_label ? ` (${item.variant_label})` : "";
+        next.push({
+          id: `${orderId}-${item.menu_item_id}-${item.variant_id}`,
+          orderId,
+          tableCode: `T${order.table_number}`,
+          itemName: `${item.menu_item_name}${variantSuffix}`,
+          quantity: item.quantity,
+          orderedAt: new Date(order.created_at),
+          status: mappedStatus,
+          orderNumber: order.order_number,
+          dailyOrderNumber: order.daily_order_number,
+        });
+      }
+    }
+    return next;
+  };
+
+  const upsertOrder = (ordersList: ActiveOrder[], incoming: ActiveOrder) => {
+    const orderId = incoming.id || incoming.order_id;
+    if (!orderId) return ordersList;
+    const normalized: ActiveOrder = { ...incoming, id: orderId, order_id: orderId };
+    return [normalized, ...ordersList.filter((o) => (o.id || o.order_id) !== orderId)];
+  };
+
+  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[], takeawayOrdersList: any[] = []) => {
+    const occupancyByTable = new Map<number, { sessionId: string; seatedAt?: Date }>();
+    for (const s of sessionsList) {
+      occupancyByTable.set(s.table_number, {
+        sessionId: s.session_id,
+        seatedAt: s.started_at ? new Date(s.started_at) : undefined,
+      });
+    }
+
+    const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
+    for (const order of ordersList) {
+      const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0, sessionId: order.session_id };
+      const orderCreatedAt = order.created_at ? new Date(order.created_at) : undefined;
+      const orderTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      totalsByTable.set(order.table_number, {
+        total: existing.total + orderTotal,
+        count: existing.count + order.items.reduce((sum, i) => sum + i.quantity, 0),
+        sessionId: order.session_id || existing.sessionId,
+        seatedAt:
+          existing.seatedAt && orderCreatedAt
+            ? existing.seatedAt < orderCreatedAt
+              ? existing.seatedAt
+              : orderCreatedAt
+            : existing.seatedAt || orderCreatedAt,
+      });
+    }
+
+    for (const tw of takeawayOrdersList) {
+      if (tw.status === "completed" || tw.status === "cancelled") continue;
+      
+      let tableNum = parseInt(String(tw.table_number || ""), 10);
+      
+      const notes = String(tw.notes || "");
+      if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
+        const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+        if (m) tableNum = parseInt(m[1], 10);
+      }
+      
+      if (!isNaN(tableNum) && tableNum > 0) {
+         const existing = totalsByTable.get(tableNum) || { total: 0, count: 0, sessionId: tw.id, seatedAt: undefined };
+         const orderTotal = Number(tw.total) || 0;
+         const orderCount = Array.isArray(tw.items) ? tw.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) : 1;
+         totalsByTable.set(tableNum, {
+           total: existing.total + orderTotal,
+           count: existing.count + orderCount,
+           sessionId: existing.sessionId || tw.id,
+           seatedAt: existing.seatedAt || (tw.created_at ? new Date(tw.created_at) : undefined),
+         });
+      }
+    }
+
+    return tablesApi.map((t) => {
+      const occ = occupancyByTable.get(t.table_number);
+      const meta = totalsByTable.get(t.table_number);
+      const hasActiveOrders = Boolean(meta && meta.count > 0);
+      return {
+        id: t.id,
+        tableCode: `T${t.table_number}`,
+        restaurantName: "",
+        isOccupied: Boolean(occ) || hasActiveOrders,
+        activeSessionId: occ?.sessionId || meta?.sessionId,
+        isTakeaway: !occ && hasActiveOrders,
+        currentTotal: meta?.total,
+        itemsCount: meta?.count,
+        seatedAt: occ?.seatedAt || meta?.seatedAt,
+        isEnabled: t.is_enabled,
+        floorName: t.floor_name || "Main Floor",
+      } as StaffTable;
+    });
+  };
+
+  const refreshLiveData = async () => {
+    const [tablesRes, ordersRes, sessionsRes, takeawayRes] = await Promise.all([
+      api<TableAPI[]>("/api/admin/tables"),
+      api<ActiveOrdersResponse>("/api/admin/orders/active"),
+      api<ActiveSessionsResponse>("/api/admin/sessions/active"),
+      api<{ orders: any[] }>("/api/admin/takeaway/orders?status=active").catch(() => ({ orders: [] })),
+    ]);
+
+    const ordersList = ordersRes?.orders || [];
+    const sessionsList = sessionsRes?.sessions || [];
+    const takeawayOrdersList = takeawayRes?.orders || [];
+    const tablesApi = tablesRes || [];
+
+    // Inject Dine-in Takeaway orders as active POS orders
+    for (const tw of takeawayOrdersList) {
+      if (tw.status === "completed" || tw.status === "cancelled") continue;
+      
+      let tableNum = parseInt(String(tw.table_number || ""), 10);
+      const notes = String(tw.notes || "");
+      if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
+        const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+        if (m) tableNum = parseInt(m[1], 10);
+      }
+      
+      if (!isNaN(tableNum) && tableNum > 0) {
+        const matchingTable = tablesApi.find(t => t.table_number === tableNum);
+        ordersList.push({
+          id: tw.id,
+          order_id: tw.id,
+          status: "accepted", // Receptionist added orders are automatically accepted
+          created_at: tw.created_at,
+          session_id: tw.id, // using order id as fake session proxy
+          table_id: matchingTable ? matchingTable.id : "",
+          table_number: tableNum,
+          order_number: tw.order_number || null,
+          daily_order_number: tw.daily_order_number || null,
+          items: (tw.items || []).map((i: any) => ({
+            menu_item_id: i.menu_item_id || "",
+            variant_id: i.variant_id || "",
+            quantity: i.quantity || 1,
+            price: i.unit_price || 0,
+            menu_item_name: i.menu_item_name || "",
+            variant_label: i.variant_label || null,
+          })),
+          is_takeaway: true
+        });
+      }
+    }
+
+    setActiveOrders(ordersList);
+    setOrders(buildPendingOrders(ordersList));
+    setTables(buildTables(tablesApi, ordersList, sessionsList, takeawayOrdersList));
+  };
+
+  const refreshDashboard = async () => {
+    if (refreshLockRef.current) return;
+    refreshLockRef.current = true;
+    try {
+      await refreshLiveData();
+      const [serviceRes, salesRes, takeawayRes, waitlistRes] = await Promise.all([
+        api<ServiceCallAPI[]>("/api/admin/service-calls"),
+        api<{ total: number }>("/api/admin/sales/today"),
+        api<TakeawaySummary>("/api/admin/takeaway/summary"),
+        api<{ waitlist?: any[] }>("/api/admin/waitlist").catch(() => ({ waitlist: [] })),
+      ]);
+      // Get the current set of occupied table codes from the latest tables state
+      // We read it lazily here so we can cross-filter stale service calls
+      setTables((currentTables) => {
+        const occupiedTableCodes = new Set(
+          currentTables.filter((t) => t.isOccupied).map((t) => t.tableCode)
+        );
+
+        setServiceCalls(
+          (serviceRes || [])
+            .filter((c) => c.status !== "done")
+            // Drop any service call whose table is no longer occupied
+            .filter((c) => occupiedTableCodes.has(`T${c.table_number}`))
+            .map((c) => ({
+              id: c.id,
+              tableCode: `T${c.table_number}`,
+              type: c.type,
+              status: c.status,
+              createdAt: new Date(c.created_at),
+              rating: c.rating,
+              comment: c.comment,
+            }))
+        );
+
+        return currentTables; // no change to tables
+      });
+      if (typeof salesRes?.total === "number") {
+        setTodaySales(salesRes.total);
+      }
+      if (takeawayRes) {
+        setTakeawaySummary(takeawayRes);
+      }
+      if (waitlistRes && Array.isArray(waitlistRes.waitlist)) {
+        const waiting = waitlistRes.waitlist.filter((w: any) => w.status === "waiting").length;
+        setWaitlistCount(waiting);
+      }
+    } finally {
+      refreshLockRef.current = false;
+    }
+  };
+
+  const refreshSlowMetrics = async () => {
+    const profitRes = await api<any>("/api/admin/analytics/profit-engineering", {
+      suppressErrorLog: true,
+    }).catch(() => null);
+    if (profitRes?.profit_engineering) {
+      setProfitMetrics(profitRes.profit_engineering);
+    }
+  };
+
+  const scheduleSocketRefresh = () => {
+    if (socketRefreshTimerRef.current) {
+      clearTimeout(socketRefreshTimerRef.current);
+    }
+    socketRefreshTimerRef.current = setTimeout(() => {
+      refreshDashboard().catch(() => { });
+    }, 300);
+  };
+
+  useEffect(() => {
+    let isActive = true;
+    if (!initialProcessed) {
+      const load = async () => {
+        try {
+          await refreshDashboard();
+        } catch {
+          if (!isActive) return;
+          setActiveOrders([]);
+          setOrders([]);
+          setTables([]);
+          setServiceCalls([]);
+        } finally {
+          if (isActive) setIsLoading(false);
+          setTimeout(() => {
+            if (isActive) refreshSlowMetrics().catch(() => { });
+          }, 100);
+        }
+      };
+      load();
+    } else {
+      setTimeout(() => {
+        if (isActive) refreshSlowMetrics().catch(() => { });
+      }, 100);
+    }
+    return () => { isActive = false; };
+  }, [initialProcessed]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      refreshDashboard().catch(() => { });
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Auto-free sessions that have been occupied for 15+ minutes with zero orders placed
+  useEffect(() => {
+    const autoFreeIdle = async () => {
+      const idleTables = tables.filter((t) => {
+        if (!t.isOccupied || !t.activeSessionId) return false;
+        const mins = getMinutesDiff(t.seatedAt);
+        const hasAnyOrder = activeOrders.some((o) => o.table_id === t.id);
+        return mins >= 15 && !hasAnyOrder && (t.itemsCount === 0 || t.itemsCount == null);
+      });
+      for (const t of idleTables) {
+        try {
+          await api(`/api/admin/sessions/${t.activeSessionId}/end`, { method: "POST" });
+        } catch {
+          // silently skip — will retry next tick
+        }
+      }
+      if (idleTables.length > 0) {
+        await refreshDashboard().catch(() => {});
+        toast(`${idleTables.length} idle table${idleTables.length > 1 ? "s" : ""} auto-freed (no orders in 15 min)`, { icon: "🪑" });
+      }
+    };
+    const autoFreeTimer = window.setInterval(autoFreeIdle, 60000);
+    return () => window.clearInterval(autoFreeTimer);
+  }, [tables, activeOrders]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onFocus = () => refreshDashboard().catch(() => { });
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        refreshDashboard().catch(() => { });
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const base = process.env.NEXT_PUBLIC_EVENT_SERVICE_URL?.trim();
+    if (!base) return;
+
+    const getRealtimeToken = async (): Promise<string | null> => {
+      try {
+        const res = await api<{ access_token?: string }>("/auth/refresh", {
+          method: "POST",
+          skipAuthRedirect: true,
+          suppressErrorLog: true,
+        });
+        return (res?.access_token || "").trim() || null;
+      } catch {
+        return null;
+      }
+    };
+
+    const cleanup = connectEventSocket({
+      baseUrl: base,
+      getToken: getRealtimeToken,
+      onMessage: (msg: EventSocketMessage) => {
+        if (msg?.type === "order.created" || msg?.type === "order.updated") {
+          const data = msg?.data as ActiveOrder;
+          const orderId = data?.id || data?.order_id;
+          if (!data || !orderId) return;
+          setActiveOrders((prev) => {
+            const next = upsertOrder(prev, data);
+            setOrders(buildPendingOrders(next));
+            return next;
+          });
+          scheduleSocketRefresh();
+          return;
+        }
+
+        if (msg?.type === "service.call.created" || msg?.type === "service.call.updated") {
+          const data = msg?.data as ServiceCallAPI & { table_number: number };
+          if (!data || !data.id) return;
+          setServiceCalls((prev) => {
+            const next = [
+              {
+                id: data.id,
+                tableCode: `T${data.table_number}`,
+                type: data.type,
+                status: data.status,
+                createdAt: new Date(data.created_at),
+              },
+              ...prev.filter((c) => c.id !== data.id),
+            ].filter((c) => c.status !== "done");
+            return next;
+          });
+          scheduleSocketRefresh();
+        }
+      },
+    });
+
+    return () => {
+      if (socketRefreshTimerRef.current) {
+        clearTimeout(socketRefreshTimerRef.current);
+      }
+      cleanup();
+    };
+  }, []);
+
+  const occupiedCount = tables.filter((t) => t.isOccupied).length;
+  const totalTables = tables.length;
+  const uniqueFloors = Array.from(new Set(tables.map((t) => t.floorName || "Main Floor").filter(Boolean))) as string[];
+  const totalSales = todaySales;
+
+  const pendingOrdersCount = orders.filter((o) => o.status === "pending").length;
+  const cookingOrdersCount = orders.filter((o) => o.status === "cooking").length;
+  const delayedOrdersCount = orders.filter(
+    (o) => o.status === "pending" && getMinutesDiff(o.orderedAt) > 10
+  ).length;
+
+  const activeServiceCallsCount = serviceCalls.filter((c) => c.status !== "done").length;
+
+  const billRequestedCount = Array.from(
+    new Set(serviceCalls.filter((c) => c.type === "bill").map((c) => c.tableCode))
+  ).length;
+
+  const longSittingCount = tables.filter(
+    (t) => t.isOccupied && getMinutesDiff(t.seatedAt) > 90
+  ).length;
+
+  const filteredTables = tables
+    .filter((table) =>
+      table.tableCode.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .filter((table) => {
+      if (selectedFloor !== "All Floors" && table.floorName !== selectedFloor) return false;
+      return true;
+    })
+    .filter((table) => {
+      if (tableFilter === "all") return true;
+      if (tableFilter === "occupied") return table.isOccupied;
+      if (tableFilter === "free") return !table.isOccupied;
+      if (tableFilter === "bill_requested")
+        return serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
+      if (tableFilter === "long_sitting")
+        return table.isOccupied && getMinutesDiff(table.seatedAt) > 90;
+      return true;
+    })
+    .sort((a, b) => {
+      if (tableSort === "table") {
+        return a.tableCode.localeCompare(b.tableCode, undefined, {
+          numeric: true,
+        });
+      }
+      if (tableSort === "total") {
+        return (b.currentTotal || 0) - (a.currentTotal || 0);
+      }
+      if (tableSort === "seated") {
+        return getMinutesDiff(b.seatedAt) - getMinutesDiff(a.seatedAt);
+      }
+      return 0;
+    });
+
+  const buildTableTimeline = (table: StaffTable) => {
+    const tableOrders = activeOrders
+      .filter((o) => o.table_id === table.id)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const hasSeated = Boolean(table.isOccupied && table.seatedAt);
+    const hasAccepted = tableOrders.some((o) => o.status === "accepted" || o.status === "ready" || o.status === "served");
+    const hasKitchen = tableOrders.some((o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing" || o.status === "ready");
+    const hasServed = tableOrders.some((o) => o.status === "served");
+    const hasPaid = table.billStatus === "paid";
+    return [
+      { key: "seated", label: "Seated", done: hasSeated },
+      { key: "accepted", label: "Accepted", done: hasAccepted },
+      { key: "kitchen", label: "Kitchen", done: hasKitchen },
+      { key: "served", label: "Served", done: hasServed },
+      { key: "paid", label: "Paid", done: hasPaid },
+    ];
+  };
+
+  const handleAccept = async (orderId: string) => {
+    if (orderActionPending[orderId]) return;
+    const previous = activeOrders;
+    const next = activeOrders.map((o) =>
+      (o.id || o.order_id) === orderId ? { ...o, status: "accepted" } : o
+    );
+    setActiveOrders(next);
+    setOrders(buildPendingOrders(next));
+    setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
+      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
+      await api(url, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "accepted" }),
+      });
+      refreshLiveData().catch(() => { });
+    } catch {
+      setActiveOrders(previous);
+      setOrders(buildPendingOrders(previous));
+      toast.error("Unable to accept order");
+    } finally {
+      setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const handleServe = async (orderId: string) => {
+    if (orderActionPending[orderId]) return;
+    const previous = activeOrders;
+    const next = activeOrders.map((o) =>
+      (o.id || o.order_id) === orderId ? { ...o, status: "served" } : o
+    );
+    setActiveOrders(next);
+    setOrders(buildPendingOrders(next));
+    setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
+      // For takeaways, "served" often maps to "completed" if it's the final step
+      const targetStatus = isTakeaway ? "completed" : "served";
+      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
+      await api(url, {
+        method: "PATCH",
+        body: JSON.stringify({ status: targetStatus }),
+      });
+      refreshLiveData().catch(() => { });
+    } catch {
+      setActiveOrders(previous);
+      setOrders(buildPendingOrders(previous));
+      toast.error("Unable to mark order served");
+    } finally {
+      setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const handleReject = async (orderId: string) => {
+    if (orderActionPending[orderId]) return;
+    const previous = activeOrders;
+    const next = activeOrders.map((o) =>
+      (o.id || o.order_id) === orderId ? { ...o, status: "cancelled" } : o
+    );
+    setActiveOrders(next);
+    setOrders(buildPendingOrders(next));
+    setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
+      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
+      await api(url, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      refreshLiveData().catch(() => { });
+    } catch {
+      setActiveOrders(previous);
+      setOrders(buildPendingOrders(previous));
+      toast.error("Unable to reject order");
+    } finally {
+      setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const handleFreeTable = async (tableId: string) => {
+    const tableToFree = tables.find(t => t.id === tableId);
+    if (!tableToFree) return;
+    if (!tableToFree.activeSessionId) return;
+
+    try {
+      await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
+        method: "POST",
+      });
+    } catch (err: any) {
+      const status = err?.status;
+      const msg = String(err?.message || "").toLowerCase();
+      if (status === 409 && (msg.includes("mark paid") || msg.includes("pending bill") || msg.includes("unpaid"))) {
+        // Fallback: if API still rejects, open the payment modal
+        const tableOrders = activeOrders.filter((o) => o.table_id === tableToFree.id);
+        let total = 0;
+        for (const order of tableOrders) {
+          for (const item of order.items || []) {
+            total += item.price * item.quantity;
+          }
+        }
+        setFreeTableModal({
+          isOpen: true,
+          tableId: tableToFree.id,
+          tableCode: tableToFree.tableCode,
+          sessionId: tableToFree.activeSessionId!,
+          totalAmount: total,
+          currentTotal: tableToFree.currentTotal || 0,
+          selectedPayment: "cash",
+          isProcessing: false,
+        });
+        return;
+      }
+      toast.error(err?.message || "Failed to free table");
+      return;
+    }
+
+    await refreshDashboard();
+    toast.success("Table freed");
+    setOpenMenuId(null);
+  };
+
+  const requestFreeTable = (tableId: string) => {
+    const tableToFree = tables.find(t => t.id === tableId);
+    if (!tableToFree) return;
+    setOpenMenuId(null);
+
+    // Check if there is an unpaid balance for this table
+    const tableOrders = activeOrders.filter((o) => o.table_id === tableToFree.id);
+    let total = 0;
+    for (const order of tableOrders) {
+      for (const item of order.items || []) {
+        total += item.price * item.quantity;
+      }
+    }
+    const hasUnpaidBalance = total > 0 && tableToFree.billStatus !== "paid";
+
+    if (hasUnpaidBalance && tableToFree.activeSessionId) {
+      // Show inline modal: let staff choose payment + free the table in one tap
+      setFreeTableModal({
+        isOpen: true,
+        tableId: tableToFree.id,
+        tableCode: tableToFree.tableCode,
+        sessionId: tableToFree.activeSessionId,
+        totalAmount: total,
+        currentTotal: tableToFree.currentTotal || 0,
+        selectedPayment: "cash",
+        isProcessing: false,
+      });
+    } else {
+      // No balance — just confirm and free
+      setConfirmAction({
+        title: `Free ${tableToFree.tableCode}?`,
+        message: "This will end the active session immediately.",
+        onConfirm: async () => handleFreeTable(tableId),
+      });
+    }
+  };
+
+  const handleConfirmFreeWithPayment = async () => {
+    if (!freeTableModal || freeTableModal.isProcessing) return;
+    setFreeTableModal(prev => prev ? { ...prev, isProcessing: true } : null);
+    try {
+      // 1. Mark the bill as paid via the payments API
+      await api(`/api/admin/payments/status`, {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: freeTableModal.sessionId,
+          status: "paid",
+          payment_mode: freeTableModal.selectedPayment,
+          reason: "staff_free_table",
+          amount: Number((freeTableModal.currentTotal || freeTableModal.totalAmount).toFixed(2)),
+        }),
+      });
+      // 2. End the session (free the table)
+      await api(`/api/admin/sessions/${freeTableModal.sessionId}/end`, {
+        method: "POST",
+      });
+      setFreeTableModal(null);
+      await refreshDashboard();
+      toast.success(`${freeTableModal.tableCode} — bill paid & table freed`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to settle and free table");
+      setFreeTableModal(prev => prev ? { ...prev, isProcessing: false } : null);
+    }
+  };
+
+  const markBillPrinted = async (tableId: string) => {
+    const table = tables.find((t) => t.id === tableId);
+    if (!table?.activeSessionId) return;
+
+    const tableOrders = activeOrders.filter((o) => o.table_id === table.id);
+    const billItems: Array<{ name: string; qty: number; amount: number }> = [];
+    const orderRefs: Array<{ dailyOrderNumber?: number | null; orderNumber?: number | null }> = [];
+    let total = 0;
+    for (const order of tableOrders) {
+      orderRefs.push({ dailyOrderNumber: order.daily_order_number, orderNumber: order.order_number });
+      for (const item of order.items || []) {
+        const lineTotal = item.price * item.quantity;
+        total += lineTotal;
+        billItems.push({
+          name: item.variant_label
+            ? `${item.menu_item_name} (${item.variant_label})`
+            : item.menu_item_name,
+          qty: item.quantity,
+          amount: lineTotal,
+        });
+      }
+    }
+
+    try {
+      const me = await api<{ name?: string }>("/api/admin/me", { method: "GET", suppressErrorLog: true }).catch(() => null);
+      await printBillTicket({
+        tableCode: table.tableCode,
+        printedAt: new Date().toLocaleString(),
+        staffName: me?.name || "NA",
+        orderRefs,
+        items: billItems,
+        total,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to print bill";
+      toast.error(msg);
+      return;
+    }
+
+    await api(`/api/admin/payments/status`, {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: table.activeSessionId,
+        status: "paid",
+        payment_mode: "cash",
+        reason: "printed_bill_close",
+        amount: Number(total.toFixed(2)),
+      }),
+    });
+
+    await api(`/api/admin/sessions/${table.activeSessionId}/end`, {
+      method: "POST",
+    });
+
+    toast.success("Bill printed and table closed");
+    await refreshDashboard();
+    setOpenMenuId(null);
+  };
+
+  const printOrderKOT = async (orderId: string) => {
+    const source = activeOrders.find((o) => (o.id || o.order_id) === orderId);
+    if (!source) {
+      toast.error("Order not found for printing");
+      return;
+    }
+    try {
+      await printKitchenTicket({
+        orderId,
+        tableCode: `T${source.table_number}`,
+        placedAt: new Date(source.created_at).toLocaleString(),
+        orderNumber: source.order_number,
+        dailyOrderNumber: source.daily_order_number,
+        items: (source.items || []).map((i) => ({
+          name: i.variant_label ? `${i.menu_item_name} (${i.variant_label})` : i.menu_item_name,
+          qty: i.quantity,
+        })),
+      });
+      toast.success("Kitchen ticket sent");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to print ticket";
+      toast.error(msg);
+    }
+  };
+
+  const executeMoveTable = async (targetTableId: string) => {
+    if (!activeTableId) return;
+
+    const sourceTable = tables.find((t) => t.id === activeTableId);
+    const targetTable = tables.find((t) => t.id === targetTableId);
+    if (!sourceTable || !targetTable) return;
+
+    if (!sourceTable.activeSessionId) return;
+
+    try {
+      await api("/api/admin/table-move", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sourceTable.activeSessionId,
+          target_table_id: targetTableId,
+        }),
+      });
+
+      await refreshDashboard();
+
+      setShowMoveModal(false);
+      setActiveTableId(null);
+      setOpenMenuId(null);
+    } catch (err: any) {
+      setConfirmAction({
+        title: "Move failed",
+        message: err?.message || "Failed to move table",
+        onConfirm: async () => Promise.resolve(),
+        confirmText: "OK",
+        hideCancel: true,
+      });
+    }
+  };
+
+  const handleMoveTable = async (targetTableId: string) => {
+    if (!activeTableId) return;
+    const sourceTable = tables.find((t) => t.id === activeTableId);
+    const targetTable = tables.find((t) => t.id === targetTableId);
+    if (!sourceTable || !targetTable) return;
+
+    setConfirmAction({
+      title: `Move ${sourceTable.tableCode} to ${targetTable.tableCode}?`,
+      message: "Guests and active orders will be relocated to the selected table.",
+      onConfirm: async () => executeMoveTable(targetTableId),
+    });
+  };
+
+  const mergeTableInto = async (targetTableId: string, closeAfter: boolean) => {
+    if (!activeTableId) return;
+
+    const sourceTable = tables.find((t) => t.id === activeTableId);
+    const targetTable = tables.find((t) => t.id === targetTableId);
+    if (!sourceTable || !targetTable) return;
+
+    const sourceSessionId =
+      sourceTable.activeSessionId ||
+      activeOrders.find((o) => o.table_id === sourceTable.id)?.session_id;
+    const targetSessionId =
+      targetTable.activeSessionId ||
+      activeOrders.find((o) => o.table_id === targetTable.id)?.session_id;
+
+    if (!sourceSessionId || !targetSessionId) {
+      setConfirmAction({
+        title: "Merge unavailable",
+        message: "Could not resolve active sessions for selected tables. Please try again.",
+        onConfirm: async () => Promise.resolve(),
+        confirmText: "OK",
+        hideCancel: true,
+      });
+      await refreshDashboard().catch(() => { });
+      return;
+    }
+
+    try {
+      await api("/api/admin/bills/merge", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sourceSessionId,
+          target_session_id: targetSessionId,
+        }),
+      });
+      await refreshDashboard();
+      if (closeAfter) {
+        setShowMergeModal(false);
+        setActiveTableId(null);
+        setOpenMenuId(null);
+      }
+    } catch (err: any) {
+      setConfirmAction({
+        title: "Merge failed",
+        message: err?.message || "Failed to merge bills",
+        onConfirm: async () => Promise.resolve(),
+        confirmText: "OK",
+        hideCancel: true,
+      });
+    }
+  };
+
+  const handleMergeTable = async (targetTableId: string) => {
+    setIsMerging(true);
+    try {
+      await mergeTableInto(targetTableId, true);
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleMergeSelectedTables = async () => {
+    if (!activeTableId || selectedMergeTableIds.length === 0) return;
+    setIsMerging(true);
+    try {
+      for (const targetTableId of selectedMergeTableIds) {
+         
+        await mergeTableInto(targetTableId, false);
+      }
+      await refreshDashboard();
+      setShowMergeModal(false);
+      setActiveTableId(null);
+      setOpenMenuId(null);
+      setSelectedMergeTableIds([]);
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleServiceCallStatus = async (id: string, status: ServiceCallStatus) => {
+    await api(`/api/admin/service-calls/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    const serviceRes = await api<ServiceCallAPI[]>("/api/admin/service-calls");
+    setServiceCalls(
+      (serviceRes || []).map((c) => ({
+        id: c.id,
+        tableCode: `T${c.table_number}`,
+        type: c.type,
+        status: c.status,
+        createdAt: new Date(c.created_at),
+      }))
+    );
+  };
+
+  const hasActiveKitchen = orders.length > 0;
+  const hasActiveService = activeServiceCallsCount > 0;
+  const sidebarVisible = hasActiveKitchen || hasActiveService;
+
+  useEffect(() => {
+    if (hasActiveService && !hasActiveKitchen) {
+      setActiveSidebarTab('service');
+    } else if (hasActiveKitchen) {
+      setActiveSidebarTab('kitchen');
+    }
+  }, [hasActiveKitchen, hasActiveService]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <StaffSidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="bg-white border-b border-gray-200 h-16 flex items-center px-8 z-10 animate-pulse">
+            <div className="h-6 w-32 bg-gray-200 rounded" />
+          </header>
+          <div className="p-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-24 border border-slate-200 bg-white rounded-xl animate-pulse" />)}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <div key={i} className="h-28 border border-slate-200 bg-white rounded-2xl animate-pulse" />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden"
+      onClick={() => setOpenMenuId(null)}
+    >
+      <StaffSidebar />
+
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-gray-900">
+              Floor Overview
+            </h2>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                Live Service
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 divide-x divide-gray-100 hidden lg:flex">
+            <div className="flex items-center gap-6 pr-6">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-0.5">
+                  Today's Sales
+                </span>
+                <span className="text-xl font-black text-emerald-600 tabular-nums">
+                  ₹{totalSales.toLocaleString()}
+                </span>
+              </div>
+              
+              {takeawaySummary && (
+                <div className="flex flex-col gap-1 border-l border-gray-100 pl-6 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-orange-50 p-1 rounded">
+                      <ShoppingBag className="w-3.5 h-3.5 text-orange-500" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 w-4 text-center">{takeawaySummary.takeout_count}</span>
+                    <span className="text-[10px] text-gray-300">•</span>
+                    <span className="text-xs font-bold text-gray-600">₹{(takeawaySummary.takeout_revenue || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-sky-50 p-1 rounded">
+                      <Bike className="w-3.5 h-3.5 text-sky-500" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 w-4 text-center">{takeawaySummary.delivery_count}</span>
+                    <span className="text-[10px] text-gray-300">•</span>
+                    <span className="text-xs font-bold text-gray-600">₹{(takeawaySummary.delivery_revenue || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col items-end pl-6">
+              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                Occupancy
+              </span>
+              <span className="text-lg font-bold text-gray-700">
+                {occupiedCount}
+                <span className="text-gray-300 font-light mx-1">/</span>
+                {totalTables}
+              </span>
+            </div>
+            <div className="flex flex-col items-end pl-6">
+              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                Waitlist
+              </span>
+              <span className="text-lg font-bold text-[#fe5c13] flex items-center gap-1">
+                <Users className="w-4 h-4 text-[#fe5c13]" />
+                {waitlistCount} Waiting
+              </span>
+            </div>
+            </div>
+            <Link
+              href="/staff/takeaway?new=1"
+              className="bg-[#fe5c13] hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-transform active:scale-95 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Order
+            </Link>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto bg-gray-50/30">
+          <div className="flex flex-col">
+            <div className="bg-white border-b border-gray-200 shadow-sm flex flex-col sticky top-0 z-30">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-0 divide-x divide-y lg:divide-y-0 divide-gray-100 border-b border-gray-100 px-4 sm:px-8">
+                <div className="py-4 sm:pr-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Pending Orders
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {pendingOrdersCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${pendingOrdersCount > 5 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-400"}`}>
+                    <ChefHat className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="p-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Bill Requests
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {billRequestedCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${billRequestedCount > 0 ? "bg-slate-50 text-[#fe5c13]" : "bg-gray-50 text-gray-400"}`}>
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="p-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Service Calls
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {activeServiceCallsCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${activeServiceCallsCount > 0 ? "bg-sky-50 text-sky-600" : "bg-gray-50 text-gray-400"}`}>
+                    <Bell className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="py-4 sm:pl-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      Long Sitting
+                    </span>
+                    <div className="text-2xl font-bold text-gray-900 mt-1">
+                      {longSittingCount}
+                    </div>
+                  </div>
+                  <div className={`p-2 rounded-lg ${longSittingCount > 0 ? "bg-rose-50 text-rose-600" : "bg-gray-50 text-gray-400"}`}>
+                    <Clock className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col 2xl:flex-row gap-4 items-start 2xl:items-center justify-between bg-white px-4 sm:px-8 py-4">
+                <div className="flex flex-wrap items-center gap-3 w-full 2xl:w-auto">
+                  {uniqueFloors.length > 1 && (
+                    <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
+                      <button
+                        onClick={() => setSelectedFloor("All Floors")}
+                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                          selectedFloor === "All Floors"
+                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                            : "text-gray-500 hover:bg-gray-200/50"
+                        }`}
+                      >
+                        All Floors
+                      </button>
+                      {uniqueFloors.map((floor) => (
+                        <button
+                          key={floor}
+                          onClick={() => setSelectedFloor(floor)}
+                          className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                            selectedFloor === floor
+                              ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                              : "text-gray-500 hover:bg-gray-200/50"
+                          }`}
+                        >
+                          {floor}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {uniqueFloors.length > 1 && <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>}
+
+                  <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
+                    {(
+                      [
+                        "all",
+                        "occupied",
+                        "free",
+                        "bill_requested",
+                      ] as TableFilter[]
+                    ).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setTableFilter(f)}
+                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                          tableFilter === f
+                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                            : "text-gray-500 hover:bg-gray-200/50"
+                        }`}
+                      >
+                        {f.replace("_", " ")}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
+
+                  <CustomSelect
+                    value={tableSort}
+                    onChange={(val: TableSort) => setTableSort(val)}
+                    className="w-48"
+                    buttonClassName="!h-10 !rounded-xl !bg-white"
+                    options={[
+                      { value: "table", label: "Sort by Number" },
+                      { value: "total", label: "Sort by Value" },
+                      { value: "seated", label: "Sort by Time" }
+                    ]}
+                  />
+                </div>
+
+                <div className="relative group w-full 2xl:w-64 shrink-0">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search table..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900/10 bg-gray-50 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+              {filteredTables.length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
+                  <UtensilsCrossed className="w-10 h-10 mb-3 opacity-40" />
+                  <p className="text-sm font-semibold">No tables match this filter</p>
+                </div>
+
+              )}
+
+              {filteredTables.map((table) => {
+
+                const isFree = !table.isOccupied;
+                const isDisabled = table.isEnabled === false;
+                const seatedMinutes = getMinutesDiff(table.seatedAt);
+                const isBillRequested = serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
+                const isPaid = table.billStatus === "paid";
+
+                const activeOrdersForTable = orders.filter((o) => o.tableCode === table.tableCode && (o.status === "pending" || o.status === "cooking")).length;
+
+                let ringStyle = "";
+                if (!isFree && !isDisabled) {
+                  ringStyle = "border-gray-200";
+                } else if (isDisabled) {
+                  ringStyle = "border-gray-200 border-dashed opacity-60";
+                } else {
+                  ringStyle = "border-gray-200 border-dashed";
+                }
+
+                let cardStyle = "bg-white shadow-sm hover:shadow-md";
+                if (isDisabled || isFree) cardStyle = "bg-gray-50 shadow-none";
+                else if (isBillRequested) cardStyle = "bg-slate-50/40";
+
+                let statusBar = "bg-gray-200";
+                if (isDisabled) statusBar = "bg-gray-200";
+                else if (!isFree && isBillRequested) statusBar = "bg-indigo-400";
+                else if (!isFree && isPaid) statusBar = "bg-emerald-400";
+                else if (!isFree) statusBar = "bg-[#fe5c13]";
+
+                const timeStr = seatedMinutes < 60 ? `${seatedMinutes}m` : `${Math.floor(seatedMinutes / 60)}h ${seatedMinutes % 60}m`;
+                const headline = !isFree && !isDisabled ? `${table.tableCode} · ₹${(table.currentTotal ?? 0).toLocaleString()} · ${timeStr}` : table.tableCode;
+
+                return (
+                  <div
+                    key={table.id}
+                    className={`relative w-full rounded-2xl border bg-slate-100/90 ${ringStyle} ${openMenuId === table.id ? "z-30 overflow-visible" : "z-0 overflow-hidden"}`}
+                  >
+                    {/* Background Actions (Swipe to reveal) */}
+                    {table.isOccupied && (
+                      <div className="absolute inset-y-0 right-0 w-[140px] flex items-center justify-end px-3 gap-2 bg-slate-100 rounded-r-2xl">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markBillPrinted(table.id);
+                          }}
+                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans"
+                        >
+                          <Receipt className="w-4 h-4" />
+                          <span className="text-[9px] font-extrabold uppercase tracking-wider">Bill</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTables((prev) =>
+                              prev.map((t) =>
+                                t.id === table.id ? { ...t, billStatus: "paid" } : t
+                              )
+                            );
+                          }}
+                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-[9px] font-extrabold uppercase tracking-wider">Paid</span>
+                        </button>
+                      </div>
+                    )}
+
+                    <motion.div
+                      drag={table.isOccupied ? "x" : false}
+                      dragConstraints={{ left: -130, right: 0 }}
+                      dragElastic={{ left: 0.12, right: 0.02 }}
+                      dragTransition={{ bounceStiffness: 600, bounceDamping: 32 }}
+                      whileTap={{ cursor: "grabbing" }}
+                      className={`relative flex flex-col w-full h-full rounded-2xl bg-white border border-gray-100/80 shadow-xs ${openMenuId === table.id ? "overflow-visible z-40" : "overflow-hidden"} transition-colors cursor-pointer ${cardStyle}`}
+                    >
+                      <div className={`h-1 w-full rounded-t-2xl ${statusBar}`} />
+                      
+                      {/* Giant Unmissable Bill Request Overlay */}
+                      {isBillRequested && (
+                        <div className="absolute inset-x-0 top-1 bottom-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-b-2xl pointer-events-none">
+                          <Bell className="w-16 h-16 text-indigo-600 animate-[bounce_1s_infinite] drop-shadow-2xl" />
+                          <span className="mt-2 text-indigo-900 font-black text-sm uppercase tracking-widest bg-white/80 px-3 py-1 rounded-full shadow-sm">Bill Requested</span>
+                        </div>
+                      )}
+
+                      <div className="p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className={`text-[15px] font-black tracking-tight leading-none ${isFree ? "text-gray-400" : "text-gray-900"}`}>
+                              {headline}
+                            </span>
+                          </div>
+
+                          {table.isOccupied ? (
+                            <div className="flex items-center gap-1.5 relative z-20">
+                              {isPaid && (
+                                <span className="flex items-center gap-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
+                                  <Check className="w-2.5 h-2.5" /> Paid
+                                </span>
+                              )}
+
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setOpenMenuId(openMenuId === table.id ? null : table.id);
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                <AnimatePresence>
+                                  {openMenuId === table.id && (
+                                    <motion.div
+                                      initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                      className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden ring-1 ring-black/10"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <div className="py-1">
+                                        <button onClick={() => { setActiveTableId(table.id); setShowMoveModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                          <ArrowRightLeft className="w-3.5 h-3.5" /> Move Table
+                                        </button>
+                                        <button onClick={() => { setActiveTableId(table.id); setSelectedMergeTableIds([]); setShowMergeModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                          <Merge className="w-3.5 h-3.5" /> Merge Bill
+                                        </button>
+                                      </div>
+                                      <div className="border-t border-gray-100 py-1">
+                                        <button onClick={() => { setConfirmAction({
+                                          title: `Print and close ${table.tableCode}?`,
+                                          message: "This will mark bill action and end the active session.",
+                                          onConfirm: async () => markBillPrinted(table.id),
+                                        }); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                          <Receipt className="w-3.5 h-3.5" /> Print Bill
+                                        </button>
+                                        <button onClick={() => { setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "paid" } : t)); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
+                                          <CheckCircle2 className="w-3.5 h-3.5" /> Mark Paid
+                                        </button>
+                                        <button onClick={() => { requestFreeTable(table.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">
+                                          <LogOut className="w-3.5 h-3.5" /> Free Table
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            </div>
+                          ) : (
+                            isDisabled ? (
+                              <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                                Disabled
+                              </span>
+                            ) : (
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                              Free
+                            </span>
+                            )
+                          )}
+                        </div>
+
+                        {isDisabled ? (
+                          <div className="flex flex-col items-center justify-center py-6 opacity-40">
+                            <XCircle className="w-7 h-7 mb-1.5" />
+                            <span className="text-xs font-semibold">Not in use</span>
+                          </div>
+                        ) : isFree ? (
+                          <div className="flex flex-col items-center justify-center py-6 opacity-25">
+                            <UtensilsCrossed className="w-7 h-7 mb-1.5" />
+                            <span className="text-xs font-semibold">Available</span>
+                          </div>
+                        ) : (
+                          <Link
+                            href={`/staff/table/${table.activeSessionId}`}
+                            className="flex flex-col gap-2 group"
+                            draggable="false"
+                            onClick={(e) => {
+                              // Let drag events through without triggering navigation if it's a drag
+                              if (e.defaultPrevented) return;
+                            }}
+                          >
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
+                                <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">Items</span>
+                                <span className="text-base font-extrabold text-gray-800">{table.itemsCount ?? "—"}</span>
+                              </div>
+                              <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
+                                <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">ETA</span>
+                                <span className="text-base font-extrabold text-gray-800">
+                                  {(() => {
+                                    const first = activeOrders.find((o) => o.table_id === table.id && (o.status === "pending" || o.status === "accepted" || o.status === "preparing"));
+                                    if (!first) return "—";
+                                    if (first.estimated_prep_minutes) return `${first.estimated_prep_minutes}m`;
+                                    return "—";
+                                  })()}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {buildTableTimeline(table).map((step) => (
+                                <span
+                                  key={`${table.id}-${step.key}`}
+                                  className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${step.done ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-400 border-gray-200"}`}
+                                >
+                                  {step.label}
+                                </span>
+                              ))}
+                            </div>
+                            
+                            {activeOrdersForTable > 0 && (
+                              <div className="pt-1">
+                                  <span className="inline-flex text-[9px] text-amber-700 font-extrabold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" /> {activeOrdersForTable} active orders
+                                  </span>
+                              </div>
+                            )}
+                          </Link>
+                        )}
+                      </div>
+                    </motion.div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          </div>
+        </main>
+
+        {showMoveModal && activeTableId && (
+          <div className="absolute inset-0 z-[60] bg-gray-900/20 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5">
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                  <h3 className="font-bold text-gray-900">Relocate Table</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Moving guests from <span className="font-bold text-gray-800">{tables.find((t) => t.id === activeTableId)?.tableCode}</span>
+                  </p>
+                </div>
+                <button onClick={() => setShowMoveModal(false)} className="p-1 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-6 flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="flex items-center gap-6">
+                    <div className="w-14 h-14 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center text-lg font-black text-gray-700 shadow-sm">
+                      {tables.find((t) => t.id === activeTableId)?.tableCode}
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+                         <ArrowRight className="w-5 h-5 text-gray-400" />
+                      </motion.div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Move to</span>
+                    </div>
+                    <div className="w-14 h-14 rounded-full bg-transparent border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-black text-gray-400">
+                      ?
+                    </div>
+                  </div>
+                </div>
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Select Destination</h4>
+                <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                  {tables.filter((t) => !t.isOccupied).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => handleMoveTable(t.id)}
+                      className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl hover:border-gray-900 hover:bg-gray-50 hover:shadow-md transition-all group"
+                    >
+                      <span className="text-xl font-bold text-gray-700 group-hover:text-gray-900">{t.tableCode}</span>
+                      <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full mt-1">Free</span>
+                    </button>
+                  ))}
+                  {tables.filter((t) => !t.isOccupied).length === 0 && (
+                    <div className="col-span-4 py-8 text-center text-gray-500 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      No empty tables available.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showMergeModal && activeTableId && (
+          <div className="absolute inset-0 z-[60] bg-gray-900/20 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5">
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <Merge className="w-4 h-4" /> Merge Bill
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Merging <span className="font-bold text-gray-800">{tables.find((t) => t.id === activeTableId)?.tableCode}</span> into another session
+                  </p>
+                </div>
+                <button onClick={() => setShowMergeModal(false)} className="p-1 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                {selectedMergeTableIds.length > 0 && (
+                  <div className="mb-6 flex flex-col items-center justify-center p-4 bg-amber-50/50 rounded-xl border border-amber-100">
+                    <div className="flex items-center gap-6">
+                      <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-black text-gray-700 shadow-sm relative">
+                        {tables.find((t) => t.id === activeTableId)?.tableCode}
+                      </div>
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+                           <ArrowRight className="w-5 h-5 text-amber-500" />
+                        </motion.div>
+                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Merge</span>
+                      </div>
+                      <div className="flex -space-x-4">
+                        {selectedMergeTableIds.map((id, i) => (
+                           <div key={id} className="w-14 h-14 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-lg font-black text-amber-700 shadow-sm relative" style={{ zIndex: 10 - i }}>
+                             {tables.find((t) => t.id === id)?.tableCode}
+                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Select Target Table</h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                  {tables.filter((t) => t.isOccupied && t.id !== activeTableId).map((t) => (
+                    <button
+                      key={t.id}
+                      disabled={isMerging}
+                      onClick={() =>
+                        setSelectedMergeTableIds((prev) =>
+                          prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id]
+                        )
+                      }
+                      className={`w-full flex items-center justify-between p-3 border rounded-xl transition-all group disabled:opacity-60 disabled:cursor-not-allowed ${selectedMergeTableIds.includes(t.id)
+                        ? "border-amber-500 bg-amber-50/60"
+                        : "border-gray-200 hover:border-amber-500 hover:bg-amber-50/50"
+                        }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-lg text-gray-700 group-hover:bg-white group-hover:text-amber-600 shadow-sm">
+                          {t.tableCode}
+                        </div>
+                        <div className="text-left">
+                          <div className="text-sm font-bold text-gray-900 group-hover:text-amber-700">₹{t.currentTotal} Bill</div>
+                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                            <Users className="w-3 h-3" /> {t.guests} Guests
+                          </div>
+                        </div>
+                      </div>
+                      {selectedMergeTableIds.includes(t.id) ? (
+                        <span className="text-xs font-semibold text-amber-700">Selected</span>
+                      ) : (
+                        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-amber-500" />
+                      )}
+                    </button>
+                  ))}
+                  {tables.filter((t) => t.isOccupied && t.id !== activeTableId).length === 0 && (
+                    <div className="py-8 text-center text-gray-500 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      No other occupied tables to merge with.
+                    </div>
+                  )}
+                </div>
+                <button
+                  disabled={isMerging || selectedMergeTableIds.length === 0}
+                  onClick={handleMergeSelectedTables}
+                  className="mt-4 w-full rounded-xl bg-gray-900 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isMerging ? "Merging..." : `Merge Selected (${selectedMergeTableIds.length})`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {confirmAction && (
+        <div className="absolute inset-0 z-[80] bg-gray-900/30 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900">{confirmAction.title}</h3>
+              <p className="text-sm text-gray-500 mt-1">{confirmAction.message}</p>
+            </div>
+            <div className="px-6 py-4 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmAction(null)}
+                style={{ display: confirmAction.hideCancel ? "none" : "inline-flex" }}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                {confirmAction.cancelText || "Cancel"}
+              </button>
+              <button
+                onClick={async () => {
+                  const action = confirmAction.onConfirm;
+                  setConfirmAction(null);
+                  await action();
+                }}
+                className={`px-4 py-2 rounded-lg text-white text-sm font-semibold ${confirmAction.destructive ? "bg-rose-600 hover:bg-rose-700" : "bg-gray-900 hover:bg-gray-800"}`}
+              >
+                {confirmAction.confirmText || "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {sidebarVisible && (
+          <motion.aside
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 380, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="bg-white border-l border-gray-200 hidden xl:flex flex-col overflow-hidden whitespace-nowrap z-10 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-100 bg-white">
+              <h3 className="font-bold text-gray-900 text-sm mb-3">Activity Feed</h3>
+              <div className="flex p-1 bg-gray-100 rounded-lg">
+                {/* Only show Kitchen tab if there are orders, otherwise disable or hide logic could apply, but for now we keep it simple */}
+                <button onClick={() => setActiveSidebarTab("kitchen")} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeSidebarTab === 'kitchen' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  Kitchen
+                  {pendingOrdersCount > 0 && <span className="bg-amber-100 text-amber-700 px-1.5 rounded-full text-[10px]">{pendingOrdersCount}</span>}
+                </button>
+                <button onClick={() => setActiveSidebarTab("service")} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeSidebarTab === 'service' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  Service
+                  {activeServiceCallsCount > 0 && <span className="bg-sky-100 text-sky-700 px-1.5 rounded-full text-[10px]">{activeServiceCallsCount}</span>}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-gray-50/50 p-4">
+              {activeSidebarTab === 'kitchen' ? (
+                <div className="space-y-3">
+                  <AnimatePresence mode="popLayout">
+                    {orders.map((order) => {
+                      const minutes = getMinutesDiff(order.orderedAt);
+                      const delayed = order.status === "pending" && minutes > 10;
+                      return (
+                        <motion.div key={order.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={`bg-white p-3 rounded-xl border shadow-sm ${order.status === 'cooking' ? 'border-blue-100' : delayed ? 'border-red-200 bg-red-50/10' : 'border-gray-200'}`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-700">{order.tableCode}</span>
+                              {order.dailyOrderNumber != null && (
+                                <span className="font-bold text-xs text-orange-600">#{order.dailyOrderNumber}</span>
+                              )}
+                              <span className="text-[10px] text-gray-400 font-medium">{getTimeAgo(order.orderedAt)}</span>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'cooking' ? 'bg-blue-100 text-blue-700' : delayed ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {order.status === 'cooking' ? 'Cooking' : delayed ? 'Delayed' : 'Pending'}
+                            </span>
+                          </div>
+                          <div className="flex gap-3 mb-3">
+                            <div className="mt-1 min-w-[32px] h-8 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
+                              <ChefHat className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{order.itemName}</p>
+                              <p className="text-xs text-gray-500">Qty: {order.quantity}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            {order.status === 'pending' ? (
+                              <>
+                                <button
+                                  onClick={() => handleAccept(order.orderId)}
+                                  disabled={Boolean(orderActionPending[order.orderId])}
+                                  className="flex-1 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100"
+                                >
+                                  {orderActionPending[order.orderId] ? "Updating..." : "Accept"}
+                                </button>
+                                <button
+                                  onClick={() => handleReject(order.orderId)}
+                                  disabled={Boolean(orderActionPending[order.orderId])}
+                                  className="flex-1 bg-rose-50 hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100"
+                                >
+                                  {orderActionPending[order.orderId] ? "Updating..." : "Cancel"}
+                                </button>
+                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-slate-50 hover:bg-indigo-100 text-gray-900 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1">
+                                  <Printer className="w-3.5 h-3.5" /> KOT
+                                </button>
+                              </>
+                            ) : (
+                              <div className="w-full flex gap-2">
+                                <button
+                                  onClick={() => handleServe(order.orderId)}
+                                  disabled={Boolean(orderActionPending[order.orderId])}
+                                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors"
+                                >
+                                  {orderActionPending[order.orderId] ? "Updating..." : "Mark Served"}
+                                </button>
+                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-slate-50 hover:bg-indigo-100 text-gray-900 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1">
+                                  <Printer className="w-3.5 h-3.5" /> KOT
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <AnimatePresence mode="popLayout">
+                    {serviceCalls.filter(c => c.status !== 'done').map((call) => (
+                      <motion.div key={call.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={`p-3 rounded-xl border shadow-sm hover:shadow-md transition-all ${
+                        call.type === 'low-rating' ? "border-rose-200 bg-rose-50/50 shadow-[0_0_12px_rgba(244,63,94,0.15)] ring-1 ring-rose-200 animate-pulse" : "bg-white border-sky-100"
+                      }`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-bold text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-700">{call.tableCode}</span>
+                          <span className="text-[10px] text-gray-400">{getTimeAgo(call.createdAt)}</span>
+                        </div>
+                        <div className="flex gap-3 mb-3 items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            call.type === 'low-rating' ? 'bg-rose-100 text-rose-600 shadow-sm' : call.type === 'waiter' ? 'bg-amber-100 text-amber-600' : call.type === 'water' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {call.type === 'low-rating' ? <Frown className="w-4 h-4 animate-bounce" /> : call.type === 'waiter' ? <Bell className="w-4 h-4" /> : call.type === 'water' ? <Droplets className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold capitalize ${call.type === 'low-rating' ? 'text-rose-900 font-extrabold' : 'text-gray-800'}`}>
+                              {call.type === 'low-rating' ? `Low Rating (⭐ ${call.rating}/5)` : `${call.type} Request`}
+                            </p>
+                            <p className={`text-xs ${call.type === 'low-rating' ? 'text-rose-600 font-semibold' : 'text-gray-500'}`}>
+                              {call.status === 'attending' ? (call.type === 'low-rating' ? 'Manager attending...' : 'Staff attending...') : (call.type === 'low-rating' ? 'Floor recovery needed' : 'Waiting for staff')}
+                            </p>
+                          </div>
+                        </div>
+                        {call.type === 'low-rating' && call.comment && (
+                          <div className="mt-2 bg-white border border-rose-100 p-2.5 rounded-lg text-xs italic text-slate-700 shadow-sm leading-relaxed mb-3">
+                            "{call.comment}"
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          {call.status === 'open' ? (
+                            <>
+                              <button onClick={() => handleServiceCallStatus(call.id, 'attending')} className={`flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors border ${
+                                call.type === 'low-rating' ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border-rose-200' : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-100'
+                              }`}>Attend</button>
+                              <button onClick={() => handleServiceCallStatus(call.id, 'done')} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100">Done</button>
+                            </>
+                          ) : (
+                            <button onClick={() => handleServiceCallStatus(call.id, 'done')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors">Mark Resolved</button>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-white">
+              <button className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
+                Open Full Kitchen Display
+                <ArrowRight className="w-3.5 h-3.5 opacity-50" />
+              </button>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Free Table — Inline Payment Modal */}
+      {freeTableModal?.isOpen && (
+        <div className="absolute inset-0 z-[90] bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Free {freeTableModal.tableCode}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Unpaid bill — choose payment to continue</p>
+              </div>
+              <button
+                onClick={() => setFreeTableModal(null)}
+                disabled={freeTableModal.isProcessing}
+                className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Bill Amount */}
+            <div className="px-6 py-4">
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 mb-5">
+                <span className="text-sm font-semibold text-emerald-800">Bill Total</span>
+                <span className="text-xl font-black text-emerald-700">
+                  ₹{freeTableModal.totalAmount.toLocaleString()}
+                </span>
+              </div>
+
+              {/* Payment Method */}
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Payment Method</p>
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                {(["cash", "card", "upi"] as const).map((method) => (
+                  <button
+                    key={method}
+                    onClick={() =>
+                      setFreeTableModal(prev => prev ? { ...prev, selectedPayment: method } : null)
+                    }
+                    disabled={freeTableModal.isProcessing}
+                    className={`py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${
+                      freeTableModal.selectedPayment === method
+                        ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
+                    {method === "cash" ? "💵 Cash" : method === "card" ? "💳 Card" : "📱 UPI"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFreeTableModal(null)}
+                  disabled={freeTableModal.isProcessing}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmFreeWithPayment}
+                  disabled={freeTableModal.isProcessing}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  {freeTableModal.isProcessing ? (
+                    "Processing..."
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Mark Paid & Free Table
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

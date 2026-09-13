@@ -84,20 +84,9 @@ export default function InventoryDashboard() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [showEditBatchModal, setShowEditBatchModal] = useState(false);
-
-
-  const handleDeleteBatch = async (batchId: string) => {
-    if (!confirm("Are you sure you want to delete this batch? This will deduct its quantity from your inventory stock and cannot be undone.")) return;
-    try {
-      await api('/api/admin/inventory/advanced/batches?id=' + batchId, { method: 'DELETE' });
-      toast.success("Batch deleted");
-      fetchBatches();
-      // fetchOverview(); // Optional if overview is used
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to delete batch");
-    }
-  };
+  const [deleteConfirmBatchId, setDeleteConfirmBatchId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingBatchIds, setDeletingBatchIds] = useState<Set<string>>(new Set());
 
   const handleEditBatch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -389,7 +378,7 @@ export default function InventoryDashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen bg-white font-sans text-slate-900 overflow-hidden">
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -445,39 +434,46 @@ export default function InventoryDashboard() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto bg-white flex flex-col">
         {activeTab === 'stock' && (
-          <div className="animate-in fade-in duration-300 slide-in-from-bottom-4">
-            <div className="mb-8 flex items-end justify-between">
+          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Stock Batches</h2>
-                <p className="mt-1 text-slate-500">Real-time inventory levels, batch arrivals, and expiry tracking.</p>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Stock Batches</h2>
+                  {!loading && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                      {batches.length} {batches.length === 1 ? 'batch' : 'batches'}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Real-time inventory levels, batch arrivals, and expiry tracking.</p>
               </div>
             </div>
 
             {loading ? (
-              <div className="py-12 text-center text-slate-400">Loading stock batches...</div>
+              <div className="py-24 text-center text-sm text-slate-400">Loading stock batches...</div>
             ) : batches.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                  <PackageOpen size={32} />
+              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                  <PackageOpen size={28} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900">No stock batches found</h3>
-                <p className="mt-1 text-slate-500">Receive a Purchase Order or adjust stock to see active batches here.</p>
+                <h3 className="text-base font-semibold text-slate-900">No stock batches found</h3>
+                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Receive a Purchase Order or adjust stock to see active batches here.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto flex-1">
                 <table className="w-full border-collapse text-left text-sm text-slate-600">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
-                      <th className="px-6 py-4">Ingredient</th>
-                      <th className="px-6 py-4">Supplier</th>
-                      <th className="px-6 py-4">Quantity</th>
-                      <th className="px-6 py-4">Unit Cost</th>
-                      <th className="px-6 py-4">Total Value</th>
-                      <th className="px-6 py-4">Arrived At</th>
-                      <th className="px-6 py-4">Expiry Date</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-8 py-3.5">Ingredient</th>
+                      <th className="px-8 py-3.5">Supplier</th>
+                      <th className="px-8 py-3.5">Quantity</th>
+                      <th className="px-8 py-3.5">Unit Cost</th>
+                      <th className="px-8 py-3.5">Total Value</th>
+                      <th className="px-8 py-3.5">Arrived At</th>
+                      <th className="px-8 py-3.5">Expiry Date</th>
+                      <th className="px-8 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -488,20 +484,20 @@ export default function InventoryDashboard() {
                         : false;
                       
                       return (
-                        <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-slate-950">{b.ingredient_name}</td>
-                          <td className="px-6 py-4 text-slate-500">{b.supplier_name}</td>
-                          <td className="px-6 py-4 font-mono font-bold text-slate-900">{b.quantity}</td>
-                          <td className="px-6 py-4 font-mono">{fmtINR(b.cost_per_unit)}</td>
-                          <td className="px-6 py-4 font-mono font-bold text-slate-950">{fmtINR(b.quantity * b.cost_per_unit)}</td>
-                          <td className="px-6 py-4 text-slate-500">
+                        <tr key={b.id} className={`hover:bg-slate-50/50 transition-all duration-500 ease-in-out ${deletingBatchIds.has(b.id) ? 'opacity-0 -translate-x-4 bg-rose-50' : 'opacity-100 translate-x-0'}`}>
+                          <td className="px-8 py-4 font-semibold text-slate-950">{b.ingredient_name}</td>
+                          <td className="px-8 py-4 text-slate-500">{b.supplier_name}</td>
+                          <td className="px-8 py-4 font-mono font-bold text-slate-900">{b.quantity}</td>
+                          <td className="px-8 py-4 font-mono">{fmtINR(b.cost_per_unit)}</td>
+                          <td className="px-8 py-4 font-mono font-bold text-slate-950">{fmtINR(b.quantity * b.cost_per_unit)}</td>
+                          <td className="px-8 py-4 text-slate-500">
                             {new Date(b.received_at).toLocaleDateString("en-IN", {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
                             })}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-8 py-4">
                             {b.expires_at ? (
                               <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold tracking-wide ${
                                 isExpired 
@@ -522,17 +518,17 @@ export default function InventoryDashboard() {
                               <span className="text-slate-400 font-medium">No Expiry</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-8 py-4 text-right">
                             <div className="flex justify-end gap-2">
                               <button
                                 onClick={() => { setEditingBatch(b); setShowEditBatchModal(true); }}
-                                className="text-slate-400 hover:text-emerald-600 transition-colors"
+                                className="text-slate-400 hover:text-emerald-600 transition-colors p-1"
                               >
                                 <Edit2 size={16} />
                               </button>
                               <button
-                                onClick={() => handleDeleteBatch(b.id)}
-                                className="text-slate-400 hover:text-red-600 transition-colors"
+                                onClick={() => setDeleteConfirmBatchId(b.id)}
+                                className="text-slate-400 hover:text-red-600 transition-colors p-1"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -549,121 +545,184 @@ export default function InventoryDashboard() {
         )}
 
         {activeTab === 'vendors' && (
-          <div className="animate-in fade-in duration-300 slide-in-from-bottom-4">
-            <div className="mb-8 flex items-end justify-between">
+          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Suppliers</h2>
-                <p className="mt-1 text-slate-500">Manage your vendor directory and lead times.</p>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Suppliers</h2>
+                  {!loading && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                      {vendors.length} {vendors.length === 1 ? 'supplier' : 'suppliers'}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Manage your vendor directory and lead times.</p>
               </div>
               <button 
                 onClick={() => setShowAddVendor(true)}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow"
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto"
               >
-                <Plus size={18} />
-                Add Vendor
+                <Plus size={16} />
+                Add Supplier
               </button>
             </div>
 
             {loading ? (
-              <div className="py-12 text-center text-slate-400">Loading vendors...</div>
+              <div className="py-24 text-center text-sm text-slate-400">Loading suppliers...</div>
+            ) : vendors.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                  <Truck size={28} />
+                </div>
+                <h3 className="text-base font-semibold text-slate-900">No suppliers found</h3>
+                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Add your first supplier to track inventory sources.</p>
+              </div>
             ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {vendors.map(v => (
-                  <div key={v.id} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
-                    <div className="absolute right-4 top-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => handleStartEdit(v)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-emerald-600 transition-colors"
-                        title="Edit Supplier"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteVendor(v.id)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-rose-600 transition-colors"
-                        title="Delete Supplier"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div className="mb-4 flex items-center gap-3 pr-10">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                        <Truck size={24} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{v.name}</h3>
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${v.is_active ? 'text-emerald-600' : 'text-slate-400'}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${v.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                          {v.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Lead Time</span>
-                        <span className="font-semibold text-slate-900">{v.lead_time_days} Days</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full border-collapse text-left text-sm text-slate-600">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-8 py-3.5">Supplier Name</th>
+                      <th className="px-8 py-3.5">Status</th>
+                      <th className="px-8 py-3.5">Lead Time</th>
+                      <th className="px-8 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {vendors.map((v) => (
+                      <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                              <Truck size={18} />
+                            </div>
+                            <span className="font-semibold text-slate-950">{v.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-4">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${v.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${v.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                            {v.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-4 font-semibold text-slate-900">
+                          {v.lead_time_days} Days
+                        </td>
+                        <td className="px-8 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => handleStartEdit(v)}
+                              className="text-slate-400 hover:text-emerald-600 transition-colors p-1"
+                              title="Edit Supplier"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteVendor(v.id)}
+                              className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                              title="Delete Supplier"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'pos' && (
-          <div className="animate-in fade-in duration-300 slide-in-from-bottom-4">
-            <div className="mb-8 flex items-end justify-between">
+          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Purchase Orders</h2>
-                <p className="mt-1 text-slate-500">Create POs and receive goods via GRN.</p>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Purchase Orders</h2>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                    {poList.length} {poList.length === 1 ? 'order' : 'orders'}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Create POs and receive goods via GRN.</p>
               </div>
-              <button onClick={() => setShowAddPO(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow">
-                <Plus size={18} />
+              <button 
+                onClick={() => setShowAddPO(true)} 
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto"
+              >
+                <Plus size={16} />
                 Create PO
               </button>
             </div>
             
             {poList.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                  <FileText size={32} />
+              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                  <FileText size={28} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900">No Purchase Orders yet</h3>
-                <p className="mt-1 text-slate-500">Create your first PO to start tracking incoming stock.</p>
+                <h3 className="text-base font-semibold text-slate-900">No Purchase Orders yet</h3>
+                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Create your first PO to start tracking incoming stock.</p>
               </div>
             ) : (
-              <div className="grid gap-6">
-                {poList.map(po => (
-                  <div key={po.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">PO #{po.id.slice(0,8).toUpperCase()}</div>
-                      <div className="text-xs text-slate-500 mt-1">Created: {new Date(po.created_at).toLocaleDateString()}</div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 uppercase tracking-widest">{po.status}</span>
-                      {po.status !== 'received' && (
-                        <button 
-                          onClick={() => handleReceivePO(po)}
-                          className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
-                        >
-                          Receive GRN
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full border-collapse text-left text-sm text-slate-600">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-8 py-3.5">PO Number</th>
+                      <th className="px-8 py-3.5">Created Date</th>
+                      <th className="px-8 py-3.5">Status</th>
+                      <th className="px-8 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {poList.map((po) => (
+                      <tr key={po.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-4 font-mono font-bold text-slate-900">
+                          PO #{po.id.slice(0,8).toUpperCase()}
+                        </td>
+                        <td className="px-8 py-4 text-slate-500">
+                          {new Date(po.created_at).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="px-8 py-4">
+                          <span className="inline-flex rounded-full bg-amber-50 border border-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700 uppercase tracking-wider">
+                            {po.status}
+                          </span>
+                        </td>
+                        <td className="px-8 py-4 text-right">
+                          {po.status !== 'received' && (
+                            <button 
+                              onClick={() => handleReceivePO(po)}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Receive GRN
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'recipes' && (
-          <div className="animate-in fade-in duration-300 slide-in-from-bottom-4">
-            <div className="mb-8 flex items-end justify-between">
+          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Recipes & Conversions</h2>
-                <p className="mt-1 text-slate-500">Map your raw ingredients to intermediate manufactured goods.</p>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Recipes & Conversions</h2>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                    {recipesList.length} {recipesList.length === 1 ? 'recipe' : 'recipes'}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Map your raw ingredients to intermediate manufactured goods.</p>
               </div>
               <button 
                 onClick={() => {
@@ -671,69 +730,88 @@ export default function InventoryDashboard() {
                   setRecipeItems([]);
                   setShowAddRecipe(true);
                 }} 
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow"
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto"
               >
-                <Plus size={18} />
+                <Plus size={16} />
                 Create Recipe
               </button>
             </div>
             
             {recipesList.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                  <MapPin size={32} />
+              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                  <MapPin size={28} />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900">No Recipes defined</h3>
-                <p className="mt-1 text-slate-500">Create a recipe to automatically deduct raw ingredients when intermediate goods are used.</p>
+                <h3 className="text-base font-semibold text-slate-900">No Recipes defined</h3>
+                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Create a recipe to automatically deduct raw ingredients when intermediate goods are used.</p>
               </div>
             ) : (
-              <div className="grid gap-6">
-                {recipesList.map(r => (
-                  <div key={r.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">{r.name}</div>
-                      <div className="text-xs text-slate-500 mt-1">Contains {r.item_count} ingredients</div>
-                    </div>
-                    <div className="flex gap-4">
-                      <button 
-                        onClick={() => handleEditRecipe(r.id)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                      >
-                        Edit Details
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteRecipe(r.id)}
-                        className="text-sm font-medium text-red-600 hover:text-red-700"
-                      >
-                        Delete Recipe
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full border-collapse text-left text-sm text-slate-600">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-8 py-3.5">Recipe Name</th>
+                      <th className="px-8 py-3.5">Composition</th>
+                      <th className="px-8 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {recipesList.map((r) => (
+                      <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-4 font-semibold text-slate-950">
+                          {r.name}
+                        </td>
+                        <td className="px-8 py-4 text-slate-500">
+                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            Contains {r.item_count} ingredients
+                          </span>
+                        </td>
+                        <td className="px-8 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => handleEditRecipe(r.id)}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 px-2.5 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            >
+                              <Edit2 size={14} /> Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteRecipe(r.id)}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+                            >
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'kitchen' && (
-          <div className="animate-in fade-in duration-300 slide-in-from-bottom-4">
-            <div className="mb-8 flex items-end justify-between">
+          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Central Kitchen Transfers</h2>
-                <p className="mt-1 text-slate-500">Manage stock transfers between your commissaries and branches.</p>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Central Kitchen Transfers</h2>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Manage stock transfers between your commissaries and branches.</p>
               </div>
-              <button className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow">
-                <Plus size={18} />
+              <button className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto">
+                <Plus size={16} />
                 New Transfer
               </button>
             </div>
             
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                <Store size={32} />
+            <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                <Store size={28} />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">No active transfers</h3>
-              <p className="mt-1 text-slate-500">Dispatch stock to a branch to see it here.</p>
+              <h3 className="text-base font-semibold text-slate-900">No active transfers</h3>
+              <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Dispatch stock to a branch to see it here.</p>
             </div>
           </div>
         )}
@@ -1140,6 +1218,58 @@ export default function InventoryDashboard() {
                   Save Recipe
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Batch Confirmation Modal */}
+      {deleteConfirmBatchId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center w-12 h-12 bg-rose-100 rounded-full mb-4 mx-auto text-rose-600">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-center text-slate-900 mb-2">Delete Batch?</h3>
+            <p className="text-center text-slate-500 text-sm mb-6">
+              This will deduct its quantity from your inventory stock and cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                disabled={isDeleting}
+                onClick={() => setDeleteConfirmBatchId(null)}
+                className="flex-1 py-2.5 rounded-xl text-slate-600 font-bold bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    await api('/api/admin/inventory/advanced/batches?id=' + deleteConfirmBatchId, { method: 'DELETE' });
+                    setDeletingBatchIds(prev => new Set(prev).add(deleteConfirmBatchId));
+                    setDeleteConfirmBatchId(null);
+                    setTimeout(() => {
+                      fetchBatches();
+                      setDeletingBatchIds(prev => {
+                        const n = new Set(prev);
+                        n.delete(deleteConfirmBatchId);
+                        return n;
+                      });
+                    }, 500);
+                    toast.success("Batch deleted");
+                  } catch (e) {
+                    console.error(e);
+                    toast.error("Failed to delete batch");
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-white font-bold bg-rose-600 hover:bg-rose-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isDeleting ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : "Delete"}
+              </button>
             </div>
           </div>
         </div>

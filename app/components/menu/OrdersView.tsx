@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/app/lib/api";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import {
   CheckCircle2,
   ClipboardList,
@@ -100,10 +101,11 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const sessionId = localStorage.getItem("session_id");
-      if (sessionId && localStorage.getItem(`bill_requested_${sessionId}`) === "true") {
-        setBillRequested(true);
-      }
+      getTokenCookie("session_id").then(sessionId => {
+        if (sessionId && localStorage.getItem(`bill_requested_${sessionId}`) === "true") {
+          setBillRequested(true);
+        }
+      });
     }
   }, []);
 
@@ -360,7 +362,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
                       await orderService.requestBill();
                       const { toast } = await import("react-hot-toast");
                       toast.success("Bill requested! Waiter is on their way.");
-                      const sessionId = localStorage.getItem("session_id") || "default";
+                      const sessionId = (await getTokenCookie("session_id")) || "default";
                       localStorage.setItem(`bill_requested_${sessionId}`, "true");
                       setBillRequested(true);
                     } catch (err: any) {

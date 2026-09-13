@@ -78,6 +78,7 @@ type Variant = {
   label: string;
   price: number;
   stockCount: number | null;
+  width_cm?: number;
 };
 
 type StructuredIngredient = {
@@ -149,6 +150,8 @@ type MenuItem = {
   height_cm?: number;
   depth_cm?: number;
   hasSteam?: boolean;
+  steamIntensity?: "none" | "gentle" | "medium" | "heavy";
+  steamColor?: "white" | "warm" | "cool";
   modelScale?: number;
 };
 
@@ -326,6 +329,7 @@ export default function MenuPage() {
   const [bulkPriceValue, setBulkPriceValue] = useState("");
   const [modalMode, setModalMode] = useState<"add" | "edit" | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [activeVariantForScale, setActiveVariantForScale] = useState<string | null>(null);
   const [editingParentId, setEditingParentId] = useState<string>("");
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
@@ -339,7 +343,7 @@ export default function MenuPage() {
   const [editingSubcategoryGstRate, setEditingSubcategoryGstRate] = useState<number>(5);
   const [newSubcategoryGstRate, setNewSubcategoryGstRate] = useState<number>(5);
   const [activeModalTab, setActiveModalTab] = useState<
-    "general" | "variants" | "assets" | "ingredients" | "modifiers" | "availability" | "history"
+    "general" | "variants" | "assets" | "ingredients" | "modifiers" | "nutrition" | "availability" | "history"
   >("general");
   const [loading, setLoading] = useState(true);
   const [modelViewerReady, setModelViewerReady] = useState(false);
@@ -676,9 +680,20 @@ export default function MenuPage() {
     if (modelInputRef.current) modelInputRef.current.value = "";
     
     // Fire the DELETE in the background so S3 + DB are cleaned up immediately.
+    if (modalMode === "add") {
+      toast.success("3D model removed");
+      return;
+    }
     authFetch(`/api/admin/menu/item/model?item_id=${editingItem.id}`, { method: "DELETE" })
       .then(() => toast.success("3D model removed"))
-      .catch(() => toast.error("Failed to remove 3D model from server. Please try saving again."));
+      .catch((err) => {
+        // If it's a 404, it means the item was already deleted or doesn't exist in DB.
+        if (err?.message?.includes("404") || err?.status === 404) {
+          toast.success("3D model removed");
+        } else {
+          toast.error("Failed to remove 3D model from server. Please try saving again.");
+        }
+      });
   };
 
   const handleDeleteItem = async () => {
@@ -1190,6 +1205,7 @@ export default function MenuPage() {
             body: JSON.stringify({
               label: v.label,
               price: v.price,
+              width_cm: v.width_cm,
               ...(v.stockCount != null ? { stock: v.stockCount } : {}),
             }),
           });
@@ -2240,6 +2256,7 @@ export default function MenuPage() {
                   { id: "modifiers", label: "Modifiers & Combos" },
                   { id: "assets", label: "Media & 3D" },
                   { id: "ingredients", label: "Ingredients" },
+                  { id: "nutrition", label: "Nutrition" },
                   { id: "availability", label: "Availability" },
                   { id: "history", label: "Version History" },
                 ].map((tab) => (
@@ -2690,420 +2707,448 @@ export default function MenuPage() {
                 )}
 
                 {activeModalTab === "assets" && (
-                  <div className="grid grid-cols-2 gap-10">
-                    <div className="space-y-4">
-                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                        Display Image
-                      </label>
-                      <input
-                        type="file"
-                        hidden
-                        ref={imageInputRef}
-                        accept="image/*"
-                        onChange={(e) => handleFileUpload(e, "image")}
-                      />
-                      <div
-                        onClick={() => imageInputRef.current?.click()}
-                        className="group relative aspect-video bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all hover:bg-slate-100"
-                      >
-                        {editingItem.imageUrl ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeMediaAsset("image");
-                              }}
-                              className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
-                            >
-                              Remove
-                            </button>
-                            <img
-                              src={editingItem.imageUrl}
-                              className="w-full h-full object-cover"
-                            />
-                          </>
-                        ) : (
-                          <div className="text-center">
-                            <UploadCloud className="mx-auto text-slate-300 mb-2" />
-                            <span className="text-sm font-bold text-slate-900">
-                              Upload JPG/PNG
-                            </span>
-                          </div>
-                        )}
+                  <div className="space-y-8">
+                    {/* Media Uploads Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Left: 2D Image */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Display Image (2D)
+                          </label>
+                        </div>
+                        <input
+                          type="file"
+                          hidden
+                          ref={imageInputRef}
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, "image")}
+                        />
+                        <div
+                          onClick={() => imageInputRef.current?.click()}
+                          className="group relative w-full h-64 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all hover:bg-slate-100"
+                        >
+                          {editingItem.imageUrl ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeMediaAsset("image");
+                                }}
+                                className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
+                              >
+                                Remove
+                              </button>
+                              <div className="absolute inset-0 z-0 bg-slate-100">
+                                <img
+                                  src={editingItem.imageUrl}
+                                  alt="blur-bg"
+                                  className="w-full h-full object-cover opacity-40 blur-xl scale-110"
+                                />
+                              </div>
+                              <img
+                                src={editingItem.imageUrl}
+                                alt="Upload preview"
+                                className="relative z-10 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500"
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <div className="rounded-2xl bg-white p-3 shadow-sm mb-3">
+                                <ImageIcon className="w-5 h-5 text-indigo-400" />
+                              </div>
+                              <span className="text-xs font-bold text-slate-400">
+                                Click to upload image
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-4">
-                      <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                        3D Asset (.GLB)
-                      </label>
-                      <input
-                        type="file"
-                        hidden
-                        ref={modelInputRef}
-                        accept=".glb,.usdz"
-                        onChange={(e) => handleFileUpload(e, "model")}
-                      />
-                      <div
-                        onClick={() => {
-                          if (!editingItem.modelGlb && !editingItem.modelUsdz)
-                            modelInputRef.current?.click();
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setIsModelDragging(true);
-                        }}
-                        onDragLeave={(e) => {
-                          e.preventDefault();
-                          setIsModelDragging(false);
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setIsModelDragging(false);
-                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                            handleFileUpload({ target: { files: e.dataTransfer.files } } as any, "model");
-                          }
-                        }}
-                        className={`group relative aspect-video bg-slate-50/30 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center transition-all ${
-                          isModelDragging ? "border-emerald-500 bg-emerald-50/50" : "border-slate-200"
-                        } ${
-                          editingItem.modelGlb || editingItem.modelUsdz
-                            ? "cursor-default"
-                            : "cursor-pointer hover:bg-slate-50"
-                        }`}
-                      >
-                        {editingItem.modelGlb || editingItem.modelUsdz ? (
-                          <div className="w-full h-full overflow-hidden rounded-3xl border border-slate-200 bg-white relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                modelInputRef.current?.click();
-                              }}
-                              className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 shadow-sm"
-                            >
-                              Replace
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeMediaAsset("model");
-                              }}
-                              className="absolute top-3 right-[86px] z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
-                            >
-                              Remove
-                            </button>
-                            <a
-                              href={normalizeAssetUrl(editingItem.modelGlb || editingItem.modelUsdz || "#")}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute top-3 left-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 shadow-sm"
-                            >
-                              Open File
-                            </a>
-                            {editingItem.hasSteam && (
-                              <>
-                                <style dangerouslySetInnerHTML={{__html: `
-                                  @keyframes adminSteamRise {
-                                    0% {
-                                      transform: translateY(40px) scaleX(0.5) translateX(0);
-                                      opacity: 0;
+
+                      {/* Right: 3D Asset */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            AR Asset (3D)
+                          </label>
+                        </div>
+                        <input
+                          type="file"
+                          hidden
+                          ref={modelInputRef}
+                          accept=".glb,.gltf,.usdz"
+                          onChange={(e) => handleFileUpload(e, "model")}
+                        />
+                        <div
+                          className={`relative w-full h-64 rounded-3xl border-2 overflow-hidden transition-all ${
+                            editingItem.modelGlb || editingItem.modelUsdz
+                              ? "border-slate-200 bg-white"
+                              : "border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer flex flex-col items-center justify-center"
+                          }`}
+                          onClick={() => {
+                            if (!editingItem.modelGlb && !editingItem.modelUsdz) {
+                              modelInputRef.current?.click();
+                            }
+                          }}
+                        >
+                          {(editingItem.modelGlb || editingItem.modelUsdz) ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  modelInputRef.current?.click();
+                                }}
+                                className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 shadow-sm"
+                              >
+                                Replace
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeMediaAsset("model");
+                                }}
+                                className="absolute top-3 right-[86px] z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
+                              >
+                                Remove
+                              </button>
+                              <a
+                                href={normalizeAssetUrl(editingItem.modelGlb || editingItem.modelUsdz || "#")}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="absolute top-3 left-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 shadow-sm"
+                              >
+                                Open File
+                              </a>
+
+                              {/* Steam rendering temporarily disabled
+                              editingItem.hasSteam && (
+                                <>
+                                  <style dangerouslySetInnerHTML={{__html: `
+                                    @keyframes adminSteamRise {
+                                      0% { transform: translateY(20px) scale(0.8) rotate(0deg); opacity: 0; filter: blur(8px); }
+                                      30% { opacity: ${editingItem.steamIntensity === 'heavy' ? '0.85' : editingItem.steamIntensity === 'gentle' ? '0.4' : '0.65'}; filter: blur(12px); transform: translateY(-30px) scale(1.2) rotate(5deg); }
+                                      70% { opacity: ${editingItem.steamIntensity === 'heavy' ? '0.6' : editingItem.steamIntensity === 'gentle' ? '0.2' : '0.4'}; filter: blur(16px); transform: translateY(-70px) scale(1.5) rotate(-5deg); }
+                                      100% { transform: translateY(-120px) scale(2.0) rotate(10deg); opacity: 0; filter: blur(20px); }
                                     }
-                                    15% {
-                                      opacity: 0.5;
+                                    .admin-steam-particle {
+                                      position: absolute;
+                                      bottom: 0;
+                                      border-radius: 50%;
+                                      background: radial-gradient(circle, ${editingItem.steamColor === 'warm' ? 'rgba(255,220,160,0.8)' : editingItem.steamColor === 'cool' ? 'rgba(180,220,255,0.8)' : 'rgba(255,255,255,0.8)'} 0%, rgba(255,255,255,0) 60%);
+                                      animation: adminSteamRise infinite ease-in;
+                                      mix-blend-mode: ${editingItem.steamColor === 'warm' ? 'screen' : 'normal'};
                                     }
-                                    50% {
-                                      transform: translateY(10px) scaleX(1.2) translateX(5px);
-                                      opacity: 0.3;
-                                    }
-                                    100% {
-                                      transform: translateY(-50px) scaleX(1.8) translateX(-8px);
-                                      opacity: 0;
-                                    }
-                                  }
-                                  .admin-steam-particle {
-                                    animation: adminSteamRise 4s infinite linear;
-                                    filter: blur(6px);
-                                    border-radius: 50%;
-                                    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
-                                  }
-                                `}} />
-                                <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-24 h-32 pointer-events-none z-10 flex justify-around opacity-80">
-                                  <div className="admin-steam-particle w-3 h-20" style={{ animationDelay: "0s", animationDuration: "4s" }} />
-                                  <div className="admin-steam-particle w-4 h-20" style={{ animationDelay: "1.2s", animationDuration: "4.5s" }} />
-                                  <div className="admin-steam-particle w-3 h-20" style={{ animationDelay: "2.5s", animationDuration: "3.5s" }} />
+                                  `}} />
+                                  <div className="absolute inset-x-0 bottom-[10%] h-1/2 pointer-events-none z-10 overflow-visible flex justify-center">
+                                    {editingItem.steamIntensity !== "none" && (
+                                      <div className="relative w-full max-w-[200px] h-full">
+                                        <div className="admin-steam-particle w-16 h-20 left-[10%]" style={{ animationDelay: "0s", animationDuration: "5s" }} />
+                                        <div className="admin-steam-particle w-24 h-24 left-[30%]" style={{ animationDelay: "1.2s", animationDuration: "6s" }} />
+                                        <div className="admin-steam-particle w-20 h-24 left-[50%]" style={{ animationDelay: "0.5s", animationDuration: "5.5s" }} />
+                                        
+                                        {(editingItem.steamIntensity === "medium" || editingItem.steamIntensity === "heavy") && (
+                                          <>
+                                            <div className="admin-steam-particle w-28 h-28 left-[20%]" style={{ animationDelay: "2.1s", animationDuration: "7s" }} />
+                                            <div className="admin-steam-particle w-24 h-24 left-[60%]" style={{ animationDelay: "1.8s", animationDuration: "5.2s" }} />
+                                          </>
+                                        )}
+                                        {editingItem.steamIntensity === "heavy" && (
+                                          <>
+                                            <div className="admin-steam-particle w-32 h-32 left-[40%]" style={{ animationDelay: "0.8s", animationDuration: "6.5s" }} />
+                                            <div className="admin-steam-particle w-24 h-28 left-[70%]" style={{ animationDelay: "3.2s", animationDuration: "5.8s" }} />
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )*/}
+
+                              {!modelViewerReady ? (
+                                <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">
+                                  Loading 3D preview...
                                 </div>
-                              </>
-                            )}
-                            {!modelViewerReady ? (
-                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">
-                                Loading 3D preview...
-                              </div>
-                            ) : (
-                              <model-viewer
-                                ref={staffModelViewerRef}
-                                key={editingItem.modelGlb || editingItem.modelUsdz}
-                                src={normalizeAssetUrl(editingItem.modelGlb)}
-                                ios-src={normalizeAssetUrl(editingItem.modelUsdz) || undefined}
-                                alt={editingItem.name || "3D model"}
-                                auto-rotate
-                                ar
-                                ar-modes="webxr scene-viewer quick-look"
-                                ar-scale="fixed"
-                                disable-zoom
-                                interaction-prompt="none"
-                                camera-orbit="0deg 75deg 1.8m"
-                                min-camera-orbit="auto auto 1.8m"
-                                max-camera-orbit="auto auto 1.8m"
-                                environment-image="neutral"
-                                shadow-intensity="1"
-                                tone-mapping="commerce"
-                                onLoad={() => {
-                                  setModelPreviewError("");
-                                  const viewer = staffModelViewerRef.current;
-                                  if (viewer) {
-                                    try {
-                                      const dim = (viewer as any).getDimensions();
-                                      if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
-                                        naturalDimsRef.current = { x: dim.x, y: dim.y, z: dim.z };
-                                        const currentW = editingItem.width_cm || 20;
-                                        const scaleMultiplier = editingItem.modelScale || 1.00;
-                                        const ratio = (currentW / (dim.x * 100)) * scaleMultiplier;
-                                        viewer.scale = `${ratio} ${ratio} ${ratio}`;
-                                      }
-                                    } catch (err) {
-                                      console.warn("Failed to read dimensions:", err);
-                                    }
-                                  }
-                                }}
-                                onError={() =>
-                                  setModelPreviewError(
-                                    "Unable to load model preview. File URL may be inaccessible."
-                                  )
-                                }
-                                style={{ width: "100%", height: "100%", background: "#eef2ff" }}
-                              />
-                            )}
-                            <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
-                              <div className="inline-flex items-center gap-2 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 border border-slate-200">
-                                <Box className="w-3.5 h-3.5" />
-                                3D Preview
-                              </div>
-                            </div>
-                            {modelPreviewError && (
-                              <div className="absolute bottom-3 right-3 z-20 max-w-[70%] rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 text-[10px] font-semibold text-rose-700">
-                                {modelPreviewError}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <Box className="mx-auto text-indigo-200 mb-2" />
-                            <span className="text-sm font-bold text-indigo-300">
-                              Upload GLB/USDZ for AR
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {(editingItem.modelGlb || editingItem.modelUsdz) && (
-                        <div className="space-y-4">
-                          {/* 1. Toggle Steam Effect */}
-                          <div className="p-4 bg-orange-50/60 rounded-3xl border border-orange-100/50 flex items-center justify-between animate-in fade-in duration-300">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl">♨️</span>
-                              <div>
-                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                                  Default Steam Effect
-                                </h4>
-                                <p className="text-[10px] text-slate-500">
-                                  Show hot steam rising from this dish when loaded in AR.
-                                </p>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={editingItem.hasSteam || false}
-                                onChange={(e) => {
-                                  setEditingItem({
-                                    ...editingItem,
-                                    hasSteam: e.target.checked,
-                                  });
-                                }}
-                                className="sr-only peer"
-                              />
-                              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
-                            </label>
-                          </div>
-
-                          {/* 2. Proportional Size Slider */}
-                          <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50 space-y-4 animate-in fade-in duration-300">
-                            <div className="flex items-center gap-2">
-                              <div className="p-2 bg-indigo-500 rounded-xl text-white">
-                                <Scale className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                                  Physical 1:1 Scale Enforcement
-                                </h4>
-                                <p className="text-[10px] text-slate-500">
-                                  Scale the model in centimeters. Drag the sliders to resize visually.
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Slider 1: Visual Size Offset (modelScale) */}
-                            <div className="space-y-2 pt-2 border-t border-indigo-100/30">
-                              <div className="flex justify-between items-center">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                  Model Size Offset (Scale)
-                                </label>
-                                <span className="text-xs font-black text-indigo-655 bg-indigo-100/60 px-2.5 py-0.5 rounded-lg">
-                                  {Math.round((editingItem.modelScale || 1.00) * 100)}%
-                                </span>
-                              </div>
-                              <input
-                                type="range"
-                                min="0.5"
-                                max="2.0"
-                                step="0.05"
-                                value={editingItem.modelScale || 1.00}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value);
-                                  setEditingItem({
-                                    ...editingItem,
-                                    modelScale: val,
-                                  });
-                                  const dims = naturalDimsRef.current;
-                                  if (dims) {
-                                    const currentW = editingItem.width_cm || 20;
-                                    const ratio = (currentW / (dims.x * 100)) * val;
+                              ) : (
+                                <model-viewer
+                                  ref={staffModelViewerRef}
+                                  key={editingItem.modelGlb || editingItem.modelUsdz}
+                                  src={normalizeAssetUrl(editingItem.modelGlb)}
+                                  ios-src={normalizeAssetUrl(editingItem.modelUsdz) || undefined}
+                                  alt={editingItem.name || "3D model"}
+                                  auto-rotate
+                                  ar
+                                  ar-modes="webxr scene-viewer quick-look"
+                                  ar-scale="fixed"
+                                  camera-controls
+                                  interaction-prompt="auto"
+                                  camera-orbit="0deg 75deg 1.8m"
+                                  shadow-intensity="1"
+                                  tone-mapping="commerce"
+                                  onLoad={() => {
+                                    setModelPreviewError("");
                                     const viewer = staffModelViewerRef.current;
                                     if (viewer) {
-                                      viewer.scale = `${ratio} ${ratio} ${ratio}`;
-                                    }
-                                  }
-                                }}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-650 focus:outline-none"
-                              />
-                            </div>
-
-                            {/* Slider 2: Physical Width */}
-                            <div className="space-y-2 pt-2">
-                              <div className="flex justify-between items-center">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                  Visual Width Slider
-                                </label>
-                                <span className="text-xs font-black text-indigo-655 bg-indigo-100/60 px-2.5 py-0.5 rounded-lg">
-                                  {editingItem.width_cm || 20} cm
-                                </span>
-                              </div>
-                              <input
-                                type="range"
-                                min="5"
-                                max="80"
-                                step="1"
-                                value={editingItem.width_cm || 20}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value);
-                                  const dims = naturalDimsRef.current;
-                                  const scaleMultiplier = editingItem.modelScale || 1.00;
-                                  if (dims) {
-                                    const ratio = val / (dims.x * 100);
-                                    const newH = Math.round(dims.y * 100 * ratio * 10) / 10;
-                                    const newD = Math.round(dims.z * 100 * ratio * 10) / 10;
-                                    setEditingItem({
-                                      ...editingItem,
-                                      width_cm: val,
-                                      height_cm: newH,
-                                      depth_cm: newD,
-                                    });
-                                    const viewer = staffModelViewerRef.current;
-                                    if (viewer) {
-                                      const totalRatio = ratio * scaleMultiplier;
-                                      viewer.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
-                                    }
-                                  } else {
-                                    setEditingItem({
-                                      ...editingItem,
-                                      width_cm: val,
-                                    });
-                                  }
-                                }}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-3 pt-2">
-                              <div>
-                                <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Width (cm)</label>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  placeholder="e.g. 12"
-                                  value={editingItem.width_cm || ""}
-                                  onChange={(e) => {
-                                    const val = e.target.value ? parseFloat(e.target.value) : 20;
-                                    setEditingItem({
-                                      ...editingItem,
-                                      width_cm: val,
-                                    });
-                                    const dims = naturalDimsRef.current;
-                                    const scaleMultiplier = editingItem.modelScale || 1.00;
-                                    if (dims && val > 0) {
-                                      const ratio = val / (dims.x * 100);
-                                      const viewer = staffModelViewerRef.current;
-                                      if (viewer) {
-                                        const totalRatio = ratio * scaleMultiplier;
-                                        viewer.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
+                                      try {
+                                        const dim = viewer.getDimensions();
+                                        if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
+                                          naturalDimsRef.current = { x: dim.x, y: dim.y, z: dim.z };
+                                          
+                                          let currentW = editingItem.width_cm || 20;
+                                          if (activeVariantForScale) {
+                                             const v = editingItem.variants?.find(v => v.id === activeVariantForScale);
+                                             if (v && v.width_cm) {
+                                                currentW = v.width_cm;
+                                             }
+                                          }
+                                          
+                                          const scaleMultiplier = editingItem.modelScale || 1.00;
+                                          const ratio = (currentW / (dim.x * 100)) * scaleMultiplier;
+                                          viewer.scale = `${ratio} ${ratio} ${ratio}`;
+                                        }
+                                      } catch (err) {
+                                        console.warn("Failed to read dimensions:", err);
                                       }
                                     }
                                   }}
-                                  className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                  onError={() =>
+                                    setModelPreviewError(
+                                      "Unable to load model preview. File URL may be inaccessible."
+                                    )
+                                  }
+                                  style={{ width: "100%", height: "100%", background: "#eef2ff" }}
                                 />
-                              </div>
-                              <div>
-                                <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Height (cm)</label>
+                              )}
+                              {modelPreviewError && (
+                                <div className="absolute bottom-3 right-3 z-20 max-w-[70%] rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 text-[10px] font-semibold text-rose-700">
+                                  {modelPreviewError}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <Box className="mx-auto text-indigo-200 mb-2 w-8 h-8" />
+                              <span className="text-sm font-bold text-indigo-300">
+                                Upload GLB/USDZ
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3D Studio Configurations (Only shown if 3D asset exists) */}
+                    {(editingItem.modelGlb || editingItem.modelUsdz) && (
+                      <div className="pt-6 border-t border-slate-100 space-y-6">
+                        <div className="flex items-center gap-2">
+                          <Box className="w-4 h-4 text-indigo-500" />
+                          <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">
+                            3D Studio Configurations
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Left Configs: Steam Control (Temporarily Disabled) */}
+                          {/* 
+                          <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-800">
+                                Steam
+                              </h4>
+                              <label className="relative inline-flex items-center cursor-pointer">
                                 <input
-                                  type="number"
-                                  step="0.1"
-                                  placeholder="e.g. 10"
-                                  value={editingItem.height_cm || ""}
-                                  onChange={(e) =>
+                                  type="checkbox"
+                                  checked={editingItem.hasSteam || false}
+                                  onChange={(e) => {
                                     setEditingItem({
                                       ...editingItem,
-                                      height_cm: e.target.value ? parseFloat(e.target.value) : undefined,
-                                    })
-                                  }
-                                  className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                      hasSteam: e.target.checked,
+                                    });
+                                  }}
+                                  className="sr-only peer"
                                 />
-                              </div>
-                              <div>
-                                <label className="block text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Depth (cm)</label>
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  placeholder="e.g. 12"
-                                  value={editingItem.depth_cm || ""}
-                                  onChange={(e) =>
-                                    setEditingItem({
-                                      ...editingItem,
-                                      depth_cm: e.target.value ? parseFloat(e.target.value) : undefined,
-                                    })
-                                  }
-                                  className="w-full bg-white border border-indigo-100 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                />
-                              </div>
+                                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                              </label>
                             </div>
-                            <div className="text-[10px] text-indigo-600 bg-white/60 p-2.5 rounded-2xl border border-indigo-50/50 leading-relaxed">
-                              <strong>Pro Tip:</strong> Setting physical dimensions guarantees your food matches the actual tabletop dimensions when viewed in AR! Visual Size Offset scales the 3D model bigger or smaller to look best in the menu.
+                            
+                            {editingItem.hasSteam && (
+                              <div className="space-y-4 pt-4 border-t border-slate-200">
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Intensity</label>
+                                  <div className="flex bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
+                                    {["none", "gentle", "medium", "heavy"].map((level) => (
+                                      <button
+                                        key={level}
+                                        onClick={() => setEditingItem({ ...editingItem, steamIntensity: level as any })}
+                                        className={`flex-1 py-2 text-xs font-bold rounded-lg capitalize transition-colors ${(editingItem.steamIntensity || "medium") === level ? "bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100" : "text-slate-500 hover:text-slate-700 border border-transparent"}`}
+                                      >
+                                        {level}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Color</label>
+                                  <div className="flex gap-2">
+                                    {[
+                                      { id: "white", label: "White", bg: "bg-slate-200" },
+                                      { id: "warm", label: "Warm", bg: "bg-orange-200" },
+                                      { id: "cool", label: "Cool", bg: "bg-blue-200" }
+                                    ].map((c) => (
+                                      <button
+                                        key={c.id}
+                                        onClick={() => setEditingItem({ ...editingItem, steamColor: c.id as any })}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold shadow-sm ${(editingItem.steamColor || "white") === c.id ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                                      >
+                                        <div className={`w-2.5 h-2.5 rounded-full ${c.bg} border border-slate-300`} />
+                                        {c.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          */}
+                          {/* Right Configs: Sizes Control */}
+                          <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
+                            <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-800 mb-4">
+                              Physical Scale
+                            </h4>
+                            
+                            <div className="space-y-4">
+                              {/* Default / Base Size */}
+                              <div 
+                                className={`p-4 rounded-2xl border transition-colors shadow-sm cursor-pointer ${(!activeVariantForScale) ? "border-indigo-500 bg-white" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                                onClick={() => {
+                                  setActiveVariantForScale(null);
+                                  const dims = naturalDimsRef.current;
+                                  if (dims && staffModelViewerRef.current) {
+                                    const val = editingItem.width_cm || 20;
+                                    const scaleMultiplier = editingItem.modelScale || 1.00;
+                                    const ratio = (val / (dims.x * 100)) * scaleMultiplier;
+                                    staffModelViewerRef.current.scale = `${ratio} ${ratio} ${ratio}`;
+                                  }
+                                }}
+                              >
+                                <div className="flex justify-between items-center mb-3">
+                                  <span className="text-xs font-bold text-slate-700">Base Item Size</span>
+                                  <span className="text-xs font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">{editingItem.width_cm || 20} cm</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="5" max="80" step="1"
+                                  value={editingItem.width_cm || 20}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    setActiveVariantForScale(null);
+                                    const dims = naturalDimsRef.current;
+                                    const scaleMultiplier = editingItem.modelScale || 1.00;
+                                    if (dims) {
+                                      const ratio = val / (dims.x * 100);
+                                      setEditingItem({
+                                        ...editingItem,
+                                        width_cm: val,
+                                        height_cm: Math.round(dims.y * 100 * ratio * 10) / 10,
+                                        depth_cm: Math.round(dims.z * 100 * ratio * 10) / 10,
+                                      });
+                                      if (staffModelViewerRef.current) {
+                                        const totalRatio = ratio * scaleMultiplier;
+                                        staffModelViewerRef.current.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
+                                      }
+                                    } else {
+                                      setEditingItem({ ...editingItem, width_cm: val });
+                                    }
+                                  }}
+                                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+                                />
+                              </div>
+
+                              {/* Variants Sizes */}
+                              {editingItem.variants?.map((variant) => (
+                                <div 
+                                  key={variant.id}
+                                  className={`p-4 rounded-2xl border transition-colors shadow-sm cursor-pointer ${(activeVariantForScale === variant.id) ? "border-indigo-500 bg-white" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                                  onClick={() => {
+                                    setActiveVariantForScale(variant.id);
+                                    const dims = naturalDimsRef.current;
+                                    if (dims && staffModelViewerRef.current) {
+                                      const val = variant.width_cm || editingItem.width_cm || 20;
+                                      const scaleMultiplier = editingItem.modelScale || 1.00;
+                                      const ratio = (val / (dims.x * 100)) * scaleMultiplier;
+                                      staffModelViewerRef.current.scale = `${ratio} ${ratio} ${ratio}`;
+                                    }
+                                  }}
+                                >
+                                  <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-bold text-slate-700">{variant.label}</span>
+                                    <span className="text-xs font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">{variant.width_cm || editingItem.width_cm || 20} cm</span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="5" max="80" step="1"
+                                    value={variant.width_cm || editingItem.width_cm || 20}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      setActiveVariantForScale(variant.id);
+                                      
+                                      const newVariants = editingItem.variants!.map(v => 
+                                        v.id === variant.id ? { ...v, width_cm: val } : v
+                                      );
+                                      setEditingItem({ ...editingItem, variants: newVariants });
+                                      
+                                      const dims = naturalDimsRef.current;
+                                      const scaleMultiplier = editingItem.modelScale || 1.00;
+                                      if (dims && staffModelViewerRef.current) {
+                                        const ratio = val / (dims.x * 100);
+                                        const totalRatio = ratio * scaleMultiplier;
+                                        staffModelViewerRef.current.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
+                                      }
+                                    }}
+                                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
+                                  />
+                                </div>
+                              ))}
+
+                              {/* Scale Offset */}
+                              <div className="pt-4 border-t border-slate-200">
+                                <div className="flex justify-between items-center mb-2">
+                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    Global Size Offset (Scale)
+                                  </label>
+                                  <span className="text-xs font-black text-slate-600 bg-slate-100 px-2 rounded">
+                                    {Math.round((editingItem.modelScale || 1.00) * 100)}%
+                                  </span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="0.5" max="2.0" step="0.05"
+                                  value={editingItem.modelScale || 1.00}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    setEditingItem({ ...editingItem, modelScale: val });
+                                    const dims = naturalDimsRef.current;
+                                    if (dims && staffModelViewerRef.current) {
+                                      let currentW = editingItem.width_cm || 20;
+                                      if (activeVariantForScale) {
+                                         const v = editingItem.variants?.find(v => v.id === activeVariantForScale);
+                                         if (v && v.width_cm) currentW = v.width_cm;
+                                      }
+                                      const ratio = (currentW / (dims.x * 100)) * val;
+                                      staffModelViewerRef.current.scale = `${ratio} ${ratio} ${ratio}`;
+                                    }
+                                  }}
+                                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500 focus:outline-none"
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>      )}
-                    </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -3523,6 +3568,77 @@ export default function MenuPage() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeModalTab === "nutrition" && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <div>
+                        <h4 className="text-sm font-bold text-indigo-900">
+                          Nutrition &amp; Macros
+                        </h4>
+                        <p className="text-[11px] text-[#fe5c13] font-medium">
+                          Track total kcal and macros. Uncheck custom to auto-calculate from recipe.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="is_custom_macros"
+                          checked={(editingItem as any).is_custom_macros || false}
+                          onChange={(e) => setEditingItem({ ...editingItem, is_custom_macros: e.target.checked } as any)}
+                        />
+                        <label htmlFor="is_custom_macros" className="text-sm font-semibold text-slate-700">Custom Macros Override</label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Kcal</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          disabled={!(editingItem as any).is_custom_macros}
+                          value={(editingItem as any).kcal || 0}
+                          onChange={(e) => setEditingItem({ ...editingItem, kcal: parseFloat(e.target.value) || 0 } as any)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Protein (g)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          disabled={!(editingItem as any).is_custom_macros}
+                          value={(editingItem as any).protein_g || 0}
+                          onChange={(e) => setEditingItem({ ...editingItem, protein_g: parseFloat(e.target.value) || 0 } as any)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Carbs (g)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          disabled={!(editingItem as any).is_custom_macros}
+                          value={(editingItem as any).carbs_g || 0}
+                          onChange={(e) => setEditingItem({ ...editingItem, carbs_g: parseFloat(e.target.value) || 0 } as any)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Fat (g)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          disabled={!(editingItem as any).is_custom_macros}
+                          value={(editingItem as any).fat_g || 0}
+                          onChange={(e) => setEditingItem({ ...editingItem, fat_g: parseFloat(e.target.value) || 0 } as any)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
