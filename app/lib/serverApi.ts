@@ -20,6 +20,7 @@ export async function serverApi<T>(path: string, options: RequestInit = {}): Pro
   const res = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers,
+    cache: "no-store",
   });
 
   if (!res.ok) {

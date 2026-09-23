@@ -36,6 +36,7 @@ type MenuItem = {
     categoryId: string;
     isArchived: boolean;
     isOutOfStock: boolean;
+    gst_rate?: number;
 };
 
 type CartItem = {
@@ -44,6 +45,7 @@ type CartItem = {
     variantLabel?: string;
     quantity: number;
     unitPrice: number;
+    gst_rate?: number;
 };
 
 type DeliveryZone = {
@@ -158,12 +160,13 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
         const { me, menuRes, zonesRes, ordersRes } = initialData;
         const r = (me?.role || "").toLowerCase();
         const taxPercent = me?.tax_percent || 0;
+        const restNameStr = JSON.stringify(initialData?.me || {});
         const menuItems = (menuRes as any)?.filter?.((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ??
             (menuRes as any)?.items?.filter((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ?? [];
         const zones = zonesRes?.zones || [];
         const fetched = ordersRes?.orders || [];
         const orders = fetched.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        return { role: r, taxPercent, menuItems, zones, orders };
+        return { role: r, taxPercent, menuItems, zones, orders, restNameStr };
     }, [initialData]);
 
     const [role, setRole] = useState(initialProcessed?.role || "");
@@ -179,11 +182,58 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
     const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
     const [searchMenu, setSearchMenu] = useState("");
     const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-    const [taxPercent, setTaxPercent] = useState<number>(0);
+    const [taxPercent, setTaxPercent] = useState<number>(initialProcessed?.taxPercent || 0);
+    const [restName, setRestName] = useState<string>(initialProcessed?.restNameStr || "Unknown");
 
     // New order form
     const [orderType, setOrderType] = useState<"takeout" | "delivery" | "dine_in_reception">("takeout");
     const [tableNumber, setTableNumber] = useState("");
+    
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [deliveryAddressId, setDeliveryAddressId] = useState<string | null>(null);
+  const [customerAddresses, setCustomerAddresses] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+
+  // Reset customer id if phone changes manually
+  const handlePhoneChange = (val: string) => {
+    setCustomerPhone(val);
+    if (customerId) setCustomerId(null);
+    if (val.length > 3) {
+      api<any>(`/api/admin/customers/search?q=${val}`).then(res => {
+        const customers = res.customers || [];
+        // Auto-fill if exact match found
+        const exactMatch = customers.find((c: any) => c.phone === val);
+        if (exactMatch) {
+          selectCustomer(exactMatch);
+        } else {
+          setSearchResults(customers);
+        }
+      }).catch(console.error);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  const selectCustomer = async (c: any) => {
+    setCustomerId(c.id);
+    setCustomerName(c.name);
+    setCustomerPhone(c.phone);
+    setSearchResults([]);
+    
+    try {
+      const res = await api<any>(`/api/admin/customers/${c.id}/addresses`);
+      if (res.addresses) {
+        setCustomerAddresses(res.addresses);
+        if (res.addresses.length > 0) {
+          setDeliveryAddressId(res.addresses[0].id);
+          setDeliveryAddress(res.addresses[0].address_line);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -238,6 +288,8 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                   }
                   setRole(r);
                   setTaxPercent(me?.tax_percent || 0);
+                  setRestName(me?.restaurant || "Unknown (Client fetch)");
+        setRestName(me?.restaurant || "Unknown");
                   setMenuItems((menuRes as any)?.filter?.((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ??
                       (menuRes as any)?.items?.filter((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ?? []);
                   setZones(zonesRes?.zones || []);
@@ -273,7 +325,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
         setCart(prev => {
             const existing = prev.find(c => c.menuItemId === item.id);
             if (existing) return prev.map(c => c.menuItemId === item.id ? { ...c, quantity: c.quantity + 1 } : c);
-            return [...prev, { menuItemId: item.id, menuItemName: item.name, quantity: 1, unitPrice: item.price }];
+            return [...prev, { menuItemId: item.id, menuItemName: item.name, quantity: 1, unitPrice: item.price, gst_rate: item.gst_rate }];
         });
     };
 
@@ -286,7 +338,10 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
 
     const cartTotal = cart.reduce((sum, c) => sum + c.quantity * c.unitPrice, 0);
     const deliveryFee = orderType === "delivery" ? (selectedZone?.fee ?? 0) : 0;
-    const computedTax = cartTotal * (taxPercent / 100);
+    const computedTax = cart.reduce((sum, c) => {
+        const rate = c.gst_rate !== undefined && c.gst_rate !== null ? c.gst_rate : taxPercent;
+        return sum + (c.quantity * c.unitPrice * (rate / 100));
+    }, 0);
     const finalTotal = cartTotal + computedTax + deliveryFee;
 
     const resetForm = () => {
@@ -330,6 +385,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                 delivery_address: orderType === "delivery" ? deliveryAddress : null,
                 delivery_zone: orderType === "delivery" ? selectedZone?.name ?? null : null,
                 delivery_fee: deliveryFee,
+                tax_amount: computedTax,
                 payment_mode: normalizePaymentMode(paymentMode),
                 notes: receptionNote || null,
                 items: cart.map(c => ({
@@ -363,11 +419,14 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                         body: JSON.stringify({
                             order_type: "takeout",
                             table_number: null,
+                            customer_id: customerId || null,
+                            delivery_address_id: deliveryAddressId || null,
                             customer_name: customerName || null,
                             customer_phone: customerPhone || null,
                             delivery_address: null,
                             delivery_zone: null,
                             delivery_fee: 0,
+                            tax_amount: computedTax,
                             payment_mode: normalizePaymentMode(paymentMode),
                             notes: compatNote,
                             items: cart.map(c => ({
@@ -694,7 +753,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                 </div>
                             )}
 
-                            {/* Customer details */}
+                                                        {/* Customer details */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Customer Name</label>
@@ -714,11 +773,21 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                         <input
                                             value={customerPhone}
-                                            onChange={e => setCustomerPhone(e.target.value)}
+                                            onChange={e => handlePhoneChange(e.target.value)}
                                             placeholder="Optional"
                                             inputMode="tel"
                                             className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-50 focus:border-[#fe5c13] transition-all"
                                         />
+                                        {searchResults.length > 0 && (
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                                                {searchResults.map(c => (
+                                                    <div key={c.id} onClick={() => selectCustomer(c)} className="px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0">
+                                                        <div className="font-medium text-slate-800">{c.phone}</div>
+                                                        {c.name && <div className="text-[10px] text-slate-500">{c.name}</div>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -787,6 +856,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                         placeholder="Search menu..."
                                         className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-50 focus:border-[#fe5c13] transition-all"
                                     />
+
                                 </div>
                                 <div className="max-h-48 overflow-y-auto border border-slate-100 rounded-xl">
                                     {filteredMenu.length === 0 ? (

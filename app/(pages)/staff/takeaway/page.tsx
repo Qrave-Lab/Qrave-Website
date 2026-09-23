@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { serverApi } from "@/app/lib/serverApi";
 import TakeawayClient from "./TakeawayClient";
 
