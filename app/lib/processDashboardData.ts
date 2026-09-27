@@ -2,20 +2,22 @@ export function processDashboardData(initialData: any) {
   if (!initialData) return null;
   const { tablesRes, ordersRes, sessionsRes, takeawayRes, serviceRes, salesRes, waitlistRes } = initialData;
 
-  const ordersList = ordersRes?.orders || [];
+  // Clone so we don't mutate the cached API response object
+  const ordersList = [...(ordersRes?.orders || [])];
   const sessionsList = sessionsRes?.sessions || [];
   const takeawayOrdersList = takeawayRes?.orders || [];
   const tablesApi = tablesRes || [];
 
+  // Inject reception dine-in takeaway orders as fake active orders (once only)
   for (const tw of takeawayOrdersList) {
-    if (tw.status === "completed" || tw.status === "cancelled") continue;
+    if (tw.status === "completed" || tw.status === "cancelled" || tw.status === "ready") continue;
     let tableNum = parseInt(String(tw.table_number || ""), 10);
     const notes = String(tw.notes || "");
     if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
       const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
       if (m) tableNum = parseInt(m[1], 10);
     }
-    
+
     if (!isNaN(tableNum) && tableNum > 0) {
       const matchingTable = tablesApi.find((t: any) => t.table_number === tableNum);
       ordersList.push({
@@ -36,14 +38,14 @@ export function processDashboardData(initialData: any) {
           menu_item_name: i.menu_item_name || "",
           variant_label: i.variant_label || null,
         })),
-        is_takeaway: true
+        is_takeaway: true,
       });
     }
   }
 
   const activeOrders = ordersList;
 
-  // Build pending orders
+  // Build pending orders list
   const pendingOrdersMap = new Map<string, any>();
   for (const order of ordersList) {
     if (order.status === "pending" || order.status === "accepted") {
@@ -67,57 +69,94 @@ export function processDashboardData(initialData: any) {
       }
     }
   }
-  const pendingOrders = Array.from(pendingOrdersMap.values()).sort((a, b) => b.latestTime.getTime() - a.latestTime.getTime());
+  const pendingOrders = Array.from(pendingOrdersMap.values()).sort(
+    (a, b) => b.latestTime.getTime() - a.latestTime.getTime()
+  );
 
-  // Build tables
-  const occupancyByTable = new Map<number, { sessionId: string; seatedAt?: Date }>();
+  // Build tables — use table_id (UUID) as key to avoid merging tables
+  // with the same number across different floors
+  const occupancyByTable = new Map<string, { sessionId: string; seatedAt?: Date }>();
   for (const s of sessionsList) {
-    occupancyByTable.set(s.table_number, {
+    if (!s.table_id) continue;
+    occupancyByTable.set(s.table_id, {
       sessionId: s.session_id,
       seatedAt: s.started_at ? new Date(s.started_at) : undefined,
     });
   }
 
-  const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
+  // ordersList has injection-skipped "ready" status takeaway orders — iterate once, no separate loop for pending/preparing
+  const totalsByTable = new Map<string, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
   for (const order of ordersList) {
-    const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0, sessionId: order.session_id, seatedAt: undefined };
+    if (!order.table_id) continue;
+    const existing = totalsByTable.get(order.table_id) || {
+      total: 0,
+      count: 0,
+      sessionId: order.session_id,
+      seatedAt: undefined,
+    };
     const orderCreatedAt = order.created_at ? new Date(order.created_at) : undefined;
     const orderTotal = order.items.reduce((sum: number, i: any) => sum + i.price * i.quantity, 0);
-    totalsByTable.set(order.table_number, {
+    totalsByTable.set(order.table_id, {
       total: existing.total + orderTotal,
       count: existing.count + order.items.reduce((sum: number, i: any) => sum + i.quantity, 0),
       sessionId: order.session_id || existing.sessionId,
-      seatedAt: existing.seatedAt && orderCreatedAt
-          ? (existing.seatedAt < orderCreatedAt ? existing.seatedAt : orderCreatedAt)
-          : (existing.seatedAt || orderCreatedAt),
+      seatedAt:
+        existing.seatedAt && orderCreatedAt
+          ? existing.seatedAt < orderCreatedAt
+            ? existing.seatedAt
+            : orderCreatedAt
+          : existing.seatedAt || orderCreatedAt,
     });
   }
 
+  // Also count "ready" (served-but-not-freed) takeaway orders so the table stays occupied
   for (const tw of takeawayOrdersList) {
     if (tw.status === "completed" || tw.status === "cancelled") continue;
+    // Only include "ready" orders here — pending/preparing are already in ordersList via injection
+    if (tw.status !== "ready") continue;
     let tableNum = parseInt(String(tw.table_number || ""), 10);
     const notes = String(tw.notes || "");
     if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
       const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
       if (m) tableNum = parseInt(m[1], 10);
     }
-    if (!isNaN(tableNum) && tableNum > 0) {
-       const existing = totalsByTable.get(tableNum) || { total: 0, count: 0, sessionId: tw.id, seatedAt: undefined };
-       const orderTotal = Number(tw.total) || 0;
-       const orderCount = Array.isArray(tw.items) ? tw.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) : 1;
-       totalsByTable.set(tableNum, {
-         total: existing.total + orderTotal,
-         count: existing.count + orderCount,
-         sessionId: existing.sessionId || tw.id,
-         seatedAt: existing.seatedAt || (tw.created_at ? new Date(tw.created_at) : undefined),
-       });
+    if (isNaN(tableNum) || tableNum <= 0) continue;
+    const matchingTable = tablesApi.find((t: any) => t.table_number === tableNum);
+    if (!matchingTable) continue;
+    if (totalsByTable.has(matchingTable.id)) continue; // already covered by real order
+    const twTotal = Number(tw.total) || (tw.items || []).reduce((s: number, i: any) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
+    const twCount = (tw.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+    if (twTotal > 0 || twCount > 0) {
+      totalsByTable.set(matchingTable.id, {
+        total: twTotal,
+        count: twCount,
+        sessionId: tw.id,
+        seatedAt: tw.created_at ? new Date(tw.created_at) : undefined,
+      });
     }
   }
 
   const tables = tablesApi.map((t: any) => {
-    const occ = occupancyByTable.get(t.table_number);
-    const meta = totalsByTable.get(t.table_number);
+    const occ = occupancyByTable.get(t.id);
+    const meta = totalsByTable.get(t.id);
     const hasActiveOrders = Boolean(meta && meta.count > 0);
+    
+    // Determine takeaway status for Reception Dine-In tracking
+    let twStatus: string | undefined;
+    for (const tw of takeawayOrdersList) {
+      if (tw.status === "completed" || tw.status === "cancelled") continue;
+      let tableNum = parseInt(String(tw.table_number || ""), 10);
+      const notes = String(tw.notes || "");
+      if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
+        const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+        if (m) tableNum = parseInt(m[1], 10);
+      }
+      if (tableNum === t.table_number) {
+        twStatus = tw.status;
+        break;
+      }
+    }
+
     return {
       id: t.id,
       tableCode: `T${t.table_number}`,
@@ -125,6 +164,7 @@ export function processDashboardData(initialData: any) {
       isOccupied: Boolean(occ) || hasActiveOrders,
       activeSessionId: occ?.sessionId || meta?.sessionId,
       isTakeaway: !occ && hasActiveOrders,
+      takeawayStatus: twStatus,
       currentTotal: meta?.total,
       itemsCount: meta?.count,
       seatedAt: occ?.seatedAt || meta?.seatedAt,
@@ -133,7 +173,9 @@ export function processDashboardData(initialData: any) {
     };
   });
 
-  const occupiedTableCodes = new Set(tables.filter((t: any) => t.isOccupied).map((t: any) => t.tableCode));
+  const occupiedTableCodes = new Set(
+    tables.filter((t: any) => t.isOccupied).map((t: any) => t.tableCode)
+  );
   const serviceCalls = (serviceRes || [])
     .filter((c: any) => c.status !== "done")
     .filter((c: any) => occupiedTableCodes.has(`T${c.table_number}`))
@@ -164,6 +206,6 @@ export function processDashboardData(initialData: any) {
     serviceCalls,
     todaySales,
     takeawaySummary: takeawayRes || null,
-    waitlistCount
+    waitlistCount,
   };
 }

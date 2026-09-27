@@ -637,7 +637,7 @@ export default function ImmersiveMenu({
                                                 type="button"
                                                 onClick={() => {
                                                     if (totalCartItems > 0) {
-                                                        router.push("/checkout");
+                                                        window.location.href = "/checkout";
                                                     }
                                                 }}
                                                 className="flex-1 h-[52px] rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"

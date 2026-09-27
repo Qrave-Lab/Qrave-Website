@@ -32,6 +32,7 @@ export type Restaurant = {
   phone: string;
   phoneCountryCode: string;
   website?: string;
+  storeSlug?: string;
   logo_url?: string;
   orderingEnabled?: boolean;
   openTime?: string;

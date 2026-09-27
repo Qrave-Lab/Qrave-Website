@@ -48,6 +48,7 @@ type StaffTable = {
   isEnabled?: boolean;
   activeSessionId?: string;
   isTakeaway?: boolean;
+  takeawayStatus?: string; // raw status from takeaway_orders for reception dine-in tables
   currentTotal?: number;
   itemsCount?: number;
   guests?: number;
@@ -160,7 +161,10 @@ type ServiceCallAPI = {
   comment?: string;
 };
 
-const getTimeAgo = (date: Date) => {
+const getTimeAgo = (rawDate: any) => {
+  if (!rawDate) return "Unknown time";
+  const date = rawDate instanceof Date ? rawDate : new Date(rawDate);
+  if (isNaN(date.getTime())) return "Unknown time";
   const diff = Math.floor((new Date().getTime() - date.getTime()) / 60000);
   if (diff < 1) return "Just now";
   if (diff < 60) return `${diff}m ago`;
@@ -170,8 +174,10 @@ const getTimeAgo = (date: Date) => {
   return `${hours}h ${mins}m`;
 };
 
-const getMinutesDiff = (date?: Date) => {
-  if (!date) return 0;
+const getMinutesDiff = (rawDate?: any) => {
+  if (!rawDate) return 0;
+  const date = rawDate instanceof Date ? rawDate : new Date(rawDate);
+  if (isNaN(date.getTime())) return 0;
   return Math.floor((new Date().getTime() - date.getTime()) / 60000);
 };
 
@@ -183,7 +189,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
   const [searchTerm, setSearchTerm] = useState("");
   const [tables, setTables] = useState<StaffTable[]>(initialProcessed?.tables || []);
   const [selectedFloor, setSelectedFloor] = useState<string>("All Floors");
-  const [orders, setOrders] = useState<PendingOrder[]>(initialProcessed?.orders || []);
+  const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(initialProcessed?.activeOrders || []);
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>(initialProcessed?.serviceCalls || []);
   const [todaySales, setTodaySales] = useState<number>(initialProcessed?.todaySales || 0);
@@ -220,6 +226,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     currentTotal: number;
     selectedPayment: string;
     isProcessing: boolean;
+    isTakeaway?: boolean;
   } | null>(null);
 
   const [tableFilter, setTableFilter] = useState<TableFilter>("all");
@@ -229,6 +236,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const refreshLockRef = useRef(false);
   const socketRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -283,6 +291,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       const mappedStatus: OrderStatus =
         order.status === "pending" ? "pending" : "cooking";
       for (const item of order.items || []) {
+        // Skip ghost/malformed items with no name or zero quantity
+        if (!item.menu_item_name || !item.quantity) continue;
         const variantSuffix = item.variant_label ? ` (${item.variant_label})` : "";
         next.push({
           id: `${orderId}-${item.menu_item_id}-${item.variant_id}`,
@@ -307,21 +317,25 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     return [normalized, ...ordersList.filter((o) => (o.id || o.order_id) !== orderId)];
   };
 
-  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[], takeawayOrdersList: any[] = []) => {
-    const occupancyByTable = new Map<number, { sessionId: string; seatedAt?: Date }>();
+  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[], rawTakeawayOrders?: any[]) => {
+    const occupancyByTable = new Map<string, { sessionId: string; seatedAt?: Date }>();
     for (const s of sessionsList) {
-      occupancyByTable.set(s.table_number, {
+      if (!s.table_id) continue;
+      occupancyByTable.set(s.table_id, {
         sessionId: s.session_id,
         seatedAt: s.started_at ? new Date(s.started_at) : undefined,
       });
     }
 
-    const totalsByTable = new Map<number, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
+    // ordersList already has reception dine-in takeaway orders injected into it,
+    // so we only need to iterate once — no separate takeaway loop needed.
+    const totalsByTable = new Map<string, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
     for (const order of ordersList) {
-      const existing = totalsByTable.get(order.table_number) || { total: 0, count: 0, sessionId: order.session_id };
+      if (!order.table_id) continue;
+      const existing = totalsByTable.get(order.table_id) || { total: 0, count: 0, sessionId: order.session_id };
       const orderCreatedAt = order.created_at ? new Date(order.created_at) : undefined;
       const orderTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-      totalsByTable.set(order.table_number, {
+      totalsByTable.set(order.table_id, {
         total: existing.total + orderTotal,
         count: existing.count + order.items.reduce((sum, i) => sum + i.quantity, 0),
         sessionId: order.session_id || existing.sessionId,
@@ -334,33 +348,39 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       });
     }
 
-    for (const tw of takeawayOrdersList) {
+    // Also include "ready" (served but not freed) takeaway orders in the table totals
+    // so the table card shows the bill even after marking served, until staff frees it.
+    const takeawayStatusByTable = new Map<string, string>(); // table_id → takeaway status
+    for (const tw of rawTakeawayOrders || []) {
       if (tw.status === "completed" || tw.status === "cancelled") continue;
-      
       let tableNum = parseInt(String(tw.table_number || ""), 10);
-      
       const notes = String(tw.notes || "");
       if (isNaN(tableNum) && notes.includes("[RECEPTION_DINEIN]")) {
         const m = notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
         if (m) tableNum = parseInt(m[1], 10);
       }
-      
-      if (!isNaN(tableNum) && tableNum > 0) {
-         const existing = totalsByTable.get(tableNum) || { total: 0, count: 0, sessionId: tw.id, seatedAt: undefined };
-         const orderTotal = Number(tw.total) || 0;
-         const orderCount = Array.isArray(tw.items) ? tw.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) : 1;
-         totalsByTable.set(tableNum, {
-           total: existing.total + orderTotal,
-           count: existing.count + orderCount,
-           sessionId: existing.sessionId || tw.id,
-           seatedAt: existing.seatedAt || (tw.created_at ? new Date(tw.created_at) : undefined),
-         });
+      if (isNaN(tableNum) || tableNum <= 0) continue;
+      const matchingTable = tablesApi.find(t => t.table_number === tableNum);
+      if (!matchingTable) continue;
+      // Track the takeaway status for buildTableTimeline
+      takeawayStatusByTable.set(matchingTable.id, tw.status);
+      // Only add to totals if NOT already covered by the injected order in ordersList
+      if (totalsByTable.has(matchingTable.id)) continue;
+      const twTotal = Number(tw.total) || (tw.items || []).reduce((s: number, i: any) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
+      const twCount = (tw.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+      if (twTotal > 0 || twCount > 0) {
+        totalsByTable.set(matchingTable.id, {
+          total: twTotal,
+          count: twCount,
+          sessionId: tw.id,
+          seatedAt: tw.created_at ? new Date(tw.created_at) : undefined,
+        });
       }
     }
 
     return tablesApi.map((t) => {
-      const occ = occupancyByTable.get(t.table_number);
-      const meta = totalsByTable.get(t.table_number);
+      const occ = occupancyByTable.get(t.id);
+      const meta = totalsByTable.get(t.id);
       const hasActiveOrders = Boolean(meta && meta.count > 0);
       return {
         id: t.id,
@@ -369,6 +389,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         isOccupied: Boolean(occ) || hasActiveOrders,
         activeSessionId: occ?.sessionId || meta?.sessionId,
         isTakeaway: !occ && hasActiveOrders,
+        takeawayStatus: takeawayStatusByTable.get(t.id),
         currentTotal: meta?.total,
         itemsCount: meta?.count,
         seatedAt: occ?.seatedAt || meta?.seatedAt,
@@ -386,14 +407,15 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       api<{ orders: any[] }>("/api/admin/takeaway/orders?status=active").catch(() => ({ orders: [] })),
     ]);
 
-    const ordersList = ordersRes?.orders || [];
+    const ordersList = [...(ordersRes?.orders || [])];
     const sessionsList = sessionsRes?.sessions || [];
     const takeawayOrdersList = takeawayRes?.orders || [];
     const tablesApi = tablesRes || [];
 
     // Inject Dine-in Takeaway orders as active POS orders
+    // Skip if a real POS order already exists for this table (prevents duplicates after kitchen accepts)
     for (const tw of takeawayOrdersList) {
-      if (tw.status === "completed" || tw.status === "cancelled") continue;
+      if (tw.status === "completed" || tw.status === "cancelled" || tw.status === "ready") continue;
       
       let tableNum = parseInt(String(tw.table_number || ""), 10);
       const notes = String(tw.notes || "");
@@ -404,13 +426,25 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       
       if (!isNaN(tableNum) && tableNum > 0) {
         const matchingTable = tablesApi.find(t => t.table_number === tableNum);
+        const tableId = matchingTable ? matchingTable.id : "";
+
+        // If any real (non-takeaway) order already covers this table, skip injection to avoid duplicates
+        const alreadyHasRealOrder = ordersList.some(
+          o => !o.is_takeaway && (o.table_id === tableId || o.table_number === tableNum)
+        );
+        if (alreadyHasRealOrder) continue;
+
+        // Also skip if this takeaway order is already in ordersList (e.g., from a previous inject)
+        const alreadyInjected = ordersList.some(o => (o.id || o.order_id) === tw.id);
+        if (alreadyInjected) continue;
+
         ordersList.push({
           id: tw.id,
           order_id: tw.id,
           status: "accepted", // Receptionist added orders are automatically accepted
           created_at: tw.created_at,
           session_id: tw.id, // using order id as fake session proxy
-          table_id: matchingTable ? matchingTable.id : "",
+          table_id: tableId,
           table_number: tableNum,
           order_number: tw.order_number || null,
           daily_order_number: tw.daily_order_number || null,
@@ -522,9 +556,21 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       };
       load();
     } else {
-      setTimeout(() => {
-        if (isActive) refreshSlowMetrics().catch(() => { });
-      }, 100);
+      // Seed the kitchen Activity Feed from the already-loaded active orders
+      setOrders(buildPendingOrders(initialProcessed.activeOrders || []));
+      // Trigger background refresh to get latest data (crucial when navigating back from table bill page)
+      const load = async () => {
+        try {
+          await refreshDashboard();
+        } catch {
+          // ignore
+        } finally {
+          setTimeout(() => {
+            if (isActive) refreshSlowMetrics().catch(() => { });
+          }, 100);
+        }
+      };
+      load();
     }
     return () => { isActive = false; };
   }, [initialProcessed]);
@@ -603,7 +649,16 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
           const data = msg?.data as ActiveOrder;
           const orderId = data?.id || data?.order_id;
           if (!data || !orderId) return;
+          // If the incoming status is a terminal/done status and it's not already
+          // in our list, there's nothing to add. Just trigger a background refresh.
+          const terminalStatus = data.status === "served" || data.status === "completed" || data.status === "cancelled";
           setActiveOrders((prev) => {
+            const alreadyTracked = prev.some(o => (o.id || o.order_id) === orderId);
+            if (terminalStatus && !alreadyTracked) {
+              // Don't add a finished order we've never seen — it's irrelevant
+              setOrders(buildPendingOrders(prev));
+              return prev;
+            }
             const next = upsertOrder(prev, data);
             setOrders(buildPendingOrders(next));
             return next;
@@ -700,9 +755,19 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       .filter((o) => o.table_id === table.id)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const hasSeated = Boolean(table.isOccupied && table.seatedAt);
-    const hasAccepted = tableOrders.some((o) => o.status === "accepted" || o.status === "ready" || o.status === "served");
-    const hasKitchen = tableOrders.some((o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing" || o.status === "ready");
-    const hasServed = tableOrders.some((o) => o.status === "served");
+
+    // For reception dine-in (isTakeaway) tables, derive status from takeawayStatus
+    // since "ready" orders are no longer injected into activeOrders
+    const tw = table.isTakeaway ? table.takeawayStatus : undefined;
+    const hasAccepted =
+      tableOrders.some((o) => o.status === "accepted" || o.status === "ready" || o.status === "served") ||
+      (tw === "preparing" || tw === "ready" || tw === "completed");
+    const hasKitchen =
+      tableOrders.some((o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing" || o.status === "ready") ||
+      (tw === "preparing" || tw === "ready" || tw === "completed");
+    const hasServed =
+      tableOrders.some((o) => o.status === "served") ||
+      (tw === "ready" || tw === "completed");
     const hasPaid = table.billStatus === "paid";
     return [
       { key: "seated", label: "Seated", done: hasSeated },
@@ -724,11 +789,19 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
       const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
-      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
-      await api(url, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "accepted" }),
-      });
+      if (isTakeaway) {
+        // Takeaway doesn't have 'accepted' status — map to 'preparing' instead
+        const url = `/api/admin/takeaway/orders/${orderId}/status`;
+        await api(url, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "preparing" }),
+        });
+      } else {
+        await api(`/api/admin/orders/${orderId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "accepted" }),
+        });
+      }
       refreshLiveData().catch(() => { });
     } catch {
       setActiveOrders(previous);
@@ -750,13 +823,19 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
       const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
-      // For takeaways, "served" often maps to "completed" if it's the final step
-      const targetStatus = isTakeaway ? "completed" : "served";
-      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
-      await api(url, {
-        method: "PATCH",
-        body: JSON.stringify({ status: targetStatus }),
-      });
+      if (isTakeaway) {
+        // For dine-in reception orders, use 'ready' (not 'completed' — that would auto-free the table)
+        const url = `/api/admin/takeaway/orders/${orderId}/status`;
+        await api(url, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "ready" }),
+        });
+      } else {
+        await api(`/api/admin/orders/${orderId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "served" }),
+        });
+      }
       refreshLiveData().catch(() => { });
     } catch {
       setActiveOrders(previous);
@@ -799,30 +878,32 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     if (!tableToFree.activeSessionId) return;
 
     try {
-      await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
-        method: "POST",
-      });
+      if (tableToFree.isTakeaway) {
+        await api(`/api/admin/takeaway/orders/${tableToFree.activeSessionId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "completed" }),
+        });
+      } else {
+        await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
+          method: "POST",
+        });
+      }
     } catch (err: any) {
       const status = err?.status;
       const msg = String(err?.message || "").toLowerCase();
       if (status === 409 && (msg.includes("mark paid") || msg.includes("pending bill") || msg.includes("unpaid"))) {
         // Fallback: if API still rejects, open the payment modal
-        const tableOrders = activeOrders.filter((o) => o.table_id === tableToFree.id);
-        let total = 0;
-        for (const order of tableOrders) {
-          for (const item of order.items || []) {
-            total += item.price * item.quantity;
-          }
-        }
+        const total = tableToFree.currentTotal || 0;
         setFreeTableModal({
           isOpen: true,
           tableId: tableToFree.id,
           tableCode: tableToFree.tableCode,
           sessionId: tableToFree.activeSessionId!,
           totalAmount: total,
-          currentTotal: tableToFree.currentTotal || 0,
+          currentTotal: total,
           selectedPayment: "cash",
           isProcessing: false,
+          isTakeaway: tableToFree.isTakeaway,
         });
         return;
       }
@@ -841,13 +922,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     setOpenMenuId(null);
 
     // Check if there is an unpaid balance for this table
-    const tableOrders = activeOrders.filter((o) => o.table_id === tableToFree.id);
-    let total = 0;
-    for (const order of tableOrders) {
-      for (const item of order.items || []) {
-        total += item.price * item.quantity;
-      }
-    }
+    const total = tableToFree.currentTotal || 0;
     const hasUnpaidBalance = total > 0 && tableToFree.billStatus !== "paid";
 
     if (hasUnpaidBalance && tableToFree.activeSessionId) {
@@ -858,15 +933,16 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         tableCode: tableToFree.tableCode,
         sessionId: tableToFree.activeSessionId,
         totalAmount: total,
-        currentTotal: tableToFree.currentTotal || 0,
+        currentTotal: total,
         selectedPayment: "cash",
         isProcessing: false,
+        isTakeaway: tableToFree.isTakeaway,
       });
     } else {
       // No balance — just confirm and free
       setConfirmAction({
         title: `Free ${tableToFree.tableCode}?`,
-        message: "This will end the active session immediately.",
+        message: tableToFree.isTakeaway ? "This will complete the active takeaway order immediately." : "This will end the active session immediately.",
         onConfirm: async () => handleFreeTable(tableId),
       });
     }
@@ -877,20 +953,33 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     setFreeTableModal(prev => prev ? { ...prev, isProcessing: true } : null);
     try {
       // 1. Mark the bill as paid via the payments API
+      const paymentPayload: any = {
+        status: "paid",
+        payment_mode: freeTableModal.selectedPayment,
+        reason: "staff_free_table",
+      };
+      if (freeTableModal.isTakeaway) {
+        paymentPayload.takeaway_order_id = freeTableModal.sessionId;
+      } else {
+        paymentPayload.session_id = freeTableModal.sessionId;
+      }
       await api(`/api/admin/payments/status`, {
         method: "POST",
-        body: JSON.stringify({
-          session_id: freeTableModal.sessionId,
-          status: "paid",
-          payment_mode: freeTableModal.selectedPayment,
-          reason: "staff_free_table",
-          amount: Number((freeTableModal.currentTotal || freeTableModal.totalAmount).toFixed(2)),
-        }),
+        body: JSON.stringify(paymentPayload),
       });
-      // 2. End the session (free the table)
-      await api(`/api/admin/sessions/${freeTableModal.sessionId}/end`, {
-        method: "POST",
-      });
+
+      // 2. End the session (free the table) or complete the takeaway
+      if (freeTableModal.isTakeaway) {
+        await api(`/api/admin/takeaway/orders/${freeTableModal.sessionId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "completed" }),
+        });
+      } else {
+        await api(`/api/admin/sessions/${freeTableModal.sessionId}/end`, {
+          method: "POST",
+        });
+      }
+
       setFreeTableModal(null);
       await refreshDashboard();
       toast.success(`${freeTableModal.tableCode} — bill paid & table freed`);
@@ -1213,7 +1302,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-end pl-6">
+            <div className="flex flex-col items-end px-8">
               <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
                 Occupancy
               </span>
@@ -1223,7 +1312,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                 {totalTables}
               </span>
             </div>
-            <div className="flex flex-col items-end pl-6">
+            <div className="flex flex-col items-end pl-8">
               <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
                 Waitlist
               </span>
@@ -1303,8 +1392,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col 2xl:flex-row gap-4 items-start 2xl:items-center justify-between bg-white px-4 sm:px-8 py-4">
-                <div className="flex flex-wrap items-center gap-3 w-full 2xl:w-auto">
+              <div className="flex flex-col xl:flex-row gap-3.5 items-stretch xl:items-center justify-between bg-white px-4 sm:px-8 py-4">
+                <div className="flex flex-wrap items-center gap-3">
                   {uniqueFloors.length > 1 && (
                     <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
                       <button
@@ -1357,32 +1446,34 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                       </button>
                     ))}
                   </div>
-
-                  <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
-
-                  <CustomSelect
-                    value={tableSort}
-                    onChange={(val: TableSort) => setTableSort(val)}
-                    className="w-48"
-                    buttonClassName="!h-10 !rounded-xl !bg-white"
-                    options={[
-                      { value: "table", label: "Sort by Number" },
-                      { value: "total", label: "Sort by Value" },
-                      { value: "seated", label: "Sort by Time" }
-                    ]}
-                  />
                 </div>
 
-                <div className="relative group w-full 2xl:w-64 shrink-0">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder="Search table..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900/10 bg-gray-50 focus:bg-white transition-all"
-                  />
+                {/* Sort & Search in one single line */}
+                <div className="flex items-center gap-2.5 w-full xl:w-auto shrink-0">
+                  <div className="w-44 sm:w-48 shrink-0">
+                    <CustomSelect
+                      value={tableSort}
+                      onChange={(val: TableSort) => setTableSort(val)}
+                      buttonClassName="!h-10 !rounded-xl !bg-white"
+                      options={[
+                        { value: "table", label: "Sort by Number" },
+                        { value: "total", label: "Sort by Value" },
+                        { value: "seated", label: "Sort by Time" }
+                      ]}
+                    />
+                  </div>
+
+                  <div className="relative group flex-1 sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Search table..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full h-10 pl-9 pr-4 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900/10 bg-gray-50 focus:bg-white transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1470,6 +1561,24 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                       dragElastic={{ left: 0.12, right: 0.02 }}
                       dragTransition={{ bounceStiffness: 600, bounceDamping: 32 }}
                       whileTap={{ cursor: "grabbing" }}
+                      onDragStart={() => {
+                        isDraggingRef.current = true;
+                      }}
+                      onDragEnd={() => {
+                        setTimeout(() => {
+                          isDraggingRef.current = false;
+                        }, 120);
+                      }}
+                      onClick={() => {
+                        if (isDraggingRef.current) return;
+                        if (openMenuId === table.id) {
+                          setOpenMenuId(null);
+                          return;
+                        }
+                        if (table.isOccupied && table.activeSessionId) {
+                          router.push(`/staff/table/${table.activeSessionId}`);
+                        }
+                      }}
                       className={`relative flex flex-col w-full h-full rounded-2xl bg-white border border-gray-100/80 shadow-xs ${openMenuId === table.id ? "overflow-visible z-40" : "overflow-hidden"} transition-colors cursor-pointer ${cardStyle}`}
                     >
                       <div className={`h-1 w-full rounded-t-2xl ${statusBar}`} />
@@ -1571,14 +1680,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                             <span className="text-xs font-semibold">Available</span>
                           </div>
                         ) : (
-                          <Link
-                            href={`/staff/table/${table.activeSessionId}`}
+                          <div
                             className="flex flex-col gap-2 group"
-                            draggable="false"
-                            onClick={(e) => {
-                              // Let drag events through without triggering navigation if it's a drag
-                              if (e.defaultPrevented) return;
-                            }}
                           >
                             <div className="grid grid-cols-2 gap-2">
                               <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
@@ -1616,7 +1719,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                                   </span>
                               </div>
                             )}
-                          </Link>
+                          </div>
                         )}
                       </div>
                     </motion.div>

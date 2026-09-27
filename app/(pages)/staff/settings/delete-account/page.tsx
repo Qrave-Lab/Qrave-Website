@@ -86,7 +86,13 @@ export default function DeleteAccountPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-white">
+      <div className="flex h-screen w-full flex-col items-center justify-center space-y-4 bg-white">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/landing/image.png"
+          alt="Qrave Logo"
+          className="h-10 w-auto object-contain animate-pulse"
+        />
         <Loader2 className="w-8 h-8 animate-spin text-[#fe5c13]" />
       </div>
     );

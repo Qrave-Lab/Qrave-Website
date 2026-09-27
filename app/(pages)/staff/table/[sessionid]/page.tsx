@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { api, requestManagerPin } from "@/app/lib/api";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
+import ManagerPinInput from "@/app/components/ui/ManagerPinInput";
 import { printBillTicket } from "@/app/lib/posPrinter";
 
 type OrderStatus =
@@ -867,7 +868,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       onClick={() => setShowMenu(false)}
     >
       {/* === TOP APP BAR (Minimal & Professional, No Gradients/Emojis) === */}
-      <header className="h-14 px-6 bg-white border-b border-slate-200 shrink-0 flex items-center justify-between z-30">
+      <header className="h-14 px-6 bg-white border-b border-slate-200 shrink-0 flex items-center justify-between z-30 print:hidden">
         <div className="flex items-center gap-4">
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -1008,7 +1009,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
       {/* === SERVICE CALLS BANNER (No Gradients) === */}
       {serviceCalls.length > 0 && (
-        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between shrink-0">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between shrink-0 print:hidden">
           <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
             <BellRing className="w-4 h-4 text-amber-600 animate-pulse" />
             <span>Service Request:</span>
@@ -1033,10 +1034,10 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       )}
 
       {/* === SPLIT PANEL === */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-6 gap-6">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-6 gap-6 print:p-0 print:block print:overflow-visible">
         {/* LEFT COLUMN: THERMAL RECEIPT AREA (With fly-up animation) */}
-        <div className="w-full lg:w-[380px] shrink-0 flex flex-col h-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-          <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-slate-700 flex items-center justify-between shrink-0">
+        <div className="w-full lg:w-[380px] shrink-0 flex flex-col h-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative print:w-full print:border-none print:shadow-none print:rounded-none print:h-auto print:overflow-visible">
+          <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-slate-700 flex items-center justify-between shrink-0 print:hidden">
             <span className="text-xs font-bold uppercase tracking-wider">Bill Preview</span>
             <button
               onClick={handlePrint}
@@ -1049,7 +1050,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           </div>
 
           {/* Paper container wrapper with overflow-hidden for flying effect */}
-          <div className="flex-1 overflow-hidden relative p-4 bg-slate-100/50">
+          <div className="flex-1 overflow-hidden relative p-4 bg-slate-100/50 print:overflow-visible print:bg-white print:p-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={isPrinting ? "printing-receipt" : "normal-receipt"}
@@ -1060,7 +1061,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   duration: isPrinting ? 0.75 : 0.45,
                   ease: isPrinting ? "easeIn" : "easeOut",
                 }}
-                className="w-full bg-white p-6 flex flex-col font-mono text-slate-900 text-[10px] space-y-4 border border-slate-250 select-none shadow-sm relative min-h-full"
+                className="w-full bg-white p-6 flex flex-col font-mono text-slate-900 text-[10px] space-y-4 border border-slate-250 select-none shadow-sm relative min-h-full print:!transform-none print:!opacity-100 print:border-none print:shadow-none print:![clip-path:none]"
                 style={{
                   clipPath:
                     "polygon(0% 0%, 5% 1%, 10% 0%, 15% 1%, 20% 0%, 25% 1%, 30% 0%, 35% 1%, 40% 0%, 45% 1%, 50% 0%, 55% 1%, 60% 0%, 65% 1%, 70% 0%, 75% 1%, 80% 0%, 85% 1%, 90% 0%, 95% 1%, 100% 0%, 100% 100%, 95% 99%, 90% 100%, 85% 99%, 80% 100%, 75% 99%, 70% 100%, 65% 99%, 60% 100%, 55% 99%, 50% 100%, 45% 99%, 40% 100%, 35% 99%, 30% 100%, 25% 99%, 20% 100%, 15% 99%, 10% 100%, 5% 99%, 0% 100%)",
@@ -1103,7 +1104,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   <div className="w-3/12 text-right">Amt</div>
                 </div>
 
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5 print:max-h-none print:overflow-visible">
                   {items.map((item) => {
                     const isCancelled = item.status === "cancelled";
                     return (
@@ -1159,7 +1160,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           </div>
 
           {/* Quick print bar */}
-          <div className="p-3 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
+          <div className="p-3 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0 print:hidden">
             <button
               onClick={handlePrint}
               disabled={isPrinting}
@@ -1181,7 +1182,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
         </div>
 
         {/* RIGHT COLUMN: KOT ITEMS LIST */}
-        <div className="flex-1 flex flex-col h-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex-1 flex flex-col h-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
           {/* Section Header */}
           <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 shrink-0">
             <div>
@@ -1970,17 +1971,19 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
               </div>
 
               <div className="p-5 space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <div className="space-y-2 flex flex-col items-center">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider self-start">
                     Manager PIN
                   </label>
-                  <input
-                    type="password"
+                  <ManagerPinInput
                     value={waivePin}
-                    onChange={(e) => setWaivePin(e.target.value)}
-                    placeholder="Enter PIN"
-                    maxLength={6}
-                    className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-4 focus:ring-rose-100 focus:border-rose-500 tracking-widest text-center"
+                    onChange={(p) => {
+                      setWaivePin(p);
+                      if (waiveError) setWaiveError("");
+                    }}
+                    length={4}
+                    error={Boolean(waiveError && !waivePin)}
+                    showKeypad={true}
                   />
                 </div>
 

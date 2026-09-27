@@ -29,8 +29,6 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
-import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
 import NetworkStatusIndicator from "./NetworkStatusIndicator";
 
 type SidebarItem = {
@@ -83,6 +81,12 @@ const sidebarItems: SidebarSection[] = [
         href: "/staff/takeaway",
         icon: Bike,
         description: "Walk-in & delivery orders",
+      },
+      {
+        label: "Order History",
+        href: "/staff/history",
+        icon: Clock,
+        description: "Past dine-in & takeaway",
       },
       {
         label: "Cash Drawer",
@@ -143,10 +147,10 @@ function hasFeatureAccess(
 
   // Sensible Defaults
   if (r === "waiter") {
-    return ["floor", "reservations", "takeaway"].includes(feature);
+    return ["floor", "reservations", "takeaway", "history"].includes(feature);
   }
   if (r === "cashier") {
-    return ["floor", "reservations", "takeaway", "cash_drawer"].includes(feature);
+    return ["floor", "reservations", "takeaway", "cash_drawer", "history"].includes(feature);
   }
   if (r === "kitchen") {
     // Kitchen only needs their display, they shouldn't see menu edits or settings.
@@ -171,7 +175,6 @@ export default function StaffSidebar() {
       return true;
     }
   });
-  const { theme, setTheme } = useTheme();
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [currentRole, setCurrentRole] = useState<string>("");
@@ -774,20 +777,6 @@ export default function StaffSidebar() {
         </button>
         
         <NetworkStatusIndicator isCollapsed={isCollapsed} />
-        
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors w-full
-            ${isCollapsed ? "justify-center" : ""}
-          `}
-        >
-          {theme === 'dark' ? <Sun className="w-5 h-5 shrink-0" /> : <Moon className="w-5 h-5 shrink-0" />}
-          {!isCollapsed && (
-            <span className="text-sm font-medium whitespace-nowrap">
-              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            </span>
-          )}
-        </button>
       </div>
 
       <button

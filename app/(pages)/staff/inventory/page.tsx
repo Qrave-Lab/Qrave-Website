@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/app/lib/api';
 import { motion, AnimatePresence } from "framer-motion";
-import { PackageOpen, Truck, FileText, CheckCircle, Plus, Search, MapPin, Store, Edit2, Trash2, X } from 'lucide-react';
+import { PackageOpen, Truck, FileText, CheckCircle, Plus, Search, MapPin, Store, Edit2, Trash2, X, AlertTriangle, ClipboardList, Trash } from 'lucide-react';
 import StaffSidebar from '@/app/components/StaffSidebar';
 import { toast } from 'react-hot-toast';
+import { CustomSelect } from '@/app/components/ui/CustomSelect';
 
 type Vendor = {
   id: string;
@@ -30,7 +31,7 @@ const fmtINR = (n: number) =>
   })}`;
 
 export default function InventoryDashboard() {
-  const [activeTab, setActiveTab] = useState<'vendors' | 'pos' | 'recipes' | 'kitchen' | 'stock'>('stock');
+  const [activeTab, setActiveTab] = useState<'vendors' | 'pos' | 'recipes' | 'kitchen' | 'stock' | 'stock-take' | 'waste'>('stock');
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddVendor, setShowAddVendor] = useState(false);
@@ -68,6 +69,26 @@ export default function InventoryDashboard() {
   // Searchable select lists
   const [ingredients, setIngredients] = useState<{id: string, name: string}[]>([]);
   const [menuItems, setMenuItems] = useState<{id: string, name: string}[]>([]);
+
+  // Advanced Inventory States
+  const [overviewStocks, setOverviewStocks] = useState<any[]>([]);
+  const [purchaseSuggestions, setPurchaseSuggestions] = useState<any[]>([]);
+  const [wastageEvents, setWastageEvents] = useState<any[]>([]);
+  
+  // Stock Take Form
+  const [stockTakeCounts, setStockTakeCounts] = useState<Record<string, string>>({});
+  
+  // Wastage Form
+  const [showLogWaste, setShowLogWaste] = useState(false);
+  const [wasteIngredient, setWasteIngredient] = useState('');
+  const [wasteQuantity, setWasteQuantity] = useState('');
+  const [wasteUnit, setWasteUnit] = useState('kg');
+  const [wasteReason, setWasteReason] = useState('');
+  
+  // Edit Par Level Modal
+  const [editingParLevel, setEditingParLevel] = useState<any | null>(null);
+  const [parLevelValue, setParLevelValue] = useState('');
+
 
   // Stock Batches state
   type Batch = {
@@ -159,6 +180,89 @@ export default function InventoryDashboard() {
     }
   };
 
+  const fetchAdvancedData = async () => {
+    try {
+      const [overviewRes, suggRes, wasteRes] = await Promise.all([
+        api<{ stocks: any[] }>('/api/admin/inventory/advanced/overview'),
+        api<{ suggestions: any[] }>('/api/admin/inventory/advanced/purchase-suggestions'),
+        api<{ events: any[] }>('/api/admin/inventory/advanced/wastage')
+      ]);
+      if (overviewRes?.stocks) setOverviewStocks(overviewRes.stocks);
+      if (suggRes?.suggestions) setPurchaseSuggestions(suggRes.suggestions);
+      if (wasteRes?.events) setWastageEvents(wasteRes.events);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveStockTake = async () => {
+    try {
+      const promises = Object.entries(stockTakeCounts).map(([id, qty]) => {
+        const item = overviewStocks.find(s => s.ingredient_id === id);
+        if (!item) return null;
+        return api(`/api/admin/inventory/advanced/ingredients/${id}/stock`, {
+          method: 'POST',
+          body: JSON.stringify({
+            stock: Number(qty),
+            reorder_threshold: Number(item.reorder_threshold || 0),
+            reason: 'Physical Stock Take'
+          })
+        });
+      }).filter(Boolean);
+      await Promise.all(promises);
+      toast.success("Stock take saved successfully");
+      setStockTakeCounts({});
+      fetchAdvancedData();
+      fetchBatches();
+    } catch(e) {
+      toast.error("Failed to save stock take");
+    }
+  };
+
+  const handleUpdateParLevel = async () => {
+    if (!editingParLevel) return;
+    try {
+      await api(`/api/admin/inventory/advanced/ingredients/${editingParLevel.ingredient_id}/stock`, {
+        method: 'POST',
+        body: JSON.stringify({
+          stock: Number(editingParLevel.stock || 0),
+          reorder_threshold: Number(parLevelValue),
+          reason: 'Par level update'
+        })
+      });
+      toast.success("Par level updated");
+      setEditingParLevel(null);
+      fetchAdvancedData();
+    } catch(e) {
+      toast.error("Failed to update par level");
+    }
+  };
+
+  const handleLogWaste = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api('/api/admin/inventory/advanced/wastage', {
+        method: 'POST',
+        body: JSON.stringify({
+          ingredient_id: wasteIngredient,
+          quantity: Number(wasteQuantity),
+          unit: wasteUnit,
+          reason: wasteReason,
+          shift_label: 'Morning'
+        })
+      });
+      toast.success("Wastage logged");
+      setShowLogWaste(false);
+      setWasteIngredient('');
+      setWasteQuantity('');
+      setWasteReason('');
+      fetchAdvancedData();
+      fetchBatches();
+    } catch(e) {
+      toast.error("Failed to log wastage");
+    }
+  };
+
   const fetchRecipes = async () => {
     try {
       const res = await api<{ recipes: any[] }>('/api/admin/inventory/advanced/recipes');
@@ -173,6 +277,7 @@ export default function InventoryDashboard() {
     fetchBatches();
     fetchRecipes();
     fetchVendors();
+    fetchAdvancedData();
   }, []);
 
   useEffect(() => {
@@ -383,54 +488,107 @@ export default function InventoryDashboard() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header & Tab Bar */}
-        <header className="border-b border-slate-200 bg-white px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-              <PackageOpen size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">Inventory Hub</h1>
-              <p className="text-xs text-slate-500">Manage suppliers, purchase orders, recipes, and kitchen stock</p>
+        <header className="border-b border-slate-200 bg-white shrink-0">
+          <div className="px-8 pt-5 pb-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-xs shrink-0">
+                <PackageOpen size={22} className="stroke-[2.2]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">Inventory Hub</h1>
+                <p className="text-xs font-medium text-slate-500">Manage suppliers, purchase orders, recipes, and kitchen stock</p>
+              </div>
             </div>
           </div>
           
-          <nav className="flex gap-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto overflow-x-auto max-w-full">
-            <button
-              onClick={() => setActiveTab('stock')}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'stock' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
-            >
-              <PackageOpen size={15} />
-              Stock Batches
-            </button>
-            <button
-              onClick={() => setActiveTab('pos')}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'pos' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
-            >
-              <FileText size={15} />
-              Purchase Orders
-            </button>
-            <button
-              onClick={() => setActiveTab('vendors')}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'vendors' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
-            >
-              <Truck size={15} />
-              Suppliers
-            </button>
-            <button
-              onClick={() => setActiveTab('recipes')}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'recipes' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
-            >
-              <MapPin size={15} />
-              Conversions & Recipes
-            </button>
-            <button
-              onClick={() => setActiveTab('kitchen')}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${activeTab === 'kitchen' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
-            >
-              <Store size={15} />
-              Central Kitchen
-            </button>
-          </nav>
+          <div className="px-8 pb-3.5 pt-0">
+            <nav className="flex items-center gap-1 bg-slate-100/90 p-1.5 rounded-xl border border-slate-200/80 shadow-xs w-full">
+              <button
+                onClick={() => setActiveTab('stock')}
+                title="Stock Batches"
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'stock'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <PackageOpen size={14} className={`shrink-0 ${activeTab === 'stock' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="truncate">Stock Batches</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('pos')}
+                title="Purchase Orders"
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'pos'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <FileText size={14} className={`shrink-0 ${activeTab === 'pos' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="truncate">Purchase Orders</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('vendors')}
+                title="Suppliers"
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'vendors'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <Truck size={14} className={`shrink-0 ${activeTab === 'vendors' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="truncate">Suppliers</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('recipes')}
+                title="Conversions & Recipes"
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'recipes'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <MapPin size={14} className={`shrink-0 ${activeTab === 'recipes' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="truncate">Conversions &amp; Recipes</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('stock-take')}
+                title="Stock Take"
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'stock-take'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <ClipboardList size={14} className={`shrink-0 ${activeTab === 'stock-take' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="truncate">Stock Take</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('waste')}
+                title="Wastage"
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'waste'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <Trash size={14} className={`shrink-0 ${activeTab === 'waste' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="truncate">Wastage</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('kitchen')}
+                title="Central Kitchen"
+                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'kitchen'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <Store size={14} className={`shrink-0 ${activeTab === 'kitchen' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className="truncate">Central Kitchen</span>
+              </button>
+            </nav>
+          </div>
         </header>
 
         {/* Main Content Area */}
@@ -450,6 +608,35 @@ export default function InventoryDashboard() {
                 <p className="mt-1 text-xs text-slate-500">Real-time inventory levels, batch arrivals, and expiry tracking.</p>
               </div>
             </div>
+            
+            {/* Low Stock Alerts */}
+            {purchaseSuggestions.length > 0 && (
+              <div className="mx-8 mt-5 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-3 animate-in slide-in-from-top-4 duration-300">
+                <div className="flex items-center gap-2 text-amber-800 font-bold">
+                  <AlertTriangle size={18} />
+                  <h3>Low Stock Alerts ({purchaseSuggestions.length})</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {purchaseSuggestions.map((s, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-xl border border-amber-100 flex justify-between items-center shadow-sm">
+                      <div>
+                        <div className="font-semibold text-slate-900">{s.ingredient}</div>
+                        <div className="text-xs text-slate-500">Current: <span className="font-bold text-rose-600">{s.current_stock}</span> / Par: {s.reorder_threshold}</div>
+                      </div>
+                      <button onClick={() => {
+                        setSelectedVendor('');
+                        setPoIngredient(s.ingredient_id);
+                        setPoQuantity(s.suggested_order_qty);
+                        setShowAddPO(true);
+                      }} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold rounded-lg transition-colors">
+                        Order {s.suggested_order_qty}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             {loading ? (
               <div className="py-24 text-center text-sm text-slate-400">Loading stock batches...</div>
@@ -791,6 +978,112 @@ export default function InventoryDashboard() {
           </div>
         )}
 
+        {activeTab === 'stock-take' && (
+          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900">Physical Stock Take</h2>
+                <p className="mt-1 text-xs text-slate-500">Reconcile theoretical system stock with physical counts, and set Par Levels.</p>
+              </div>
+              <button 
+                onClick={handleSaveStockTake}
+                disabled={Object.keys(stockTakeCounts).length === 0}
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-50"
+              >
+                Save Variances
+              </button>
+            </div>
+            
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full border-collapse text-left text-sm text-slate-600">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <th className="px-8 py-3.5">Ingredient</th>
+                    <th className="px-8 py-3.5">System Stock</th>
+                    <th className="px-8 py-3.5">Par Level (Reorder Pt)</th>
+                    <th className="px-8 py-3.5">Actual Physical Count</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {overviewStocks.map((item) => (
+                    <tr key={item.ingredient_id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-4 font-semibold text-slate-950">{item.ingredient}</td>
+                      <td className="px-8 py-4 font-mono">{item.stock}</td>
+                      <td className="px-8 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono">{item.reorder_threshold}</span>
+                          <button onClick={() => {
+                            setEditingParLevel(item);
+                            setParLevelValue(item.reorder_threshold.toString());
+                          }} className="text-blue-600 hover:text-blue-700 text-xs font-medium">Edit</button>
+                        </div>
+                      </td>
+                      <td className="px-8 py-4">
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Enter count..."
+                          value={stockTakeCounts[item.ingredient_id] ?? ''}
+                          onChange={e => setStockTakeCounts({...stockTakeCounts, [item.ingredient_id]: e.target.value})}
+                          className="w-40 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'waste' && (
+          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900">Wastage Log</h2>
+                <p className="mt-1 text-xs text-slate-500">Track spoiled, dropped, or unaccounted inventory loss.</p>
+              </div>
+              <button 
+                onClick={() => setShowLogWaste(true)}
+                className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-rose-700"
+              >
+                <Plus size={16} />
+                Log Waste
+              </button>
+            </div>
+            
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full border-collapse text-left text-sm text-slate-600">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <th className="px-8 py-3.5">Date</th>
+                    <th className="px-8 py-3.5">Ingredient</th>
+                    <th className="px-8 py-3.5">Quantity Lost</th>
+                    <th className="px-8 py-3.5">Reason</th>
+                    <th className="px-8 py-3.5">Staff</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {wastageEvents.map((w, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-4 text-slate-500">{new Date(w.created_at).toLocaleString()}</td>
+                      <td className="px-8 py-4 font-semibold text-slate-950">{w.ingredient}</td>
+                      <td className="px-8 py-4 font-mono font-bold text-rose-600">-{w.quantity} {w.unit}</td>
+                      <td className="px-8 py-4 text-slate-700">{w.reason}</td>
+                      <td className="px-8 py-4 text-slate-500">{w.staff_name || 'System'}</td>
+                    </tr>
+                  ))}
+                  {wastageEvents.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-8 py-16 text-center text-slate-500">No wastage events recorded.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'kitchen' && (
           <div className="flex-1 flex flex-col animate-in fade-in duration-200">
             <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1014,31 +1307,27 @@ export default function InventoryDashboard() {
             <h3 className="mb-6 text-xl font-bold text-slate-900">Create Purchase Order</h3>
             <div className="space-y-5">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Select Vendor</label>
-                <select 
+                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Select Vendor</label>
+                <CustomSelect
                   value={selectedVendor}
-                  onChange={(e) => setSelectedVendor(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                >
-                  <option value="" disabled>Choose a supplier...</option>
-                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
+                  onChange={(val: string) => setSelectedVendor(val)}
+                  options={vendors.map(v => ({ value: v.id, label: v.name }))}
+                  placeholder="Choose a supplier..."
+                  theme="emerald"
+                />
               </div>
               <div className="border-t border-slate-100 pt-5 space-y-3">
                 <label className="block text-sm font-semibold text-slate-900">Add Items</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <div className="col-span-1 sm:col-span-2">
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Ingredient</label>
-                    <select 
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ingredient</label>
+                    <CustomSelect
                       value={poIngredient}
-                      onChange={(e) => setPoIngredient(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                      <option value="" disabled>Choose Ingredient...</option>
-                      {ingredients.map(ing => (
-                        <option key={ing.id} value={ing.id}>{ing.name}</option>
-                      ))}
-                    </select>
+                      onChange={(val: string) => setPoIngredient(val)}
+                      options={ingredients.map(ing => ({ value: ing.id, label: ing.name }))}
+                      placeholder="Choose Ingredient..."
+                      theme="emerald"
+                    />
                   </div>
                   
                   <div>
@@ -1142,55 +1431,68 @@ export default function InventoryDashboard() {
             <h3 className="mb-6 text-xl font-bold text-slate-900">Create Recipe</h3>
             <div className="space-y-5">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Parent Menu Item / Intermediate Good</label>
-                <select 
+                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Parent Menu Item / Intermediate Good</label>
+                <CustomSelect
                   value={recipeParent}
-                  onChange={(e) => setRecipeParent(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                >
-                  <option value="" disabled>Choose Parent Item...</option>
-                  <optgroup label="Menu Items">
-                    {menuItems.map(item => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Intermediate Goods">
-                    {ingredients.map(item => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </optgroup>
-                </select>
+                  onChange={(val: string) => setRecipeParent(val)}
+                  options={[
+                    ...menuItems.map(item => ({
+                      value: item.id,
+                      label: item.name,
+                      group: "Menu Items",
+                    })),
+                    ...ingredients.map(item => ({
+                      value: item.id,
+                      label: item.name,
+                      group: "Intermediate Goods",
+                    })),
+                  ]}
+                  placeholder="Choose Parent Item or Intermediate Good..."
+                  theme="emerald"
+                />
               </div>
               <div className="border-t border-slate-100 pt-5">
                 <label className="mb-2 block text-sm font-semibold text-slate-900">Add Raw Ingredients</label>
-                <div className="flex gap-2">
-                  <select 
-                    value={recipeIngredient}
-                    onChange={(e) => setRecipeIngredient(e.target.value)}
-                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900"
-                  >
-                    <option value="" disabled>Choose Raw Ingredient...</option>
-                    {ingredients.map(ing => (
-                      <option key={ing.id} value={ing.id}>{ing.name}</option>
-                    ))}
-                  </select>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <CustomSelect
+                      value={recipeIngredient}
+                      onChange={(val: string) => setRecipeIngredient(val)}
+                      options={ingredients.map(ing => ({
+                        value: ing.id,
+                        label: ing.name,
+                      }))}
+                      placeholder="Choose Raw Ingredient..."
+                      theme="emerald"
+                    />
+                  </div>
                   <input 
                     type="number" 
                     placeholder="Qty" 
                     value={recipeQuantity}
                     onChange={(e) => setRecipeQuantity(e.target.value)}
-                    className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900"
+                    className="w-24 min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-semibold"
                   />
-                  <select 
-                    value={recipeUnit}
-                    onChange={(e) => setRecipeUnit(e.target.value)}
-                    className="w-20 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-sm text-slate-900"
+                  <div className="w-24">
+                    <CustomSelect
+                      value={recipeUnit}
+                      onChange={(val: string) => setRecipeUnit(val)}
+                      options={[
+                        { value: "g", label: "g" },
+                        { value: "ml", label: "ml" },
+                        { value: "pcs", label: "pcs" },
+                      ]}
+                      placeholder="Unit"
+                      theme="emerald"
+                    />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={handleAddRecipeItem} 
+                    className="min-h-[46px] rounded-xl bg-slate-900 hover:bg-black px-5 text-sm font-semibold text-white transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
                   >
-                    <option value="g">g</option>
-                    <option value="ml">ml</option>
-                    <option value="pcs">pcs</option>
-                  </select>
-                  <button onClick={handleAddRecipeItem} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Add</button>
+                    Add
+                  </button>
                 </div>
                 {recipeItems.length > 0 && (
                   <ul className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 border border-slate-100">
@@ -1271,6 +1573,101 @@ export default function InventoryDashboard() {
                 {isDeleting ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : "Delete"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Par Level Modal */}
+      {editingParLevel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="mb-2 text-xl font-bold text-slate-900">Set Par Level</h3>
+            <p className="text-sm text-slate-500 mb-6">Receive an alert when <strong>{editingParLevel.ingredient}</strong> stock drops below this number.</p>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateParLevel(); }} className="space-y-5">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Reorder Threshold</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={parLevelValue}
+                  onChange={(e) => setParLevelValue(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  required
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setEditingParLevel(null)} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="submit" className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Waste Modal */}
+      {showLogWaste && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="mb-6 text-xl font-bold text-slate-900">Log Wastage</h3>
+            <form onSubmit={handleLogWaste} className="space-y-5">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Ingredient</label>
+                <CustomSelect
+                  value={wasteIngredient}
+                  onChange={(val: string) => setWasteIngredient(val)}
+                  options={ingredients.map(ing => ({ value: ing.id, label: ing.name }))}
+                  placeholder="Choose Ingredient..."
+                  theme="slate"
+                />
+              </div>
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-800">Quantity Lost</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    value={wasteQuantity}
+                    onChange={(e) => setWasteQuantity(e.target.value)}
+                    className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:bg-white focus:ring-4 focus:ring-rose-500/10 font-semibold"
+                    required
+                  />
+                </div>
+                <div className="w-28">
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-800">Unit</label>
+                  <CustomSelect
+                    value={wasteUnit}
+                    onChange={(val: string) => setWasteUnit(val)}
+                    options={[
+                      { value: "kg", label: "kg" },
+                      { value: "L", label: "L" },
+                      { value: "pcs", label: "pcs" },
+                    ]}
+                    placeholder="Unit"
+                    theme="slate"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Reason</label>
+                <CustomSelect
+                  value={wasteReason}
+                  onChange={(val: string) => setWasteReason(val)}
+                  options={[
+                    { value: "Spoiled / Expired", label: "Spoiled / Expired" },
+                    { value: "Dropped / Spilled", label: "Dropped / Spilled" },
+                    { value: "Staff Meal", label: "Staff Meal" },
+                    { value: "Theft / Missing", label: "Theft / Missing" },
+                    { value: "Other", label: "Other" },
+                  ]}
+                  placeholder="Select Reason..."
+                  theme="slate"
+                />
+              </div>
+              <div className="mt-8 flex gap-3">
+                <button type="button" onClick={() => setShowLogWaste(false)} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="submit" className="flex-1 rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-rose-700 hover:shadow">Submit Waste</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

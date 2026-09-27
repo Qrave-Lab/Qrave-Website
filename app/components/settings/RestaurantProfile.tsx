@@ -236,6 +236,29 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
 
           <div className="md:col-span-2">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Digital Menu Link (Subdomain)
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={data.storeSlug || ""}
+                onChange={(e) => handleChange("storeSlug", e.target.value)}
+                placeholder="your-restaurant-name"
+                className="w-full border border-slate-200 rounded-xl pl-4 pr-[120px] py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400 text-sm">
+                .qravetech.in
+              </div>
+            </div>
+            {data.storeSlug && (
+              <p className="mt-1 text-xs text-slate-500">
+                Menu will be available at: <a href={`https://${data.storeSlug}.qravetech.in`} target="_blank" rel="noreferrer" className="text-[#fe5c13] hover:underline">https://{data.storeSlug}.qravetech.in</a>
+              </p>
+            )}
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
               Phone Number
             </label>
             <div className="flex gap-2">

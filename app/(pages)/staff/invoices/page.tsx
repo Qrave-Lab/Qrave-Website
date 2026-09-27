@@ -1,7 +1,7 @@
 "use client";
 
 import StaffSidebar from "@/app/components/StaffSidebar";
-import { api } from "@/app/lib/api";
+import { api, requestManagerPin } from "@/app/lib/api";
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -728,7 +728,7 @@ export default function InvoicesPage() {
       return;
     }
 
-    const pin = window.prompt("Enter Manager PIN to void invoice:");
+    const pin = await requestManagerPin();
     if (!pin) {
       toast.error("Manager PIN is required to void an invoice");
       return;
@@ -739,7 +739,8 @@ export default function InvoicesPage() {
     try {
       await api(`/api/admin/invoices/tax/${id}/void`, {
         method: "POST",
-        body: JSON.stringify({ reason: voidReason }),
+        headers: { "X-Manager-Pin": pin },
+        body: JSON.stringify({ reason: voidReason, pin }),
       });
       toast.success("Invoice voided");
       setSelectedInvoice(null);

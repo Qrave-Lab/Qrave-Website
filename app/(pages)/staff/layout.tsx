@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/lib/api";
 
+import ManagerPinModal from "@/app/components/ui/ManagerPinModal";
+
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
@@ -46,9 +48,12 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#f8fafc]">
         <div className="flex flex-col items-center justify-center space-y-4">
-          <h1 className="text-4xl font-black tracking-tighter text-slate-900">
-            Qrave<span className="text-[#fe5c13]">.</span>
-          </h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/landing/image.png"
+            alt="Qrave Logo"
+            className="h-12 w-auto object-contain animate-pulse"
+          />
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#fe5c13]" />
         </div>
       </div>
@@ -59,5 +64,10 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  return <div className="admin-ui">{children}</div>;
+  return (
+    <div className="admin-ui">
+      {children}
+      <ManagerPinModal />
+    </div>
+  );
 }

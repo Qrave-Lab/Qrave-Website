@@ -1333,8 +1333,9 @@ select option {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 68px;
+  bottom: 96px;
   z-index: 65;
+  pointer-events: auto;
   width: calc(100% - 32px);
   max-width: 448px;
   /* animation handled by framer-motion */
@@ -1483,4 +1484,17 @@ select option {
 .input:focus {
   border-color: #fe5c13;
   box-shadow: 0 0 0 4px rgba(254, 92, 19, 0.1);
+}
+
+/* ── Scrollbar hiding utilities ── */
+.no-scrollbar,
+.scrollbar-none,
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

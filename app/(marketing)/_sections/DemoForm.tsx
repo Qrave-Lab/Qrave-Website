@@ -62,7 +62,7 @@ const DemoForm = () => {
       // 1. First try native Next.js API endpoint
       const localRes = await fetch('/api/public/contact', {
         method: 'POST',
-        headers: { 'Content-[#Type]': 'application/json', 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 

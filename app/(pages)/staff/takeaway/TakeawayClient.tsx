@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+    AlertTriangle,
     Package,
     Bike,
     Plus,
@@ -24,6 +25,7 @@ import {
     RefreshCw,
 } from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
+import { CustomSelect } from "@/app/components/ui/CustomSelect";
 import { api } from "@/app/lib/api";
 import { normalizePaymentMode, paymentStatusLabel } from "@/app/lib/payment-status";
 import toast from "react-hot-toast";
@@ -188,6 +190,68 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
     // New order form
     const [orderType, setOrderType] = useState<"takeout" | "delivery" | "dine_in_reception">("takeout");
     const [tableNumber, setTableNumber] = useState("");
+    const [tables, setTables] = useState<any[]>([]);
+    const [activeSessions, setActiveSessions] = useState<any[]>([]);
+    const [loadingTables, setLoadingTables] = useState(false);
+
+    const fetchTables = async () => {
+        setLoadingTables(true);
+        try {
+            const [tablesRes, sessionsRes] = await Promise.all([
+                api<any[]>("/api/admin/tables").catch(() => []),
+                api<{ sessions: any[] }>("/api/admin/sessions/active").catch(() => ({ sessions: [] })),
+            ]);
+            if (Array.isArray(tablesRes)) {
+                setTables(tablesRes);
+            }
+            if (sessionsRes?.sessions) {
+                setActiveSessions(sessionsRes.sessions);
+            }
+        } catch (err) {
+            console.error("Failed to load tables", err);
+        } finally {
+            setLoadingTables(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showNewOrder && orderType === "dine_in_reception") {
+            void fetchTables();
+        }
+    }, [showNewOrder, orderType]);
+
+    const occupiedTableIds = useMemo(() => {
+        const set = new Set<string>();
+        for (const s of activeSessions) {
+            if (s.table_id) set.add(s.table_id);
+        }
+        return set;
+    }, [activeSessions]);
+
+    const occupiedTableNumbers = useMemo(() => {
+        const set = new Set<number>();
+        for (const t of tables) {
+            if (occupiedTableIds.has(t.id)) {
+                set.add(t.table_number);
+            }
+        }
+        for (const o of orders) {
+            if (o.status === "completed" || o.status === "cancelled") continue;
+            let tn = o.table_number;
+            if (!tn && o.notes?.includes("[RECEPTION_DINEIN]")) {
+                const m = o.notes.match(/\[RECEPTION_DINEIN\]\s*T(\d+)/i);
+                if (m) tn = parseInt(m[1], 10);
+            }
+            if (tn) set.add(tn);
+        }
+        return set;
+    }, [tables, occupiedTableIds, orders]);
+
+    const availableTables = useMemo(() => {
+        return tables
+            .filter((t) => t.is_enabled !== false && !occupiedTableNumbers.has(t.table_number))
+            .sort((a, b) => a.table_number - b.table_number);
+    }, [tables, occupiedTableNumbers]);
     
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [deliveryAddressId, setDeliveryAddressId] = useState<string | null>(null);
@@ -275,7 +339,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
           const init = async () => {
               try {
                   const [me, menuRes, zonesRes, ordersRes] = await Promise.all([
-                      api<{ role?: string; tax_percent?: number }>("/api/admin/me"),
+                      api<{ role?: string; tax_percent?: number; restaurant?: string }>("/api/admin/me"),
                       api<{ items?: MenuItem[] }>("/api/admin/menu"),
                       api<{ zones?: DeliveryZone[] }>("/api/admin/delivery/zones"),
                       api<{ orders: TakeawayOrder[] }>("/api/admin/takeaway/orders?status=active"),
@@ -288,8 +352,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                   }
                   setRole(r);
                   setTaxPercent(me?.tax_percent || 0);
-                  setRestName(me?.restaurant || "Unknown (Client fetch)");
-        setRestName(me?.restaurant || "Unknown");
+                  setRestName(me?.restaurant || "Unknown");
                   setMenuItems((menuRes as any)?.filter?.((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ??
                       (menuRes as any)?.items?.filter((i: MenuItem) => !i.isArchived && !i.isOutOfStock) ?? []);
                   setZones(zonesRes?.zones || []);
@@ -739,17 +802,66 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                             </div>
 
                             {orderType === "dine_in_reception" && (
-                                <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1.5">Table Number *</label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={tableNumber}
-                                        onChange={(e) => setTableNumber(e.target.value)}
-                                        placeholder="e.g. 12"
-                                        className="w-full px-3 py-2.5 text-sm bg-white border border-emerald-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 transition-all"
-                                    />
-                                    <p className="text-[11px] text-emerald-700 font-semibold">Reception-assisted dine-in order. Food will be billed as table service.</p>
+                                <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                    <div className="flex items-center justify-between">
+                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                                            Select Table *
+                                        </label>
+                                        <div className="flex items-center gap-1.5">
+                                            {tableNumber ? (
+                                                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-200/90 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                                    <Check className="w-3 h-3" />
+                                                    Table T{tableNumber} Selected
+                                                </span>
+                                            ) : (
+                                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                                                    {loadingTables ? "Checking tables..." : `${availableTables.length} Available`}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Quick-Select Table Pills */}
+                                    {loadingTables ? (
+                                        <div className="flex gap-2 py-1">
+                                            {[1, 2, 3, 4, 5].map((n) => (
+                                                <div key={n} className="h-8 w-12 rounded-xl bg-emerald-100/70 animate-pulse" />
+                                            ))}
+                                        </div>
+                                    ) : availableTables.length > 0 ? (
+                                        <div className="space-y-1">
+                                            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto no-scrollbar p-1">
+                                                {availableTables.map((t) => {
+                                                    const isSelected = String(tableNumber) === String(t.table_number);
+                                                    return (
+                                                        <button
+                                                            key={t.id}
+                                                            type="button"
+                                                            onClick={() => setTableNumber(isSelected ? "" : String(t.table_number))}
+                                                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 select-none ${
+                                                                isSelected
+                                                                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-700/20 border border-emerald-600"
+                                                                    : "bg-white text-slate-700 border border-emerald-200/80 hover:bg-emerald-50 hover:border-emerald-300 active:scale-95"
+                                                            }`}
+                                                        >
+                                                            {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />}
+                                                            <span>T{t.table_number}</span>
+                                                            {t.capacity ? (
+                                                                <span className={`text-[10px] font-medium ${isSelected ? "text-emerald-100" : "text-slate-400"}`}>
+                                                                    ({t.capacity}p)
+                                                                </span>
+                                                            ) : null}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-center gap-2">
+                                            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                                            <span>All tables are currently occupied or none configured.</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -929,22 +1041,22 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                 </div>
                             )}
 
-                            {/* Payment & notes */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Payment Mode</label>
-                                    <select
-                                        value={paymentMode}
-                                        onChange={e => setPaymentMode(e.target.value as PaymentMode)}
-                                        className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-50 focus:border-[#fe5c13] transition-all"
-                                    >
-                                        <option value="later">Mark Later</option>
-                                        <option value="cash">Cash</option>
-                                        <option value="card">Card</option>
-                                        <option value="upi">UPI</option>
-                                        <option value="online">Online</option>
-                                    </select>
-                                </div>
+                            {/* Payment */}
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Payment Mode</label>
+                                <CustomSelect
+                                    value={paymentMode}
+                                    onChange={(val: string) => setPaymentMode(val as PaymentMode)}
+                                    buttonClassName="!bg-slate-50 !border-slate-200 !h-[42px] !rounded-xl !text-sm"
+                                    options={[
+                                        { value: "later", label: "Mark Later" },
+                                        { value: "cash", label: "Cash" },
+                                        { value: "card", label: "Card" },
+                                        { value: "upi", label: "UPI" },
+                                        { value: "online", label: "Online" },
+                                    ]}
+                                    theme="orange"
+                                />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Notes</label>

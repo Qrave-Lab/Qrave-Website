@@ -40,8 +40,10 @@ export default function RouteLoadingBar() {
       window.history.scrollRestoration = "manual";
     }
 
-    // Instantly scroll to top before revealing new page
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+    // Instantly scroll to top before revealing new page, unless navigating to an anchor hash
+    if (typeof window !== "undefined" && !window.location.hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+    }
 
     // Hide transition curtain after scroll position is reset to top
     const timer = setTimeout(() => {

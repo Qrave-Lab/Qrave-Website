@@ -356,8 +356,14 @@ export default function KitchenDisplayPage() {
 
       {isLoading ? (
         <div className="flex min-h-[80vh] items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-10 w-10 animate-spin text-orange-500" />
+          <div className="flex flex-col items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/landing/image.png"
+              alt="Qrave Logo"
+              className="h-10 w-auto object-contain animate-pulse"
+            />
+            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
             <p className="text-xs font-bold uppercase tracking-wider text-[#7C8194]">Loading kitchen deck...</p>
           </div>
         </div>

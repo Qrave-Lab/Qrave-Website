@@ -17,28 +17,57 @@ const Navbar = () => {
   const [scrollY, setScrollY] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const rafRef = useRef<number>(0);
+  const navRef = useRef<HTMLElement | null>(null);
 
   const scrollToHash = (hash: string) => {
     const id = hash.replace('#', '').trim();
     if (!id) return;
 
-    const element = document.getElementById(id);
-    if (!element) return;
+    let attempts = 0;
+    const maxAttempts = 15;
 
-    const nav = document.querySelector('[data-landing-nav="true"]') as HTMLElement | null;
-    const navHeight = nav?.offsetHeight ?? 80;
-    const top = element.getBoundingClientRect().top + window.scrollY - navHeight - 16;
+    const tryScroll = () => {
+      const element = document.getElementById(id);
+      if (element) {
+        const nav = navRef.current || (document.querySelector('[data-landing-nav="true"]') as HTMLElement | null);
+        const navHeight = nav?.offsetHeight ?? 80;
+        const rect = element.getBoundingClientRect();
+        const targetTop = rect.top + window.scrollY - navHeight - 16;
 
-    window.scrollTo({ top, behavior: 'smooth' });
+        window.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: 'smooth',
+        });
+        return;
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(tryScroll, 60);
+      }
+    };
+
+    tryScroll();
   };
 
   const handleSectionLinkClick = (e: MouseEvent<HTMLAnchorElement>, hash: string) => {
-    if (window.location.pathname !== '/') return;
-
-    e.preventDefault();
     setMobileMenuOpen(false);
-    window.history.replaceState(null, '', hash);
-    scrollToHash(hash);
+
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      e.preventDefault();
+      window.history.pushState(null, '', hash);
+      scrollToHash(hash);
+    }
+  };
+
+  const handleLogoClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    setMobileMenuOpen(false);
+
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.history.pushState(null, '', '/');
+    }
   };
 
   useEffect(() => {
@@ -59,7 +88,10 @@ const Navbar = () => {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('hashchange', handleHashScroll);
-    handleHashScroll();
+
+    if (window.location.hash) {
+      setTimeout(handleHashScroll, 120);
+    }
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -68,11 +100,30 @@ const Navbar = () => {
     };
   }, []);
 
+  // Close mobile menu on escape key and resize to desktop
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setMobileMenuOpen(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   const isScrolled = scrollY > 20;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none flex justify-center">
       <nav
+        ref={navRef}
         data-landing-nav="true"
         className={`pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isScrolled
@@ -84,7 +135,12 @@ const Navbar = () => {
           
           {/* Brand Logo */}
           <div className="flex items-center">
-            <Link href="/" className="group flex items-center gap-2">
+            <Link
+              href="/"
+              onClick={handleLogoClick}
+              className="group flex items-center gap-2"
+              aria-label="Qrave Home"
+            >
               <img
                 src="/landing/image.png"
                 alt="Qrave Logo"
@@ -112,7 +168,7 @@ const Navbar = () => {
                   {hoveredIndex === idx && (
                     <motion.div
                       layoutId="navbar-hover-pill"
-                      className="absolute inset-0 bg-white rounded-full shadow-sm border border-slate-200/60"
+                      className="absolute inset-0 bg-white rounded-full shadow-sm border border-slate-200/60 pointer-events-none"
                       initial={false}
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
@@ -138,15 +194,17 @@ const Navbar = () => {
             >
               <span className="relative z-10">Get Started</span>
               <ArrowRight className="relative z-10 w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
-              <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+              <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-full pointer-events-none" />
             </Link>
           </div>
 
           {/* Mobile Menu Toggle Button */}
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden relative p-2 text-slate-700 hover:text-slate-950 bg-slate-100/80 hover:bg-slate-200/80 rounded-full transition-colors"
             aria-label="Toggle Navigation Menu"
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -155,44 +213,51 @@ const Navbar = () => {
         {/* Mobile Navigation Dropdown */}
         <AnimatePresence>
           {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="lg:hidden absolute top-full left-0 right-0 mt-3 p-4 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl shadow-2xl space-y-3"
-            >
-              <div className="flex flex-col space-y-1">
-                {NAV_ITEMS.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={`/${item.href}`}
-                    onClick={(e) => handleSectionLinkClick(e, item.href)}
-                    className="px-4 py-3 text-sm font-semibold text-slate-700 hover:text-[#fe5c13] hover:bg-orange-50/60 rounded-2xl transition-colors"
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
+            <>
+              {/* Invisible backdrop to dismiss on outside tap */}
+              <div
+                className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px] lg:hidden pointer-events-auto"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="lg:hidden relative z-50 mt-3 p-4 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl shadow-2xl space-y-3 pointer-events-auto"
+              >
+                <div className="flex flex-col space-y-1">
+                  {NAV_ITEMS.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={`/${item.href}`}
+                      onClick={(e) => handleSectionLinkClick(e, item.href)}
+                      className="px-4 py-3 text-sm font-semibold text-slate-700 hover:text-[#fe5c13] hover:bg-orange-50/60 rounded-2xl transition-colors"
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
 
-              <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-2xl transition-colors"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/onboarding"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#fe5c13] to-[#ff6a26] rounded-2xl shadow-md shadow-[#fe5c13]/25 active:scale-[0.98] transition-all"
-                >
-                  Get Started
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </motion.div>
+                <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full text-center py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-2xl transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/onboarding"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-gradient-to-r from-[#fe5c13] to-[#ff6a26] rounded-2xl shadow-md shadow-[#fe5c13]/25 active:scale-[0.98] transition-all"
+                  >
+                    Get Started
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </nav>

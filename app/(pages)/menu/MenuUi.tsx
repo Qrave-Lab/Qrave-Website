@@ -64,6 +64,65 @@ const sanitizeModelUrl = (val: any): string => {
   return url;
 };
 
+const numberFrom = (...values: any[]): number | null => {
+  for (const value of values) {
+    const next = Number(value);
+    if (Number.isFinite(next) && next > 0) return next;
+  }
+  return null;
+};
+
+const getPortionMultiplier = (variant: any): number => {
+  const explicit = numberFrom(
+    variant?.ar_scale,
+    variant?.arScale,
+    variant?.portion_scale,
+    variant?.portionScale,
+    variant?.model_scale,
+    variant?.modelScale,
+    variant?.scale,
+  );
+  if (explicit) return explicit;
+
+  const name = resolve(variant?.name ?? variant?.label).toLowerCase();
+  if (name.includes("small") || name.includes("regular")) return 0.8;
+  if (name.includes("medium") || name.includes("standard")) return 1;
+  if (name.includes("large") || name.includes("big")) return 1.2;
+  if (name.includes("xl") || name.includes("jumbo")) return 1.35;
+  return 1;
+};
+
+const getArScaleValue = (viewer: any, item: any, selectedVariantId: string): string => {
+  const currentVariant = item?.variants?.find((v: any) => String(v.id) === String(selectedVariantId));
+  const portionMultiplier = getPortionMultiplier(currentVariant);
+  const modelMultiplier = numberFrom(item?.modelScale, item?.model_scale) ?? 1;
+  const targetW = numberFrom(
+    currentVariant?.width_cm,
+    currentVariant?.widthCM,
+    currentVariant?.ar_width_cm,
+    currentVariant?.arWidthCm,
+    item?.width_cm,
+    item?.widthCM,
+    item?.ar_width_cm,
+    item?.arWidthCm,
+  );
+
+  if (viewer?.getDimensions && targetW) {
+    try {
+      const dim = viewer.getDimensions();
+      if (dim?.x > 0) {
+        const ratio = (targetW / (dim.x * 100)) * modelMultiplier * portionMultiplier;
+        return `${ratio} ${ratio} ${ratio}`;
+      }
+    } catch {
+      // Fall through to multiplier-only scaling until the model dimensions are ready.
+    }
+  }
+
+  const ratio = modelMultiplier * portionMultiplier;
+  return `${ratio} ${ratio} ${ratio}`;
+};
+
 const getCategoryEmoji = (name: string): string => {
   const n = name.toLowerCase();
   if (n.includes("main")) return "🍜";
@@ -130,6 +189,8 @@ const normalizeItem = (item: any) => {
         return {
           id: String(v.id),
           name: resolve(v.name ?? v.label),
+          width_cm: numberFrom(v.width_cm, v.widthCM, v.ar_width_cm, v.arWidthCm) ?? undefined,
+          arScale: numberFrom(v.ar_scale, v.arScale, v.portion_scale, v.portionScale, v.model_scale, v.modelScale, v.scale) ?? undefined,
           priceDelta:
             typeof v.priceDelta === "number"
               ? v.priceDelta
@@ -1141,21 +1202,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   useEffect(() => {
     if (!arItem) return;
     const viewer = modelViewerRef.current as any;
-    if (!viewer) return;
-    
-    try {
-      const dim = viewer.getDimensions();
-      if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
-        const currentVariant = arItem.variants?.find((v: any) => v.id === selectedArVariantId);
-        const targetW = currentVariant?.width_cm || arItem.width_cm || arItem.widthCM || 20;
-        const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
-        
-        const ratio = (targetW / (dim.x * 100)) * scaleMultiplier;
-        setArScale(`${ratio} ${ratio} ${ratio}`);
-      }
-    } catch(err) {
-      // Dimensions not ready yet
-    }
+    setArScale(getArScaleValue(viewer, arItem, selectedArVariantId));
   }, [selectedArVariantId, arItem]);
 
   const handleArOpen = (item: any) => {
@@ -1620,19 +1667,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       onLoad={() => {
                         setArModelError("");
                         const viewer = modelViewerRef.current;
-                        if (viewer) {
-                          try {
-                            const dim = (viewer as any).getDimensions();
-                            if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
-                              const currentVariant = arItem.variants?.find((v: any) => v.id === selectedArVariantId);
-                              const targetW = currentVariant?.width_cm || arItem.width_cm || arItem.widthCM || 20;
-                              const scaleMultiplier = arItem.modelScale ?? arItem.model_scale ?? 1.00;
-                              
-                              const ratio = (targetW / (dim.x * 100)) * scaleMultiplier;
-                              setArScale(`${ratio} ${ratio} ${ratio}`);
-                            }
-                          } catch {}
-                        }
+                        setArScale(getArScaleValue(viewer, arItem, selectedArVariantId));
                       }}
                       onError={() =>
                         setArModelError("3D model failed to load.")
@@ -2052,7 +2087,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                             type="button"
                             onClick={() => {
                               setDetailItem(null);
-                              router.push("/checkout");
+                              window.location.href = "/checkout";
                             }}
                             className="flex-1 h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
                           >
@@ -2600,7 +2635,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             <button
               onClick={() => {
                 if (previewMode) return;
-                router.push(`/checkout`);
+                window.location.href = "/checkout";
               }}
               className="mu-checkout-bar"
             >

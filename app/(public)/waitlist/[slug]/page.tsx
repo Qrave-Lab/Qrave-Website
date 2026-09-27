@@ -131,7 +131,21 @@ export default function WaitlistJoinPage() {
           setPhone(parsed.phone);
           setStep("queued");
         } else {
-          setStep("phone");
+          // Restore draft if exists
+          const draftStr = localStorage.getItem(`qrave_waitlist_draft_${slug}`);
+          if (draftStr) {
+            try {
+              const draft = JSON.parse(draftStr);
+              if (draft.phone) setPhone(draft.phone);
+              if (draft.name) setName(draft.name);
+              if (draft.partySize) setPartySize(draft.partySize);
+              if (draft.step) setStep(draft.step);
+            } catch(e) {
+              setStep("phone");
+            }
+          } else {
+            setStep("phone");
+          }
         }
       } catch (err) {
         setStep("error");
@@ -140,6 +154,17 @@ export default function WaitlistJoinPage() {
     };
     fetchInfo();
   }, [slug]);
+
+  // Persist draft form state so background refreshes don't lose data
+  useEffect(() => {
+    if (step === "phone" || step === "otp" || step === "form") {
+      localStorage.setItem(`qrave_waitlist_draft_${slug}`, JSON.stringify({
+        phone, name, partySize, step
+      }));
+    } else if (step === "queued" || step === "seated" || step === "removed") {
+      localStorage.removeItem(`qrave_waitlist_draft_${slug}`);
+    }
+  }, [step, phone, name, partySize, slug]);
 
   // 2. Polling when queued
   useEffect(() => {
