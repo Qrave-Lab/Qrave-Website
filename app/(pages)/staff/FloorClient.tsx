@@ -378,6 +378,20 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       }
     }
 
+    // Compute billStatus: check if ALL orders for a table are 'completed' (i.e. paid)
+    const paidStatusByTable = new Map<string, BillStatus>();
+    for (const order of ordersList) {
+      if (!order.table_id) continue;
+      const current = paidStatusByTable.get(order.table_id);
+      if (order.status === "completed") {
+        // Only set to "paid" if no previous non-completed order was seen
+        if (!current) paidStatusByTable.set(order.table_id, "paid");
+      } else if (order.status !== "cancelled" && order.status !== "cart") {
+        // Any active non-completed order means the bill is NOT paid
+        paidStatusByTable.set(order.table_id, "open");
+      }
+    }
+
     return tablesApi.map((t) => {
       const occ = occupancyByTable.get(t.id);
       const meta = totalsByTable.get(t.id);
@@ -392,6 +406,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         takeawayStatus: takeawayStatusByTable.get(t.id),
         currentTotal: meta?.total,
         itemsCount: meta?.count,
+        billStatus: paidStatusByTable.get(t.id),
         seatedAt: occ?.seatedAt || meta?.seatedAt,
         isEnabled: t.is_enabled,
         floorName: t.floor_name || "Main Floor",
@@ -884,8 +899,11 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
           body: JSON.stringify({ status: "completed" }),
         });
       } else {
+        // Use mark_paid to atomically settle and end the session
+        // This handles the case where orders are in 'served' status
         await api(`/api/admin/sessions/${tableToFree.activeSessionId}/end`, {
           method: "POST",
+          body: JSON.stringify({ mark_paid: true, payment_mode: "cash" }),
         });
       }
     } catch (err: any) {
@@ -975,8 +993,11 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
           body: JSON.stringify({ status: "completed" }),
         });
       } else {
+        // Use mark_paid as safety net — if the payment status call already
+        // marked orders as completed, mark_paid will be a no-op
         await api(`/api/admin/sessions/${freeTableModal.sessionId}/end`, {
           method: "POST",
+          body: JSON.stringify({ mark_paid: true, payment_mode: freeTableModal.selectedPayment }),
         });
       }
 
@@ -1539,13 +1560,43 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                           <span className="text-[9px] font-extrabold uppercase tracking-wider">Bill</span>
                         </button>
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
+                            if (!table.activeSessionId) return;
+                            // Optimistically mark as paid in UI
                             setTables((prev) =>
                               prev.map((t) =>
                                 t.id === table.id ? { ...t, billStatus: "paid" } : t
                               )
                             );
+                            try {
+                              if (table.isTakeaway) {
+                                await api(`/api/admin/payments/status`, {
+                                  method: "POST",
+                                  body: JSON.stringify({
+                                    takeaway_order_id: table.activeSessionId,
+                                    status: "paid",
+                                    payment_mode: "cash",
+                                    reason: "staff_mark_paid",
+                                  }),
+                                });
+                              } else {
+                                await api(`/api/admin/payments/status`, {
+                                  method: "POST",
+                                  body: JSON.stringify({
+                                    session_id: table.activeSessionId,
+                                    status: "paid",
+                                    payment_mode: "cash",
+                                    reason: "staff_mark_paid",
+                                  }),
+                                });
+                              }
+                              toast.success(`${table.tableCode} marked as paid`);
+                              refreshDashboard().catch(() => {});
+                            } catch (err: any) {
+                              toast.error(err?.message || "Failed to mark as paid");
+                              refreshDashboard().catch(() => {});
+                            }
                           }}
                           className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans"
                         >
@@ -1644,7 +1695,39 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                                         }); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                           <Receipt className="w-3.5 h-3.5" /> Print Bill
                                         </button>
-                                        <button onClick={() => { setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "paid" } : t)); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
+                                        <button onClick={async () => {
+                                          setOpenMenuId(null);
+                                          if (!table.activeSessionId) return;
+                                          setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "paid" } : t));
+                                          try {
+                                            if (table.isTakeaway) {
+                                              await api(`/api/admin/payments/status`, {
+                                                method: "POST",
+                                                body: JSON.stringify({
+                                                  takeaway_order_id: table.activeSessionId,
+                                                  status: "paid",
+                                                  payment_mode: "cash",
+                                                  reason: "staff_mark_paid",
+                                                }),
+                                              });
+                                            } else {
+                                              await api(`/api/admin/payments/status`, {
+                                                method: "POST",
+                                                body: JSON.stringify({
+                                                  session_id: table.activeSessionId,
+                                                  status: "paid",
+                                                  payment_mode: "cash",
+                                                  reason: "staff_mark_paid",
+                                                }),
+                                              });
+                                            }
+                                            toast.success(`${table.tableCode} marked as paid`);
+                                            refreshDashboard().catch(() => {});
+                                          } catch (err: any) {
+                                            toast.error(err?.message || "Failed to mark as paid");
+                                            refreshDashboard().catch(() => {});
+                                          }
+                                        }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
                                           <CheckCircle2 className="w-3.5 h-3.5" /> Mark Paid
                                         </button>
                                         <button onClick={() => { requestFreeTable(table.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">

@@ -254,7 +254,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
     // Trigger local backend system print after slide animation completes
     setTimeout(async () => {
       try {
-        await api(`/api/admin/sessions/${sessionid}/end`, { method: "POST", suppressErrorLog: true });
+        await api(`/api/admin/sessions/${sessionid}/end`, { method: "POST", body: JSON.stringify({ mark_paid: true, payment_mode: "cash" }), suppressErrorLog: true });
         await printBillTicket({
           tableCode: bill?.tableCode || "T-",
           printedAt: new Date().toLocaleString(),
@@ -543,7 +543,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           }),
         });
         await Promise.all(
-          billSessionIds.map((id) => api(`/api/admin/sessions/${id}/end`, { method: "POST", suppressErrorLog: true }).catch(() => {}))
+          billSessionIds.map((id) => api(`/api/admin/sessions/${id}/end`, { method: "POST", body: JSON.stringify({ mark_paid: true, payment_mode: typeof paymentMethod === "string" ? paymentMethod : "cash" }), suppressErrorLog: true }).catch(() => {}))
         );
       }
 
