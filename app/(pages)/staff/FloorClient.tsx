@@ -191,6 +191,12 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
   const [selectedFloor, setSelectedFloor] = useState<string>("All Floors");
   const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>(initialProcessed?.activeOrders || []);
+  const [taxPercent, setTaxPercent] = useState<number>(
+    typeof initialData?.meRes?.tax_percent === "number" ? initialData.meRes.tax_percent : 5
+  );
+  const [servicePercent, setServicePercent] = useState<number>(
+    typeof initialData?.meRes?.service_charge === "number" ? initialData.meRes.service_charge : 0
+  );
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>(initialProcessed?.serviceCalls || []);
   const [todaySales, setTodaySales] = useState<number>(initialProcessed?.todaySales || 0);
   const [profitMetrics, setProfitMetrics] = useState<any>(null);
@@ -317,7 +323,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     return [normalized, ...ordersList.filter((o) => (o.id || o.order_id) !== orderId)];
   };
 
-  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[], rawTakeawayOrders?: any[]) => {
+  const buildTables = (tablesApi: TableAPI[], ordersList: ActiveOrder[], sessionsList: ActiveSessionAPI[], rawTakeawayOrders?: any[], tPct = 5, sPct = 0) => {
     const occupancyByTable = new Map<string, { sessionId: string; seatedAt?: Date }>();
     for (const s of sessionsList) {
       if (!s.table_id) continue;
@@ -327,16 +333,14 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       });
     }
 
-    // ordersList already has reception dine-in takeaway orders injected into it,
-    // so we only need to iterate once — no separate takeaway loop needed.
-    const totalsByTable = new Map<string, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
+    const totalsByTable = new Map<string, { sub: number; count: number; sessionId?: string; seatedAt?: Date }>();
     for (const order of ordersList) {
       if (!order.table_id) continue;
-      const existing = totalsByTable.get(order.table_id) || { total: 0, count: 0, sessionId: order.session_id };
+      const existing = totalsByTable.get(order.table_id) || { sub: 0, count: 0, sessionId: order.session_id };
       const orderCreatedAt = order.created_at ? new Date(order.created_at) : undefined;
-      const orderTotal = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      const orderSub = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       totalsByTable.set(order.table_id, {
-        total: existing.total + orderTotal,
+        sub: existing.sub + orderSub,
         count: existing.count + order.items.reduce((sum, i) => sum + i.quantity, 0),
         sessionId: order.session_id || existing.sessionId,
         seatedAt:
@@ -345,6 +349,18 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
               ? existing.seatedAt
               : orderCreatedAt
             : existing.seatedAt || orderCreatedAt,
+      });
+    }
+
+    const finalTotals = new Map<string, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
+    for (const [tableId, data] of totalsByTable.entries()) {
+      const service = Math.round(data.sub * (sPct / 100));
+      const taxAmount = Math.round((data.sub + service) * (tPct / 100));
+      finalTotals.set(tableId, {
+        total: data.sub + service + taxAmount,
+        count: data.count,
+        sessionId: data.sessionId,
+        seatedAt: data.seatedAt,
       });
     }
 
@@ -365,11 +381,11 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       // Track the takeaway status for buildTableTimeline
       takeawayStatusByTable.set(matchingTable.id, tw.status);
       // Only add to totals if NOT already covered by the injected order in ordersList
-      if (totalsByTable.has(matchingTable.id)) continue;
+      if (finalTotals.has(matchingTable.id)) continue;
       const twTotal = Number(tw.total) || (tw.items || []).reduce((s: number, i: any) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
       const twCount = (tw.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
       if (twTotal > 0 || twCount > 0) {
-        totalsByTable.set(matchingTable.id, {
+        finalTotals.set(matchingTable.id, {
           total: twTotal,
           count: twCount,
           sessionId: tw.id,
@@ -380,7 +396,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
     return tablesApi.map((t) => {
       const occ = occupancyByTable.get(t.id);
-      const meta = totalsByTable.get(t.id);
+      const meta = finalTotals.get(t.id);
       const hasActiveOrders = Boolean(meta && meta.count > 0);
       return {
         id: t.id,
@@ -463,7 +479,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
     setActiveOrders(ordersList);
     setOrders(buildPendingOrders(ordersList));
-    setTables(buildTables(tablesApi, ordersList, sessionsList, takeawayOrdersList));
+    setTables(buildTables(tablesApi, ordersList, sessionsList, takeawayOrdersList, taxPercent, servicePercent));
   };
 
   const refreshDashboard = async () => {

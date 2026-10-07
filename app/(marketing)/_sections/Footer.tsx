@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ArrowUp, Twitter, Instagram, Linkedin, Github } from 'lucide-react';
+import { ArrowUp, Instagram, Linkedin, Github } from 'lucide-react';
 
 const Footer = () => {
   const scrollToTop = () => {
@@ -121,9 +121,11 @@ const Footer = () => {
               <a
                 href="#"
                 className="w-9 h-9 rounded-full border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-400 hover:border-[#fe5c13] hover:text-[#fe5c13] hover:scale-105 transition-all"
-                aria-label="Twitter"
+                aria-label="X (formerly Twitter)"
               >
-                <Twitter className="w-4 h-4" />
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
               </a>
               <a
                 href="#"

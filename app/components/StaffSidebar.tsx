@@ -416,6 +416,14 @@ export default function StaffSidebar() {
     if (isSigningOut) return;
     setIsSigningOut(true);
 
+    if (typeof window !== "undefined") {
+      try {
+        await removeTokenCookie("session_id");
+      } catch (e) {
+        console.warn("Failed to clear customer session cookie", e);
+      }
+    }
+
     try {
       await api("/auth/logout", {
         method: "POST",
@@ -424,7 +432,6 @@ export default function StaffSidebar() {
       // Even if logout fails, proceed to clear local tokens.
     } finally {
       if (typeof window !== "undefined") {
-        await removeTokenCookie("session_id");
         localStorage.removeItem("order_id");
         localStorage.removeItem("table_number");
         router.replace("/login");

@@ -2,7 +2,7 @@ import { serverApi } from "@/app/lib/serverApi";
 import StaffFloorClient from "./FloorClient";
 
 export default async function StaffFloorPage() {
-  const [tablesRes, ordersRes, sessionsRes, takeawayRes, serviceRes, salesRes, waitlistRes] = await Promise.all([
+  const [tablesRes, ordersRes, sessionsRes, takeawayRes, serviceRes, salesRes, waitlistRes, meRes] = await Promise.all([
     serverApi<any>("/api/admin/tables").catch(() => null),
     serverApi<any>("/api/admin/orders/active").catch(() => null),
     serverApi<any>("/api/admin/sessions/active").catch(() => null),
@@ -10,6 +10,7 @@ export default async function StaffFloorPage() {
     serverApi<any>("/api/admin/service-calls").catch(() => null),
     serverApi<any>("/api/admin/sales/today").catch(() => null),
     serverApi<any>("/api/admin/waitlist").catch(() => null),
+    serverApi<any>("/api/admin/me").catch(() => null),
   ]);
 
   const initialData = {
@@ -19,7 +20,8 @@ export default async function StaffFloorPage() {
     takeawayRes,
     serviceRes,
     salesRes,
-    waitlistRes
+    waitlistRes,
+    meRes,
   };
 
   return <StaffFloorClient initialData={initialData} />;

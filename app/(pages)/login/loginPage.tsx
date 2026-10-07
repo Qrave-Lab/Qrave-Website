@@ -12,9 +12,9 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { api } from "@/app/lib/api";
-import AuthSplitLayout from "@/app/components/auth/AuthSplitLayout";
 
 declare global {
   interface Window {
@@ -234,144 +234,189 @@ export default function LoginPage() {
 
   return (
     <>
-      <AuthSplitLayout
-        headingLine1="Your restaurant,"
-        headingHighlight="digitized."
-        description="Manage orders, staff, and customer experiences from one single dashboard."
-        stats={[
-          { value: "1.2k+", label: "Orders Syncing" },
-          { value: "99.9%", label: "Uptime" },
-        ]}
-        left={
-          <div className="w-full max-w-md mx-auto space-y-10">
-          <header className="space-y-3">
-            <button 
-              onClick={() => router.push("/")}
-              className="flex items-center gap-2 text-slate-400 hover:text-amber-600 transition-all group mb-10"
-            >
-              <div className="p-2 rounded-full group-hover:bg-amber-500/20 transition-colors">
-                <ArrowLeft size={18} />
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-widest">Home</span>
-            </button>
-            <div className="flex items-center mb-6">
-              <img src="/landing/image.png" alt="Qrave Logo" className="h-10 w-auto object-contain" />
-            </div>
-            <h2 className="text-4xl font-bold tracking-tight">Welcome back</h2>
-            <p className="text-slate-500 font-medium">Log in to manage your restaurant.</p>
-          </header>
- 
-          <form onSubmit={handleLogin} className="space-y-6">
-            {hasValidGoogleClientId && (
-              <div className="space-y-3">
-                <div ref={googleButtonRef} className="min-h-[44px] flex justify-center" />
-                {!googleReady && (
-                  <div className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Loading Google sign-in...
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-slate-100" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">or</span>
-                  <div className="h-px flex-1 bg-slate-100" />
-                </div>
-              </div>
-            )}
-            {!hasValidGoogleClientId && (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-bold uppercase tracking-wider text-center">
-                Google login hidden: set <code className="font-black">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>.
-              </div>
-            )}
- 
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
-                <div className="relative group">
-                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-600 transition-colors" />
-                  <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if(error) setError(null);
-                    }}
-                    placeholder="name@restaurant.com"
-                    className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all font-bold placeholder:text-slate-300"
-                  />
-                </div>
-              </div>
- 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Password</label>
-                  <button
-                    type="button"
-                    onClick={() => router.push("/forgot-password")}
-                    className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline uppercase tracking-widest"
-                  >
-                    Forgot?
-                  </button>
-                </div>
-                <div className="relative group">
-                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-600 transition-colors" />
-                  <input 
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if(error) setError(null);
-                    }}
-                    placeholder="••••••••"
-                    className="w-full pl-14 pr-14 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all font-bold placeholder:text-slate-300"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-amber-600"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-            </div>
- 
-            <AnimatePresence mode="wait">
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }} 
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 overflow-hidden"
-                >
-                  <AlertCircle size={18} className="shrink-0" />
-                  <span className="text-[12px] font-bold uppercase tracking-tight">{error}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
- 
-            <button 
-              type="submit" 
-              disabled={isLoading || isGoogleLoading}
-              className="w-full py-5 rounded-2xl bg-amber-500 font-bold text-sm uppercase tracking-widest shadow-[0_4px_20px_rgba(232,144,10,0.3)] hover:shadow-[0_8px_25px_rgba(232,144,10,0.45)] hover:bg-amber-600 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed border border-amber-500/10"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Login"}
-            </button>
-          </form>
- 
-          <footer className="pt-2 text-center">
-            <span className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em]">New here?</span>
-            <button 
-              onClick={() => router.push("/onboarding")} 
-              className="ml-2 text-amber-600 font-bold text-[11px] uppercase tracking-[0.2em] hover:text-amber-700 hover:underline transition-colors"
+      <div className="min-h-screen w-full flex flex-col justify-between bg-[#FAF9F6] text-slate-900 selection:bg-[#fe5c13]/20">
+        {/* Subtle grid backdrop */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div
+            className="absolute inset-0 opacity-[0.035]"
+            style={{
+              backgroundImage: "radial-gradient(#000000 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
+        </div>
+
+        {/* Minimal Navigation Bar */}
+        <header className="relative z-20 w-full px-6 sm:px-12 py-6 flex items-center justify-between border-b border-slate-200/60 bg-white/60 backdrop-blur-md">
+          <Link
+            href="/"
+            className="flex items-center gap-2 group"
+          >
+            <img
+              src="/landing/image.png"
+              alt="Qrave Logo"
+              className="h-7 w-auto object-contain transition-transform group-hover:scale-105"
+            />
+          </Link>
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <span>New to Qrave?</span>
+            <Link
+              href="/onboarding"
+              className="font-bold text-[#fe5c13] hover:text-[#d94806] transition-colors"
             >
               Create Account
-            </button>
-          </footer>
+            </Link>
           </div>
-        }
-      />
+        </header>
+
+        {/* Main Content Area */}
+        <main className="relative z-20 flex-1 flex items-center justify-center px-4 py-12 sm:py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="w-full max-w-[480px] bg-white rounded-3xl border border-slate-200/90 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-8 sm:p-11"
+          >
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">
+                Welcome back
+              </h1>
+              <p className="mt-2 text-sm text-slate-500 font-medium">
+                Log in to manage your floor, kitchen, and analytics.
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              {hasValidGoogleClientId && (
+                <div className="space-y-4">
+                  <div ref={googleButtonRef} className="min-h-[46px] flex justify-center [&>iframe]:!rounded-xl" />
+                  {!googleReady && (
+                    <div className="text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Loading Google sign-in...
+                    </div>
+                  )}
+                  <div className="relative flex items-center justify-center my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-100" />
+                    </div>
+                    <span className="relative bg-white px-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                      or with email
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {!hasValidGoogleClientId && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium text-center">
+                  Google login disabled: set <code className="font-mono">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      placeholder="name@restaurant.com"
+                      className="w-full h-12 pl-11 pr-4 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 text-sm font-medium outline-none focus:border-[#fe5c13] focus:ring-2 focus:ring-[#fe5c13]/10 transition-all [color-scheme:light]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-semibold text-[#fe5c13] hover:text-[#d94806] transition-colors"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      placeholder="••••••••"
+                      className="w-full h-12 pl-11 pr-11 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 text-sm font-medium outline-none focus:border-[#fe5c13] focus:ring-2 focus:ring-[#fe5c13]/10 transition-all [color-scheme:light]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2.5 text-red-600 text-xs font-medium"
+                  >
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{error}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <button
+                type="submit"
+                disabled={isLoading || isGoogleLoading}
+                className="w-full h-12 mt-2 rounded-xl bg-[#fe5c13] hover:bg-[#e64e08] text-white font-bold text-sm tracking-wide transition-all shadow-sm active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Logging in...</span>
+                  </>
+                ) : (
+                  <span>Sign In</span>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
+              <Link
+                href="/"
+                className="hover:text-slate-800 transition-colors inline-flex items-center gap-1.5 font-medium"
+              >
+                <ArrowLeft size={13} />
+                <span>Return to homepage</span>
+              </Link>
+            </div>
+          </motion.div>
+        </main>
+
+        {/* Minimal clean footer */}
+        <footer className="relative z-20 w-full py-4 text-center text-slate-400 text-[11px]">
+          © {new Date().getFullYear()} Qrave. All rights reserved.
+        </footer>
+      </div>
  
       <AnimatePresence>
         {showBranchPicker && (

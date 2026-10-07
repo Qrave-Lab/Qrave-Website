@@ -84,20 +84,24 @@ export function processDashboardData(initialData: any) {
     });
   }
 
+  const meRes = initialData?.meRes || {};
+  const tPct = typeof meRes.tax_percent === "number" ? meRes.tax_percent : 5;
+  const sPct = typeof meRes.service_charge === "number" ? meRes.service_charge : 0;
+
   // ordersList has injection-skipped "ready" status takeaway orders — iterate once, no separate loop for pending/preparing
-  const totalsByTable = new Map<string, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
+  const totalsByTable = new Map<string, { sub: number; count: number; sessionId?: string; seatedAt?: Date }>();
   for (const order of ordersList) {
     if (!order.table_id) continue;
     const existing = totalsByTable.get(order.table_id) || {
-      total: 0,
+      sub: 0,
       count: 0,
       sessionId: order.session_id,
       seatedAt: undefined,
     };
     const orderCreatedAt = order.created_at ? new Date(order.created_at) : undefined;
-    const orderTotal = order.items.reduce((sum: number, i: any) => sum + i.price * i.quantity, 0);
+    const orderSub = order.items.reduce((sum: number, i: any) => sum + i.price * i.quantity, 0);
     totalsByTable.set(order.table_id, {
-      total: existing.total + orderTotal,
+      sub: existing.sub + orderSub,
       count: existing.count + order.items.reduce((sum: number, i: any) => sum + i.quantity, 0),
       sessionId: order.session_id || existing.sessionId,
       seatedAt:
@@ -106,6 +110,18 @@ export function processDashboardData(initialData: any) {
             ? existing.seatedAt
             : orderCreatedAt
           : existing.seatedAt || orderCreatedAt,
+    });
+  }
+
+  const finalTotals = new Map<string, { total: number; count: number; sessionId?: string; seatedAt?: Date }>();
+  for (const [tableId, data] of totalsByTable.entries()) {
+    const service = Math.round(data.sub * (sPct / 100));
+    const taxAmount = Math.round((data.sub + service) * (tPct / 100));
+    finalTotals.set(tableId, {
+      total: data.sub + service + taxAmount,
+      count: data.count,
+      sessionId: data.sessionId,
+      seatedAt: data.seatedAt,
     });
   }
 
@@ -123,11 +139,11 @@ export function processDashboardData(initialData: any) {
     if (isNaN(tableNum) || tableNum <= 0) continue;
     const matchingTable = tablesApi.find((t: any) => t.table_number === tableNum);
     if (!matchingTable) continue;
-    if (totalsByTable.has(matchingTable.id)) continue; // already covered by real order
+    if (finalTotals.has(matchingTable.id)) continue; // already covered by real order
     const twTotal = Number(tw.total) || (tw.items || []).reduce((s: number, i: any) => s + (i.unit_price || 0) * (i.quantity || 1), 0);
     const twCount = (tw.items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
     if (twTotal > 0 || twCount > 0) {
-      totalsByTable.set(matchingTable.id, {
+      finalTotals.set(matchingTable.id, {
         total: twTotal,
         count: twCount,
         sessionId: tw.id,
@@ -138,7 +154,7 @@ export function processDashboardData(initialData: any) {
 
   const tables = tablesApi.map((t: any) => {
     const occ = occupancyByTable.get(t.id);
-    const meta = totalsByTable.get(t.id);
+    const meta = finalTotals.get(t.id);
     const hasActiveOrders = Boolean(meta && meta.count > 0);
     
     // Determine takeaway status for Reception Dine-In tracking
