@@ -1,0 +1,670 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy — QRAVE",
+  description:
+    "QRAVE Privacy Policy: how we collect, use, store, share, and protect your personal information.",
+};
+
+const styles = `
+  .qrave-privacy { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.65; color: #1a1a1a; max-width: 800px; margin: 0 auto; padding: 24px 20px 64px; background: #fff; }
+  .qrave-privacy h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  .qrave-privacy .updated { color: #666; margin-bottom: 2rem; }
+  .qrave-privacy h2 { font-size: 1.25rem; margin-top: 2.25rem; border-bottom: 1px solid #e5e5e5; padding-bottom: 0.4rem; }
+  .qrave-privacy h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+  .qrave-privacy table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.95rem; }
+  .qrave-privacy th, .qrave-privacy td { text-align: left; padding: 10px 12px; border: 1px solid #e0e0e0; vertical-align: top; }
+  .qrave-privacy th { background: #f7f7f7; }
+  .qrave-privacy ul { padding-left: 1.4rem; }
+  .qrave-privacy li { margin-bottom: 0.5rem; }
+  .qrave-privacy a { color: #0b5fff; }
+  .qrave-privacy .toc { background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 8px; padding: 1rem 1.5rem; }
+  .qrave-privacy .toc ol { margin: 0.5rem 0; padding-left: 1.4rem; }
+  .qrave-privacy .toc li { margin-bottom: 0.25rem; }
+  .qrave-privacy .toc a { text-decoration: none; color: #1a1a1a; }
+  .qrave-privacy .toc a:hover { text-decoration: underline; }
+  .qrave-privacy .logo { display: inline-block; margin-bottom: 0.5rem; }
+  .qrave-privacy .logo img { height: 40px; width: auto; display: block; }
+  .qrave-privacy footer { margin-top: 3rem; color: #666; font-size: 0.9rem; border-top: 1px solid #e5e5e5; padding-top: 1rem; }
+`;
+
+export default function PrivacyPage() {
+  return (
+    <div className="qrave-privacy">
+      <style>{styles}</style>
+
+      <a href="/" className="logo" aria-label="Qrave Home">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/landing/image.png" alt="QRAVE" />
+      </a>
+      <h1
+        style={{ border: "none", marginTop: "0.5rem", marginBottom: "0.25rem" }}
+      >
+        Privacy Policy
+      </h1>
+      <p className="updated">
+        <strong>Last Updated:</strong> October 7, 2026
+      </p>
+
+      <nav className="toc" aria-label="Contents">
+        <strong>Contents</strong>
+        <ol>
+          <li>
+            <a href="#introduction">Introduction</a>
+          </li>
+          <li>
+            <a href="#scope">Scope of This Policy</a>
+          </li>
+          <li>
+            <a href="#collect">Information We Collect</a>
+          </li>
+          <li>
+            <a href="#how-collect">How We Collect Information</a>
+          </li>
+          <li>
+            <a href="#how-use">How We Use Your Information</a>
+          </li>
+          <li>
+            <a href="#legal-bases">Legal Bases for Processing</a>
+          </li>
+          <li>
+            <a href="#sharing">Data Sharing and Disclosure</a>
+          </li>
+          <li>
+            <a href="#payments">Payment Information</a>
+          </li>
+          <li>
+            <a href="#location">Location Information</a>
+          </li>
+          <li>
+            <a href="#cookies">Cookies and Similar Technologies</a>
+          </li>
+          <li>
+            <a href="#marketing">Marketing and Service Communications</a>
+          </li>
+          <li>
+            <a href="#retention">Data Retention</a>
+          </li>
+          <li>
+            <a href="#security">Data Security</a>
+          </li>
+          <li>
+            <a href="#breach">Data Breach Response</a>
+          </li>
+          <li>
+            <a href="#rights">Your Privacy Rights</a>
+          </li>
+          <li>
+            <a href="#deletion">Account and Data Deletion</a>
+          </li>
+          <li>
+            <a href="#choices">Your Choices and Controls</a>
+          </li>
+          <li>
+            <a href="#children">Children&apos;s Privacy</a>
+          </li>
+          <li>
+            <a href="#transfers">International Data Transfers</a>
+          </li>
+          <li>
+            <a href="#third-party">Third-Party Services and Links</a>
+          </li>
+          <li>
+            <a href="#region">Region-Specific Information</a>
+          </li>
+          <li>
+            <a href="#changes">Changes to This Privacy Policy</a>
+          </li>
+          <li>
+            <a href="#contact">Contact Us</a>
+          </li>
+        </ol>
+      </nav>
+
+      <h2 id="introduction">1. Introduction</h2>
+      <p>
+        Welcome to QRAVE. We are committed to protecting your personal
+        information and respecting your privacy. This Privacy Policy explains
+        how QRAVE collects, uses, stores, shares, and protects information when
+        you use our website, mobile application, and related food-ordering
+        services (collectively, the &ldquo;Services&rdquo;). In this Privacy
+        Policy, &ldquo;QRAVE,&rdquo; &ldquo;Qrave,&rdquo; &ldquo;we,&rdquo;
+        &ldquo;us,&rdquo; and &ldquo;our&rdquo; refer to Qrave, the entity that
+        operates the Services.
+      </p>
+      <p>
+        By using the Services, you acknowledge that you have read and understood
+        this Privacy Policy. If you have questions or concerns about this
+        Privacy Policy or our privacy practices, contact us at{" "}
+        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>.
+      </p>
+
+      <h2 id="scope">2. Scope of This Policy</h2>
+      <p>
+        This Privacy Policy applies to personal information we process in
+        connection with the Services, including when you browse our website,
+        create an account, place an order through our mobile application,
+        contact customer support, or otherwise interact with us. It applies to
+        customers, visitors, and other individuals whose information we receive
+        in the course of operating the Services.
+      </p>
+      <p>
+        This Privacy Policy does not apply to the practices of restaurants,
+        merchants, delivery partners, payment providers, or other third parties
+        that operate independently of QRAVE. Those parties may have their own
+        privacy policies, and we encourage you to review them.
+      </p>
+
+      <h2 id="collect">3. Information We Collect</h2>
+      <p>
+        We collect only information that is reasonably necessary to provide,
+        maintain, secure, and improve the Services. Depending on how you use
+        QRAVE, this may include:
+      </p>
+      <table>
+        <tbody>
+          <tr>
+            <th>Category</th>
+            <th>Examples</th>
+          </tr>
+          <tr>
+            <td>Account information</td>
+            <td>
+              Name, email address, phone number, login credentials or
+              authentication information.
+            </td>
+          </tr>
+          <tr>
+            <td>Order information</td>
+            <td>
+              Food orders, order history, selected restaurants or merchants,
+              order amounts, delivery details, and order status.
+            </td>
+          </tr>
+          <tr>
+            <td>Delivery information</td>
+            <td>
+              Delivery address and other information necessary to complete a
+              delivery, such as delivery instructions.
+            </td>
+          </tr>
+          <tr>
+            <td>Payment information</td>
+            <td>
+              Payment status, transaction identifiers, and limited
+              payment-related information. Where payments are processed by a
+              third-party payment provider, QRAVE may not receive or store your
+              complete card, bank, or other payment credentials.
+            </td>
+          </tr>
+          <tr>
+            <td>Communications</td>
+            <td>
+              Information you provide when contacting customer support, giving
+              feedback, or otherwise communicating with us.
+            </td>
+          </tr>
+          <tr>
+            <td>Device and technical information</td>
+            <td>
+              IP address, browser or device type, operating system, app version,
+              approximate location derived from technical information where
+              applicable, and diagnostic information.
+            </td>
+          </tr>
+          <tr>
+            <td>Usage information</td>
+            <td>
+              Interactions with our Services, pages or features accessed, and
+              information about how the Services are used.
+            </td>
+          </tr>
+          <tr>
+            <td>Cookies and similar technologies</td>
+            <td>
+              Information collected through cookies, local storage, analytics
+              technologies, or similar tools, where these are used.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="how-collect">4. How We Collect Information</h2>
+      <p>We collect information in the following ways:</p>
+      <ul>
+        <li>
+          <strong>Directly from you:</strong> when you register an account,
+          place an order, enter a delivery address, contact customer support, or
+          submit feedback.
+        </li>
+        <li>
+          <strong>Automatically:</strong> through your use of the Services,
+          including through cookies, software development kits, log files, and
+          similar technologies.
+        </li>
+        <li>
+          <strong>From third parties:</strong> such as payment providers that
+          confirm the status of a transaction, and restaurants, merchants, or
+          delivery partners that update the status of your order.
+        </li>
+      </ul>
+
+      <h2 id="how-use">5. How We Use Your Information</h2>
+      <p>
+        We may process your information for the purposes described below, and
+        for other purposes that are disclosed to you at the time of collection
+        or otherwise permitted by applicable law.
+      </p>
+      <table>
+        <tbody>
+          <tr>
+            <th>Purpose</th>
+            <th>Description</th>
+          </tr>
+          <tr>
+            <td>Providing the Services</td>
+            <td>
+              Operating the website and app, creating and managing your account,
+              and processing and fulfilling food orders.
+            </td>
+          </tr>
+          <tr>
+            <td>Communications</td>
+            <td>
+              Sending order confirmations, delivery updates, receipts, and
+              support messages.
+            </td>
+          </tr>
+          <tr>
+            <td>Payments</td>
+            <td>
+              Processing payments, confirming transactions, and handling refunds
+              and disputes.
+            </td>
+          </tr>
+          <tr>
+            <td>Safety and security</td>
+            <td>
+              Preventing fraud, abuse, and unauthorized activity, and
+              maintaining the security of the Services and your account.
+            </td>
+          </tr>
+          <tr>
+            <td>Improvement</td>
+            <td>
+              Troubleshooting, analyzing usage, testing features, and improving
+              the performance and reliability of the Services.
+            </td>
+          </tr>
+          <tr>
+            <td>Legal and compliance</td>
+            <td>
+              Complying with applicable laws and legal obligations, responding
+              to lawful requests, and enforcing our terms and policies.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="legal-bases">6. Legal Bases for Processing</h2>
+      <p>
+        Where applicable data protection law requires a legal basis for
+        processing, we may process personal information based on:
+      </p>
+      <ul>
+        <li>
+          <strong>Consent:</strong> where you have agreed to a specific use of
+          your information, where permitted by law. You may withdraw consent
+          where processing is based on consent.
+        </li>
+        <li>
+          <strong>Performance of a contract:</strong> where processing is
+          necessary to provide the Services you requested, such as fulfilling an
+          order.
+        </li>
+        <li>
+          <strong>Compliance with legal obligations:</strong> where we must
+          process information to meet tax, accounting, or regulatory
+          requirements.
+        </li>
+        <li>
+          <strong>Legitimate business interests:</strong> such as securing the
+          Services, preventing fraud, and improving our offerings, where those
+          interests are not overridden by your rights.
+        </li>
+        <li>
+          <strong>Another lawful basis</strong> permitted by applicable law.
+        </li>
+      </ul>
+
+      <h2 id="sharing">7. Data Sharing and Disclosure</h2>
+      <p>
+        <strong>We do not sell your personal data.</strong> We may disclose
+        information when reasonably necessary to operate QRAVE and provide the
+        Services, including to:
+      </p>
+      <ul>
+        <li>
+          <strong>Restaurants, merchants, and delivery partners:</strong>{" "}
+          information necessary to prepare and fulfill your order, such as your
+          name, order contents, and delivery details.
+        </li>
+        <li>
+          <strong>Payment service providers:</strong> information required to
+          process and verify payments and refunds.
+        </li>
+        <li>
+          <strong>Technology and service providers:</strong> hosting, cloud
+          storage, analytics, customer support, communications, security, and
+          other infrastructure providers.
+        </li>
+        <li>
+          <strong>Professional advisers:</strong> lawyers, accountants,
+          auditors, insurers, or other advisers where reasonably necessary.
+        </li>
+        <li>
+          <strong>Authorities and other parties:</strong> where disclosure is
+          required by law, court order, or regulation, or where necessary to
+          protect rights, safety, or security, or to prevent fraud.
+        </li>
+        <li>
+          <strong>Business transfers:</strong> information may be transferred as
+          part of a merger, acquisition, restructuring, financing, sale of
+          assets, or similar transaction, subject to applicable law.
+        </li>
+      </ul>
+      <p>
+        We require service providers that process information on our behalf to
+        handle it consistently with applicable legal requirements and
+        appropriate contractual or technical safeguards, where required. We may
+        also share aggregated or de-identified information that cannot
+        reasonably be used to identify you.
+      </p>
+
+      <h2 id="payments">8. Payment Information</h2>
+      <p>
+        Payments may be processed through third-party payment processors. QRAVE
+        may receive transaction information needed to confirm and reconcile
+        payments, such as payment status, transaction identifiers, and order
+        amounts, but the payment processor may directly handle sensitive payment
+        credentials. Users should review the applicable privacy policies of the
+        payment provider used for their transaction.
+      </p>
+
+      <h2 id="location">9. Location Information</h2>
+      <p>
+        We use your delivery address to complete orders. Where you permit it
+        through your device settings, the app may also use location information
+        to help you enter an address, show nearby restaurants, or improve
+        delivery accuracy. We may also derive approximate location from your IP
+        address. You can control location permissions through your device
+        settings at any time, although some features may not work as intended if
+        location access is turned off.
+      </p>
+
+      <h2 id="cookies">10. Cookies and Similar Technologies</h2>
+      <p>
+        QRAVE may use cookies, local storage, software development kits,
+        analytics tools, and similar technologies to keep the Services
+        functioning, remember preferences, understand usage, improve
+        performance, maintain security, and, where applicable, measure
+        communications or marketing. You may be able to control certain cookies
+        through your browser or device settings. Disabling some technologies may
+        affect the functionality of the Services.
+      </p>
+      <table>
+        <tbody>
+          <tr>
+            <th>Type</th>
+            <th>Purpose</th>
+          </tr>
+          <tr>
+            <td>Essential</td>
+            <td>
+              Needed for core functions such as signing in, keeping your session
+              active, and completing orders.
+            </td>
+          </tr>
+          <tr>
+            <td>Preferences</td>
+            <td>
+              Remember your settings and choices to make the Services easier to
+              use.
+            </td>
+          </tr>
+          <tr>
+            <td>Analytics</td>
+            <td>
+              Help us understand how the Services are used so we can fix
+              problems and improve performance.
+            </td>
+          </tr>
+          <tr>
+            <td>Security</td>
+            <td>
+              Help detect and prevent fraud, abuse, and unauthorized access.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Some browsers offer a &ldquo;Do Not Track&rdquo; signal. Because there
+        is no common standard for responding to these signals, the Services may
+        not respond to them.
+      </p>
+
+      <h2 id="marketing">11. Marketing and Service Communications</h2>
+      <p>
+        We send service-related messages, such as order confirmations, delivery
+        updates, and security or account notices, as part of providing the
+        Services. Where permitted by law and, where required, with your consent,
+        we may also send promotional messages about QRAVE. You can opt out of
+        promotional messages at any time by following the unsubscribe
+        instructions in the message or by contacting us at{" "}
+        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>.
+        Opting out of promotional messages does not stop service-related
+        messages that are necessary for your orders or account.
+      </p>
+
+      <h2 id="retention">12. Data Retention</h2>
+      <p>
+        We retain personal information only for as long as reasonably necessary
+        for the purposes described in this Privacy Policy, including to provide
+        the Services, maintain business and transaction records, resolve
+        disputes, enforce agreements, prevent fraud, and comply with legal, tax,
+        accounting, or regulatory requirements. Retention periods may vary
+        depending on the type of information and the purpose for which it was
+        collected.
+      </p>
+      <p>
+        When we no longer need personal information, we delete it or de-identify
+        it so that it can no longer be linked to you, unless we are required by
+        law to keep it. Information held in backups may be removed on a delayed
+        schedule.
+      </p>
+
+      <h2 id="security">13. Data Security</h2>
+      <p>
+        We use reasonable administrative, technical, and organizational
+        safeguards designed to protect personal information from unauthorized
+        access, alteration, disclosure, loss, misuse, or destruction. These
+        measures may include access controls, encryption of data in transit, and
+        monitoring of our systems. However, no method of transmission or storage
+        can be guaranteed to be completely secure.
+      </p>
+      <p>
+        You are responsible for maintaining the confidentiality of your account
+        credentials and should notify us promptly at{" "}
+        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a> if
+        you believe your account has been compromised.
+      </p>
+
+      <h2 id="breach">14. Data Breach Response</h2>
+      <p>
+        If we become aware of a security incident that affects your personal
+        information, we will investigate it promptly and take steps to contain
+        and remediate it. Where applicable law requires us to notify you or a
+        regulator, we will do so within the timeframe and in the manner required
+        by that law.
+      </p>
+
+      <h2 id="rights">15. Your Privacy Rights</h2>
+      <p>
+        Depending on your location and applicable law, you may have rights
+        concerning your personal information. These may include the right to:
+      </p>
+      <ul>
+        <li>request access to, or a copy of, your information;</li>
+        <li>request correction of inaccurate or incomplete information;</li>
+        <li>request deletion or erasure of your information;</li>
+        <li>request restriction of, or object to, certain processing;</li>
+        <li>withdraw consent where processing is based on consent;</li>
+        <li>request portability of certain information; and</li>
+        <li>
+          lodge a complaint with a competent data protection or privacy
+          authority.
+        </li>
+      </ul>
+      <p>
+        To exercise an applicable privacy right, contact us at{" "}
+        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>. We
+        may need to verify your identity before completing certain requests.
+        Some requests may be subject to legal exceptions or limitations. We will
+        respond to valid requests within the time required by applicable law.
+      </p>
+
+      <h2 id="deletion">16. Account and Data Deletion</h2>
+      <p>
+        If you wish to delete your QRAVE account or request deletion of personal
+        information, contact us at{" "}
+        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>{" "}
+        from the email address associated with your account. We will process the
+        request in accordance with applicable law. Certain information may need
+        to be retained where required for legal, accounting, fraud-prevention,
+        dispute-resolution, or other legitimate purposes.
+      </p>
+
+      <h2 id="choices">17. Your Choices and Controls</h2>
+      <p>
+        In addition to the rights above, you can manage your information in the
+        following ways:
+      </p>
+      <ul>
+        <li>
+          <strong>Account details:</strong> review and update your name, contact
+          details, and saved addresses through your account.
+        </li>
+        <li>
+          <strong>Device permissions:</strong> turn location, notification, or
+          other permissions on or off in your device settings.
+        </li>
+        <li>
+          <strong>Cookies:</strong> adjust your browser settings to block or
+          delete cookies.
+        </li>
+        <li>
+          <strong>Communications:</strong> unsubscribe from promotional messages
+          using the link in the message.
+        </li>
+      </ul>
+
+      <h2 id="children">18. Children&apos;s Privacy</h2>
+      <p>
+        The Services are not intended to knowingly collect personal information
+        from children in circumstances where such collection is prohibited by
+        applicable law. If you believe a child has provided personal information
+        to us in violation of applicable requirements, please contact us at{" "}
+        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a> so
+        that we can review and take appropriate action, which may include
+        deleting the information.
+      </p>
+
+      <h2 id="transfers">19. International Data Transfers</h2>
+      <p>
+        QRAVE or its service providers may process or store information in
+        locations outside your state or country. Where applicable law imposes
+        requirements for international transfers, we will use appropriate
+        safeguards or another lawful transfer mechanism.
+      </p>
+
+      <h2 id="third-party">20. Third-Party Services and Links</h2>
+      <p>
+        The Services may contain links to or integrations with third-party
+        websites, payment services, maps, analytics providers, or other
+        services. Their privacy practices are governed by their own policies,
+        not this Privacy Policy. We encourage you to review those policies
+        before providing information to third parties.
+      </p>
+
+      <h2 id="region">21. Region-Specific Information</h2>
+      <p>
+        Depending on where you live, additional rights or notices may apply to
+        you. We address these only where the relevant law applies to our
+        Services.
+      </p>
+      <h3>European Economic Area, United Kingdom, and similar regions</h3>
+      <p>
+        Where data protection laws such as the GDPR apply, you may have the
+        rights described in Section 15 and the right to lodge a complaint with
+        your local supervisory authority.
+      </p>
+      <h3>California, United States</h3>
+      <p>
+        Where California privacy law applies, you may have the right to know
+        what personal information we collect, to request its deletion or
+        correction, and not to be discriminated against for exercising your
+        rights. We do not sell personal information.
+      </p>
+      <h3>India</h3>
+      <p>
+        Where Indian data protection law applies, you may have the right to
+        access, correct, and erase your personal data, to nominate another
+        person to exercise your rights in the event of death or incapacity, and
+        to seek redress of grievances. You may raise a grievance by writing to{" "}
+        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>,
+        and we will respond within the time required by applicable law.
+      </p>
+
+      <h2 id="changes">22. Changes to This Privacy Policy</h2>
+      <p>
+        We may update this Privacy Policy from time to time to reflect changes
+        to our Services, practices, technologies, or legal requirements. When we
+        make changes, we will update the &ldquo;Last Updated&rdquo; date above
+        and, where required, provide additional notice, such as a message in the
+        app or by email. Your continued use of the Services after an updated
+        policy becomes effective is subject to the updated policy, to the extent
+        permitted by applicable law.
+      </p>
+
+      <h2 id="contact">23. Contact Us</h2>
+      <p>
+        If you have questions, concerns, or requests relating to this Privacy
+        Policy or our handling of your personal information, please contact us:
+      </p>
+      <table>
+        <tbody>
+          <tr>
+            <th>Legal entity</th>
+            <td>Qrave</td>
+          </tr>
+          <tr>
+            <th>Brand</th>
+            <td>QRAVE</td>
+          </tr>
+          <tr>
+            <th>Privacy contact</th>
+            <td>
+              <a href="mailto:qrave.private@gmail.com">
+                qrave.private@gmail.com
+              </a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <footer>
+        QRAVE Privacy Policy &middot; Last Updated: October 7, 2026
+      </footer>
+    </div>
+  );
+}

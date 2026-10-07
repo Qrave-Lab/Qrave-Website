@@ -18,10 +18,6 @@ const nextConfig: NextConfig = {
         source: "/api/proxy-model/:path*",
         destination: "https://dzsxi8qe0pwwl.cloudfront.net/:path*",
       },
-      {
-        source: "/privacy",
-        destination: "/privacy.html",
-      },
     ];
   },
   async headers() {
