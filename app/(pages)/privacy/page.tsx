@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — QRAVE",
+  title: "Privacy Policy — Qrave",
   description:
-    "QRAVE Privacy Policy: how we collect, use, store, share, and protect your personal information.",
+    "Qrave Privacy Policy: how we collect, use, store, share, and protect your personal information.",
 };
 
 const styles = `
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
 
       <a href="/" className="logo" aria-label="Qrave Home">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/landing/image.png" alt="QRAVE" />
+        <img src="/landing/image.png" alt="Qrave" />
       </a>
       <h1
         style={{ border: "none", marginTop: "0.5rem", marginBottom: "0.25rem" }}
@@ -123,12 +123,12 @@ export default function PrivacyPage() {
 
       <h2 id="introduction">1. Introduction</h2>
       <p>
-        Welcome to QRAVE. We are committed to protecting your personal
+        Welcome to Qrave. We are committed to protecting your personal
         information and respecting your privacy. This Privacy Policy explains
-        how QRAVE collects, uses, stores, shares, and protects information when
+        how Qrave collects, uses, stores, shares, and protects information when
         you use our website, mobile application, and related food-ordering
         services (collectively, the &ldquo;Services&rdquo;). In this Privacy
-        Policy, &ldquo;QRAVE,&rdquo; &ldquo;Qrave,&rdquo; &ldquo;we,&rdquo;
+        Policy, &ldquo;Qrave,&rdquo; &ldquo;Qrave,&rdquo; &ldquo;we,&rdquo;
         &ldquo;us,&rdquo; and &ldquo;our&rdquo; refer to Qrave, the entity that
         operates the Services.
       </p>
@@ -151,7 +151,7 @@ export default function PrivacyPage() {
       <p>
         This Privacy Policy does not apply to the practices of restaurants,
         merchants, delivery partners, payment providers, or other third parties
-        that operate independently of QRAVE. Those parties may have their own
+        that operate independently of Qrave. Those parties may have their own
         privacy policies, and we encourage you to review them.
       </p>
 
@@ -159,7 +159,7 @@ export default function PrivacyPage() {
       <p>
         We collect only information that is reasonably necessary to provide,
         maintain, secure, and improve the Services. Depending on how you use
-        QRAVE, this may include:
+        Qrave, this may include:
       </p>
       <table>
         <tbody>
@@ -193,7 +193,7 @@ export default function PrivacyPage() {
             <td>
               Payment status, transaction identifiers, and limited
               payment-related information. Where payments are processed by a
-              third-party payment provider, QRAVE may not receive or store your
+              third-party payment provider, Qrave may not receive or store your
               complete card, bank, or other payment credentials.
             </td>
           </tr>
@@ -340,7 +340,7 @@ export default function PrivacyPage() {
       <h2 id="sharing">7. Data Sharing and Disclosure</h2>
       <p>
         <strong>We do not sell your personal data.</strong> We may disclose
-        information when reasonably necessary to operate QRAVE and provide the
+        information when reasonably necessary to operate Qrave and provide the
         Services, including to:
       </p>
       <ul>
@@ -383,7 +383,7 @@ export default function PrivacyPage() {
 
       <h2 id="payments">8. Payment Information</h2>
       <p>
-        Payments may be processed through third-party payment processors. QRAVE
+        Payments may be processed through third-party payment processors. Qrave
         may receive transaction information needed to confirm and reconcile
         payments, such as payment status, transaction identifiers, and order
         amounts, but the payment processor may directly handle sensitive payment
@@ -404,7 +404,7 @@ export default function PrivacyPage() {
 
       <h2 id="cookies">10. Cookies and Similar Technologies</h2>
       <p>
-        QRAVE may use cookies, local storage, software development kits,
+        Qrave may use cookies, local storage, software development kits,
         analytics tools, and similar technologies to keep the Services
         functioning, remember preferences, understand usage, improve
         performance, maintain security, and, where applicable, measure
@@ -458,7 +458,7 @@ export default function PrivacyPage() {
         We send service-related messages, such as order confirmations, delivery
         updates, and security or account notices, as part of providing the
         Services. Where permitted by law and, where required, with your consent,
-        we may also send promotional messages about QRAVE. You can opt out of
+        we may also send promotional messages about Qrave. You can opt out of
         promotional messages at any time by following the unsubscribe
         instructions in the message or by contacting us at{" "}
         <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>.
@@ -535,7 +535,7 @@ export default function PrivacyPage() {
 
       <h2 id="deletion">16. Account and Data Deletion</h2>
       <p>
-        If you wish to delete your QRAVE account or request deletion of personal
+        If you wish to delete your Qrave account or request deletion of personal
         information, contact us at{" "}
         <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>{" "}
         from the email address associated with your account. We will process the
@@ -581,7 +581,7 @@ export default function PrivacyPage() {
 
       <h2 id="transfers">19. International Data Transfers</h2>
       <p>
-        QRAVE or its service providers may process or store information in
+        Qrave or its service providers may process or store information in
         locations outside your state or country. Where applicable law imposes
         requirements for international transfers, we will use appropriate
         safeguards or another lawful transfer mechanism.
@@ -649,7 +649,7 @@ export default function PrivacyPage() {
           </tr>
           <tr>
             <th>Brand</th>
-            <td>QRAVE</td>
+            <td>Qrave</td>
           </tr>
           <tr>
             <th>Privacy contact</th>
@@ -663,7 +663,7 @@ export default function PrivacyPage() {
       </table>
 
       <footer>
-        QRAVE Privacy Policy &middot; Last Updated: October 7, 2026
+        Qrave Privacy Policy &middot; Last Updated: October 7, 2026
       </footer>
     </div>
   );
