@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/app/lib/api';
 import { motion, AnimatePresence } from "framer-motion";
 import { PackageOpen, Truck, FileText, CheckCircle, Plus, Search, MapPin, Store, Edit2, Trash2, X, AlertTriangle, ClipboardList, Trash } from 'lucide-react';
 import StaffSidebar from '@/app/components/StaffSidebar';
 import { toast } from 'react-hot-toast';
 import { CustomSelect } from '@/app/components/ui/CustomSelect';
+import { CustomDateTimePicker } from '@/app/components/ui/CustomDateTimePicker';
 
 type Vendor = {
   id: string;
@@ -31,6 +33,7 @@ const fmtINR = (n: number) =>
   })}`;
 
 export default function InventoryDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'vendors' | 'pos' | 'recipes' | 'kitchen' | 'stock' | 'stock-take' | 'waste'>('stock');
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(false);
@@ -273,12 +276,26 @@ export default function InventoryDashboard() {
   };
 
   useEffect(() => {
-    fetchIngredientsAndMenuItems();
-    fetchBatches();
-    fetchRecipes();
-    fetchVendors();
-    fetchAdvancedData();
-  }, []);
+    const checkRoleAndLoad = async () => {
+      try {
+        const me = await api<{ role?: string }>("/api/admin/me");
+        const r = String(me?.role || "").toLowerCase();
+        if (!["owner", "admin", "manager"].includes(r)) {
+          router.replace("/staff");
+          return;
+        }
+      } catch {
+        router.replace("/staff");
+        return;
+      }
+      fetchIngredientsAndMenuItems();
+      fetchBatches();
+      fetchRecipes();
+      fetchVendors();
+      fetchAdvancedData();
+    };
+    checkRoleAndLoad();
+  }, [router]);
 
   useEffect(() => {
     if (activeTab === 'vendors') {
@@ -1259,12 +1276,9 @@ export default function InventoryDashboard() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Received At</label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={new Date(new Date(editingBatch.received_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16)}
-                      onChange={e => setEditingBatch({...editingBatch, received_at: new Date(e.target.value).toISOString()})}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    <CustomDateTimePicker
+                      value={editingBatch.received_at ? new Date(new Date(editingBatch.received_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
+                      onChange={val => setEditingBatch({ ...editingBatch, received_at: val ? new Date(val).toISOString() : new Date().toISOString() })}
                     />
                   </div>
                   <div>

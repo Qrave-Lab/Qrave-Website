@@ -101,13 +101,14 @@ export default function QrFlyerGenerator() {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [restaurantName, setRestaurantName] = useState<string>("Restaurant");
+  const [restaurantSlug, setRestaurantSlug] = useState<string>("");
   const [restaurantLogoUrl, setRestaurantLogoUrl] =
     useState<string>("Restaurant");
   const [activeFloor, setActiveFloor] = useState<string>("");
 
   const getTableUrl = (table: Table | null) => {
     if (!table) return "";
-    const slug = slugifyRestaurantName(restaurantName);
+    const slug = restaurantSlug || slugifyRestaurantName(restaurantName);
     const rootDomain = getRootDomain();
     if (table.id === "waitlist") return `https://${slug}.${rootDomain}/waitlist/${slug}`;
     if (!table.qr_token) return "";
@@ -172,6 +173,7 @@ export default function QrFlyerGenerator() {
           restaurant_id?: string;
           restaurantId?: string;
           restaurant?: string;
+          store_slug?: string;
           logo_url?: string | null;
           logo_version?: number | null;
         }>("/api/admin/me", { method: "GET" }),
@@ -219,6 +221,9 @@ export default function QrFlyerGenerator() {
       }
       setRestaurantId(me?.restaurant_id || me?.restaurantId || "");
       setRestaurantName(me?.restaurant?.trim() || "Restaurant");
+      if (me?.store_slug) {
+        setRestaurantSlug(me.store_slug.trim());
+      }
       const suffix = me?.logo_version ? `?v=${me.logo_version}` : "";
       setRestaurantLogoUrl(me?.logo_url ? `${me.logo_url}${suffix}` : "");
     })();

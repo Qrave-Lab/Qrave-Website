@@ -127,10 +127,11 @@ export default function StaffManager({ onRefresh }: Props) {
         method: "GET",
       });
       const email = detail?.Email || "";
+      const rawPhone = (detail?.Phone || "").replace(/\D/g, "");
       setEditForm({
         email: email.includes('@internal.nologin') ? "" : email,
         name: detail?.Name || "",
-        phone: detail?.Phone || "",
+        phone: rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone,
         role: detail?.Role || "waiter",
         password: "",
       });
@@ -145,6 +146,10 @@ export default function StaffManager({ onRefresh }: Props) {
 
   const handleUpdate = async () => {
     if (!editingId) return;
+    if (editForm.phone && editForm.phone.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
     setIsSavingEdit(true);
     try {
       await api(`/api/admin/staffDetails/${editingId}`, {
@@ -435,14 +440,26 @@ export default function StaffManager({ onRefresh }: Props) {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Phone <span className="text-slate-300 normal-case font-normal">(optional)</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Phone <span className="text-slate-300 normal-case font-normal">(optional)</span>
+                    </label>
+                    {editForm.phone && (
+                      <span className={`text-[10px] font-semibold ${editForm.phone.length === 10 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {editForm.phone.length}/10 digits
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={editForm.phone}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    placeholder="e.g. +91 98765 43210"
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setEditForm((prev) => ({ ...prev, phone: val }));
+                    }}
+                    placeholder="10-digit mobile number"
                     className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13]"
                   />
                 </div>

@@ -60,6 +60,10 @@ const AddStaffPage = () => {
     e.preventDefault();
     const targetBranch = ownerBranches.length > 1 ? selectedBranchId : restaurantId;
     if (!targetBranch) { toast.error("Connecting to server..."); return; }
+    if (formData.phone && formData.phone.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
     const pwError = validatePassword(formData.password);
     if (pwError) { toast.error(pwError); return; }
     setIsSaving(true);
@@ -94,8 +98,29 @@ const AddStaffPage = () => {
             <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="email" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none" placeholder="email@work.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></div>
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
-            <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="tel" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none" placeholder="+91 98765 43210" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} /></div>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+              {formData.phone && (
+                <span className={`text-[10px] font-semibold ${formData.phone.length === 10 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  {formData.phone.length}/10 digits
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none"
+                placeholder="10-digit mobile number"
+                value={formData.phone}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  setFormData({ ...formData, phone: val });
+                }}
+              />
+            </div>
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Access Password</label>

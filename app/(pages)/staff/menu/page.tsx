@@ -35,6 +35,7 @@ import StaffSidebar from "@/app/components/StaffSidebar";
 import { api, getBackendBase } from "@/app/lib/api";
 import { toast } from "react-hot-toast";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
+import { CustomDateTimePicker } from "@/app/components/ui/CustomDateTimePicker";
 
 const generateUUID = (): string => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -479,6 +480,8 @@ export default function MenuPage() {
         isNew: item.isNew ?? item.is_new ?? false,
         spiceLevel: (item.spiceLevel ?? item.spice_level ?? "none") as SpiceLevel,
         hasSteam: Boolean(item.hasSteam ?? item.has_steam ?? false),
+        steamIntensity: (item.steamIntensity ?? item.steam_intensity ?? "medium") as any,
+        steamColor: (item.steamColor ?? item.steam_color ?? "white") as any,
         modelScale: item.modelScale ?? item.model_scale ?? 1.00,
         specialNote:
           typeof item.specialNote === "object"
@@ -947,6 +950,8 @@ export default function MenuPage() {
       height_cm: next.height_cm !== undefined ? next.height_cm : null,
       depth_cm: next.depth_cm !== undefined ? next.depth_cm : null,
       has_steam: next.hasSteam !== undefined ? next.hasSteam : false,
+      steam_intensity: next.steamIntensity || "medium",
+      steam_color: next.steamColor || "white",
       model_scale: next.modelScale !== undefined ? next.modelScale : 1.00,
     };
   };
@@ -1461,6 +1466,8 @@ export default function MenuPage() {
                   modelGlb: "",
                   modelUsdz: "",
                   hasSteam: false,
+                  steamIntensity: "medium",
+                  steamColor: "white",
                   modelScale: 1.00,
                   description: "",
                   calories: null,
@@ -1984,6 +1991,8 @@ export default function MenuPage() {
                         modelGlb: "",
                         modelUsdz: "",
                         hasSteam: false,
+                        steamIntensity: "medium",
+                        steamColor: "white",
                         modelScale: 1.00,
                         description: "",
                         calories: null,
@@ -2208,13 +2217,15 @@ export default function MenuPage() {
                       Configure details, pricing, and assets.
                     </p>
                   </div>
-                  {modalMode === "edit" && editingItem && (
-                    <div className="ml-4 px-3 py-1.5 bg-orange-50 border border-orange-100 rounded-lg flex items-center gap-1.5">
-                      <span className="text-[13px] font-bold text-orange-600">
-                        🔥 {Math.abs(parseInt(editingItem.id.substring(0,8), 16) || 0) % 100 + 15} sold this week
-                      </span>
-                    </div>
-                  )}
+                  {modalMode === "edit" &&
+                    editingItem &&
+                    (healthItems.find((h) => h.id === editingItem.id)?.order_count ?? 0) > 0 && (
+                      <div className="ml-4 px-3 py-1.5 bg-orange-50 border border-orange-100 rounded-lg flex items-center gap-1.5">
+                        <span className="text-[13px] font-bold text-orange-600">
+                          🔥 {healthItems.find((h) => h.id === editingItem.id)?.order_count} sold
+                        </span>
+                      </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
@@ -3646,52 +3657,67 @@ export default function MenuPage() {
                 {activeModalTab === "availability" && (
                   <div className="space-y-8">
                     <div className="bg-slate-50/60 p-8 rounded-3xl border border-slate-200">
-                      <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 mb-6 flex items-center gap-2">
-                        <Clock3 className="w-4 h-4" /> Scheduled Publishing
-                      </h4>
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="mb-6">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 flex items-center gap-2">
+                          <Clock3 className="w-4 h-4 text-[#fe5c13]" /> Scheduled Publishing & Pricing
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium mt-1">
+                          Automate when this product goes live, unpublishes, or shifts to a promotional price.
+                        </p>
+                      </div>
+                      <div className="grid gap-6 md:grid-cols-2">
                         <div>
-                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
                             Publish At
                           </label>
-                          <input
-                            type="datetime-local"
+                          <CustomDateTimePicker
                             value={editingItem.publishAt}
-                            onChange={(e) => setEditingItem({ ...editingItem, publishAt: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            onChange={(val) => setEditingItem({ ...editingItem, publishAt: val })}
+                            placeholder="Set publish date & time..."
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
                             Unpublish At
                           </label>
-                          <input
-                            type="datetime-local"
+                          <CustomDateTimePicker
                             value={editingItem.unpublishAt}
-                            onChange={(e) => setEditingItem({ ...editingItem, unpublishAt: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            onChange={(val) => setEditingItem({ ...editingItem, unpublishAt: val })}
+                            placeholder="Set unpublish date & time..."
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
                             Scheduled Price (₹)
                           </label>
-                          <input
-                            type="number"
-                            value={editingItem.scheduledPrice ?? ""}
-                            onChange={(e) => setEditingItem({ ...editingItem, scheduledPrice: e.target.value === "" ? null : Number(e.target.value) })}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                          />
+                          <div className="relative">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                              ₹
+                            </span>
+                            <input
+                              type="number"
+                              placeholder="e.g. 299"
+                              value={editingItem.scheduledPrice ?? ""}
+                              onChange={(e) =>
+                                setEditingItem({
+                                  ...editingItem,
+                                  scheduledPrice: e.target.value === "" ? null : Number(e.target.value),
+                                })
+                              }
+                              className="w-full h-11 pl-8 pr-3.5 text-sm font-semibold bg-white border border-slate-200/90 rounded-2xl outline-none transition-all hover:bg-slate-50/80 hover:border-slate-300 focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10"
+                            />
+                          </div>
                         </div>
                         <div>
-                          <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
                             Price Effective At
                           </label>
-                          <input
-                            type="datetime-local"
+                          <CustomDateTimePicker
                             value={editingItem.scheduledPriceEffectiveAt}
-                            onChange={(e) => setEditingItem({ ...editingItem, scheduledPriceEffectiveAt: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            onChange={(val) =>
+                              setEditingItem({ ...editingItem, scheduledPriceEffectiveAt: val })
+                            }
+                            placeholder="Set effective date & time..."
                           />
                         </div>
                       </div>

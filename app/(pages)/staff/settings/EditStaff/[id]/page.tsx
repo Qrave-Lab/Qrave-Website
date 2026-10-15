@@ -54,10 +54,11 @@ const EditStaffPage = () => {
           });
           
           const email = staffData.Email || "";
+          const rawPhone = (staffData.Phone || "").replace(/\D/g, "");
           setFormData({
             name: staffData.Name || "",
             email: email.includes('@internal.nologin') ? "" : email,
-            phone: staffData.Phone || "",
+            phone: rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone,
             password: "", 
             role: staffData.Role || "waiter",
           });
@@ -74,6 +75,10 @@ const EditStaffPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.phone && formData.phone.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
     setIsSaving(true);
     try {
       await api(`/api/admin/staffDetails/${userId}`, {
@@ -150,11 +155,28 @@ const EditStaffPage = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                  {formData.phone && (
+                    <span className={`text-[10px] font-semibold ${formData.phone.length === 10 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {formData.phone.length}/10 digits
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="tel" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
-                  placeholder="+91 98765 43210" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
+                    placeholder="10-digit mobile number"
+                    value={formData.phone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setFormData({ ...formData, phone: val });
+                    }}
+                  />
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import { api } from "@/app/lib/api";
 
-const DEFAULT_ROOT_DOMAIN = "qrave-website.vercel.app";
+const DEFAULT_ROOT_DOMAIN = "qravetech.in";
 
 type ResolveRestaurantPayload = {
   restaurant_id?: string;

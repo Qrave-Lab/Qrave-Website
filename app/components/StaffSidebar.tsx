@@ -139,25 +139,23 @@ function hasFeatureAccess(
   feature: string,
 ): boolean {
   const r = String(role || "").toLowerCase();
-  if (!r || r === "owner" || r === "admin" || r === "manager") return true;
-  
+
+  // 1. Management roles have full access
+  if (r === "owner" || r === "admin" || r === "manager") {
+    return true;
+  }
+
+  // 2. Custom role access if configured in settings
   if (roleAccess && roleAccess[r] && typeof roleAccess[r][feature] === "boolean") {
     return roleAccess[r][feature];
   }
 
-  // Sensible Defaults
+  // 3. Default allow-list for operational staff
   if (r === "waiter") {
-    return ["floor", "reservations", "takeaway", "history"].includes(feature);
+    return ["floor", "reservations"].includes(feature);
   }
   if (r === "cashier") {
-    return ["floor", "reservations", "takeaway", "cash_drawer", "history"].includes(feature);
-  }
-  if (r === "kitchen") {
-    // Kitchen only needs their display, they shouldn't see menu edits or settings.
-    return false;
-  }
-  if (r === "delivery_rider") {
-    return ["takeaway"].includes(feature);
+    return ["floor", "reservations", "cash_drawer"].includes(feature);
   }
 
   return false;
@@ -177,8 +175,28 @@ export default function StaffSidebar() {
   });
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [logoUrl, setLogoUrl] = useState<string>("");
-  const [currentRole, setCurrentRole] = useState<string>("");
-  const [roleAccess, setRoleAccess] = useState<RoleAccessConfig | null>(null);
+  const [currentRole, setCurrentRole] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = localStorage.getItem(ME_CACHE_KEY);
+      if (!raw) return "";
+      const parsed = JSON.parse(raw) as { role?: string };
+      return parsed?.role || "";
+    } catch {
+      return "";
+    }
+  });
+  const [roleAccess, setRoleAccess] = useState<RoleAccessConfig | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(ME_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { role_access?: RoleAccessConfig };
+      return parsed?.role_access || null;
+    } catch {
+      return null;
+    }
+  });
   const [billingLocked, setBillingLocked] = useState(false);
   const [billingPlan, setBillingPlan] = useState<string>("");
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -520,9 +538,15 @@ export default function StaffSidebar() {
                           ? "settings"
                           : item.href === "/staff/takeaway"
                             ? "takeaway"
-                            : item.href === "/staff/cashier/cash-drawer"
-                              ? "cash_drawer"
-                              : "";
+                            : item.href === "/staff/history"
+                              ? "history"
+                              : item.href === "/staff/invoices"
+                                ? "invoices"
+                                : item.href === "/staff/inventory"
+                                  ? "inventory"
+                                  : item.href === "/staff/cashier/cash-drawer"
+                                    ? "cash_drawer"
+                                    : "";
             
             // Shifts are for everyone
             if (item.href === "/staff/settings/shifts") {
@@ -530,7 +554,7 @@ export default function StaffSidebar() {
             }
             return feature
               ? hasFeatureAccess(currentRole, roleAccess, feature)
-              : true;
+              : false;
           }),
         }))
         .filter((section) => section.items.length > 0);
