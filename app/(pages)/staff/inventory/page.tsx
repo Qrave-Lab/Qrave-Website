@@ -518,94 +518,85 @@ export default function InventoryDashboard() {
             </div>
           </div>
           
-          <div className="px-8 pb-3.5 pt-0">
-            <nav className="flex items-center gap-1 bg-slate-100/90 p-1.5 rounded-xl border border-slate-200/80 shadow-xs w-full">
+          <nav className="flex items-center px-8 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('stock')}
-                title="Stock Batches"
-                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'stock'
-                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <PackageOpen size={14} className={`shrink-0 ${activeTab === 'stock' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="truncate">Stock Batches</span>
+                <PackageOpen size={14} className="shrink-0" />
+                Stock Batches
               </button>
               <button
                 onClick={() => setActiveTab('pos')}
-                title="Purchase Orders"
-                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'pos'
-                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <FileText size={14} className={`shrink-0 ${activeTab === 'pos' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="truncate">Purchase Orders</span>
+                <FileText size={14} className="shrink-0" />
+                Purchase Orders
               </button>
               <button
                 onClick={() => setActiveTab('vendors')}
-                title="Suppliers"
-                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'vendors'
-                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <Truck size={14} className={`shrink-0 ${activeTab === 'vendors' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="truncate">Suppliers</span>
+                <Truck size={14} className="shrink-0" />
+                Suppliers
               </button>
               <button
                 onClick={() => setActiveTab('recipes')}
-                title="Conversions & Recipes"
-                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'recipes'
-                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <MapPin size={14} className={`shrink-0 ${activeTab === 'recipes' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="truncate">Conversions &amp; Recipes</span>
+                <MapPin size={14} className="shrink-0" />
+                Conversions &amp; Recipes
               </button>
               <button
                 onClick={() => setActiveTab('stock-take')}
-                title="Stock Take"
-                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'stock-take'
-                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <ClipboardList size={14} className={`shrink-0 ${activeTab === 'stock-take' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="truncate">Stock Take</span>
+                <ClipboardList size={14} className="shrink-0" />
+                Stock Take
               </button>
               <button
                 onClick={() => setActiveTab('waste')}
-                title="Wastage"
-                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'waste'
-                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <Trash size={14} className={`shrink-0 ${activeTab === 'waste' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="truncate">Wastage</span>
+                <Trash size={14} className="shrink-0" />
+                Wastage
               </button>
               <button
                 onClick={() => setActiveTab('kitchen')}
-                title="Central Kitchen"
-                className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'kitchen'
-                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <Store size={14} className={`shrink-0 ${activeTab === 'kitchen' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="truncate">Central Kitchen</span>
+                <Store size={14} className="shrink-0" />
+                Central Kitchen
               </button>
             </nav>
-          </div>
         </header>
 
         {/* Main Content Area */}
@@ -617,12 +608,29 @@ export default function InventoryDashboard() {
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-xl font-bold tracking-tight text-slate-900">Stock Batches</h2>
                   {!loading && (
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-100">
                       {batches.length} {batches.length === 1 ? 'batch' : 'batches'}
                     </span>
                   )}
                 </div>
                 <p className="mt-1 text-xs text-slate-500">Real-time inventory levels, batch arrivals, and expiry tracking.</p>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search batches..."
+                    className="pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 w-44 transition-colors"
+                  />
+                </div>
+                <button
+                  onClick={() => { setSelectedVendor(''); setPoItems([]); setShowAddPO(true); }}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow whitespace-nowrap"
+                >
+                  <Plus size={14} />
+                  Receive stock
+                </button>
               </div>
             </div>
             
@@ -659,11 +667,17 @@ export default function InventoryDashboard() {
               <div className="py-24 text-center text-sm text-slate-400">Loading stock batches...</div>
             ) : batches.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
                   <PackageOpen size={28} />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900">No stock batches found</h3>
+                <h3 className="text-base font-semibold text-slate-900">No stock batches yet</h3>
                 <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Receive a Purchase Order or adjust stock to see active batches here.</p>
+                <button
+                  onClick={() => setActiveTab('pos')}
+                  className="mt-4 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                >
+                  View purchase orders →
+                </button>
               </div>
             ) : (
               <div className="overflow-x-auto flex-1">
@@ -775,7 +789,7 @@ export default function InventoryDashboard() {
               <div className="py-24 text-center text-sm text-slate-400">Loading suppliers...</div>
             ) : vendors.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
                   <Truck size={28} />
                 </div>
                 <h3 className="text-base font-semibold text-slate-900">No suppliers found</h3>

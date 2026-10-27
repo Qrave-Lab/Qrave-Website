@@ -5,6 +5,7 @@ import { api } from "@/app/lib/api";
 import {
   Calendar,
   CheckCircle2,
+  CircleDollarSign,
   Clock,
   FileText,
   History,
@@ -331,6 +332,7 @@ export default function CashDrawerPage() {
   const [rangeEvents, setRangeEvents] = useState<CashDrawerEvent[]>([]);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
   const [hasQueriedRange, setHasQueriedRange] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchDrawerData = async () => {
     try {
@@ -768,69 +770,80 @@ export default function CashDrawerPage() {
   const getEventBadgeClass = (type: string) => {
     switch (type) {
       case "open":
-        return "bg-indigo-100 text-indigo-700 border-indigo-200";
+        return "bg-indigo-50 text-indigo-700 border-indigo-100";
       case "close":
-        return "bg-rose-100 text-rose-700 border-rose-200";
+        return "bg-rose-50 text-rose-700 border-rose-100";
       case "cash_in":
-        return "bg-emerald-100 text-emerald-700 border-emerald-200";
+        return "bg-emerald-50 text-emerald-700 border-emerald-100";
       case "cash_out":
-        return "bg-amber-100 text-amber-700 border-amber-200";
+        return "bg-amber-50 text-amber-700 border-amber-100";
       case "sale":
-        return "bg-sky-100 text-sky-700 border-sky-200";
+        return "bg-sky-50 text-sky-700 border-sky-100";
       default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
   const fmtINR = (n: number) =>
     `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const filteredEvents = (summary?.events || []).filter((ev) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      ev.user_name.toLowerCase().includes(q) ||
+      ev.event_type.toLowerCase().includes(q) ||
+      (ev.note || "").toLowerCase().includes(q) ||
+      ev.amount.toString().includes(q)
+    );
+  });
+
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
+    <div className="flex h-screen bg-white font-sans text-slate-900 overflow-hidden">
       <StaffSidebar />
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shrink-0 shadow-sm flex flex-col">
-          <div className="flex items-start justify-between px-8 py-6">
-            <div>
-              <h2 className="text-xl font-black tracking-tight text-slate-900">Cash Drawer Management</h2>
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mt-1">
-                <span className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                  Track shift floats, cash-in/out, and till drops.
-                </span>
+        <header className="bg-white border-b border-slate-200 shrink-0">
+          <div className="flex items-center justify-between px-8 pt-5 pb-3 gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-xs shrink-0">
+                <CircleDollarSign size={22} className="stroke-[2.2]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">Cash Drawer Management</h1>
+                <p className="text-xs font-medium text-slate-500">Track shift floats, cash-in/out, and till drops</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               {summary && summary.is_open ? (
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => setOpenModalType("cash_in")}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-4 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/50 px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-xs"
                   >
                     <PlusCircle className="h-4 w-4" />
                     Cash In
                   </button>
                   <button
                     onClick={() => setOpenModalType("cash_out")}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-white px-4 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50 shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/50 px-3.5 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors shadow-xs"
                   >
                     <MinusCircle className="h-4 w-4" />
                     Cash Out
                   </button>
                   <button
                     onClick={() => setOpenModalType("close")}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition-all shadow-sm"
                   >
-                    <Lock className="h-4 w-4" />
+                    <Lock className="h-3.5 w-3.5" />
                     Close Drawer
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 border border-slate-200">
-                    <Lock className="h-4 w-4" />
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                    <Lock className="h-3.5 w-3.5" />
                     Closed
-                  </div>
+                  </span>
                   <button
                     onClick={() => {
                       setOpenModalType("open");
@@ -840,19 +853,19 @@ export default function CashDrawerPage() {
                         setAmount("");
                       }
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-slate-800 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition-all"
                   >
                     <PlusCircle className="h-4 w-4" />
                     Open Drawer
                   </button>
                 </div>
               )}
-              <div className="h-6 w-px bg-slate-200 mx-1"></div>
+              <div className="h-5 w-px bg-slate-200 mx-0.5"></div>
               <button
                 onClick={fetchDrawerData}
-                className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-3.5 w-3.5" />
                 Refresh
               </button>
             </div>
@@ -860,29 +873,29 @@ export default function CashDrawerPage() {
 
           {/* Stats Row inside header */}
           {summary && summary.is_open && (
-            <div className="px-8 pb-6">
-              <div className="flex bg-slate-50 border border-slate-200 rounded-xl divide-x divide-slate-200 shadow-sm overflow-hidden">
-                <div className="flex-1 p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Opening Float</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900">{fmtINR(summary.opening_float)}</p>
+            <div className="px-8 pb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 bg-white border border-slate-200/90 rounded-2xl divide-y sm:divide-y-0 sm:divide-x divide-slate-100 shadow-xs overflow-hidden">
+                <div className="p-4.5 bg-slate-50/50">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Opening Float</p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-slate-900">{fmtINR(summary.opening_float)}</p>
                 </div>
-                <div className="flex-1 p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Cash In-Out</p>
-                  <p className="mt-1 text-2xl font-black text-slate-900 flex items-center gap-1.5">
+                <div className="p-4.5 bg-slate-50/50">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Cash In-Out</p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-slate-900 flex items-center gap-1.5">
                     <span className="text-emerald-600">+{summary.total_cash_in}</span>
-                    <span className="text-slate-300 text-sm">/</span>
+                    <span className="text-slate-300 text-sm font-normal">/</span>
                     <span className="text-amber-600">-{summary.total_cash_out}</span>
                   </p>
                 </div>
-                <div className="flex-1 p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Sales (Cash)</p>
-                  <p className="mt-1 text-2xl font-black text-sky-600">{fmtINR(summary.total_sales)}</p>
+                <div className="p-4.5 bg-slate-50/50">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Sales (Cash)</p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-sky-600">{fmtINR(summary.total_sales)}</p>
                 </div>
-                <div className="flex-1 p-5 bg-slate-900 text-white relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-transparent"></div>
+                <div className="p-4.5 bg-slate-950 text-white relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent pointer-events-none"></div>
                   <div className="relative">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Expected Cash In Till</p>
-                    <p className="mt-1 text-2xl font-black text-orange-500">{fmtINR(summary.expected_cash)}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Expected Cash In Till</p>
+                    <p className="mt-1 text-2xl font-bold font-mono text-amber-400">{fmtINR(summary.expected_cash)}</p>
                   </div>
                 </div>
               </div>
@@ -890,14 +903,14 @@ export default function CashDrawerPage() {
           )}
 
           {!summary?.is_open && summary?.last_discrepancy !== undefined && summary.last_discrepancy !== 0 && (
-            <div className="px-8 pb-6">
-              <div className={`rounded-xl border p-4 shadow-sm flex items-center justify-between gap-4 ${
+            <div className="px-8 pb-5">
+              <div className={`rounded-2xl border p-4 shadow-xs flex items-center justify-between gap-4 ${
                 summary.last_discrepancy < 0 
                   ? "border-rose-200 bg-rose-50/50 text-rose-900" 
                   : "border-amber-200 bg-amber-50/50 text-amber-900"
               }`}>
                 <div className="flex items-center gap-3">
-                  <div className={`rounded-lg p-2 shadow-sm border ${
+                  <div className={`rounded-xl p-2.5 shadow-xs border ${
                     summary.last_discrepancy < 0 
                       ? "bg-rose-100 text-rose-600 border-rose-200" 
                       : "bg-amber-100 text-amber-600 border-amber-200"
@@ -905,20 +918,20 @@ export default function CashDrawerPage() {
                     <ShieldAlert className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider">
+                    <h4 className="text-xs font-bold uppercase tracking-wider">
                       UNRESOLVED TILL DISCREPANCY DETECTED
                     </h4>
-                    <p className="text-xs font-bold mt-0.5">
+                    <p className="text-xs font-medium mt-0.5">
                       The previous shift closed with a {summary.last_discrepancy < 0 ? "Shortage" : "Overage"} of {fmtINR(Math.abs(summary.last_discrepancy))}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-semibold uppercase">
+                   <p className="text-[11px] font-semibold uppercase text-slate-500">
                       Expected: {fmtINR(summary.last_expected_amount || 0)} | Counted: {fmtINR(summary.last_closed_amount || 0)}
                    </p>
-                   <p className="text-[10px] opacity-75 mt-0.5 font-medium">
-                      Closed by <span className="font-bold">{summary.last_closed_by || "Unknown"}</span> on {new Date(summary.last_closed_at!).toLocaleString("en-IN")}
+                   <p className="text-[11px] text-slate-400 mt-0.5">
+                      Closed by <span className="font-semibold text-slate-700">{summary.last_closed_by || "Unknown"}</span> on {new Date(summary.last_closed_at!).toLocaleString("en-IN")}
                    </p>
                 </div>
               </div>
@@ -927,90 +940,120 @@ export default function CashDrawerPage() {
 
           {/* Tab Selector */}
           {((userRole || "").toLowerCase() === "owner" || (userRole || "").toLowerCase() === "manager") && (
-            <div className="flex gap-6 border-t border-slate-200 px-8 bg-white">
+            <nav className="flex items-center px-8 border-t border-slate-100 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("today")}
-                className={`pb-3 pt-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === "today"
-                    ? "border-[#fe5c13] text-[#fe5c13]"
+                    ? "border-emerald-600 text-emerald-700"
                     : "border-transparent text-slate-500 hover:text-slate-800"
                 }`}
               >
+                <History className="h-3.5 w-3.5 shrink-0" />
                 Today's Live Ledger
               </button>
               <button
                 onClick={() => setActiveTab("history")}
-                className={`pb-3 pt-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === "history"
-                    ? "border-[#fe5c13] text-[#fe5c13]"
+                    ? "border-emerald-600 text-emerald-700"
                     : "border-transparent text-slate-500 hover:text-slate-800"
                 }`}
               >
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
                 Historical Audits Explorer
               </button>
-            </div>
+            </nav>
           )}
         </header>
 
-        <div className="flex-1 overflow-y-auto bg-slate-50">
+        <main className="flex-1 overflow-y-auto bg-white flex flex-col">
           {isLoading ? (
             <div className="flex min-h-[50vh] items-center justify-center">
               <div className="flex flex-col items-center gap-2">
-                <Clock className="h-8 w-8 animate-spin text-orange-500" />
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Syncing Till Float...</p>
+                <Clock className="h-8 w-8 animate-spin text-emerald-600" />
+                <p className="text-xs font-semibold text-slate-400">Syncing Till Float...</p>
               </div>
             </div>
           ) : (
-            <div className="h-full">
+            <div className="h-full flex-1 flex flex-col">
               {activeTab === "today" ? (
-                <div className="bg-white min-h-full">
-                  <div className="border-b px-8 py-5 flex items-center justify-between bg-white">
-                    <div className="flex items-center gap-2">
-                      <History className="h-4.5 w-4.5 text-slate-400" />
-                      <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Today's Audit Ledger</h2>
+                <div className="bg-white min-h-full flex-1 flex flex-col animate-in fade-in duration-200">
+                  <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-xl font-bold tracking-tight text-slate-900">Today's Audit Ledger</h2>
+                        {summary && (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-100">
+                            {summary.events.length} {summary.events.length === 1 ? 'event' : 'events'}
+                          </span>
+                        )}
+                        {!summary?.is_open && (
+                          <span className="inline-flex rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            Drawer Locked
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Real-time cash in/out events, shift floats, and till audit trail.</p>
                     </div>
-                    {!summary?.is_open && (
-                      <span className="inline-flex rounded-full bg-slate-100 border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
-                        DRAWER LOCKED
-                      </span>
-                    )}
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search audits..."
+                          className="pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 w-44 transition-colors"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                  <div className="overflow-x-auto flex-1">
+                    <table className="w-full border-collapse text-left text-sm text-slate-600">
                       <thead>
-                        <tr className="border-b border-slate-100 bg-slate-50/80 text-[10px] font-black uppercase tracking-wider text-slate-400 select-none">
-                          <th className="px-8 py-4 w-40">Time</th>
-                          <th className="px-8 py-4 w-48">Logged By</th>
-                          <th className="px-8 py-4 w-40">Event Type</th>
-                          <th className="px-8 py-4 w-48">Amount</th>
-                          <th className="px-8 py-4">Note / Context</th>
+                        <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                          <th className="px-8 py-3.5 w-40">Time</th>
+                          <th className="px-8 py-3.5 w-48">Logged By</th>
+                          <th className="px-8 py-3.5 w-40">Event Type</th>
+                          <th className="px-8 py-3.5 w-48">Amount</th>
+                          <th className="px-8 py-3.5">Note / Context</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
-                        {!summary || summary.events.length === 0 ? (
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredEvents.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-wider">
-                              No cash drawer activity recorded today.
+                            <td colSpan={5} className="py-20 text-center">
+                              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+                                <History size={28} />
+                              </div>
+                              <h3 className="text-base font-semibold text-slate-900">No cash drawer activity yet</h3>
+                              <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+                                Shift floats, cash-in/out transactions, and till adjustments will appear here in real-time.
+                              </p>
                             </td>
                           </tr>
                         ) : (
-                          summary.events.map((ev) => (
-                            <tr key={ev.id} className="hover:bg-slate-50/40 transition-colors">
-                              <td className="px-8 py-4 font-extrabold text-slate-400">
+                          filteredEvents.map((ev) => (
+                            <tr key={ev.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-8 py-4 font-mono font-medium text-slate-500">
                                 {new Date(ev.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                               </td>
-                              <td className="px-8 py-4 font-bold text-slate-900">{ev.user_name}</td>
+                              <td className="px-8 py-4 font-semibold text-slate-950">{ev.user_name}</td>
                               <td className="px-8 py-4">
-                                <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${getEventBadgeClass(ev.event_type)}`}>
+                                <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium border ${getEventBadgeClass(ev.event_type)}`}>
                                   {ev.event_type}
                                 </span>
                               </td>
-                              <td className="px-8 py-4 font-extrabold text-slate-800">
-                                {ev.event_type === "cash_out" || ev.event_type === "close" ? "-" : "+"}
-                                {fmtINR(ev.amount)}
+                              <td className="px-8 py-4 font-mono font-bold text-slate-900">
+                                <span className={ev.event_type === "cash_out" || ev.event_type === "close" ? "text-amber-600" : "text-emerald-700"}>
+                                  {ev.event_type === "cash_out" || ev.event_type === "close" ? "-" : "+"}
+                                  {fmtINR(ev.amount)}
+                                </span>
                               </td>
-                              <td className="px-8 py-4 font-semibold text-slate-455 break-all max-w-[400px]">
+                              <td className="px-8 py-4 text-slate-600 break-all max-w-[400px]">
                                 {(() => {
                                   const noteText = ev.note || "";
                                   const match = noteText.match(/^\[Discrepancy: ([^\]]+)\]/);
@@ -1020,17 +1063,17 @@ export default function CashDrawerPage() {
                                     const isShortage = discrepancyDetail.toLowerCase().includes("shortage");
                                     return (
                                       <div className="space-y-1">
-                                        <div className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black uppercase border ${
+                                        <div className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold border ${
                                           isShortage ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'
                                         }`}>
-                                          <ShieldAlert className="h-3 w-3" />
+                                          <ShieldAlert className="h-3.5 w-3.5" />
                                           {discrepancyDetail}
                                         </div>
-                                        {userNote && <p className="text-xs font-semibold text-slate-700">{userNote}</p>}
+                                        {userNote && <p className="text-xs text-slate-700 font-medium">{userNote}</p>}
                                       </div>
                                     );
                                   }
-                                  return ev.note || "--";
+                                  return ev.note || <span className="text-slate-400">--</span>;
                                 })()}
                               </td>
                             </tr>
@@ -1041,9 +1084,9 @@ export default function CashDrawerPage() {
                   </div>
                 </div>
               ) : (
-                <div className="p-8 space-y-6">
+                <div className="p-8 space-y-6 flex-1 flex flex-col bg-white">
                   {/* Range Query form */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-6 shadow-xs">
                     <form onSubmit={handleQueryRange} className="flex flex-wrap items-end gap-4">
                       <CustomDatePicker
                         label="Start Date"
@@ -1058,7 +1101,7 @@ export default function CashDrawerPage() {
                       <button
                         type="submit"
                         disabled={isRangeLoading}
-                        className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-sm disabled:opacity-50 transition-all"
+                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 text-xs font-semibold flex items-center gap-2 shadow-sm disabled:opacity-50 transition-all cursor-pointer"
                       >
                         <Search className="h-4 w-4" />
                         {isRangeLoading ? "Searching..." : "Search Audits"}
@@ -1067,7 +1110,7 @@ export default function CashDrawerPage() {
                   </div>
 
                   {hasQueriedRange && (
-                    <div className="space-y-6">
+                    <div className="space-y-6 flex-1 flex flex-col">
                       {/* Range Aggregate stats card */}
                       {(() => {
                         let rCashIn = 0;
@@ -1098,41 +1141,46 @@ export default function CashDrawerPage() {
 
                         return (
                           <>
-                            <div className="flex flex-wrap justify-between items-center gap-2">
-                              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                                Audits Result ({rangeEvents.length} entries, {rClosings} closings)
-                              </h3>
+                            <div className="flex flex-wrap justify-between items-center gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <h3 className="text-xl font-bold tracking-tight text-slate-900">
+                                  Audits Result
+                                </h3>
+                                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-100">
+                                  {rangeEvents.length} {rangeEvents.length === 1 ? 'entry' : 'entries'} • {rClosings} closings
+                                </span>
+                              </div>
                               <button
                                 onClick={() => downloadPDFReport(rangeEvents, rangeStart, rangeEnd)}
-                                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider shadow-sm transition-all"
+                                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-semibold shadow-sm transition-all cursor-pointer"
                               >
-                                <FileText className="h-4.5 w-4.5" />
+                                <FileText className="h-4 w-4" />
                                 Download PDF Report
                               </button>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Cash In</p>
-                                <p className="mt-1 text-2xl font-black text-emerald-600">+{fmtINR(rCashIn)}</p>
+                              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Cash In</p>
+                                <p className="mt-1 text-2xl font-bold font-mono text-emerald-600">+{fmtINR(rCashIn)}</p>
                               </div>
-                              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Cash Out</p>
-                                <p className="mt-1 text-2xl font-black text-amber-600">-{fmtINR(rCashOut)}</p>
+                              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Cash Out</p>
+                                <p className="mt-1 text-2xl font-bold font-mono text-amber-600">-{fmtINR(rCashOut)}</p>
                               </div>
-                              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Sales (Cash)</p>
-                                <p className="mt-1 text-2xl font-black text-sky-600">{fmtINR(rSales)}</p>
+                              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Sales (Cash)</p>
+                                <p className="mt-1 text-2xl font-bold font-mono text-sky-600">{fmtINR(rSales)}</p>
                               </div>
-                              <div className="rounded-2xl border border-slate-200 bg-slate-900 p-5 shadow-md text-white">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Net Discrepancies</p>
-                                <p className={`mt-1 text-2xl font-black ${
-                                  rShortages > rOverages ? 'text-rose-500' : 'text-emerald-500'
+                              <div className="rounded-2xl border border-slate-200/90 bg-slate-950 p-5 shadow-sm text-white">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Net Discrepancies</p>
+                                <p className={`mt-1 text-2xl font-bold font-mono ${
+                                  rShortages > rOverages ? 'text-rose-500' : 'text-emerald-400'
                                 }`}>
                                   {rShortages > rOverages ? '-' : '+'}
                                   {fmtINR(Math.abs(rOverages - rShortages))}
                                 </p>
-                                <p className="text-[10px] text-slate-400 mt-1 uppercase font-semibold">
+                                <p className="text-[11px] text-slate-400 mt-1 uppercase font-medium">
                                   Shortages: {fmtINR(rShortages)} | Overages: {fmtINR(rOverages)}
                                 </p>
                               </div>
@@ -1142,34 +1190,34 @@ export default function CashDrawerPage() {
                       })()}
 
                       {/* Historical Audit table */}
-                      <div className="bg-white min-h-full flex flex-col mt-6 border-t border-slate-100">
+                      <div className="bg-white min-h-full flex flex-col mt-4 border border-slate-100 rounded-2xl overflow-hidden shadow-xs">
                         <div className="overflow-x-auto">
                           <table className="w-full text-left border-collapse">
                             <thead>
-                              <tr className="border-b border-slate-100 bg-slate-50/80 text-[10px] font-black uppercase tracking-wider text-slate-400 select-none">
-                                <th className="px-8 py-4">Date & Time</th>
-                                <th className="px-8 py-4">Logged By</th>
-                                <th className="px-8 py-4">Event Type</th>
-                                <th className="px-8 py-4">Amount</th>
-                                <th className="px-8 py-4">Note / Context</th>
+                              <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500 select-none">
+                                <th className="px-8 py-3.5">Date & Time</th>
+                                <th className="px-8 py-3.5">Logged By</th>
+                                <th className="px-8 py-3.5">Event Type</th>
+                                <th className="px-8 py-3.5">Amount</th>
+                                <th className="px-8 py-3.5">Note / Context</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-700 text-xs bg-white">
                               {rangeEvents.length === 0 ? (
                                 <tr>
-                                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-wider">
+                                  <td colSpan={5} className="py-16 text-center text-slate-400 font-medium">
                                     No drawer activity audited in this range.
                                   </td>
                                 </tr>
                               ) : (
                                 rangeEvents.map((ev) => (
-                                  <tr key={ev.id} className="hover:bg-slate-50/40 transition-colors group">
+                                  <tr key={ev.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-8 py-4">
-                                      <span className="font-extrabold text-slate-800 block">
-                                        {new Date(ev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                      <span className="font-semibold text-slate-950 block">
+                                        {new Date(ev.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
                                       </span>
-                                      <span className="text-[10px] text-slate-450 font-semibold uppercase tracking-wider">
-                                        {new Date(ev.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                      <span className="text-[11px] text-slate-400 font-mono">
+                                        {new Date(ev.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
                                       </span>
                                     </td>
                                     <td className="px-8 py-4">
@@ -1177,21 +1225,21 @@ export default function CashDrawerPage() {
                                         <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 border border-slate-200/60">
                                           {ev.user_name.substring(0,2).toUpperCase()}
                                         </div>
-                                        <span className="font-bold text-slate-900">{ev.user_name}</span>
+                                        <span className="font-semibold text-slate-900">{ev.user_name}</span>
                                       </div>
                                     </td>
                                     <td className="px-8 py-4">
-                                      <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${getEventBadgeClass(ev.event_type)}`}>
+                                      <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium border ${getEventBadgeClass(ev.event_type)}`}>
                                         {ev.event_type}
                                       </span>
                                     </td>
-                                    <td className="px-8 py-4 font-extrabold text-sm">
-                                      <span className={ev.event_type === "cash_out" || ev.event_type === "close" ? "text-amber-600" : "text-emerald-600"}>
+                                    <td className="px-8 py-4 font-mono font-bold text-slate-900">
+                                      <span className={ev.event_type === "cash_out" || ev.event_type === "close" ? "text-amber-600" : "text-emerald-700"}>
                                         {ev.event_type === "cash_out" || ev.event_type === "close" ? "-" : "+"}
                                         {fmtINR(ev.amount)}
                                       </span>
                                     </td>
-                                    <td className="px-8 py-4 font-semibold text-slate-455 break-all max-w-[250px]">
+                                    <td className="px-8 py-4 text-slate-600 break-all max-w-[250px]">
                                       {(() => {
                                         const noteText = ev.note || "";
                                         const match = noteText.match(/^\[Discrepancy: ([^\]]+)\]/);
@@ -1201,17 +1249,17 @@ export default function CashDrawerPage() {
                                           const isShortage = discrepancyDetail.toLowerCase().includes("shortage");
                                           return (
                                             <div className="space-y-1">
-                                              <div className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black uppercase border ${
+                                              <div className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold border ${
                                                 isShortage ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'
                                               }`}>
-                                                <ShieldAlert className="h-3 w-3" />
+                                                <ShieldAlert className="h-3.5 w-3.5" />
                                                 {discrepancyDetail}
                                               </div>
-                                              {userNote && <p className="text-xs font-semibold text-slate-700">{userNote}</p>}
+                                              {userNote && <p className="text-xs text-slate-700 font-medium">{userNote}</p>}
                                             </div>
                                           );
                                         }
-                                        return ev.note || "--";
+                                        return ev.note || <span className="text-slate-400">--</span>;
                                       })()}
                                     </td>
                                   </tr>
@@ -1227,7 +1275,7 @@ export default function CashDrawerPage() {
               )}
             </div>
           )}
-        </div>
+        </main>
 
             {/* Reconciliation Modal */}
             {openModalType && (
@@ -1311,7 +1359,7 @@ export default function CashDrawerPage() {
                       })()}
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      <label className="text-xs font-semibold text-slate-700">
                         {openModalType === "open" && "Starting Float (₹)"}
                         {openModalType === "close" && "Actual Cash Counted (₹)"}
                         {openModalType === "cash_in" && "Amount to Add (₹)"}
@@ -1324,12 +1372,12 @@ export default function CashDrawerPage() {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="0.00"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none"
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      <label className="text-xs font-semibold text-slate-700">
                         Reason / Auditing Notes
                       </label>
                       <textarea
@@ -1342,11 +1390,11 @@ export default function CashDrawerPage() {
                               ? "Till reconciliation remarks..."
                               : "Add verification context..."
                         }
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm focus:border-orange-500 focus:outline-none h-20 resize-none"
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 h-20 resize-none"
                       />
                     </div>
 
-                    <div className="flex gap-2 pt-3 border-t">
+                    <div className="flex gap-3 pt-3 border-t border-slate-100">
                       <button
                         type="button"
                         onClick={() => {
@@ -1354,16 +1402,20 @@ export default function CashDrawerPage() {
                           setAmount("");
                           setNote("");
                         }}
-                        className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 shadow-sm"
+                        className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={isActionLoading}
-                        className="flex-1 rounded-xl bg-[#fe5c13] py-3 text-xs font-black uppercase tracking-wider text-white hover:brightness-95 shadow-md shadow-[#fe5c13]/20 disabled:opacity-50"
+                        className={`flex-1 rounded-xl py-3 text-xs font-semibold text-white shadow-sm transition-all disabled:opacity-50 ${
+                          openModalType === "close"
+                            ? "bg-rose-600 hover:bg-rose-700"
+                            : "bg-emerald-600 hover:bg-emerald-700"
+                        }`}
                       >
-                        {isActionLoading ? "Recording..." : "Audit Transaction"}
+                        {isActionLoading ? "Recording..." : openModalType === "close" ? "Close Drawer" : "Record Transaction"}
                       </button>
                     </div>
                   </form>
