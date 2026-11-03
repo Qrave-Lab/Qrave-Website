@@ -7,9 +7,11 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "qravetech.in";
  * Validate the request's session cookies against the backend.
  * Returns true when the backend confirms a valid admin session.
  */
-async function isAdminAuthenticated(req: NextRequest): Promise<boolean> {
+type AdminSession = { authenticated: boolean; mfaSetupRequired: boolean };
+
+async function getAdminSession(req: NextRequest): Promise<AdminSession> {
   const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
-  if (!apiUrl) return false;
+  if (!apiUrl) return { authenticated: false, mfaSetupRequired: false };
 
   try {
     const res = await fetch(`${apiUrl}/api/admin/me`, {
@@ -21,10 +23,12 @@ async function isAdminAuthenticated(req: NextRequest): Promise<boolean> {
       // Never cache auth checks
       cache: "no-store",
     });
-    return res.ok; // 200 = authenticated; 401/403 = not
+    if (!res.ok) return { authenticated: false, mfaSetupRequired: false }; // 401/403 = not
+    const me = await res.json().catch(() => ({}));
+    return { authenticated: true, mfaSetupRequired: me?.mfa?.setup_required === true };
   } catch {
     // Network error — fail closed (deny access)
-    return false;
+    return { authenticated: false, mfaSetupRequired: false };
   }
 }
 
@@ -36,12 +40,16 @@ export async function middleware(req: NextRequest) {
   // This runs before any page HTML is generated, so unauthenticated users
   // never receive protected content — even as a flash before a client redirect.
   if (url.pathname.startsWith("/staff")) {
-    const authenticated = await isAdminAuthenticated(req);
-    if (!authenticated) {
+    const session = await getAdminSession(req);
+    if (!session.authenticated) {
       const loginUrl = new URL("/login", req.url);
       // Preserve the originally-requested URL so the login page can redirect back
       loginUrl.searchParams.set("next", url.pathname);
       return NextResponse.redirect(loginUrl);
+    }
+    // Owners without two-factor can only reach the security page until it's set up.
+    if (session.mfaSetupRequired && !url.pathname.startsWith("/staff/settings/security")) {
+      return NextResponse.redirect(new URL("/staff/settings/security?setup=required", req.url));
     }
   }
 

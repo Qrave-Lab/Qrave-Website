@@ -29,6 +29,7 @@ import { CustomSelect } from "@/app/components/ui/CustomSelect";
 import { api } from "@/app/lib/api";
 import { normalizePaymentMode, paymentStatusLabel } from "@/app/lib/payment-status";
 import toast from "react-hot-toast";
+import TakeawayRewardPicker, { redeemOnTakeaway, takeawayRewardTotals, type TakeawayReward } from "@/app/components/billing/TakeawayRewardPicker";
 
 /* ─── Types ────────────────────────────────────────────────────────────── */
 type MenuItem = {
@@ -261,6 +262,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
   // Reset customer id if phone changes manually
   const handlePhoneChange = (val: string) => {
     setCustomerPhone(val);
+    setLoyaltyReward(null);
     if (customerId) setCustomerId(null);
     if (val.length > 3) {
       api<any>(`/api/admin/customers/search?q=${val}`).then(res => {
@@ -300,6 +302,10 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
 
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
+    // Opt-in: sign this customer up for the loyalty card with this order.
+    const [joinLoyalty, setJoinLoyalty] = useState(false);
+    // A loyalty reward to take off this order (applied right after it's created).
+    const [loyaltyReward, setLoyaltyReward] = useState<TakeawayReward | null>(null);
     const [deliveryAddress, setDeliveryAddress] = useState("");
     const [selectedZone, setSelectedZone] = useState<DeliveryZone | null>(null);
     const [paymentMode, setPaymentMode] = useState<PaymentMode>("later");
@@ -405,13 +411,16 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
         const rate = c.gst_rate !== undefined && c.gst_rate !== null ? c.gst_rate : taxPercent;
         return sum + (c.quantity * c.unitPrice * (rate / 100));
     }, 0);
-    const finalTotal = cartTotal + computedTax + deliveryFee;
+    const rewardTotals = takeawayRewardTotals(cartTotal, computedTax, deliveryFee, loyaltyReward);
+    const finalTotal = loyaltyReward ? rewardTotals.total : cartTotal + computedTax + deliveryFee;
 
     const resetForm = () => {
         setOrderType("takeout");
         setTableNumber("");
         setCustomerName("");
         setCustomerPhone("");
+        setJoinLoyalty(false);
+        setLoyaltyReward(null);
         setDeliveryAddress("");
         setSelectedZone(null);
         setPaymentMode("later");
@@ -460,10 +469,24 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                 })),
             };
 
-            await api("/api/admin/takeaway/orders", {
+            const order = await api<{ id?: string }>("/api/admin/takeaway/orders", {
                 method: "POST",
                 body: JSON.stringify(payload),
             });
+            // Points land when the order is paid. A loyalty problem never blocks the sale.
+            if (joinLoyalty && customerPhone && order?.id) {
+                await api("/api/admin/crm/loyalty/attach", {
+                    method: "POST",
+                    body: JSON.stringify({ phone: customerPhone, name: customerName || "", takeaway_order_id: order.id }),
+                    suppressErrorLog: true,
+                }).catch((e: Error) => toast.error(`Loyalty: ${e.message}`));
+            }
+            // Take the chosen reward off before the order is paid or invoiced.
+            if (loyaltyReward && order?.id) {
+                await redeemOnTakeaway(order.id, customerPhone, loyaltyReward.id).catch((e: Error) =>
+                    toast.error(`Reward not applied: ${e.message} The order is saved at full price.`)
+                );
+            }
             toast.success("Order created!");
             resetForm();
             await loadOrders();
@@ -901,6 +924,18 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                             </div>
                                         )}
                                     </div>
+                                    {customerPhone.replace(/\D/g, "").length >= 8 && (
+                                        <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+                                            <input type="checkbox" checked={joinLoyalty} onChange={(e) => setJoinLoyalty(e.target.checked)} className="h-3.5 w-3.5" />
+                                            Add to loyalty card (customer agreed)
+                                        </label>
+                                    )}
+                                    <TakeawayRewardPicker
+                                        key={customerPhone.replace(/\D/g, "")}
+                                        phone={customerPhone}
+                                        value={loyaltyReward}
+                                        onChange={setLoyaltyReward}
+                                    />
                                 </div>
                             </div>
 
@@ -1024,9 +1059,14 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                         <div className="flex justify-between text-xs text-slate-500">
                                             <span>Subtotal</span><span>{fmtCur(cartTotal)}</span>
                                         </div>
+                                        {loyaltyReward && rewardTotals.discount > 0 && (
+                                            <div className="flex justify-between text-xs text-emerald-700">
+                                                <span>Reward: {loyaltyReward.name}</span><span>−{fmtCur(rewardTotals.discount)}</span>
+                                            </div>
+                                        )}
                                         {computedTax > 0 && (
                                             <div className="flex justify-between text-xs text-slate-500">
-                                                <span>Tax ({taxPercent}%)</span><span>+{fmtCur(computedTax)}</span>
+                                                <span>Tax ({taxPercent}%)</span><span>+{fmtCur(loyaltyReward ? rewardTotals.tax : computedTax)}</span>
                                             </div>
                                         )}
                                         {deliveryFee > 0 && (

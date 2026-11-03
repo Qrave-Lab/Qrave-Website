@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import RefundDialog from "@/app/components/billing/RefundDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   format,
@@ -92,6 +93,7 @@ export default function OrderHistoryPage() {
   // Detail View
   const [selectedOrder, setSelectedOrder] = useState<UnifiedHistoryDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [showRefund, setShowRefund] = useState(false);
   const [me, setMe] = useState<any>(null);
 
   useEffect(() => {
@@ -735,12 +737,31 @@ export default function OrderHistoryPage() {
                     <Printer className="w-4 h-4" />
                     <span>Print Thermal Receipt</span>
                   </button>
+                  {["owner", "manager", "cashier"].includes(String(me?.role || "").toLowerCase()) && (
+                    <button
+                      onClick={() => setShowRefund(true)}
+                      className="mt-2 w-full rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 transition-all hover:bg-rose-100"
+                    >
+                      Refund payment…
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+      {showRefund && selectedOrder && (
+        <RefundDialog
+          sessionId={selectedOrder.id}
+          kind={selectedOrder.type === "dine_in" ? "dine_in" : "takeaway"}
+          onClose={() => setShowRefund(false)}
+          onDone={() => {
+            setShowRefund(false);
+            void loadOrders();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,3 +1,11 @@
+/** Fired on window after every API call: detail.ok is false when the server couldn't be reached. */
+export const NETWORK_EVENT = "qrave:network";
+
+function reportNetwork(ok: boolean) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(NETWORK_EVENT, { detail: { ok } }));
+}
+
 const API_BASE =
   typeof window !== "undefined"
     ? "/api/proxy"
@@ -35,6 +43,7 @@ export function getBackendBase(): string {
 
 const PUBLIC_ROUTES = [
   "/auth/login",
+  "/auth/2fa/verify",
   "/auth/signup",
   "/auth/google/login",
   "/auth/google/signup",
@@ -278,10 +287,13 @@ async function apiInner<T>(
       credentials: "include",
     });
     await persistCsrfFromResponse(res);
+    // A gateway error means the proxy is up but the API isn't.
+    reportNetwork(res.status !== 502 && res.status !== 503 && res.status !== 504);
   } catch (err) {
     if ((err as { name?: string } | null)?.name === "AbortError") {
       throw err;
     }
+    reportNetwork(false);
     if (!suppressErrorLog) {
       console.error("Network error:", err);
     } else {
@@ -326,6 +338,13 @@ async function apiInner<T>(
 
     if (!message) {
       message = res.statusText?.trim() || `Request failed (${res.status})`;
+    }
+
+    // Owners must enrol an authenticator app before using the dashboard.
+    if (res.status === 403 && typeof window !== "undefined" && message.includes("Set up two-factor authentication")) {
+      if (!window.location.pathname.startsWith("/staff/settings/security")) {
+        window.location.href = "/staff/settings/security?setup=required";
+      }
     }
 
     if (!forcedBase && shouldRetryViaLocalBackend(resolvedPath, res.status, message)) {

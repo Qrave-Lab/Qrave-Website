@@ -236,6 +236,22 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
 
           <div className="md:col-span-2">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Google Review Link <span className="normal-case text-slate-300 ml-1">(optional)</span>
+            </label>
+            <input
+              type="url"
+              value={data.googleReviewUrl || ""}
+              onChange={(e) => handleChange("googleReviewUrl", e.target.value)}
+              placeholder="https://g.page/r/your-business/review"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
+            />
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              Guests who rate 4 or 5 stars on their bill are sent here. Lower ratings stay private as feedback. Find yours in Google Business Profile → &quot;Get more reviews&quot;.
+            </p>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
               Digital Menu Link (Subdomain)
             </label>
             <div className="relative">

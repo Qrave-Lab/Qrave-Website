@@ -1,0 +1,16 @@
+{
+  "name": "Qrave Staff",
+  "short_name": "Qrave",
+  "description": "Floor, kitchen, billing and settings for your restaurant.",
+  "id": "/staff",
+  "start_url": "/staff",
+  "scope": "/staff",
+  "display": "standalone",
+  "background_color": "#0F1117",
+  "theme_color": "#0F1117",
+  "icons": [
+    { "src": "/pwa-icon/192", "sizes": "192x192", "type": "image/png" },
+    { "src": "/pwa-icon/512", "sizes": "512x512", "type": "image/png" },
+    { "src": "/pwa-icon/maskable-512", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

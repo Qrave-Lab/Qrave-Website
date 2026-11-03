@@ -5,7 +5,6 @@ import { CheckCircle2, Loader2, User, Mail, Phone, Store, MapPin, Send, ArrowUpR
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { api } from '@/app/lib/api';
 
 const DemoForm = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -18,6 +17,7 @@ const DemoForm = () => {
     email: '',
     city: '',
     restaurantName: '',
+    website: '',
   });
 
   const validateForm = () => {
@@ -59,58 +59,26 @@ const DemoForm = () => {
     setIsLoading(true);
 
     try {
-      // 1. First try native Next.js API endpoint
-      const localRes = await fetch('/api/public/contact', {
+      const res = await fetch('/api/public/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, source: typeof window !== 'undefined' ? window.location.pathname : '' }),
       });
 
-      if (!localRes.ok) {
-        // 2. Fallback to global backend API utility if local endpoint fails
-        await api('/public/contact', {
-          method: 'POST',
-          body: JSON.stringify(formData),
-        });
-      }
-
-      // Store in localStorage for client persistence
-      if (typeof window !== 'undefined') {
-        const pastSubmissions = JSON.parse(localStorage.getItem('qrave_contact_submissions') || '[]');
-        pastSubmissions.push({ ...formData, submittedAt: new Date().toISOString() });
-        localStorage.setItem('qrave_contact_submissions', JSON.stringify(pastSubmissions));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || 'Something went wrong. Please try again.');
       }
 
       setIsSubmitted(true);
       setErrors({});
-      setFormData({
-        name: '',
-        phone: '',
-        email: '',
-        city: '',
-        restaurantName: '',
-      });
+      setFormData({ name: '', phone: '', email: '', city: '', restaurantName: '', website: '' });
       toast.success('Callback request submitted successfully!');
     } catch (err: any) {
-      console.warn('Contact submission error fallback:', err);
-      
-      // Graceful fallback for offline / demo mode
-      if (typeof window !== 'undefined') {
-        const pastSubmissions = JSON.parse(localStorage.getItem('qrave_contact_submissions') || '[]');
-        pastSubmissions.push({ ...formData, submittedAt: new Date().toISOString() });
-        localStorage.setItem('qrave_contact_submissions', JSON.stringify(pastSubmissions));
-      }
-
-      setIsSubmitted(true);
-      setErrors({});
-      setFormData({
-        name: '',
-        phone: '',
-        email: '',
-        city: '',
-        restaurantName: '',
-      });
-      toast.success('Callback request submitted successfully!');
+      // Never pretend the lead was captured: keep the form filled so they can retry.
+      const message = err?.message || 'Something went wrong. Please try again.';
+      setErrorMsg(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -383,6 +351,14 @@ const DemoForm = () => {
                   </div>
                 </div>
 
+                {/* Honeypot: hidden from people, filled by bots */}
+                <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+                  <label>
+                    Website
+                    <input type="text" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} />
+                  </label>
+                </div>
+
                 {errorMsg && (
                   <div className="p-3 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
                     ⚠️ {errorMsg}
@@ -410,9 +386,9 @@ const DemoForm = () => {
 
                   <p className="text-[11px] text-center font-medium text-slate-400 mt-4">
                     By submitting, you agree to our{' '}
-                    <Link href="/#privacy" className="text-slate-700 hover:text-[#fe5c13] hover:underline font-bold transition-colors">Privacy Policy</Link>
+                    <Link href="/privacy" className="text-slate-700 hover:text-[#fe5c13] hover:underline font-bold transition-colors">Privacy Policy</Link>
                     {' '}and{' '}
-                    <Link href="/#terms" className="text-slate-700 hover:text-[#fe5c13] hover:underline font-bold transition-colors">Terms of Service</Link>
+                    <Link href="/terms" className="text-slate-700 hover:text-[#fe5c13] hover:underline font-bold transition-colors">Terms of Service</Link>
                   </p>
                 </div>
               </form>

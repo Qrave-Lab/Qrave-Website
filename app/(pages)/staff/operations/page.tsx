@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, RefreshCw, ShieldCheck } from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
+import LoyaltySettings from "@/app/components/settings/LoyaltySettings";
 import { api } from "@/app/lib/api";
 import { OpsFeatureFlag, rolloutBadgeText, toFeatureFlagsCsv } from "@/app/lib/ops-control";
 
@@ -560,18 +561,23 @@ export default function StaffOperationsControlPage() {
           )}
 
           {activeTab === 'crm' && (
+            <div className="mb-4">
+              <LoyaltySettings onSaved={() => void load(false)} />
+            </div>
+          )}
+          {activeTab === 'crm' && (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 animate-in fade-in duration-300">
               <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-900">CRM and Loyalty</h2>
               {!crmEnabled && (
                 <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
-                  crm_loyalty disabled
+                  Loyalty off
                 </span>
               )}
             </div>
             {!crmEnabled ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                Enable the crm_loyalty feature flag to activate customer wallet tracking and loyalty ledger APIs.
+                Turn the loyalty card on above to see members and recent activity here.
               </div>
             ) : !crmLoaded ? (
               <div className="py-6 text-sm text-slate-500">Loading CRM and loyalty metrics...</div>

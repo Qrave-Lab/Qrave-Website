@@ -42,6 +42,7 @@ export type Restaurant = {
   taxConfig?: TaxConfig;
   reservationDepositRequired?: boolean;
   reservationDepositAmount?: number;
+  googleReviewUrl?: string;
 };
 
 export type ThemeConfig = {

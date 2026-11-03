@@ -25,6 +25,9 @@ declare global {
           exposure?: string;
           "environment-image"?: string;
           "rotation-per-second"?: string;
+          poster?: string;
+          reveal?: string;
+          loading?: string;
         };
       }
     }

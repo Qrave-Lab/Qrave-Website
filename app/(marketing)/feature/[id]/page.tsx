@@ -1,4 +1,6 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { FEATURE_SLUGS } from '../../_lib/featureSlugs';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, CheckCircle2, ArrowRight } from 'lucide-react';
@@ -235,6 +237,30 @@ const featureData: Record<string, any> = {
         ]
     }
 };
+
+export function generateStaticParams() {
+    return FEATURE_SLUGS.map((id) => ({ id }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+    const { id } = await params;
+    const feature = featureData[id];
+    if (!feature) return { title: 'Feature not found', robots: { index: false } };
+    const description = String(feature.subtext).slice(0, 160).replace(/\s+\S*$/, '…');
+    return {
+        title: feature.title,
+        description,
+        alternates: { canonical: `/feature/${id}` },
+        openGraph: {
+            type: 'article',
+            url: `/feature/${id}`,
+            title: feature.title,
+            description,
+            images: [{ url: feature.heroImage, width: 800, height: 450, alt: feature.title }],
+        },
+        twitter: { card: 'summary_large_image', title: feature.title, description, images: [feature.heroImage] },
+    };
+}
 
 const FeatureDetailPage = async ({ params }: { params: Promise<{ id: string }> }) => {
     const resolvedParams = await params;

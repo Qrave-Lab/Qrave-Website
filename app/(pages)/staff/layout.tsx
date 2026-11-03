@@ -1,73 +1,14 @@
-"use client";
+import type { Metadata, Viewport } from "next";
+import StaffShell from "./StaffShell";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "@/app/lib/api";
+export const metadata: Metadata = {
+  manifest: "/qrave-staff.webmanifest",
+  appleWebApp: { capable: true, title: "Qrave", statusBarStyle: "black-translucent" },
+  icons: { apple: "/pwa-icon/192" },
+};
 
-import ManagerPinModal from "@/app/components/ui/ManagerPinModal";
+export const viewport: Viewport = { themeColor: "#0F1117" };
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAllowed, setIsAllowed] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const checkAccess = async () => {
-      try {
-        const me = await api<{ role?: string }>("/api/admin/me", {
-          method: "GET",
-          skipAuthRedirect: true,
-          suppressErrorLog: true,
-        });
-        if (!mounted) return;
-        const role = String(me?.role || "").trim().toLowerCase();
-        if (!role) {
-          setIsAllowed(false);
-          router.replace("/login");
-          return;
-        }
-        setIsAllowed(true);
-      } catch {
-        if (!mounted) return;
-        setIsAllowed(false);
-        router.replace("/login");
-      } finally {
-        if (mounted) setIsChecking(false);
-      }
-    };
-
-    checkAccess();
-    return () => {
-      mounted = false;
-    };
-  }, [router]);
-
-  if (isChecking) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#f8fafc]">
-        <div className="flex flex-col items-center justify-center space-y-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/landing/image.png"
-            alt="Qrave Logo"
-            className="h-12 w-auto object-contain animate-pulse"
-          />
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#fe5c13]" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAllowed) {
-    return null;
-  }
-
-  return (
-    <div className="admin-ui">
-      {children}
-      <ManagerPinModal />
-    </div>
-  );
+  return <StaffShell>{children}</StaffShell>;
 }

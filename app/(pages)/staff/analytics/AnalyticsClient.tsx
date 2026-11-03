@@ -27,6 +27,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
 import { printEOD } from "@/app/lib/print";
+import EodEmailSettings from "@/app/components/analytics/EodEmailSettings";
 
 type Bucket = "day" | "week" | "month";
 type LocationOption = { restaurant_id: string; restaurant: string; role: string };
@@ -1298,8 +1299,27 @@ export default function AnalyticsPage() {
                     >
                       <Printer className="w-4 h-4" /> Print EOD Report
                     </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await api<{ sent_to: string }>("/api/admin/reports/eod/email", {
+                            method: "POST",
+                            body: JSON.stringify({ date: eodDate, timezone_offset: -new Date().getTimezoneOffset() }),
+                          });
+                          alert(`Report emailed to ${res.sent_to}`);
+                        } catch (err: any) {
+                          alert(err?.message || "Couldn't send the report");
+                        }
+                      }}
+                      disabled={!eodReport}
+                      className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-black shadow-sm transition disabled:opacity-50 cursor-pointer"
+                    >
+                      Email to me
+                    </button>
                   </div>
                 </div>
+
+                <EodEmailSettings canEdit={role === "owner"} />
 
                 {eodLoading ? (
                   <div className="flex items-center justify-center py-20 text-slate-500 font-medium bg-white rounded-2xl border border-slate-200 shadow-sm">

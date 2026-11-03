@@ -93,13 +93,16 @@ const Footer = () => {
                 <Link href="/#demo" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Contact Support</Link>
               </li>
               <li>
-                <Link href="/#privacy" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Privacy Policy</Link>
+                <Link href="/privacy" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Privacy Policy</Link>
               </li>
               <li>
-                <Link href="/#terms" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Terms of Service</Link>
+                <Link href="/terms" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Terms of Service</Link>
               </li>
               <li>
-                <Link href="/#cookies" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Cookie Policy</Link>
+                <Link href="/refunds" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Refund &amp; Cancellation</Link>
+              </li>
+              <li>
+                <Link href="/privacy#cookies" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">Cookie Policy</Link>
               </li>
               <li>
                 <Link href="/#faq" className="hover:text-[#fe5c13] hover:translate-x-1 transition-all inline-block">FAQ</Link>

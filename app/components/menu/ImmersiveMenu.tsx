@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { trackAR } from "@/app/lib/arTracking";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
@@ -374,6 +375,9 @@ export default function ImmersiveMenu({
                                         <model-viewer
                                             src={resolvedModelUrl}
                                             alt={currentItem.name}
+                                            poster={resolvedImageUrl || undefined}
+                                            reveal="interaction"
+                                            exposure="1.1"
                                             auto-rotate
                                             rotation-per-second="30deg"
                                             camera-controls
@@ -383,8 +387,17 @@ export default function ImmersiveMenu({
                                             shadow-intensity="1"
                                             shadow-softness="1"
                                             environment-image="neutral"
+                                            onLoad={() => trackAR(currentItem.id, "view_3d")}
                                             style={{ width: "100%", height: "100%", background: "transparent" }}
-                                        />
+                                        >
+                                            {/* Photo first; the 3D file downloads only when the guest taps. */}
+                                            <div slot="poster" className="absolute inset-0 flex items-center justify-center">
+                                                {resolvedImageUrl && (
+                                                    <img src={resolvedImageUrl} alt={currentItem.name} className="absolute inset-0 h-full w-full object-contain" />
+                                                )}
+                                                <span className="relative z-10 mt-auto mb-3 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-bold text-white">Tap to view in 3D</span>
+                                            </div>
+                                        </model-viewer>
                                     </div>
                                 ) : (
                                     <div className="absolute inset-0 p-3 z-20 flex items-center justify-center">

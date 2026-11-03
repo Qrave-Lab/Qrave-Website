@@ -928,6 +928,15 @@ export default function OnboardingPage() {
           </AnimatePresence>
         </div>
 
+        {step < 7 && (
+          <p className="px-10 md:px-14 pb-2 bg-white text-center text-[11px] text-slate-400">
+            By continuing you agree to our{" "}
+            <a href="/terms" target="_blank" rel="noopener" className="underline hover:text-slate-700">Terms of Service</a>,{" "}
+            <a href="/refunds" target="_blank" rel="noopener" className="underline hover:text-slate-700">Refund &amp; Cancellation Policy</a>{" "}
+            and{" "}
+            <a href="/privacy" target="_blank" rel="noopener" className="underline hover:text-slate-700">Privacy Policy</a>.
+          </p>
+        )}
         <div className="p-10 md:p-14 flex justify-between items-center bg-white">
           {step > 1 && step < 7 && !isVerifying ? (
             <button onClick={() => setStep((s) => (s - 1) as Step)} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold text-[11px] uppercase tracking-[0.15em] transition-colors group">

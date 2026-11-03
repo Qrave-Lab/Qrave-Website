@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -23,10 +24,9 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { api } from "@/app/lib/api";
+import { api, requestManagerPin } from "@/app/lib/api";
 import type { Table } from "@/app/components/settings/types";
 import StaffSidebar from "@/app/components/StaffSidebar";
-import { QRCodeSVG } from "qrcode.react";
 
 const CustomSelect = ({ value, onChange, options, placeholder, className = "" }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -253,6 +253,7 @@ function isBestFit(table: Table, partySize: number): boolean {
 }
 
 export default function ReservationsClient({ initialData }: { initialData?: any }) {
+  const router = useRouter();
 
   const initialProcessed = useMemo(() => {
     if (!initialData) return null;
@@ -278,8 +279,6 @@ export default function ReservationsClient({ initialData }: { initialData?: any 
   // Modals and Expands State
   const [showResModal, setShowResModal] = useState(false);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
-  const [showQRModal, setShowQRModal] = useState(false);
-  const [waitlistSlug, setWaitlistSlug] = useState<string | null>(null);
   const [expandedWaitlistId, setExpandedWaitlistId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -462,14 +461,8 @@ export default function ReservationsClient({ initialData }: { initialData?: any 
     }
   };
 
-  const openQRModal = async () => {
-    try {
-      const data = await api<{ slug: string }>("/api/admin/waitlist/qr-slug");
-      setWaitlistSlug(data.slug);
-      setShowQRModal(true);
-    } catch {
-      toast.error("Failed to load waitlist QR");
-    }
+  const openQRModal = () => {
+    router.push("/staff/settings/qr-codes?table=waitlist");
   };
 
   const addWaitlist = async (event: React.FormEvent) => {
@@ -563,7 +556,7 @@ export default function ReservationsClient({ initialData }: { initialData?: any 
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => void openQRModal()}
+              onClick={openQRModal}
               className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               <QrCode className="h-4 w-4" /> Waitlist QR
@@ -769,12 +762,28 @@ export default function ReservationsClient({ initialData }: { initialData?: any 
                           type="button"
                           onClick={async () => {
                             if (!confirm("Are you sure you want to refund this deposit?")) return;
+                            const send = (pin?: string) =>
+                              api(`/api/admin/reservations/${entry.id}/refund-deposit`, {
+                                method: "POST",
+                                headers: pin ? { "X-Manager-Pin": pin } : {},
+                              });
                             try {
-                              await api(`/api/admin/reservations/${entry.id}/refund-deposit`, { method: "POST" });
+                              try {
+                                await send();
+                              } catch (err) {
+                                // Staff other than owners/managers need a manager PIN.
+                                if (!((err as Error)?.message || "").includes("MANAGER_PIN_REQUIRED")) throw err;
+                                const pin = await requestManagerPin();
+                                if (!pin) {
+                                  toast.error("Manager PIN is required to refund a deposit");
+                                  return;
+                                }
+                                await send(pin);
+                              }
                               toast.success("Deposit refunded successfully");
                               await loadData();
-                            } catch {
-                              toast.error("Failed to refund deposit");
+                            } catch (err) {
+                              toast.error((err as Error)?.message || "Failed to refund deposit");
                             }
                           }}
                           className="inline-flex items-center gap-1 rounded-lg bg-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -1230,44 +1239,6 @@ export default function ReservationsClient({ initialData }: { initialData?: any 
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── Waitlist QR Modal ────────────────────────────────────────────────── */}
-      {showQRModal && waitlistSlug && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-xs flex flex-col items-center gap-5">
-            <div className="text-center">
-              <p className="text-sm font-bold text-slate-900">Waitlist QR Code</p>
-              <p className="text-xs text-slate-400 mt-0.5">Customers scan this to join the queue</p>
-            </div>
-            <div className="p-4 bg-white rounded-xl border-2 border-slate-100">
-              <QRCodeSVG
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/waitlist/${waitlistSlug}`}
-                size={192}
-                bgColor="#ffffff"
-                fgColor="#0F1117"
-                level="M"
-              />
-            </div>
-            <p className="text-[10px] text-slate-400 text-center break-all">
-              {typeof window !== "undefined" ? window.location.origin : ""}/waitlist/{waitlistSlug}
-            </p>
-            <div className="w-full flex flex-col gap-2">
-              <button
-                onClick={() => window.print()}
-                className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors"
-              >
-                Print QR
-              </button>
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="w-full rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}

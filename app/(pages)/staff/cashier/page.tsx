@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import LoyaltyPanel from "@/app/components/billing/LoyaltyPanel";
 import { useRouter } from "next/navigation";
 import { CreditCard, Receipt, CheckCircle2, DollarSign, Wallet, ArrowRight, Printer, X, Loader2 } from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
@@ -403,6 +404,15 @@ export default function CashierPage() {
                 </div>
               ) : breakdown ? (
                 <>
+                  <div className="mb-6">
+                    <LoyaltyPanel
+                      sessionId={selectedSessionId}
+                      onBillChanged={async () => {
+                        const res = await api<{ breakdown: BillBreakdown }>(`/api/admin/bills/session/${selectedSessionId}`, { noCache: true });
+                        if (res?.breakdown) setBreakdown(res.breakdown);
+                      }}
+                    />
+                  </div>
                   {/* Bill Summary */}
                   <div className="rounded-2xl bg-slate-50 border p-4 mb-6">
                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Bill Breakdown</h3>

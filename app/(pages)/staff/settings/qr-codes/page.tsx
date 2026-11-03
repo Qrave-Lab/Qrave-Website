@@ -6,6 +6,8 @@ import { getRootDomain, slugifyRestaurantName } from "@/app/lib/tenant";
 import {
   Check,
   ChevronDown,
+  Download,
+  Triangle,
   ChevronRight,
   Grid,
   Image as ImageIcon,
@@ -22,6 +24,7 @@ import {
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import React, { useEffect, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
 
 type Table = {
   id: string;
@@ -73,7 +76,64 @@ const templates = [
     name: "Organic Green",
     class: "bg-[#FAF9F6] text-emerald-955 border-4 border-emerald-900",
   },
+  {
+    id: "sunset",
+    name: "Sunset Gradient",
+    class: "bg-gradient-to-br from-[#fe5c13] via-[#ff7a3d] to-[#ffb36b] text-white",
+  },
+  {
+    id: "ocean",
+    name: "Ocean Breeze",
+    class: "bg-gradient-to-br from-[#0f3d6b] via-[#1d6fa5] to-[#4cc3d9] text-white",
+  },
+  {
+    id: "neon",
+    name: "Neon Night",
+    class: "bg-[#0b0618] text-fuchsia-100 border-4 border-fuchsia-500",
+  },
+  {
+    id: "blush",
+    name: "Soft Blush",
+    class: "bg-gradient-to-br from-rose-50 to-orange-50 text-rose-950 border border-rose-100",
+  },
+  {
+    id: "chalk",
+    name: "Chalkboard",
+    class: "bg-[#1f2a24] text-[#f1efe4] border-8 border-[#8b6b3e]",
+  },
+  {
+    id: "kraft",
+    name: "Kraft Paper",
+    class: "bg-[#d8bf98] text-[#3a2a14] border-4 border-dashed border-[#3a2a14]/40",
+  },
 ];
+
+// Templates whose background is dark enough that body text must be light.
+const DARK_TEMPLATES = new Set(["dark", "gold", "sunset", "ocean", "neon", "chalk"]);
+
+// Face backgrounds for the pyramid net (clip-path faces can't use border classes).
+const FACE_BG: Record<string, { bg: string; fg: string }> = {
+  modern: { bg: "#ffffff", fg: "#111827" },
+  dark: { bg: "#030712", fg: "#ffffff" },
+  framed: { bg: "#ffffff", fg: "#111827" },
+  gold: { bg: "#000000", fg: "#F3E5AB" },
+  eco: { bg: "#FAF9F6", fg: "#064e3b" },
+  sunset: { bg: "linear-gradient(160deg,#fe5c13,#ffb36b)", fg: "#ffffff" },
+  ocean: { bg: "linear-gradient(160deg,#0f3d6b,#4cc3d9)", fg: "#ffffff" },
+  neon: { bg: "#0b0618", fg: "#fae8ff" },
+  blush: { bg: "linear-gradient(160deg,#fff1f2,#ffedd5)", fg: "#4c0519" },
+  chalk: { bg: "#1f2a24", fg: "#f1efe4" },
+  kraft: { bg: "#d8bf98", fg: "#3a2a14" },
+};
+
+const MM = 3.7795;
+const WAITLIST_HEADLINES = [
+  "Join the Waitlist",
+  "Skip the Line",
+  "Wait Less, Eat More",
+  "Hungry? Join the Queue",
+];
+const WAITLIST_STEPS = ["Scan", "Enter your details", "Get an SMS when ready"];
 
 const fonts = [
   { id: "sans", name: "Modern Sans", class: "font-sans" },
@@ -103,7 +163,7 @@ export default function QrFlyerGenerator() {
   const [restaurantName, setRestaurantName] = useState<string>("Restaurant");
   const [restaurantSlug, setRestaurantSlug] = useState<string>("");
   const [restaurantLogoUrl, setRestaurantLogoUrl] =
-    useState<string>("Restaurant");
+    useState<string>("");
   const [activeFloor, setActiveFloor] = useState<string>("");
 
   const getTableUrl = (table: Table | null) => {
@@ -120,7 +180,15 @@ export default function QrFlyerGenerator() {
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(
     new Set(),
   );
-  const [tentStyle, setTentStyle] = useState<"flat" | "standing">("flat");
+  const [tentStyle, setTentStyle] = useState<"flat" | "standing" | "pyramid">("flat");
+  const [pyramidSides, setPyramidSides] = useState<3 | 4>(3);
+  const [pyramidBase, setPyramidBase] = useState(90);
+  const [pyramidTall, setPyramidTall] = useState(false);
+  const [pyramidMode, setPyramidMode] = useState<"all" | "alternate" | "one">("all");
+  const [showGuides, setShowGuides] = useState(true);
+  const [showSteps, setShowSteps] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const flyerRef = useRef<HTMLDivElement>(null);
   const [showArBadge, setShowArBadge] = useState(true);
   const [promoText, setPromoText] = useState("");
 
@@ -212,6 +280,21 @@ export default function QrFlyerGenerator() {
       };
       const finalTables = [waitlistTable, ...updated];
       setTables(finalTables);
+      const wantsWaitlist =
+        new URLSearchParams(window.location.search).get("table") === "waitlist";
+      if (wantsWaitlist) {
+        setSelectedTable(waitlistTable);
+        setActiveFloor("Reception");
+        setHeadline("Join the Waitlist");
+        setSubheadline("Secure your spot in line directly from your phone.");
+        setSelectedTableIds(new Set(updated.map((t) => t.id)));
+        setRestaurantId(me?.restaurant_id || me?.restaurantId || "");
+        setRestaurantName(me?.restaurant?.trim() || "Restaurant");
+        if (me?.store_slug) setRestaurantSlug(me.store_slug.trim());
+        const sfx = me?.logo_version ? `?v=${me.logo_version}` : "";
+        setRestaurantLogoUrl(me?.logo_url ? `${me.logo_url}${sfx}` : "");
+        return;
+      }
       if (finalTables.length > 0) {
         const firstFloor = updated[0].floor_name?.trim() || "Main Floor";
         setActiveFloor(firstFloor);
@@ -230,6 +313,33 @@ export default function QrFlyerGenerator() {
   }, []);
 
   const handlePrint = () => window.print();
+
+  const handleDownload = async () => {
+    if (!flyerRef.current || !selectedTable) return;
+    setDownloading(true);
+    try {
+      const { toPng } = await import("html-to-image");
+      const url = await toPng(flyerRef.current, {
+        pixelRatio: 3,
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+        style: { transform: "none" },
+      });
+      const a = document.createElement("a");
+      a.href = url;
+      const base =
+        selectedTable.id === "waitlist"
+          ? "waitlist-qr"
+          : `table-${getTableLabel(selectedTable)}-qr`;
+      a.download = `${base}${tentStyle === "pyramid" ? "-pyramid" : ""}.png`;
+      a.click();
+    } catch (e) {
+      console.error("QR download failed", e);
+      toast.error("Download failed — use Print Setup → Save as PDF instead.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handleImageUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -293,7 +403,7 @@ export default function QrFlyerGenerator() {
   }) => {
     const logoSrc = logoImage || restaurantLogoUrl;
     const qrUrl = getTableUrl(table);
-    const isDark = template === "dark" || template === "gold";
+    const isDark = DARK_TEMPLATES.has(template);
 
     // Standard high-fidelity center logo setting
     const imageSettings = logoSrc
@@ -330,9 +440,7 @@ export default function QrFlyerGenerator() {
         {/* QR Code Container */}
         <div
           className={`rounded-3xl shadow-xl flex flex-col items-center transition-all duration-300 ${isHalf ? "p-3 mb-2" : "p-6 mb-6"} ${
-            template === "dark" || template === "gold"
-              ? "bg-white/10 backdrop-blur-md border border-white/20"
-              : "bg-white border border-slate-100"
+            "bg-white border border-slate-100 text-slate-900"
           }`}
           style={{
             boxShadow:
@@ -344,8 +452,8 @@ export default function QrFlyerGenerator() {
             value={qrUrl}
             size={table.id === "waitlist" ? (isHalf ? 140 : 260) : (isHalf ? 110 : 210)}
             level="H"
-            fgColor={isDark ? "#ffffff" : "#000000"}
-            bgColor="transparent"
+            fgColor="#000000"
+            bgColor="#ffffff"
             imageSettings={imageSettings}
           />
           <div
@@ -394,6 +502,30 @@ export default function QrFlyerGenerator() {
           >
             {table.id === "waitlist" && subheadline === "View menu, order & pay from your phone." ? "Scan the QR code to secure your spot in line. We'll text you when your table is ready!" : subheadline}
           </p>
+          {table.id === "waitlist" && showSteps && (
+            <ol
+              className={`flex items-center justify-center gap-1.5 ${isHalf ? "pt-1" : "pt-2"}`}
+            >
+              {WAITLIST_STEPS.map((step, i) => (
+                <li
+                  key={step}
+                  className={`flex items-center gap-1 rounded-full border border-current/20 font-bold ${isHalf ? "px-1.5 py-0.5 text-[6px]" : "px-2.5 py-1 text-[9px]"}`}
+                >
+                  <span
+                    className="flex items-center justify-center rounded-full text-white font-black"
+                    style={{
+                      backgroundColor: brandColor,
+                      width: isHalf ? 8 : 14,
+                      height: isHalf ? 8 : 14,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
 
         {/* Wi-Fi Details */}
@@ -486,8 +618,168 @@ export default function QrFlyerGenerator() {
     );
   };
 
+  // Net for a pyramid table stand: faces fan out from the apex, cut, fold, glue.
+  const PyramidNet = ({ table }: { table: Table }) => {
+    const b = pyramidBase;
+    const h = pyramidTall ? b * 1.35 : (b * Math.sqrt(3)) / 2;
+    const half = Math.atan(b / 2 / h);
+    const apexDeg = (2 * half * 180) / Math.PI;
+    const n = pyramidSides;
+    const L = Math.hypot(h, b / 2);
+    const isWaitlist = table.id === "waitlist";
+    const colors = FACE_BG[template] || FACE_BG.modern;
+    const logoSrc = logoImage || restaurantLogoUrl;
+    const qrUrl = getTableUrl(table);
+
+    // bounding box of the fan (mm, relative to the apex) so we can centre it
+    let minX = 0, maxX = 0, minY = 0, maxY = 0;
+    for (let i = 0; i < n; i++) {
+      const centre = (i - (n - 1) / 2) * 2 * half;
+      for (const phi of [centre - half, centre + half]) {
+        const x = L * Math.sin(phi);
+        const y = L * Math.cos(phi);
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      }
+    }
+    const tab = 12;
+    minX -= tab; maxX += tab;
+    const PAGE_W = 297, PAGE_H = 210, HEADER = 14;
+    const cx = PAGE_W / 2 - (minX + maxX) / 2;
+    const cy = HEADER + (PAGE_H - HEADER - (maxY - minY)) / 2 - minY;
+
+    const label = isWaitlist ? "Scan to Join" : "Scan to Order";
+    const tableLabel = isWaitlist ? "Waitlist" : `Table ${getTableLabel(table)}`;
+
+    const renderFace = (i: number) => {
+      const centre = (i - (n - 1) / 2) * apexDeg;
+      const hasQr =
+        pyramidMode === "all" || (pyramidMode === "alternate" && i % 2 === 0) || (pyramidMode === "one" && i === 0);
+      const q = b * 0.28;
+      const card = q + b * 0.04;
+      const yQr = h * 0.4;
+      const fs = (k: number) => `${b * k}mm`;
+      // Faces are rotated clockwise for i > 0, so face 0 ends up on the right of the
+      // fan and its local right edge is the free outer edge: that's where the tab goes.
+      const hasTab = i === 0;
+      // glue tab on that edge (local mm coords)
+      const ex = (b / 2) / L, ey = h / L;
+      const nx = ey, ny = -ex;
+      const A = [b / 2, 0], B = [b, h];
+      const T = [
+        [A[0] + ex * 8, A[1] + ey * 8],
+        [A[0] + ex * 8 + nx * tab, A[1] + ey * 8 + ny * tab],
+        [B[0] - ex * 8 + nx * tab, B[1] - ey * 8 + ny * tab],
+        [B[0] - ex * 8, B[1] - ey * 8],
+      ];
+      return (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            left: `${cx - b / 2}mm`,
+            top: `${cy}mm`,
+            width: `${b}mm`,
+            height: `${h}mm`,
+            transformOrigin: "50% 0",
+            transform: `rotate(${centre}deg)`,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              clipPath: "polygon(50% 0, 100% 100%, 0 100%)",
+              background: hasQr ? colors.bg : brandColor,
+              color: hasQr ? colors.fg : "#fff",
+              textAlign: "center",
+            }}
+          >
+            {bgImage && hasQr && (
+              <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ opacity: 1 - overlayOpacity / 100 }} />
+            )}
+            <div style={{ position: "absolute", top: `${h * 0.16}mm`, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
+              {logoSrc ? (
+                <img src={logoSrc} alt="" style={{ height: fs(0.1), maxWidth: fs(0.3), objectFit: "contain" }} />
+              ) : (
+                <span style={{ fontSize: fs(0.055), fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", maxWidth: fs(0.3), lineHeight: 1.1 }}>
+                  {restaurantName}
+                </span>
+              )}
+            </div>
+            {hasQr ? (
+              <>
+                <div style={{ position: "absolute", top: `${yQr}mm`, left: "50%", transform: "translateX(-50%)", width: `${card}mm`, height: `${card}mm`, background: "#fff", borderRadius: `${b * 0.025}mm`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <QRCodeSVG
+                    value={qrUrl}
+                    size={Math.round(q * MM)}
+                    level="H"
+                    fgColor="#000000"
+                    bgColor="#ffffff"
+                    imageSettings={logoSrc ? { src: logoSrc, height: Math.round(q * MM * 0.2), width: Math.round(q * MM * 0.2), excavate: true } : undefined}
+                  />
+                </div>
+                <div style={{ position: "absolute", top: `${yQr + card + b * 0.025}mm`, left: "50%", transform: "translateX(-50%)", background: brandColor, color: "#fff", borderRadius: "999px", padding: `${b * 0.008}mm ${b * 0.03}mm`, fontSize: fs(0.036), fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                  {label}
+                </div>
+                <div style={{ position: "absolute", top: `${yQr + card + b * 0.025 + b * 0.075}mm`, left: 0, right: 0, fontSize: fs(isWaitlist ? 0.05 : 0.06), fontWeight: 900, lineHeight: 1 }}>
+                  {tableLabel}
+                </div>
+              </>
+            ) : (
+              <div style={{ position: "absolute", top: `${h * 0.42}mm`, left: "50%", transform: "translateX(-50%)", width: `${b * 0.46}mm` }}>
+                <p style={{ fontSize: fs(0.075), fontWeight: 900, lineHeight: 1.1 }}>
+                  {isWaitlist && headline === "Scan to Order" ? "Join the Waitlist" : headline}
+                </p>
+                <p style={{ fontSize: fs(0.036), opacity: 0.85, marginTop: fs(0.03), lineHeight: 1.25 }}>{subheadline}</p>
+                {wifiSsid && (
+                  <p style={{ fontSize: fs(0.03), marginTop: fs(0.04), fontWeight: 700 }}>
+                    Wi‑Fi: {wifiSsid}{wifiPass ? ` · ${wifiPass}` : ""}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          {showGuides && (
+            <svg
+              viewBox={`0 0 ${b} ${h}`}
+              width={`${b}mm`}
+              height={`${h}mm`}
+              style={{ position: "absolute", inset: 0, overflow: "visible", pointerEvents: "none" }}
+            >
+              <polygon points={`${b / 2},0 ${b},${h} 0,${h}`} fill="none" stroke="#64748b" strokeWidth={0.35} strokeDasharray="2 1.5" />
+              {hasTab && (
+                <polygon points={T.map((p) => p.join(",")).join(" ")} fill="#e2e8f0" stroke="#64748b" strokeWidth={0.35} />
+              )}
+            </svg>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div className="relative h-full w-full bg-white" style={{ color: "#111827" }}>
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-[10mm] pt-[5mm] text-[9px] font-bold uppercase tracking-widest text-slate-400">
+          <span>{restaurantName} · {tableLabel} · {n}-sided pyramid stand</span>
+          {showGuides && <span>Cut outer edge · fold dashed lines · glue the grey tab inside</span>}
+        </div>
+        {Array.from({ length: n }, (_, i) => renderFace(i))}
+      </div>
+    );
+  };
+
   // Main wrapper for rendering flyer card
   const FlyerCard = ({ table }: { table: Table }) => {
+    if (tentStyle === "pyramid") {
+      return (
+        <div
+          id="flyer-content"
+          className={`relative h-full w-full overflow-hidden bg-white ${fonts.find((f) => f.id === activeFont)?.class}`}
+        >
+          <PyramidNet table={table} />
+        </div>
+      );
+    }
     return (
       <div
         id="flyer-content"
@@ -505,7 +797,7 @@ export default function QrFlyerGenerator() {
             <div
               className="absolute inset-0 z-0 transition-colors duration-300"
               style={{
-                backgroundColor: template === "dark" ? "#000" : "#fff",
+                backgroundColor: DARK_TEMPLATES.has(template) ? "#000" : "#fff",
                 opacity: overlayOpacity / 100,
               }}
             />
@@ -555,6 +847,14 @@ export default function QrFlyerGenerator() {
             </button>
           )}
           <button
+            onClick={() => void handleDownload()}
+            disabled={downloading}
+            className="no-print flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {downloading ? "Preparing…" : "Download PNG"}
+          </button>
+          <button
             onClick={handlePrint}
             className="no-print flex items-center gap-2 bg-[#fe5c13] hover:bg-[#fe5c13]/95 text-gray-900 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#fe5c13]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
@@ -572,7 +872,7 @@ export default function QrFlyerGenerator() {
         }
         @media print {
           @page {
-            size: A5 portrait;
+            size: ${tentStyle === "pyramid" ? "A4 landscape" : "A5 portrait"};
             margin: 0;
           }
           body * {
@@ -590,7 +890,7 @@ export default function QrFlyerGenerator() {
             background: white !important;
           }
           .print-page {
-            width: 148mm !important;
+            width: ${tentStyle === "pyramid" ? "297mm" : "148mm"} !important;
             height: 210mm !important;
             page-break-after: always !important;
             position: relative !important;
@@ -679,28 +979,123 @@ export default function QrFlyerGenerator() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
                       Tent Folding Style
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setTentStyle("flat")}
-                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                          tentStyle === "flat"
-                            ? "bg-slate-900 border-slate-900 text-white"
-                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        Flat Poster (A5)
-                      </button>
-                      <button
-                        onClick={() => setTentStyle("standing")}
-                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                          tentStyle === "standing"
-                            ? "bg-slate-900 border-slate-900 text-white"
-                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        Standing Folding Tent
-                      </button>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          ["flat", "Flat Poster", "A5"],
+                          ["standing", "Folding Tent", "A5 fold"],
+                          ["pyramid", "Pyramid Stand", "A4 net"],
+                        ] as const
+                      ).map(([id, name, sub]) => (
+                        <button
+                          key={id}
+                          onClick={() => setTentStyle(id)}
+                          className={`flex flex-col items-center gap-0.5 py-2.5 rounded-xl text-[11px] font-bold border transition-all ${
+                            tentStyle === id
+                              ? "bg-slate-900 border-slate-900 text-white"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {id === "pyramid" && <Triangle className="w-3.5 h-3.5" />}
+                          {name}
+                          <span className="text-[9px] font-medium opacity-60">{sub}</span>
+                        </button>
+                      ))}
                     </div>
+
+                    {tentStyle === "pyramid" && (
+                      <div className="mt-4 space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                            Faces
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {([3, 4] as const).map((n) => (
+                              <button
+                                key={n}
+                                onClick={() => setPyramidSides(n)}
+                                className={`py-2 rounded-xl text-xs font-bold border transition-all ${pyramidSides === n ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                {n === 3 ? "3 faces (triangle)" : "4 faces (square)"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                            Size (face base)
+                          </label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              [70, "Mini 7cm"],
+                              [90, "Standard 9cm"],
+                              [110, "Large 11cm"],
+                            ].map(([mm, name]) => (
+                              <button
+                                key={mm}
+                                onClick={() => setPyramidBase(mm as number)}
+                                className={`py-2 rounded-xl text-[11px] font-bold border transition-all ${pyramidBase === mm ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                            Shape
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              [false, "Classic"],
+                              [true, "Tall & slim"],
+                            ].map(([tall, name]) => (
+                              <button
+                                key={String(name)}
+                                onClick={() => setPyramidTall(tall as boolean)}
+                                className={`py-2 rounded-xl text-xs font-bold border transition-all ${pyramidTall === tall ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                            Face content
+                          </label>
+                          <div className="grid grid-cols-1 gap-2">
+                            {[
+                              ["all", "QR on every face"],
+                              ["alternate", "QR + brand faces (alternating)"],
+                              ["one", "One QR face, rest branded"],
+                            ].map(([id, name]) => (
+                              <button
+                                key={id}
+                                onClick={() => setPyramidMode(id as "all" | "alternate" | "one")}
+                                className={`py-2 rounded-xl text-xs font-bold border transition-all ${pyramidMode === id ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showGuides}
+                            onChange={(e) => setShowGuides(e.target.checked)}
+                            className="w-4 h-4 accent-slate-950 rounded"
+                          />
+                          <span className="text-xs font-bold text-slate-600">
+                            Show cut, fold &amp; glue-tab guides
+                          </span>
+                        </label>
+                        <p className="text-[11px] leading-relaxed text-slate-400">
+                          Prints on A4 landscape. Use 200gsm+ card, cut around the outer edge, fold on the dashed lines and glue the grey tab inside.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 space-y-3">
@@ -712,7 +1107,9 @@ export default function QrFlyerGenerator() {
                         className="w-4 h-4 accent-slate-950 rounded border-slate-350"
                       />
                       <span className="text-xs font-bold text-slate-600">
-                        Include "3D AR Enabled" Badge
+                        {selectedTable.id === "waitlist"
+                          ? 'Include "Skip the Line" badge'
+                          : 'Include "3D AR Enabled" badge'}
                       </span>
                     </label>
 
@@ -1127,6 +1524,35 @@ export default function QrFlyerGenerator() {
                       className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none resize-none"
                     />
                   </div>
+                  {selectedTable.id === "waitlist" && (
+                    <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
+                        Waitlist headline ideas
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {WAITLIST_HEADLINES.map((h) => (
+                          <button
+                            key={h}
+                            onClick={() => setHeadline(h)}
+                            className={`rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all ${headline === h ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                          >
+                            {h}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showSteps}
+                          onChange={(e) => setShowSteps(e.target.checked)}
+                          className="w-4 h-4 accent-slate-950 rounded"
+                        />
+                        <span className="text-xs font-bold text-slate-600">
+                          Show &ldquo;Scan → Enter details → Get SMS&rdquo; steps
+                        </span>
+                      </label>
+                    </div>
+                  )}
                   <div className="pt-4 border-t border-gray-100">
                     <div className="flex items-center gap-2 mb-3">
                       <Wifi className="w-4 h-4 text-gray-400" />
@@ -1174,10 +1600,24 @@ export default function QrFlyerGenerator() {
             Live Preview
           </div>
 
-          <div className="shadow-2xl shadow-slate-400/30 transition-all duration-300 hover:scale-[1.005] select-none">
+          <div
+            className="shadow-2xl shadow-slate-400/30 select-none"
+            style={
+              tentStyle === "pyramid"
+                ? { width: "calc(297mm * 0.62)", height: "calc(210mm * 0.62)" }
+                : undefined
+            }
+          >
             <div
+              ref={flyerRef}
               className="bg-white"
-              style={{ width: "148mm", height: "210mm" }}
+              style={{
+                width: tentStyle === "pyramid" ? "297mm" : "148mm",
+                height: "210mm",
+                ...(tentStyle === "pyramid"
+                  ? { transform: "scale(0.62)", transformOrigin: "top left" }
+                  : {}),
+              }}
             >
               <FlyerCard table={selectedTable} />
             </div>

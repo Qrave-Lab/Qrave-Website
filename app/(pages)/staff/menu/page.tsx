@@ -2024,6 +2024,22 @@ export default function MenuPage() {
                     <Plus className="w-5 h-5" /> Add First Product
                   </button>
                 )}
+                {!search && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api("/api/admin/onboarding/sample-data", { method: "POST" });
+                        toast.success("Sample menu added. Replace it with your own dishes anytime.");
+                        window.location.reload();
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Couldn't load the sample menu");
+                      }
+                    }}
+                    className="mt-4 text-sm font-semibold text-slate-500 underline hover:text-slate-700"
+                  >
+                    Or load a sample menu to try things out
+                  </button>
+                )}
               </motion.div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

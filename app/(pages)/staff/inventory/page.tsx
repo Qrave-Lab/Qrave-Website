@@ -7,6 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PackageOpen, Truck, FileText, CheckCircle, Plus, Search, MapPin, Store, Edit2, Trash2, X, AlertTriangle, ClipboardList, Trash } from 'lucide-react';
 import StaffSidebar from '@/app/components/StaffSidebar';
 import { toast } from 'react-hot-toast';
+import StockAlertsBanner from '@/app/components/inventory/StockAlertsBanner';
+import StockTakePanel from '@/app/components/inventory/StockTakePanel';
+import PriceHistoryPanel from '@/app/components/inventory/PriceHistoryPanel';
+import TransfersPanel from '@/app/components/inventory/TransfersPanel';
 import { CustomSelect } from '@/app/components/ui/CustomSelect';
 import { CustomDateTimePicker } from '@/app/components/ui/CustomDateTimePicker';
 
@@ -34,7 +38,7 @@ const fmtINR = (n: number) =>
 
 export default function InventoryDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'vendors' | 'pos' | 'recipes' | 'kitchen' | 'stock' | 'stock-take' | 'waste'>('stock');
+  const [activeTab, setActiveTab] = useState<'vendors' | 'pos' | 'recipes' | 'kitchen' | 'stock' | 'stock-take' | 'waste' | 'prices'>('stock');
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddVendor, setShowAddVendor] = useState(false);
@@ -79,7 +83,8 @@ export default function InventoryDashboard() {
   const [wastageEvents, setWastageEvents] = useState<any[]>([]);
   
   // Stock Take Form
-  const [stockTakeCounts, setStockTakeCounts] = useState<Record<string, string>>({});
+  const [myRole, setMyRole] = useState('');
+  const [alertsKey, setAlertsKey] = useState(0);
   
   // Wastage Form
   const [showLogWaste, setShowLogWaste] = useState(false);
@@ -191,34 +196,11 @@ export default function InventoryDashboard() {
         api<{ events: any[] }>('/api/admin/inventory/advanced/wastage')
       ]);
       if (overviewRes?.stocks) setOverviewStocks(overviewRes.stocks);
+      api<{ role?: string }>('/api/admin/me').then((m) => setMyRole((m?.role || '').toLowerCase())).catch(() => {});
       if (suggRes?.suggestions) setPurchaseSuggestions(suggRes.suggestions);
       if (wasteRes?.events) setWastageEvents(wasteRes.events);
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const handleSaveStockTake = async () => {
-    try {
-      const promises = Object.entries(stockTakeCounts).map(([id, qty]) => {
-        const item = overviewStocks.find(s => s.ingredient_id === id);
-        if (!item) return null;
-        return api(`/api/admin/inventory/advanced/ingredients/${id}/stock`, {
-          method: 'POST',
-          body: JSON.stringify({
-            stock: Number(qty),
-            reorder_threshold: Number(item.reorder_threshold || 0),
-            reason: 'Physical Stock Take'
-          })
-        });
-      }).filter(Boolean);
-      await Promise.all(promises);
-      toast.success("Stock take saved successfully");
-      setStockTakeCounts({});
-      fetchAdvancedData();
-      fetchBatches();
-    } catch(e) {
-      toast.error("Failed to save stock take");
     }
   };
 
@@ -553,6 +535,17 @@ export default function InventoryDashboard() {
                 Suppliers
               </button>
               <button
+                onClick={() => setActiveTab('prices')}
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
+                  activeTab === 'prices'
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <FileText size={14} className="shrink-0" />
+                Price History
+              </button>
+              <button
                 onClick={() => setActiveTab('recipes')}
                 className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
                   activeTab === 'recipes'
@@ -603,6 +596,7 @@ export default function InventoryDashboard() {
         <main className="flex-1 overflow-y-auto bg-white flex flex-col">
         {activeTab === 'stock' && (
           <div className="flex-1 flex flex-col animate-in fade-in duration-200">
+            <StockAlertsBanner refreshKey={alertsKey} />
             <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2.5">
@@ -1010,61 +1004,19 @@ export default function InventoryDashboard() {
         )}
 
         {activeTab === 'stock-take' && (
-          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
-            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold tracking-tight text-slate-900">Physical Stock Take</h2>
-                <p className="mt-1 text-xs text-slate-500">Reconcile theoretical system stock with physical counts, and set Par Levels.</p>
-              </div>
-              <button 
-                onClick={handleSaveStockTake}
-                disabled={Object.keys(stockTakeCounts).length === 0}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-50"
-              >
-                Save Variances
-              </button>
-            </div>
-            
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full border-collapse text-left text-sm text-slate-600">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <th className="px-8 py-3.5">Ingredient</th>
-                    <th className="px-8 py-3.5">System Stock</th>
-                    <th className="px-8 py-3.5">Par Level (Reorder Pt)</th>
-                    <th className="px-8 py-3.5">Actual Physical Count</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {overviewStocks.map((item) => (
-                    <tr key={item.ingredient_id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-4 font-semibold text-slate-950">{item.ingredient}</td>
-                      <td className="px-8 py-4 font-mono">{item.stock}</td>
-                      <td className="px-8 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono">{item.reorder_threshold}</span>
-                          <button onClick={() => {
-                            setEditingParLevel(item);
-                            setParLevelValue(item.reorder_threshold.toString());
-                          }} className="text-blue-600 hover:text-blue-700 text-xs font-medium">Edit</button>
-                        </div>
-                      </td>
-                      <td className="px-8 py-4">
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="Enter count..."
-                          value={stockTakeCounts[item.ingredient_id] ?? ''}
-                          onChange={e => setStockTakeCounts({...stockTakeCounts, [item.ingredient_id]: e.target.value})}
-                          className="w-40 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <StockTakePanel
+            stocks={overviewStocks}
+            canReview={['owner', 'manager'].includes(myRole)}
+            onEditPar={(item) => {
+              setEditingParLevel(item);
+              setParLevelValue(String(item.reorder_threshold));
+            }}
+            onChanged={() => {
+              fetchAdvancedData();
+              fetchBatches();
+              setAlertsKey((k) => k + 1);
+            }}
+          />
         )}
 
         {activeTab === 'waste' && (
@@ -1115,30 +1067,8 @@ export default function InventoryDashboard() {
           </div>
         )}
 
-        {activeTab === 'kitchen' && (
-          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
-            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Central Kitchen Transfers</h2>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Manage stock transfers between your commissaries and branches.</p>
-              </div>
-              <button className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto">
-                <Plus size={16} />
-                New Transfer
-              </button>
-            </div>
-            
-            <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
-                <Store size={28} />
-              </div>
-              <h3 className="text-base font-semibold text-slate-900">No active transfers</h3>
-              <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Dispatch stock to a branch to see it here.</p>
-            </div>
-          </div>
-        )}
+        {activeTab === 'prices' && <PriceHistoryPanel />}
+        {activeTab === 'kitchen' && <TransfersPanel ingredients={overviewStocks} />}
       </main>
       </div>
 

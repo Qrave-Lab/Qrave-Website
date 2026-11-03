@@ -4,6 +4,8 @@ export const metadata: Metadata = {
   title: "Privacy Policy — Qrave",
   description:
     "Qrave Privacy Policy: how we collect, use, store, share, and protect your personal information.",
+  alternates: { canonical: "/privacy" },
+  robots: { index: true, follow: true },
 };
 
 const styles = `
@@ -136,7 +138,7 @@ export default function PrivacyPage() {
         By using the Services, you acknowledge that you have read and understood
         this Privacy Policy. If you have questions or concerns about this
         Privacy Policy or our privacy practices, contact us at{" "}
-        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>.
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a>.
       </p>
 
       <h2 id="scope">2. Scope of This Policy</h2>
@@ -461,7 +463,7 @@ export default function PrivacyPage() {
         we may also send promotional messages about Qrave. You can opt out of
         promotional messages at any time by following the unsubscribe
         instructions in the message or by contacting us at{" "}
-        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>.
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a>.
         Opting out of promotional messages does not stop service-related
         messages that are necessary for your orders or account.
       </p>
@@ -482,6 +484,44 @@ export default function PrivacyPage() {
         law to keep it. Information held in backups may be removed on a delayed
         schedule.
       </p>
+      <p>
+        Our systems apply the following schedule automatically every day:
+      </p>
+      <ul>
+        <li>one-time login codes (email and phone): deleted after 24 hours;</li>
+        <li>
+          waitlist guest names and phone numbers: de-identified 30 days after the
+          guest leaves the waitlist;
+        </li>
+        <li>
+          reservation guest details: de-identified 24 months after the booking
+          date;
+        </li>
+        <li>
+          takeaway and delivery customer names, phone numbers, addresses and
+          notes: de-identified 24 months after the order;
+        </li>
+        <li>
+          customer details on settled advance payments: de-identified 24 months
+          after receipt;
+        </li>
+        <li>
+          customer profiles, saved addresses and loyalty records with no visit or
+          order for 36 months: deleted;
+        </li>
+        <li>
+          demo and callback requests submitted on our website: deleted after 24
+          months.
+        </li>
+      </ul>
+      <p>
+        De-identified order records keep amounts and items for the
+        restaurant&apos;s accounts but no longer contain the customer&apos;s
+        name, phone number or address. GST tax invoices, credit notes and the
+        accounting ledger are statutory records and are kept for 8 years from the
+        end of the relevant financial year. Restaurant account data is deleted
+        when the account is deleted (see Section 16).
+      </p>
 
       <h2 id="security">13. Data Security</h2>
       <p>
@@ -495,7 +535,7 @@ export default function PrivacyPage() {
       <p>
         You are responsible for maintaining the confidentiality of your account
         credentials and should notify us promptly at{" "}
-        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a> if
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a> if
         you believe your account has been compromised.
       </p>
 
@@ -527,7 +567,7 @@ export default function PrivacyPage() {
       </ul>
       <p>
         To exercise an applicable privacy right, contact us at{" "}
-        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>. We
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a>. We
         may need to verify your identity before completing certain requests.
         Some requests may be subject to legal exceptions or limitations. We will
         respond to valid requests within the time required by applicable law.
@@ -537,11 +577,30 @@ export default function PrivacyPage() {
       <p>
         If you wish to delete your Qrave account or request deletion of personal
         information, contact us at{" "}
-        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>{" "}
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a>{" "}
         from the email address associated with your account. We will process the
         request in accordance with applicable law. Certain information may need
         to be retained where required for legal, accounting, fraud-prevention,
         dispute-resolution, or other legitimate purposes.
+      </p>
+      <p>
+        <strong>Restaurant owners</strong> can permanently delete their
+        restaurant account at any time from Settings &rarr; Delete Account,
+        after confirming with a one-time code sent to their email.
+      </p>
+      <p>
+        <strong>Customers of a restaurant:</strong> the restaurant decides why
+        your order, reservation and loyalty details are collected, and Qrave
+        processes them on its behalf. You can ask the restaurant to give you a
+        copy of your data or to erase it. Restaurant owners and managers can do
+        both in a few clicks from Settings &rarr; Privacy &amp; Data, where the
+        copy is a machine-readable JSON file. Erasure deletes your profile,
+        saved addresses and loyalty history and removes your name, phone number
+        and address from past orders, reservations and advances. GST tax
+        invoices already issued must be kept as issued. If you cannot reach the
+        restaurant, write to us at{" "}
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a>{" "}
+        and we will pass on or action your request.
       </p>
 
       <h2 id="choices">17. Your Choices and Controls</h2>
@@ -574,7 +633,7 @@ export default function PrivacyPage() {
         from children in circumstances where such collection is prohibited by
         applicable law. If you believe a child has provided personal information
         to us in violation of applicable requirements, please contact us at{" "}
-        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a> so
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a> so
         that we can review and take appropriate action, which may include
         deleting the information.
       </p>
@@ -621,7 +680,7 @@ export default function PrivacyPage() {
         access, correct, and erase your personal data, to nominate another
         person to exercise your rights in the event of death or incapacity, and
         to seek redress of grievances. You may raise a grievance by writing to{" "}
-        <a href="mailto:qrave.private@gmail.com">qrave.private@gmail.com</a>,
+        <a href="mailto:support@qravetech.in">support@qravetech.in</a>,
         and we will respond within the time required by applicable law.
       </p>
 
@@ -654,8 +713,8 @@ export default function PrivacyPage() {
           <tr>
             <th>Privacy contact</th>
             <td>
-              <a href="mailto:qrave.private@gmail.com">
-                qrave.private@gmail.com
+              <a href="mailto:support@qravetech.in">
+                support@qravetech.in
               </a>
             </td>
           </tr>

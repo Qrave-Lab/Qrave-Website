@@ -32,6 +32,10 @@ export default function LoginPage() {
   const [isSelectingBranch, setIsSelectingBranch] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mfaToken, setMfaToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaRecovery, setMfaRecovery] = useState(false);
+  const [mfaBusy, setMfaBusy] = useState(false);
   const [showBranchPicker, setShowBranchPicker] = useState(false);
   const [pendingRoute, setPendingRoute] = useState("");
   const [branchOptions, setBranchOptions] = useState<Array<{ id: string; label: string }>>([]);
@@ -122,10 +126,14 @@ export default function LoginPage() {
       setError(null);
       setIsGoogleLoading(true);
       try {
-        await api<any>("/auth/google/login", {
+        const gres = await api<any>("/auth/google/login", {
           method: "POST",
           body: JSON.stringify({ id_token: credential }),
         });
+        if (gres?.mfa_required) {
+          setMfaToken(gres.mfa_token);
+          return;
+        }
         toast.dismiss("welcome-back");
         toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
         await routeAfterLogin();
@@ -210,6 +218,11 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
+      if (res?.mfa_required) {
+        setMfaToken(res.mfa_token);
+        setPassword("");
+        return;
+      }
       if (res) {
         toast.dismiss("welcome-back");
         toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
@@ -229,6 +242,33 @@ export default function LoginPage() {
       e.preventDefault();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mfaBusy || !mfaCode.trim()) return;
+    setError(null);
+    setMfaBusy(true);
+    try {
+      await api<any>("/auth/2fa/verify", {
+        method: "POST",
+        body: JSON.stringify({ mfa_token: mfaToken, code: mfaCode.trim() }),
+      });
+      toast.dismiss("welcome-back");
+      toast.success("Welcome back", { id: "welcome-back", duration: 1800 });
+      await routeAfterLogin();
+    } catch (err: any) {
+      if (err?.status === 429) setError("Too many wrong codes. Try again in 15 minutes.");
+      else if (err?.status === 401 && /sign in again/i.test(String(err?.message || ""))) {
+        setMfaToken("");
+        setMfaCode("");
+        setError("Your sign-in expired. Please sign in again.");
+      } else if (err?.status === 401) setError(mfaRecovery ? "That recovery code didn't work." : "That code didn't work. Check your authenticator app.");
+      else setError("Connection error. Try again.");
+      setMfaCode("");
+    } finally {
+      setMfaBusy(false);
     }
   };
 
@@ -287,7 +327,52 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            {mfaToken && (
+              <form onSubmit={handleMfa} className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Two-step verification</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {mfaRecovery
+                      ? "Enter one of your saved recovery codes. Each works once."
+                      : "Enter the 6-digit code from your authenticator app."}
+                  </p>
+                </div>
+                <input
+                  autoFocus
+                  inputMode={mfaRecovery ? "text" : "numeric"}
+                  autoComplete="one-time-code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  placeholder={mfaRecovery ? "xxxxx-xxxxx" : "123456"}
+                  maxLength={mfaRecovery ? 12 : 7}
+                  aria-label={mfaRecovery ? "Recovery code" : "Authenticator code"}
+                  className="w-full h-12 rounded-xl border border-slate-200 px-4 text-center text-lg tracking-[0.3em] font-semibold text-slate-900 outline-none focus:border-[#fe5c13] focus:ring-2 focus:ring-[#fe5c13]/20"
+                />
+                {error && (
+                  <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2.5 text-red-600 text-xs font-medium">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={mfaBusy || !mfaCode.trim()}
+                  className="w-full h-12 rounded-xl bg-[#fe5c13] hover:bg-[#e64e08] text-white font-bold text-sm tracking-wide flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {mfaBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Verify</span>}
+                </button>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                  <button type="button" onClick={() => { setMfaRecovery((v) => !v); setMfaCode(""); setError(null); }} className="hover:text-slate-800">
+                    {mfaRecovery ? "Use authenticator app" : "Use a recovery code"}
+                  </button>
+                  <button type="button" onClick={() => { setMfaToken(""); setMfaCode(""); setError(null); }} className="hover:text-slate-800">
+                    Back to sign in
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <form onSubmit={handleLogin} className={`space-y-5${mfaToken ? " hidden" : ""}`}>
               {hasValidGoogleClientId && (
                 <div className="space-y-4">
                   <div ref={googleButtonRef} className="min-h-[46px] flex justify-center [&>iframe]:!rounded-xl" />

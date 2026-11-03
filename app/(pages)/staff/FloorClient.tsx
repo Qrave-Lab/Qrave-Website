@@ -29,10 +29,12 @@ import {
   Frown
 } from "lucide-react";
 import Link from "next/link";
+import LoyaltyPanel from "@/app/components/billing/LoyaltyPanel";
 import { AnimatePresence, motion } from "framer-motion";
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
 import { useRouter } from "next/navigation";
 import StaffSidebar from "../../components/StaffSidebar";
+import SetupChecklist from "../../components/onboarding/SetupChecklist";
 import { api } from "@/app/lib/api";
 import { printBillTicket, printKitchenTicket } from "@/app/lib/posPrinter";
 import { toast } from "react-hot-toast";
@@ -46,6 +48,8 @@ type StaffTable = {
   restaurantName: string;
   isOccupied: boolean;
   isEnabled?: boolean;
+  /** Guests have left but staff haven't cleaned the table yet. */
+  needsCleaning?: boolean;
   activeSessionId?: string;
   isTakeaway?: boolean;
   takeawayStatus?: string; // raw status from takeaway_orders for reception dine-in tables
@@ -71,7 +75,7 @@ type PendingOrder = {
   dailyOrderNumber?: number | null;
 };
 
-type ServiceCallType = "waiter" | "water" | "help" | "bill" | "low-rating";
+type ServiceCallType = "waiter" | "water" | "help" | "bill" | "low-rating" | "cleaning";
 type ServiceCallStatus = "open" | "attending" | "done";
 
 type ServiceCall = {
@@ -106,6 +110,7 @@ type TableAPI = {
   table_number: number;
   is_enabled: boolean;
   floor_name?: string;
+  needs_cleaning?: boolean;
 };
 
 type ActiveOrderItem = {
@@ -198,7 +203,10 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     typeof initialData?.meRes?.service_charge === "number" ? initialData.meRes.service_charge : 0
   );
   const [serviceCalls, setServiceCalls] = useState<ServiceCall[]>(initialProcessed?.serviceCalls || []);
-  const [todaySales, setTodaySales] = useState<number>(initialProcessed?.todaySales || 0);
+  // null = this role can't see takings (server refused), so the tile is hidden.
+  const [todaySales, setTodaySales] = useState<number | null>(
+    initialData && !initialData.salesRes ? null : initialProcessed?.todaySales || 0
+  );
   const [profitMetrics, setProfitMetrics] = useState<any>(null);
   const [waitlistCount, setWaitlistCount] = useState<number>(initialProcessed?.waitlistCount || 0);
   const [takeawaySummary, setTakeawaySummary] = useState<TakeawaySummary | null>(initialProcessed?.takeawaySummary || null);
@@ -410,6 +418,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         itemsCount: meta?.count,
         seatedAt: occ?.seatedAt || meta?.seatedAt,
         isEnabled: t.is_enabled,
+        needsCleaning: Boolean(t.needs_cleaning) && !occ && !hasActiveOrders,
         floorName: t.floor_name || "Main Floor",
       } as StaffTable;
     });
@@ -489,7 +498,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       await refreshLiveData();
       const [serviceRes, salesRes, takeawayRes, waitlistRes] = await Promise.all([
         api<ServiceCallAPI[]>("/api/admin/service-calls"),
-        api<{ total: number }>("/api/admin/sales/today"),
+        // Only cashiers and up may see takings; other roles get 403 and no tile.
+        api<{ total: number }>("/api/admin/sales/today", { suppressErrorLog: true }).catch(() => null),
         api<TakeawaySummary>("/api/admin/takeaway/summary"),
         api<{ waitlist?: any[] }>("/api/admin/waitlist").catch(() => ({ waitlist: [] })),
       ]);
@@ -518,7 +528,9 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
         return currentTables; // no change to tables
       });
-      if (typeof salesRes?.total === "number") {
+      if (salesRes === null) {
+        setTodaySales(null);
+      } else if (typeof salesRes?.total === "number") {
         setTodaySales(salesRes.total);
       }
       if (takeawayRes) {
@@ -744,7 +756,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     .filter((table) => {
       if (tableFilter === "all") return true;
       if (tableFilter === "occupied") return table.isOccupied;
-      if (tableFilter === "free") return !table.isOccupied;
+      if (tableFilter === "free") return !table.isOccupied && !table.needsCleaning;
       if (tableFilter === "bill_requested")
         return serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
       if (tableFilter === "long_sitting")
@@ -873,18 +885,36 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     setOrderActionPending((prev) => ({ ...prev, [orderId]: true }));
     try {
       const isTakeaway = activeOrders.some(o => ((o.id || o.order_id) === orderId) && o.is_takeaway);
-      const url = isTakeaway ? `/api/admin/takeaway/orders/${orderId}/status` : `/api/admin/orders/${orderId}/status`;
-      await api(url, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "cancelled" }),
-      });
+      if (isTakeaway) {
+        await api(`/api/admin/takeaway/orders/${orderId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "cancelled" }),
+        });
+      } else {
+        // Allowed until the kitchen starts cooking; needs no manager PIN.
+        await api(`/api/admin/orders/${orderId}/cancel-unstarted`, { method: "POST" });
+      }
       refreshLiveData().catch(() => { });
     } catch {
       setActiveOrders(previous);
       setOrders(buildPendingOrders(previous));
-      toast.error("Unable to reject order");
+      toast.error("Couldn't cancel the order. The kitchen may have started it.");
     } finally {
       setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  /** The table has been cleaned and can seat the next party. */
+  const handleMarkClean = async (tableId: string) => {
+    const t = tables.find((x) => x.id === tableId);
+    setTables((prev) => prev.map((x) => (x.id === tableId ? { ...x, needsCleaning: false } : x)));
+    try {
+      await api(`/api/admin/tables/${tableId}/clean`, { method: "POST" });
+      toast.success(`${t?.tableCode ?? "Table"} is ready for guests`);
+      await refreshDashboard();
+    } catch (err: any) {
+      setTables((prev) => prev.map((x) => (x.id === tableId ? { ...x, needsCleaning: true } : x)));
+      toast.error(err?.message || "Couldn't mark the table clean");
     }
   };
 
@@ -998,7 +1028,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
       setFreeTableModal(null);
       await refreshDashboard();
-      toast.success(`${freeTableModal.tableCode} — bill paid & table freed`);
+      toast.success(`${freeTableModal.tableCode} — bill paid · table needs cleaning`);
     } catch (err: any) {
       toast.error(err?.message || "Failed to settle and free table");
       setFreeTableModal(prev => prev ? { ...prev, isProcessing: false } : null);
@@ -1288,6 +1318,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-6 divide-x divide-gray-100 hidden lg:flex">
             <div className="flex items-center gap-6 pr-6">
+              {totalSales !== null && (
               <div className="flex flex-col items-end">
                 <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-0.5">
                   Today's Sales
@@ -1296,6 +1327,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                   ₹{totalSales.toLocaleString()}
                 </span>
               </div>
+              )}
               
               {takeawaySummary && (
                 <div className="flex flex-col gap-1 border-l border-gray-100 pl-6 space-y-1">
@@ -1349,6 +1381,9 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         </header>
 
         <main className="flex-1 overflow-y-auto bg-gray-50/30">
+          <div className="px-4 sm:px-8 pt-4 empty:hidden">
+            <SetupChecklist />
+          </div>
           <div className="flex flex-col">
             <div className="bg-white border-b border-gray-200 shadow-sm flex flex-col sticky top-0 z-30">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-0 divide-x divide-y lg:divide-y-0 divide-gray-100 border-b border-gray-100 px-4 sm:px-8">
@@ -1529,12 +1564,13 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
                 let statusBar = "bg-gray-200";
                 if (isDisabled) statusBar = "bg-gray-200";
+                else if (isFree && table.needsCleaning) statusBar = "bg-sky-400";
                 else if (!isFree && isBillRequested) statusBar = "bg-indigo-400";
                 else if (!isFree && isPaid) statusBar = "bg-emerald-400";
                 else if (!isFree) statusBar = "bg-[#fe5c13]";
 
                 const timeStr = seatedMinutes < 60 ? `${seatedMinutes}m` : `${Math.floor(seatedMinutes / 60)}h ${seatedMinutes % 60}m`;
-                const headline = !isFree && !isDisabled ? `${table.tableCode} · ₹${(table.currentTotal ?? 0).toLocaleString()} · ${timeStr}` : table.tableCode;
+                const headline = !isFree && !isDisabled ? `${table.tableCode} · ₹${(table.currentTotal ?? 0).toLocaleString()} · ${timeStr}` : table.needsCleaning ? `${table.tableCode} · Needs cleaning` : table.tableCode;
 
                 return (
                   <div
@@ -1678,9 +1714,18 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                                 Disabled
                               </span>
                             ) : (
+                            table.needsCleaning ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleMarkClean(table.id); }}
+                                className="text-[10px] font-extrabold text-sky-700 bg-sky-100 hover:bg-sky-200 px-2.5 py-1 rounded-full transition-colors"
+                              >
+                                Mark clean
+                              </button>
+                            ) : (
                             <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                               Free
                             </span>
+                            )
                             )
                           )}
                         </div>
@@ -1781,7 +1826,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                 </div>
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Select Destination</h4>
                 <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  {tables.filter((t) => !t.isOccupied).map((t) => (
+                  {tables.filter((t) => !t.isOccupied && !t.needsCleaning).map((t) => (
                     <button
                       key={t.id}
                       onClick={() => handleMoveTable(t.id)}
@@ -1791,7 +1836,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                       <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full mt-1">Free</span>
                     </button>
                   ))}
-                  {tables.filter((t) => !t.isOccupied).length === 0 && (
+                  {tables.filter((t) => !t.isOccupied && !t.needsCleaning).length === 0 && (
                     <div className="col-span-4 py-8 text-center text-gray-500 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">
                       No empty tables available.
                     </div>
@@ -2034,7 +2079,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                         </div>
                         <div className="flex gap-3 mb-3 items-center">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            call.type === 'low-rating' ? 'bg-rose-100 text-rose-600 shadow-sm' : call.type === 'waiter' ? 'bg-amber-100 text-amber-600' : call.type === 'water' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'
+                            call.type === 'low-rating' ? 'bg-rose-100 text-rose-600 shadow-sm' : call.type === 'cleaning' ? 'bg-sky-100 text-sky-600' : call.type === 'waiter' ? 'bg-amber-100 text-amber-600' : call.type === 'water' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'
                           }`}>
                             {call.type === 'low-rating' ? <Frown className="w-4 h-4 animate-bounce" /> : call.type === 'waiter' ? <Bell className="w-4 h-4" /> : call.type === 'water' ? <Droplets className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           </div>
@@ -2107,6 +2152,21 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                 <span className="text-xl font-black text-emerald-700">
                   ₹{freeTableModal.totalAmount.toLocaleString()}
                 </span>
+              </div>
+
+              <div className="mb-5">
+                <LoyaltyPanel
+                  sessionId={freeTableModal.isTakeaway ? undefined : freeTableModal.sessionId}
+                  takeawayOrderId={freeTableModal.isTakeaway ? freeTableModal.sessionId : undefined}
+                  onBillChanged={async ({ newTotal }) => {
+                    let next = newTotal;
+                    if (next === undefined) {
+                      const res = await api<{ breakdown?: { total: number | string } }>(`/api/admin/bills/session/${freeTableModal.sessionId}`, { noCache: true }).catch(() => null);
+                      if (res?.breakdown) next = Number(res.breakdown.total);
+                    }
+                    if (next !== undefined) setFreeTableModal(prev => prev ? { ...prev, totalAmount: next as number } : null);
+                  }}
+                />
               </div>
 
               {/* Payment Method */}

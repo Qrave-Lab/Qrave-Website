@@ -103,6 +103,7 @@ export default function WaitlistJoinPage() {
 
   // Form states
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
   const [partySize, setPartySize] = useState(2);
@@ -137,6 +138,7 @@ export default function WaitlistJoinPage() {
             try {
               const draft = JSON.parse(draftStr);
               if (draft.phone) setPhone(draft.phone);
+              if (draft.email) setEmail(draft.email);
               if (draft.name) setName(draft.name);
               if (draft.partySize) setPartySize(draft.partySize);
               if (draft.step) setStep(draft.step);
@@ -159,12 +161,12 @@ export default function WaitlistJoinPage() {
   useEffect(() => {
     if (step === "phone" || step === "otp" || step === "form") {
       localStorage.setItem(`qrave_waitlist_draft_${slug}`, JSON.stringify({
-        phone, name, partySize, step
+        phone, email, name, partySize, step
       }));
     } else if (step === "queued" || step === "seated" || step === "removed") {
       localStorage.removeItem(`qrave_waitlist_draft_${slug}`);
     }
-  }, [step, phone, name, partySize, slug]);
+  }, [step, phone, email, name, partySize, slug]);
 
   // 2. Polling when queued
   useEffect(() => {
@@ -206,16 +208,16 @@ export default function WaitlistJoinPage() {
   // Actions
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || phone.length !== 10) return toast.error("Please enter a valid 10-digit mobile number");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return toast.error("Please enter a valid email address");
     setIsSubmitting(true);
     try {
       const res = await fetch(`${getBackendBase()}/public/waitlist/${slug}/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ email: email.trim() }),
       });
       if (!res.ok) throw new Error(await res.text());
-      toast.success("OTP Sent! (Test code: 696969)");
+      toast.success("Code sent to your email");
       setStep("otp");
     } catch (err: any) {
       toast.error(err.message || "Failed to send OTP");
@@ -232,7 +234,7 @@ export default function WaitlistJoinPage() {
       const res = await fetch(`${getBackendBase()}/public/waitlist/${slug}/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: otp }),
+        body: JSON.stringify({ email: email.trim(), code: otp }),
       });
       if (!res.ok) throw new Error(await res.text());
       setStep("form");
@@ -247,12 +249,13 @@ export default function WaitlistJoinPage() {
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Please enter your name");
+    if (phone.length !== 10) return toast.error("Please enter a valid 10-digit mobile number");
     setIsSubmitting(true);
     try {
       const res = await fetch(`${getBackendBase()}/public/waitlist/${slug}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, guest_name: name, party_size: partySize }),
+        body: JSON.stringify({ email: email.trim(), phone, guest_name: name, party_size: partySize }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
@@ -301,23 +304,19 @@ export default function WaitlistJoinPage() {
             <form onSubmit={handleSendOTP} className="flex flex-col gap-6">
               <div className="text-center mb-2">
                 <h2 className="text-2xl font-black text-slate-900 mb-2">Join the Waitlist</h2>
-                <p className="text-slate-500 text-sm font-medium">Enter your mobile number to hold your spot.</p>
+                <p className="text-slate-500 text-sm font-medium">Enter your email to hold your spot. We will send you a code.</p>
               </div>
               <div>
-                <div className="relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold flex items-center gap-2">
-                    <Phone className="w-4 h-4" /> +91
-                  </span>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-4 pl-20 pr-4 text-lg font-bold text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
-                    placeholder="Mobile number"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    autoFocus
-                  />
-                </div>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-4 px-5 text-lg font-bold text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoFocus
+                />
               </div>
               <button
                 type="submit"
@@ -338,8 +337,8 @@ export default function WaitlistJoinPage() {
                 <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <BellRing className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 mb-2">Verify Number</h2>
-                <p className="text-slate-500 text-sm font-medium">We sent a 6-digit code to <br/><span className="text-slate-900 font-bold">+91 {phone}</span></p>
+                <h2 className="text-2xl font-black text-slate-900 mb-2">Verify Email</h2>
+                <p className="text-slate-500 text-sm font-medium">We sent a 6-digit code to <br/><span className="text-slate-900 font-bold">{email}</span></p>
               </div>
               <div className="py-2">
                 <OTPInput 
@@ -365,7 +364,7 @@ export default function WaitlistJoinPage() {
                 onClick={() => setStep("phone")} 
                 className="text-sm font-bold text-slate-400 hover:text-slate-700 transition-colors py-2"
               >
-                Change Phone Number
+                Change email
               </button>
             </form>
           </motion.div>
@@ -381,6 +380,22 @@ export default function WaitlistJoinPage() {
               </div>
               
               <div className="space-y-5">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 ml-1">
+                    <Phone className="w-3.5 h-3.5" /> Mobile (so the host can reach you)
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-3.5 px-5 text-lg font-bold text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
+                    placeholder="10-digit mobile number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    required
+                  />
+                </div>
+
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 ml-1">
                     <User className="w-3.5 h-3.5" /> Guest Name

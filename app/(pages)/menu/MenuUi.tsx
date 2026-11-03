@@ -9,6 +9,7 @@ import CustomerBottomNav, {
 import FoodCard from "@/app/components/menu/FoodCard";
 import ImmersiveMenu from "@/app/components/menu/ImmersiveMenu";
 import OrdersView from "@/app/components/menu/OrdersView";
+import LoyaltyMenuLink from "@/app/components/menu/LoyaltyMenuLink";
 import ServicesView from "@/app/components/menu/ServicesView";
 import { api } from "@/app/lib/api";
 import { getCartKey, useCartStore } from "@/stores/cartStore";
@@ -32,6 +33,7 @@ import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "react-hot-toast";
+import { arHintSeen, markArHintSeen, trackAR } from "@/app/lib/arTracking";
 
 const resolve = (val: any): string => {
   if (!val) return "";
@@ -558,6 +560,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const [modelViewerReady, setModelViewerReady] = useState(false);
   const [modelViewerFailed, setModelViewerFailed] = useState(false);
   const [arModelError, setArModelError] = useState("");
+  // AR support is only known after the model loads; until then we show the button.
+  const [arUnsupported, setArUnsupported] = useState(false);
+  const [showArHint, setShowArHint] = useState(false);
+  const [detailArNote, setDetailArNote] = useState("");
+  useEffect(() => setDetailArNote(""), [detailItem]);
   const [arModelRenderKey, setArModelRenderKey] = useState(0);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
@@ -1207,6 +1214,8 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
   const handleArOpen = (item: any) => {
     setArModelError("");
+    setArUnsupported(false);
+    setShowArHint(!arHintSeen());
     setArModelRenderKey((v) => v + 1);
     setArItem(item);
     setSteamEnabled(Boolean(item.hasSteam ?? item.has_steam ?? false));
@@ -1231,10 +1240,18 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   };
 
   const activateAr = () => {
-    const viewer = modelViewerRef.current;
-    if (viewer && typeof viewer.activateAR === "function") {
+    const viewer = modelViewerRef.current as any;
+    const itemId = detailItem?.id;
+    if (viewer && viewer.canActivateAR && typeof viewer.activateAR === "function") {
+      trackAR(itemId, "ar_open");
+      markArHintSeen();
       viewer.activateAR();
+      return;
     }
+    // No AR on this phone/browser: the 3D view still works, so say so
+    // instead of a button that does nothing.
+    trackAR(itemId, "ar_unsupported");
+    setDetailArNote("AR isn't available on this phone. Drag the dish to spin it 360°.");
   };
 
   const getIngredients = (item: any): string[] => {
@@ -1654,6 +1671,8 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                         return base;
                       })()}
                       alt={arItem.name}
+                      poster={arItem.image || undefined}
+                      loading="eager"
                       auto-rotate
                       ar
                       ar-modes="webxr scene-viewer quick-look"
@@ -1662,12 +1681,19 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       interaction-prompt="none"
                       camera-orbit="0deg 75deg 1.8m"
                       tone-mapping="commerce"
+                      environment-image="neutral"
+                      exposure="1.1"
                       shadow-intensity="1"
                       scale={arScale}
                       onLoad={() => {
                         setArModelError("");
-                        const viewer = modelViewerRef.current;
+                        const viewer = modelViewerRef.current as any;
                         setArScale(getArScaleValue(viewer, arItem, selectedArVariantId));
+                        trackAR(arItem.id, "view_3d");
+                        if (viewer && viewer.canActivateAR === false) {
+                          setArUnsupported(true);
+                          trackAR(arItem.id, "ar_unsupported");
+                        }
                       }}
                       onError={() =>
                         setArModelError("3D model failed to load.")
@@ -1679,6 +1705,17 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                           display: none !important;
                         }
                       `}</style>
+                      <button
+                        slot="ar-button"
+                        onClick={() => {
+                          trackAR(arItem.id, "ar_open");
+                          markArHintSeen();
+                          setShowArHint(false);
+                        }}
+                        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-40 inline-flex items-center gap-2 rounded-full bg-[#18181B] px-5 py-2.5 text-sm font-bold text-white shadow-xl active:scale-95"
+                      >
+                        <Smartphone size={16} /> View on your table
+                      </button>
                       <div slot="ar-ui" className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md text-white px-5 py-2.5 rounded-full flex gap-4 text-sm font-bold shadow-xl whitespace-nowrap z-50 pointer-events-none">
                         {(() => {
                            const cal = Math.round((arItem.proteinG || 0) * 4 + (arItem.carbsG || 0) * 4 + (arItem.fatG || 0) * 9);
@@ -1696,6 +1733,16 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                         })()}
                       </div>
                     </model-viewer>
+                  )}
+                  {showArHint && !arUnsupported && !arModelError && (
+                    <div className="pointer-events-none absolute bottom-16 left-1/2 z-40 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-[#3D2B1F] shadow">
+                      Tap, then point your camera at the table and move slowly
+                    </div>
+                  )}
+                  {arUnsupported && !arModelError && (
+                    <div className="pointer-events-none absolute bottom-3 left-1/2 z-40 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-semibold text-white">
+                      Drag to spin 360° · AR isn&apos;t available on this phone
+                    </div>
                   )}
                   {arModelError && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#FFFFFF]/90 gap-2">
@@ -1862,19 +1909,39 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               src={sanitizeModelUrl(detailItem.arModelGlb)}
                               ios-src={sanitizeModelUrl(detailItem.arModelUsdz) || undefined}
                               alt={detailItem.name}
+                              poster={detailItem.image || undefined}
+                              reveal="interaction"
+                              ar
+                              ar-modes="webxr scene-viewer quick-look"
+                              ar-scale="fixed"
                               auto-rotate
                               camera-controls
                               interaction-prompt="none"
                               tone-mapping="commerce"
+                              environment-image="neutral"
+                              exposure="1.1"
                               shadow-intensity="1"
+                              onLoad={() => trackAR(detailItem.id, "view_3d")}
                               style={{ width: "100%", height: "100%", background: "transparent" }}
-                            />
+                            >
+                              <div slot="poster" className="absolute inset-0 flex items-center justify-center">
+                                {detailItem.image && (
+                                  <img src={detailItem.image} alt={detailItem.name} className="absolute inset-0 h-full w-full object-cover" />
+                                )}
+                                <span className="relative z-10 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-bold text-white">Tap to view in 3D</span>
+                              </div>
+                            </model-viewer>
+                            {detailArNote && (
+                              <div className="absolute bottom-12 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-semibold text-white">
+                                {detailArNote}
+                              </div>
+                            )}
                             <button
                               onClick={activateAr}
                               className="absolute bottom-3 right-3 px-3.5 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1.5 uppercase tracking-wider bg-[#18181B]/90 backdrop-blur-md text-white shadow-lg z-20 active:scale-95 hover:bg-[#18181B]"
                             >
                               <Smartphone size={12} />
-                              View in AR
+                              View on your table
                             </button>
                           </div>
                         ) : detailItem.image ? (
@@ -2246,6 +2313,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Table {tableId || "7"}</span>
               </div>
+              <LoyaltyMenuLink />
             </div>
           </div>
 

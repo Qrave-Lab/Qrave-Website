@@ -120,6 +120,9 @@ const RECEIPT_CSS = `
   .total-line { font-size: 14px; font-weight: bold; }
 `;
 
+// Item names, modifiers and guest notes go into these print pages: escape them.
+const escHtml = (s: string) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+
 function openPrintWindow(html: string): void {
   const w = window.open('', '_blank', 'width=400,height=600');
   if (!w) {
@@ -170,7 +173,7 @@ export function printKOT(data: KOTData): void {
 
   const body = lines.join('\n');
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>KOT</title><style>${KOT_CSS}</style></head><body><pre>${body}</pre></body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>KOT</title><style>${KOT_CSS}</style></head><body><pre>${escHtml(body)}</pre></body></html>`;
   openPrintWindow(html);
 }
 
@@ -275,7 +278,7 @@ export function printReceipt(data: ReceiptData): void {
 
   const body = lines.join('\n');
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title><style>${RECEIPT_CSS}</style></head><body><pre>${body}</pre></body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title><style>${RECEIPT_CSS}</style></head><body><pre>${escHtml(body)}</pre></body></html>`;
   openPrintWindow(html);
 }
 
@@ -327,6 +330,6 @@ export function printEOD(data: EODData): void {
   lines.push(center('-- END OF EOD SUMMARY --'));
 
   const body = lines.join('\n');
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>EOD Closing Report</title><style>${RECEIPT_CSS}</style></head><body><pre>${body}</pre></body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>EOD Closing Report</title><style>${RECEIPT_CSS}</style></head><body><pre>${escHtml(body)}</pre></body></html>`;
   openPrintWindow(html);
 }

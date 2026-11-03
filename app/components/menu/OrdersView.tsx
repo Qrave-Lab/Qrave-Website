@@ -10,12 +10,14 @@ import {
   Package,
   RefreshCw,
 } from "lucide-react";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
+import { notifyGuest, notifyPermission, requestNotifyPermission } from "@/app/lib/guestNotify";
 
 /* ── Status mapping ────────────────────────────────────────────────── */
 
 const STEPS = [
-  { key: "pending", label: "Waiting for confirmation", icon: ClipboardList },
+  { key: "pending", label: "Order placed", icon: ClipboardList },
   { key: "cooking", label: "Cooking", icon: CookingPot },
   { key: "ready", label: "Ready to be served", icon: Package },
   { key: "served", label: "Served", icon: CheckCircle2 },
@@ -137,11 +139,51 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
     [previewMode],
   );
 
+  // Poll fast while something is in flight, slowly otherwise, never while the
+  // tab is hidden; catch up the moment the guest comes back or reconnects.
+  const hasActiveRef = useRef(true);
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(() => fetchOrders(true), 10_000);
-    return () => clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = () => {
+      if (document.visibilityState === "visible") fetchOrders(true);
+      timer = setTimeout(tick, hasActiveRef.current ? 5_000 : 30_000);
+    };
+    timer = setTimeout(tick, 5_000);
+    const wake = () => {
+      if (document.visibilityState === "visible") fetchOrders(true);
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+    };
   }, [fetchOrders]);
+
+  // Alert the guest when an order they're waiting on moves forward.
+  const lastStatus = useRef<Record<string, string>>({});
+  // Only rendered after orders load (client-side), so reading it at init is hydration-safe.
+  const [permission, setPermission] = useState<ReturnType<typeof notifyPermission>>(() => notifyPermission());
+  useEffect(() => {
+    const seen = lastStatus.current;
+    const first = Object.keys(seen).length === 0;
+    for (const o of orders) {
+      const status = (o.status || "").toLowerCase();
+      const label = o.daily_order_number ? `#${o.daily_order_number}` : o.order_number ? `#${o.order_number}` : "Your order";
+      if (!first && seen[o.id] && seen[o.id] !== status) {
+        if (status === "ready") void notifyGuest("Your order is ready", `${label} is ready to be served.`, `order-${o.id}`);
+        else if (status === "preparing") void notifyGuest("Being prepared", `${label} is now being prepared.`, `order-${o.id}`);
+        else if (status === "cancelled") void notifyGuest("Order cancelled", `${label} was cancelled by the restaurant.`, `order-${o.id}`);
+      }
+      seen[o.id] = status;
+    }
+  }, [orders]);
+  const hasActive = orders.some((o) => !["served", "completed", "cancelled"].includes((o.status || "").toLowerCase()));
+  useEffect(() => {
+    hasActiveRef.current = hasActive;
+  }, [hasActive]);
 
   /* ── Loading ─────────────────────────────────────────────────────── */
   if (loading) {
@@ -195,6 +237,17 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
           <RefreshCw size={16} />
         </button>
       </div>
+
+      {permission === "default" && hasActive && (
+        <button
+          type="button"
+          className="ov-refresh"
+          style={{ width: "100%", margin: "0 0 12px", padding: "10px 14px", borderRadius: 12, fontWeight: 600 }}
+          onClick={async () => setPermission(await requestNotifyPermission())}
+        >
+          Notify me when my order is ready
+        </button>
+      )}
 
       <div className="ov-list">
         {orders.map((order) => {

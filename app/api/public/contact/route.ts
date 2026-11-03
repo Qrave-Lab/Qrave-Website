@@ -1,55 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+  let body: Record<string, unknown>;
   try {
-    const body = await request.json();
-    const { name, email, phone, restaurantName, city } = body || {};
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ message: "Invalid request" }, { status: 400 });
+  }
 
-    if (!name || !email || !phone || !restaurantName) {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const payload = {
+    name: str(body.name),
+    email: str(body.email),
+    phone: str(body.phone),
+    restaurantName: str(body.restaurantName),
+    city: str(body.city),
+    source: str(body.source),
+    website: str(body.website), // honeypot
+  };
+
+  if (!payload.name || !payload.email || !payload.phone || !payload.restaurantName) {
+    return NextResponse.json({ message: "Missing required contact fields" }, { status: 400 });
+  }
+
+  const backendBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+  if (!backendBase) {
+    console.error("contact: NEXT_PUBLIC_API_URL is not configured");
+    return NextResponse.json({ message: "Service unavailable, please try again shortly." }, { status: 503 });
+  }
+
+  try {
+    const res = await fetch(`${backendBase}/public/contact`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-For": request.headers.get("x-forwarded-for") ?? "",
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+
+    if (res.ok) {
       return NextResponse.json(
-        { message: "Missing required contact fields" },
-        { status: 400 }
+        { success: true, message: "Thanks! A Qrave specialist will get in touch with you shortly." },
+        { status: 200 },
       );
     }
 
-    const backendBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9090";
-
-    try {
-      const backendRes = await fetch(`${backendBase}/public/contact`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone, restaurantName, city }),
-      });
-
-      if (backendRes.ok) {
-        const data = await backendRes.json();
-        return NextResponse.json(data, { status: 200 });
-      }
-    } catch (backendErr) {
-      console.warn("Go Backend offline, processing via Next.js API layer:", backendErr);
+    // Pass validation errors (4xx) back so the form can show them; hide 5xx details.
+    const text = (await res.text()).trim();
+    if (res.status >= 400 && res.status < 500) {
+      return NextResponse.json(
+        { message: res.status === 429 ? "Too many requests. Please wait a minute and try again." : text || "Invalid request" },
+        { status: res.status },
+      );
     }
-
-    console.log("📥 [Contact Form Lead Received]", {
-      name,
-      email,
-      phone,
-      restaurantName,
-      city: city || "N/A",
-      timestamp: new Date().toISOString(),
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Callback request submitted successfully! A Qrave specialist will get in touch with you.",
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error processing contact submission:", error);
-    return NextResponse.json(
-      { message: "Failed to submit contact request" },
-      { status: 500 }
-    );
+    console.error("contact: backend error", res.status, text);
+    return NextResponse.json({ message: "We couldn't save your request. Please try again." }, { status: 502 });
+  } catch (err) {
+    console.error("contact: backend unreachable", err);
+    return NextResponse.json({ message: "We couldn't reach our servers. Please try again." }, { status: 502 });
   }
 }

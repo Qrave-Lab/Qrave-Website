@@ -7,6 +7,8 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s",
     },
     description: "Join Qrave and transform your restaurant experience.",
+    // App screens (staff, checkout, auth) stay out of search; public pages opt back in.
+    robots: { index: false, follow: false },
   };
 }
 
