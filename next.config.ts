@@ -14,6 +14,16 @@ const nextConfig: NextConfig = {
         source: "/uploads/:path*",
         destination: `${apiUrl}/uploads/:path*`,
       },
+      // 3D models: one prefix per storage host (see app/lib/modelUrl.ts).
+      // The more specific prefixes must come first.
+      {
+        source: "/api/proxy-model/_cdn2/:path*",
+        destination: "https://dx3134t9l37qj.cloudfront.net/:path*",
+      },
+      {
+        source: "/api/proxy-model/_s3/:path*",
+        destination: "https://qrave-restaurant-profile.s3.amazonaws.com/:path*",
+      },
       {
         source: "/api/proxy-model/:path*",
         destination: "https://dzsxi8qe0pwwl.cloudfront.net/:path*",

@@ -416,10 +416,9 @@ export const orderService = {
     });
   },
 
+  // The general service-calls endpoint rejects "bill"; this one records the
+  // bill call and alerts the staff floor.
   requestBill: () => {
-    return api("/api/customer/service-calls", {
-      method: "POST",
-      body: JSON.stringify({ type: "bill" }),
-    });
+    return api("/api/customer/orders/bill-request", { method: "POST" });
   },
 };

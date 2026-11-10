@@ -3,7 +3,6 @@ import { useMenu } from '../../_context/MenuContext';
 import type { MenuItem } from '../../types/menu';
 import {
     X,
-    Sparkles,
     Info,
     Trash2,
     Upload,
@@ -46,6 +45,15 @@ const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const newId = () => `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const newRowId = () => `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+const nonNegativeNumber = (value: string) => {
+    if (value === '') return '';
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? value : '';
+};
+
+const nonNegativeInteger = (value: string) =>
+    value === '' || /^\d+$/.test(value) ? value : '';
+
 export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
     const { state, dispatch } = useMenu();
     const isEdit = !!item;
@@ -55,8 +63,8 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
     // Form state
     const [name, setName] = useState(item?.name ?? '');
     const [description, setDescription] = useState(item?.description ?? '');
-    const [price, setPrice] = useState(item?.price?.toString() ?? '');
-    const [calories, setCalories] = useState(item?.calories?.toString() ?? '');
+    const [price, setPrice] = useState(item?.price ? String(item.price) : '');
+    const [calories, setCalories] = useState(item?.calories ? String(item.calories) : '');
     const [image, setImage] = useState(item?.image ?? '');
     const [categoryId, setCategoryId] = useState(
         item?.categoryId ?? state.categories[0]?.id ?? ''
@@ -72,7 +80,7 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
         item?.variants?.map((v) => ({
             id: v.id || newRowId(),
             name: v.name || '',
-            price: v.price?.toString() || '',
+            price: v.price ? String(v.price) : '',
         })) ?? []
     );
     const [modifierGroups, setModifierGroups] = useState(
@@ -83,38 +91,14 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
             options: (group.options || []).map((opt: any) => ({
                 id: opt.id || newRowId(),
                 name: opt.name || '',
-                price: opt.price?.toString() || '',
+                price: opt.price ? String(opt.price) : '',
             })),
         })) ?? []
     );
     const [ingredients, setIngredients] = useState<string[]>(item?.ingredients ?? []);
     const [availableFrom, setAvailableFrom] = useState(item?.availableFrom ?? '');
     const [availableTo, setAvailableTo] = useState(item?.availableTo ?? '');
-    const [isImproving, setIsImproving] = useState(false);
     const imageInputRef = useRef<HTMLInputElement | null>(null);
-
-    const handleAiImprove = () => {
-        if (!name.trim() || isImproving) return;
-        setIsImproving(true);
-
-        // Simulate an API call
-        setTimeout(() => {
-            const adjectives = ['Mouth-watering', 'Sizzling', 'Deliciously crafted', 'Signature', 'Premium', 'Artisan'];
-            const descriptors = ['perfectly balanced', 'rich in flavor', 'prepared to perfection', 'satisfyingly crisp'];
-            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-            const desc = descriptors[Math.floor(Math.random() * descriptors.length)];
-
-            let improvedDesc = `${adj} ${name}, ${desc}.`;
-            if (ingredients.length > 0) {
-                improvedDesc += ` Made with ${ingredients.slice(0, 3).join(', ')}.`;
-            } else if (allergens.length > 0) {
-                improvedDesc += ` A carefully prepared dish (Contains: ${allergens.join(', ')}).`;
-            }
-
-            setDescription(improvedDesc);
-            setIsImproving(false);
-        }, 800);
-    };
 
     const canSubmit = name.trim() && price.trim() && categoryId;
 
@@ -406,18 +390,10 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
 
                                     {/* Description */}
                                     <div className="mb-6">
-                                        <div className="mb-2 flex items-center justify-between">
+                                        <div className="mb-2">
                                             <label className="text-[11px] font-bold uppercase tracking-widest text-[#fe5c13]">
                                                 Description
                                             </label>
-                                            <button
-                                                onClick={handleAiImprove}
-                                                disabled={isImproving || !name.trim()}
-                                                className="flex items-center gap-1.5 rounded-lg border border-[#fe5c13]/30 bg-[#fe5c13]/10 px-3 py-1.5 text-[11px] font-bold text-[#fe5c13] hover:bg-[#fe5c13]/20 transition-colors disabled:opacity-50"
-                                            >
-                                                <Sparkles className={`h-3 w-3 ${isImproving ? 'animate-spin' : ''}`} />
-                                                {isImproving ? 'GENERATING...' : 'AI IMPROVE'}
-                                            </button>
                                         </div>
                                         <textarea
                                             value={description}
@@ -470,10 +446,12 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                     </label>
                                     <input
                                         type="number"
+                                        min={0}
+                                        step="any"
                                         value={price}
-                                        onChange={(e) => setPrice(e.target.value)}
+                                        onChange={(e) => setPrice(nonNegativeNumber(e.target.value))}
                                         className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
-                                        placeholder="₹"
+                                        placeholder="0"
                                     />
                                 </div>
                                 <div>
@@ -482,8 +460,10 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                     </label>
                                     <input
                                         type="number"
+                                        min={0}
+                                        step={1}
                                         value={calories}
-                                        onChange={(e) => setCalories(e.target.value)}
+                                        onChange={(e) => setCalories(nonNegativeInteger(e.target.value))}
                                         className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#fe5c13] focus:outline-none focus:ring-1 focus:ring-[#fe5c13]/20"
                                         placeholder="e.g. 320"
                                     />
@@ -574,8 +554,10 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                             />
                                             <input
                                                 type="number"
+                                                min={0}
+                                                step="any"
                                                 value={variant.price}
-                                                onChange={(e) => updateVariant(variant.id, 'price', e.target.value)}
+                                                onChange={(e) => updateVariant(variant.id, 'price', nonNegativeNumber(e.target.value))}
                                                 placeholder="Price"
                                                 className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"
                                             />
@@ -661,9 +643,11 @@ export default function ItemFormModal({ item, onClose }: ItemFormModalProps) {
                                                         />
                                                         <input
                                                             type="number"
+                                                            min={0}
+                                                            step="any"
                                                             value={option.price}
                                                             onChange={(e) =>
-                                                                updateModifierOption(group.id, option.id, 'price', e.target.value)
+                                                                updateModifierOption(group.id, option.id, 'price', nonNegativeNumber(e.target.value))
                                                             }
                                                             placeholder="Add-on price"
                                                             className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-[#fe5c13] focus:outline-none"

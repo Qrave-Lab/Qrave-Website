@@ -12,6 +12,7 @@ import OrdersView from "@/app/components/menu/OrdersView";
 import LoyaltyMenuLink from "@/app/components/menu/LoyaltyMenuLink";
 import ServicesView from "@/app/components/menu/ServicesView";
 import { api } from "@/app/lib/api";
+import { toProxiedMediaUrl } from "@/app/lib/modelUrl";
 import { getCartKey, goToCheckout, useCartStore } from "@/stores/cartStore";
 import { useLanguageStore } from "@/stores/languageStore";
 import { driver } from "driver.js";
@@ -57,25 +58,14 @@ const sanitizeModelUrl = (val: any): string => {
   if (!raw) return "";
   const lower = raw.toLowerCase();
   if (lower.startsWith("blob:")) return "";
-  let url = raw;
-  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
-    if (raw.startsWith("//")) url = `https:${raw}`;
-    else if (/^[a-z0-9-]+\.cloudfront\.net\//i.test(raw)) url = `https://${raw}`;
-    else if (/^[a-z0-9.-]+\.amazonaws\.com\//i.test(raw)) url = `https://${raw}`;
-  }
-  // Route CloudFront .glb files through the Next.js server-side proxy to
-  // avoid CORS errors — the rewrite in next.config.ts forwards /api/proxy-model/*
-  // to CloudFront without the browser's Origin header restrictions.
-  if (url && url.includes("cloudfront.net")) {
-    try {
-      const urlObj = new URL(url);
-      return `/api/proxy-model${urlObj.pathname}`;
-    } catch {
-      // fall through to return url as-is
-    }
-  }
-  return url;
+  // Same-origin proxy per storage host: the CDNs send no CORS headers.
+  return toProxiedMediaUrl(raw);
 };
+
+// The menu is a centred 480px column. Floating buttons sit 16px inside its
+// right edge, so on tablets and desktops they stay beside the menu instead
+// of drifting to the far edge of the screen.
+const COLUMN_EDGE_RIGHT = "max(16px, calc((100vw - 480px) / 2 + 16px))";
 
 const numberFrom = (...values: any[]): number | null => {
   for (const value of values) {
@@ -1631,7 +1621,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                   onClick={(e) => {
                     if (e.target === e.currentTarget) handleArClose();
                   }}
-                  className="fixed inset-0 z-[9999] bg-[#3D2B1F]/30 backdrop-blur-[4px] flex items-end sm:items-center justify-center p-0 sm:p-6 transition-all"
+                  className="fixed inset-0 z-[9999] bg-[#3D2B1F]/30 backdrop-blur-[4px] flex items-end justify-center p-0 transition-all"
                 >
               <style dangerouslySetInnerHTML={{__html: `
                 @keyframes arSteamRise {
@@ -1660,11 +1650,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               `}} />
 
               <div
-                className="w-full sm:max-w-md rounded-t-[32px] sm:rounded-[32px] bg-[#FFFFFF] border border-[#F0E9DF] shadow-2xl overflow-hidden relative"
+                className="w-full max-w-[480px] rounded-t-[32px] bg-[#FFFFFF] border border-[#F0E9DF] shadow-2xl overflow-hidden relative"
                 style={{ position: "relative", zIndex: 10000 }}
               >
                 {/* Drag handle */}
-                <div className="flex justify-center pt-3 pb-1 sm:hidden">
+                <div className="flex justify-center pt-3 pb-1">
                   <div className="w-10 h-1 rounded-full bg-[#EDE5D8]" />
                 </div>
 
@@ -1964,7 +1954,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setDetailItem(null)}
-                  className="fixed inset-0 z-[9999] bg-[#3D2B1F]/40 backdrop-blur-[6px] flex items-end sm:items-center justify-center p-0 sm:p-4"
+                  className="fixed inset-0 z-[9999] bg-[#3D2B1F]/40 backdrop-blur-[6px] flex items-end justify-center p-0"
                 >
                   <motion.div
                     initial={{ y: "100%", opacity: 0 }}
@@ -1972,10 +1962,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                     exit={{ y: "100%", opacity: 0 }}
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="bg-[#FFFFFF] w-full max-w-lg rounded-t-[32px] sm:rounded-[32px] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-[#EDE5D8]"
+                    className="bg-[#FFFFFF] w-full max-w-[480px] rounded-t-[32px] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-[#EDE5D8]"
                   >
                     {/* Drag handle for mobile */}
-                    <div className="flex justify-center pt-3 pb-1 sm:hidden">
+                    <div className="flex justify-center pt-3 pb-1">
                       <div className="w-10 h-1 rounded-full bg-[#EDE5D8]" />
                     </div>
 
@@ -1989,7 +1979,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                         <X size={16} />
                       </button>
 
-                      <div className="relative w-full h-[220px] sm:h-[260px] bg-[#F4F4F5] flex items-center justify-center overflow-hidden">
+                      <div className="relative w-full h-[220px] bg-[#F4F4F5] flex items-center justify-center overflow-hidden">
                         {Boolean(detailItem.arModelGlb) && modelViewerReady ? (
                           <div className="w-full h-full relative">
                             <model-viewer
@@ -2053,7 +2043,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                     </div>
 
                     {/* Scrollable Body */}
-                    <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
+                    <div className="p-5 overflow-y-auto flex-1 space-y-4">
                       {/* Name + Price */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -2080,12 +2070,12 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               </span>
                             )}
                           </div>
-                          <h2 className="text-xl sm:text-2xl font-extrabold text-[#18181B] tracking-tight font-dm-sans">
+                          <h2 className="text-xl font-extrabold text-[#18181B] tracking-tight font-dm-sans">
                             {detailItem.name}
                           </h2>
                         </div>
                         <div className="flex flex-col items-end shrink-0">
-                          <span className="text-xl sm:text-2xl font-extrabold text-[#18181B] font-dm-sans">
+                          <span className="text-xl font-extrabold text-[#18181B] font-dm-sans">
                             ₹{detailDisplayPrice}
                           </span>
                           {detailOriginalPrice > detailDisplayPrice && (
@@ -2098,7 +2088,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
                       {/* Description */}
                       {detailItem.description && (
-                        <p className="text-xs sm:text-sm text-[#52525B] leading-relaxed font-normal font-dm-sans">
+                        <p className="text-xs text-[#52525B] leading-relaxed font-normal font-dm-sans">
                           {detailItem.description}
                         </p>
                       )}
@@ -2142,25 +2132,25 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                           <div className="grid grid-cols-4 gap-2 text-center">
                             <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                               <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Calories</span>
-                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                              <span className="text-xs font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
                                 {detailCalVal} kcal
                               </span>
                             </div>
                             <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                               <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Protein</span>
-                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                              <span className="text-xs font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
                                 {detailItem.proteinG || 0} g
                               </span>
                             </div>
                             <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                               <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Carbs</span>
-                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                              <span className="text-xs font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
                                 {detailItem.carbsG || 0} g
                               </span>
                             </div>
                             <div className="p-2 rounded-xl bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
                               <span className="text-[9.5px] font-medium text-[#71717A] block font-dm-sans">Fat</span>
-                              <span className="text-xs sm:text-sm font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
+                              <span className="text-xs font-extrabold text-[#18181B] block mt-0.5 font-dm-sans">
                                 {detailItem.fatG || 0} g
                               </span>
                             </div>
@@ -2190,13 +2180,13 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                           value={detailNotes}
                           onChange={(e) => setDetailNotes(e.target.value)}
                           placeholder="Less sweet, no nuts..."
-                          className="w-full text-xs sm:text-sm p-3 rounded-xl border border-[#E4E4E7] bg-[#F4F4F5] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none focus:border-[#18181B] focus:bg-white transition-all resize-none font-dm-sans"
+                          className="w-full text-xs p-3 rounded-xl border border-[#E4E4E7] bg-[#F4F4F5] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none focus:border-[#18181B] focus:bg-white transition-all resize-none font-dm-sans"
                         />
                       </div>
                     </div>
 
                     {/* Bottom Action Bar */}
-                    <div className="p-4 sm:p-5 border-t border-[#F1F1F1] bg-white flex items-center shrink-0">
+                    <div className="p-4 border-t border-[#F1F1F1] bg-white flex items-center shrink-0">
                       {detailQuantity === 0 ? (
                         <button
                           type="button"
@@ -2208,13 +2198,13 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               detailNotes
                             );
                           }}
-                          className="w-full h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-sm sm:text-base flex items-center justify-between px-5 shadow-sm transition-all font-dm-sans cursor-pointer"
+                          className="w-full h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-sm flex items-center justify-between px-5 shadow-sm transition-all font-dm-sans cursor-pointer"
                         >
                           <span className="flex items-center gap-2">
                             <Plus size={18} strokeWidth={2.5} className="text-[#fe5c13]" />
                             <span>Add to order</span>
                           </span>
-                          <span className="font-extrabold text-sm sm:text-base">₹{detailDisplayPrice}</span>
+                          <span className="font-extrabold text-sm">₹{detailDisplayPrice}</span>
                         </button>
                       ) : (
                         <div className="flex items-center gap-3 w-full animate-in fade-in duration-150">
@@ -2255,7 +2245,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               setDetailItem(null);
                               void goToCheckout();
                             }}
-                            className="flex-1 h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
+                            className="flex-1 h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-xs transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
                           >
                             <div className="flex items-center gap-1.5">
                               <ShoppingBag size={17} strokeWidth={2.5} />
@@ -2289,7 +2279,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setIsMenuDrawerOpen(false)}
-                  className="fixed inset-0 z-[9999] bg-black/45 backdrop-blur-[6px] flex items-end justify-center p-0 sm:p-4"
+                  className="fixed inset-0 z-[9999] bg-black/45 backdrop-blur-[6px] flex items-end justify-center p-0"
                 >
                   <motion.div
                     initial={{ y: "100%", opacity: 0 }}
@@ -2297,7 +2287,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                     exit={{ y: "100%", opacity: 0 }}
                     transition={{ type: "spring", stiffness: 380, damping: 32 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] max-h-[82vh] flex flex-col overflow-hidden shadow-2xl border border-zinc-100"
+                    className="bg-white w-full max-w-[480px] rounded-t-[32px] max-h-[82vh] flex flex-col overflow-hidden shadow-2xl border border-zinc-100"
                   >
                     {/* Header */}
                     <div className="pt-3 pb-3.5 px-6 border-b border-zinc-100 shrink-0">
@@ -2405,7 +2395,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               )}
             </div>
             <div>
-              <h1 className="text-sm sm:text-base font-extrabold text-zinc-900 leading-tight tracking-tight font-dm-sans">
+              <h1 className="text-sm font-extrabold text-zinc-900 leading-tight tracking-tight font-dm-sans">
                 {restaurantName}
               </h1>
               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-[10.5px] font-bold text-emerald-700 border border-emerald-200/60 mt-0.5">
@@ -2416,7 +2406,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Veg Switch Filter */}
             <button
               id="tour-veg-filter"
@@ -2513,9 +2503,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
-          className="fixed right-4 sm:right-6 z-40 transition-all duration-300 pointer-events-auto"
+          className="fixed z-40 transition-all duration-300 pointer-events-auto"
           style={{
-            bottom: orderingEnabled && totalItems > 0 ? "130px" : "74px",
+            right: COLUMN_EDGE_RIGHT,
+            // The View Cart bar sits at 96px and is ~60px tall; clear it.
+            bottom: orderingEnabled && totalItems > 0 ? "172px" : "74px",
           }}
         >
           <motion.button
@@ -2836,8 +2828,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className={`fixed right-4 sm:right-6 z-40 w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.12)] border border-[#E4E4E7] flex items-center justify-center text-[#18181B] active:scale-90 transition-all hover:bg-white ${
-              orderingEnabled && totalItems > 0 ? "bottom-[180px]" : "bottom-[126px]"
+            style={{ right: COLUMN_EDGE_RIGHT }}
+            className={`fixed z-40 w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.12)] border border-[#E4E4E7] flex items-center justify-center text-[#18181B] active:scale-90 transition-all hover:bg-white ${
+              orderingEnabled && totalItems > 0 ? "bottom-[228px]" : "bottom-[126px]"
             }`}
             title="Scroll to top"
             aria-label="Scroll to top"

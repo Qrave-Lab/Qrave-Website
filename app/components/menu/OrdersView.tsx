@@ -4,8 +4,12 @@ import { api } from "@/app/lib/api";
 import { goToCheckout } from "@/stores/cartStore";
 import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import {
+  BellRing,
   CheckCircle2,
+  ChevronRight,
   ClipboardList,
+  Loader2,
+  ReceiptText,
   Clock,
   CookingPot,
   Package,
@@ -102,6 +106,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [billRequested, setBillRequested] = useState(false);
+  const [isRequestingBill, setIsRequestingBill] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -396,41 +401,52 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
             </div>
             <div className="ov-summary-actions">
               <button
+                type="button"
                 onClick={() => {
                   void goToCheckout();
                 }}
                 className="ov-btn-checkout"
               >
-                View Bill & Checkout
+                <ReceiptText size={18} strokeWidth={2.25} />
+                <span>View bill &amp; checkout</span>
+                <ChevronRight size={18} strokeWidth={2.5} className="ov-btn-arrow" />
               </button>
-              {billRequested ? (
-                <button
-                  disabled
-                  className="ov-btn-request opacity-80 cursor-not-allowed"
-                >
-                  ✓ Bill Requested
-                </button>
-              ) : (
-                <button
-                  onClick={async () => {
-                    try {
-                      const { orderService } = await import("@/services/orderService");
-                      await orderService.requestBill();
-                      const { toast } = await import("react-hot-toast");
-                      toast.success("Bill requested! Waiter is on their way.");
-                      const sessionId = (await getTokenCookie("session_id")) || "default";
-                      localStorage.setItem(`bill_requested_${sessionId}`, "true");
-                      setBillRequested(true);
-                    } catch (err: any) {
-                      const { toast } = await import("react-hot-toast");
-                      toast.error(err?.message || "Failed to request bill");
-                    }
-                  }}
-                  className="ov-btn-request"
-                >
-                  Request Bill
-                </button>
-              )}
+              <button
+                type="button"
+                disabled={billRequested || isRequestingBill}
+                onClick={async () => {
+                  setIsRequestingBill(true);
+                  const { toast } = await import("react-hot-toast");
+                  try {
+                    const { orderService } = await import("@/services/orderService");
+                    await orderService.requestBill();
+                    toast.success("Bill requested! Waiter is on their way.");
+                    const sessionId = (await getTokenCookie("session_id")) || "default";
+                    localStorage.setItem(`bill_requested_${sessionId}`, "true");
+                    setBillRequested(true);
+                  } catch (err: any) {
+                    toast.error(err?.message || "Failed to request bill");
+                  } finally {
+                    setIsRequestingBill(false);
+                  }
+                }}
+                className={`ov-btn-request ${billRequested ? "ov-btn-request--done" : ""}`}
+              >
+                {isRequestingBill ? (
+                  <Loader2 size={17} className="animate-spin" />
+                ) : billRequested ? (
+                  <CheckCircle2 size={17} strokeWidth={2.5} />
+                ) : (
+                  <BellRing size={17} strokeWidth={2.25} />
+                )}
+                <span>
+                  {billRequested
+                    ? "Bill requested"
+                    : isRequestingBill
+                      ? "Requesting…"
+                      : "Request bill at table"}
+                </span>
+              </button>
             </div>
           </div>
         )}
@@ -743,51 +759,66 @@ function OrdersStyles() {
         font-size: 24px;
         font-weight: 800;
         color: #3D2B1F;
-        font-family: monospace;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
       }
       .ov-summary-actions {
         display: flex;
-        gap: 12px;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .ov-btn-checkout,
+      .ov-btn-request {
+        width: 100%;
+        min-height: 52px;
+        padding: 0 18px;
+        border-radius: 16px;
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: transform 0.15s ease, background-color 0.2s ease, opacity 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ov-btn-checkout:active:not(:disabled),
+      .ov-btn-request:active:not(:disabled) {
+        transform: scale(0.98);
       }
       .ov-btn-checkout {
-        flex: 1;
-        height: 48px;
         background: #3D2B1F;
         color: #F7F2EB;
         border: none;
-        border-radius: 14px;
-        font-size: 13px;
-        font-weight: 800;
-        cursor: pointer;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        box-shadow: 0 6px 18px rgba(61, 43, 31, 0.22);
+      }
+      .ov-btn-checkout span {
+        flex: 1;
+        text-align: left;
       }
       .ov-btn-checkout:hover {
-        opacity: 0.9;
+        background: #4A3527;
+      }
+      .ov-btn-arrow {
+        opacity: 0.8;
       }
       .ov-btn-request {
-        flex: 1;
-        height: 48px;
-        background: #EDE5D8;
+        background: #F7F2EB;
         color: #3D2B1F;
-        border: 1px solid #DDD5C5;
-        border-radius: 14px;
-        font-size: 13px;
-        font-weight: 800;
-        cursor: pointer;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        border: 1.5px solid #DDD5C5;
       }
-      .ov-btn-request:hover {
-        background: #DDD5C5;
+      .ov-btn-request:hover:not(:disabled) {
+        background: #EDE5D8;
+      }
+      .ov-btn-request:disabled {
+        cursor: default;
+      }
+      .ov-btn-request--done {
+        background: rgba(16, 185, 129, 0.08);
+        border-color: rgba(16, 185, 129, 0.35);
+        color: #047857;
       }
 
       /* Empty & Loading */

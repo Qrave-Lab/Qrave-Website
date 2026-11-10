@@ -35,7 +35,7 @@ import { CustomSelect } from "@/app/components/ui/CustomSelect";
 import { useRouter } from "next/navigation";
 import StaffSidebar from "../../components/StaffSidebar";
 import SetupChecklist from "../../components/onboarding/SetupChecklist";
-import { api } from "@/app/lib/api";
+import { api, refreshAccessToken } from "@/app/lib/api";
 import { printBillTicket, printKitchenTicket } from "@/app/lib/posPrinter";
 import { toast } from "react-hot-toast";
 import { connectEventSocket, type EventSocketMessage } from "@/app/lib/eventSocket";
@@ -737,12 +737,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
     const getRealtimeToken = async (): Promise<string | null> => {
       try {
-        const res = await api<{ access_token?: string }>("/auth/refresh", {
-          method: "POST",
-          skipAuthRedirect: true,
-          suppressErrorLog: true,
-        });
-        return (res?.access_token || "").trim() || null;
+        // Shared with the 401 handler in api.ts so two refreshes never race.
+        return (await refreshAccessToken()) || null;
       } catch {
         return null;
       }

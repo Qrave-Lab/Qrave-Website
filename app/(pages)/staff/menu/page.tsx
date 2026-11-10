@@ -1,5 +1,6 @@
 "use client";
 
+import { toProxiedMediaUrl } from "@/app/lib/modelUrl";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -207,22 +208,8 @@ type BranchOption = {
 const normalizeAssetUrl = (value: string): string => {
   const raw = String(value || "").trim();
   if (!raw) return "";
-  let url = raw;
-  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
-    if (raw.startsWith("//")) url = `https:${raw}`;
-    else if (/^[a-z0-9-]+\.cloudfront\.net\//i.test(raw)) url = `https://${raw}`;
-    else if (/^[a-z0-9.-]+\.amazonaws\.com\//i.test(raw)) url = `https://${raw}`;
-  }
-
-  // Rewrite CloudFront URLs through our local relative assets proxy to bypass CORS
-  if (url.includes("dzsxi8qe0pwwl.cloudfront.net")) {
-    const parts = url.split("dzsxi8qe0pwwl.cloudfront.net");
-    if (parts.length > 1) {
-      return `/api/proxy-model${parts[1]}`;
-    }
-  }
-
-  return url;
+  // Same-origin proxy per storage host: the CDNs send no CORS headers.
+  return toProxiedMediaUrl(raw);
 };
 
 const toDateTimeLocal = (value: string | null | undefined) => {
@@ -249,7 +236,7 @@ const authFetch = async (url: string, options: RequestInit = {}) => {
   });
 };
 
-const CustomSelect = ({ value, onChange, options, placeholder, className = "" }: any) => {
+const CustomSelect = ({ value, onChange, options, placeholder, className = "", buttonClassName = "", optionClassName = "" }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -270,7 +257,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "" }:
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all flex items-center justify-between hover:bg-slate-100/50 ${isOpen ? "border-[#fe5c13] bg-white ring-4 ring-[#fe5c13]/10" : ""}`}
+        className={`w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all flex items-center justify-between hover:bg-slate-100/50 ${buttonClassName} ${isOpen ? "border-[#fe5c13] bg-white ring-4 ring-[#fe5c13]/10" : ""}`}
       >
         <span className="truncate text-slate-700">{selectedOption ? selectedOption.label : placeholder}</span>
       </button>
@@ -285,9 +272,9 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "" }:
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden py-1.5 ring-1 ring-slate-900/5"
+            className="absolute z-[70] w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden py-1.5 ring-1 ring-slate-900/5"
           >
-            <div className="max-h-60 overflow-y-auto custom-scrollbar">
+            <div className="max-h-60 overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar">
               {options.map((opt: any) => (
                 <button
                   key={opt.value}
@@ -296,7 +283,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "" }:
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-slate-50 flex items-center justify-between ${value === opt.value ? "text-[#fe5c13] font-bold bg-orange-50/50" : "text-slate-600 font-medium"}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-slate-50 flex items-center justify-between ${optionClassName} ${value === opt.value ? "text-[#fe5c13] font-bold bg-orange-50/50" : "text-slate-600 font-medium"}`}
                 >
                   <span className="truncate">{opt.label}</span>
                 </button>
@@ -1282,46 +1269,6 @@ export default function MenuPage() {
     }
   };
 
-  const handleAIAssist = async () => {
-    if (!editingItem) return;
-    try {
-      const res: any = await authFetch("/api/admin/menu/item/ai-assist", {
-        method: "POST",
-        body: JSON.stringify({
-          name: editingItem.name,
-          description: editingItem.description,
-          ingredients: editingItem.ingredientsStructured.map((ing) => ({
-            name: ing.name,
-            quantity: ing.quantity,
-            unit: ing.unit,
-          })),
-        }),
-      });
-
-      const nextAllergens = Array.isArray(res?.allergens)
-        ? res.allergens
-          .map((a: any) => ({
-            type: String(a?.type || "") as Allergen,
-            confidence: String(a?.confidence || "contains") as AllergenConfidence,
-          }))
-          .filter((a: any) => ALLERGEN_LIST.includes(a.type))
-        : editingItem.allergens;
-
-      setEditingItem({
-        ...editingItem,
-        description: String(res?.description || editingItem.description || ""),
-        calories:
-          typeof res?.estimated_calories === "number"
-            ? Number(res.estimated_calories)
-            : editingItem.calories,
-        allergens: nextAllergens,
-      });
-      toast.success("AI suggestions applied");
-    } catch {
-      toast.error("AI assist failed");
-    }
-  };
-
   const handleImportMenu = async () => {
     if (!sourceBranchId) {
       toast.error("Select a source branch");
@@ -1443,8 +1390,19 @@ export default function MenuPage() {
                     }))}
                     placeholder="Copy menu from branch..."
                     buttonClassName="!h-8 !rounded-lg !text-xs !bg-slate-50 !border-slate-200"
+                    optionClassName="!py-2 !text-xs"
                   />
                 </div>
+                {sourceBranchId && (
+                  <button
+                    type="button"
+                    onClick={() => setSourceBranchId("")}
+                    disabled={isImportingMenu}
+                    className="h-8 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleImportMenu}
@@ -1872,7 +1830,7 @@ export default function MenuPage() {
                     exit={{ opacity: 0, y: 15, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                    className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-visible flex flex-col"
                   >
                     {/* Header */}
                     <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -2367,17 +2325,10 @@ export default function MenuPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div>
                           <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
                             Description
                           </label>
-                          <button
-                            type="button"
-                            onClick={handleAIAssist}
-                            className="rounded-lg border border-[#fe5c13] bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 hover:bg-indigo-100"
-                          >
-                            AI Improve
-                          </button>
                         </div>
                         <textarea
                           value={editingItem.description}
@@ -2399,17 +2350,16 @@ export default function MenuPage() {
                           <div className="relative">
                             <input
                               type="number"
+                              min={0}
+                              step="any"
                               value={editingItem.price || ""}
                               onFocus={(e) => e.target.select()}
-                              onChange={(e) =>
-                                setEditingItem({
-                                  ...editingItem,
-                                  price:
-                                    e.target.value === ""
-                                      ? 0
-                                      : parseFloat(e.target.value),
-                                })
-                              }
+                              onChange={(e) => {
+                                const value = e.target.value === "" ? 0 : Number(e.target.value);
+                                if (Number.isFinite(value) && value >= 0) {
+                                  setEditingItem({ ...editingItem, price: value });
+                                }
+                              }}
                               className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all pl-8"
                             />
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
@@ -2423,14 +2373,16 @@ export default function MenuPage() {
                           </label>
                           <input
                             type="number"
+                            min={0}
+                            step={1}
                             value={editingItem.calories ?? ""}
                             onFocus={(e) => e.target.select()}
-                            onChange={(e) =>
-                              setEditingItem({
-                                ...editingItem,
-                                calories: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
+                            onChange={(e) => {
+                              const value = e.target.value === "" ? null : Number(e.target.value);
+                              if (value === null || (Number.isInteger(value) && value >= 0)) {
+                                setEditingItem({ ...editingItem, calories: value });
+                              }
+                            }}
                             className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
                             placeholder="e.g. 320"
                           />
@@ -2442,13 +2394,16 @@ export default function MenuPage() {
                           </label>
                           <input
                             type="number"
-                            value={editingItem.foodCost ?? 0}
-                            onChange={(e) =>
-                              setEditingItem({
-                                ...editingItem,
-                                foodCost: e.target.value === "" ? 0 : Number(e.target.value),
-                              })
-                            }
+                            min={0}
+                            step="any"
+                            value={editingItem.foodCost || ""}
+                            onChange={(e) => {
+                              const value = e.target.value === "" ? 0 : Number(e.target.value);
+                              if (Number.isFinite(value) && value >= 0) {
+                                setEditingItem({ ...editingItem, foodCost: value });
+                              }
+                            }}
+                            placeholder="0"
                             className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
                           />
                         </div>
@@ -2459,13 +2414,15 @@ export default function MenuPage() {
                           </label>
                           <input
                             type="number"
+                            min={0}
+                            step={1}
                             value={editingItem.estimatedPrepMinutes ?? ""}
-                            onChange={(e) =>
-                              setEditingItem({
-                                ...editingItem,
-                                estimatedPrepMinutes: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
+                            onChange={(e) => {
+                              const value = e.target.value === "" ? null : Number(e.target.value);
+                              if (value === null || (Number.isInteger(value) && value >= 0)) {
+                                setEditingItem({ ...editingItem, estimatedPrepMinutes: value });
+                              }
+                            }}
                             className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
                             placeholder="e.g. 15"
                           />

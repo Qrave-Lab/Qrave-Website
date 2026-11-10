@@ -81,7 +81,31 @@ async function persistCsrfFromResponse(res: Response): Promise<void> {
   }
 }
 
+// Refresh tokens are single-use: the backend revokes each one as it issues the
+// next. When several requests hit a 401 together, they must share one refresh;
+// otherwise the second refresh presents the revoked token, fails, and the user
+// is sent to /login at random.
+let refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Renews the staff tokens, sharing one request between all callers.
+ * Resolves to the new access token, "" if renewed without one in the body,
+ * or null when the refresh failed.
+ */
+export function refreshAccessToken(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = doRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 async function tryRefresh(): Promise<boolean> {
+  return (await refreshAccessToken()) !== null;
+}
+
+async function doRefresh(): Promise<string | null> {
   try {
     const csrf = await getCsrfToken();
     const res = await fetch(`${API_BASE}/auth/refresh`, {
@@ -93,9 +117,11 @@ async function tryRefresh(): Promise<boolean> {
       credentials: "include",
     });
     await persistCsrfFromResponse(res);
-    return res.ok;
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => ({}));
+    return String(body?.access_token || "").trim();
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -304,10 +330,10 @@ async function apiInner<T>(
 
   if (res.status === 401 && !isPublic && !skipAuthRedirect && typeof window !== "undefined") {
     if (!didRetry) {
-      const refreshed = await tryRefresh();
-      if (refreshed) {
-        return api<T>(path, options, true);
-      }
+      await tryRefresh();
+      // Retry even when this refresh failed: another tab, or the page guard,
+      // may have just renewed the tokens, and the retry uses the new cookies.
+      return api<T>(path, options, true);
     }
     window.location.href = "/login";
     throw new Error("Session expired. Please login again.");

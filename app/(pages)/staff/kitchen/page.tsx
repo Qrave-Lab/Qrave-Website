@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChefHat, Clock3, Loader2, LogOut, RefreshCw, Printer, Flame, Play, CheckCircle2, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { api } from "@/app/lib/api";
+import { api, refreshAccessToken } from "@/app/lib/api";
 import { connectEventSocket, type EventSocketMessage } from "@/app/lib/eventSocket";
 import { printKOT, type KOTItem, type KOTData } from "@/app/lib/print";
 
@@ -217,12 +217,8 @@ export default function KitchenDisplayPage() {
 
     const getRealtimeToken = async (): Promise<string | null> => {
       try {
-        const res = await api<{ access_token?: string }>("/auth/refresh", {
-          method: "POST",
-          skipAuthRedirect: true,
-          suppressErrorLog: true,
-        });
-        return (res?.access_token || "").trim() || null;
+        // Shared with the 401 handler in api.ts so two refreshes never race.
+        return (await refreshAccessToken()) || null;
       } catch {
         return null;
       }

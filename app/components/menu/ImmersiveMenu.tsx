@@ -21,6 +21,7 @@ import {
 import { useLanguageStore } from "@/stores/languageStore";
 import { getCartKey, goToCheckout } from "@/stores/cartStore";
 import { getBackendBase } from "@/app/lib/api";
+import { toProxiedMediaUrl } from "@/app/lib/modelUrl";
 
 interface ImmersiveMenuProps {
     items: any[];
@@ -265,12 +266,8 @@ export default function ImmersiveMenu({
 
     const getMediaUrl = (url?: string) => {
         if (!url) return "";
-        if (url.includes("cloudfront.net")) {
-            const urlObj = new URL(url);
-            return `/api/proxy-model${urlObj.pathname}`;
-        }
         if (url.startsWith("/uploads/")) return `${getBackendBase()}${url}`;
-        return url;
+        return toProxiedMediaUrl(url);
     };
 
     useEffect(() => {
@@ -296,7 +293,7 @@ export default function ImmersiveMenu({
     const resolvedImageUrl = getMediaUrl(currentItem.image);
 
     return (
-        <div className="fixed inset-0 z-[100] h-[100dvh] max-h-[100dvh] w-screen max-w-full overflow-hidden overscroll-none touch-none flex flex-col bg-[#F8FAFC] text-slate-900 font-sans select-none">
+        <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 z-[100] h-[100dvh] max-h-[100dvh] w-full max-w-[480px] overflow-hidden overscroll-none touch-none flex flex-col bg-[#F8FAFC] text-slate-900 font-sans select-none">
             {/* Soft Ambient Light Gradient Background */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute top-[-10%] left-[-10%] w-[65vw] h-[65vw] rounded-full bg-orange-400/8 blur-[100px]" />
@@ -448,7 +445,7 @@ export default function ImmersiveMenu({
                         </div>
 
                         {/* ── Apple Studio Full-Width Glass Card (Bottom) ── */}
-                        <div className="w-full px-5 sm:px-6 pt-4 pb-6 bg-white text-slate-900 rounded-t-[32px] sm:rounded-t-[36px] shadow-[0_-12px_45px_rgba(0,0,0,0.06)] border-t border-slate-200/80 overflow-y-auto max-h-[55vh] shrink-0">
+                        <div className="w-full px-5 pt-4 pb-6 bg-white text-slate-900 rounded-t-[32px] shadow-[0_-12px_45px_rgba(0,0,0,0.06)] border-t border-slate-200/80 overflow-y-auto max-h-[55vh] shrink-0">
                             {/* Drag Indicator */}
                             <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3" />
 
@@ -477,7 +474,7 @@ export default function ImmersiveMenu({
                             </div>
 
                             {/* Dish Title */}
-                            <h2 className="text-xl sm:text-2xl text-slate-900 font-extrabold tracking-tight leading-snug mb-2 font-dm-sans">
+                            <h2 className="text-xl text-slate-900 font-extrabold tracking-tight leading-snug mb-2 font-dm-sans">
                                 {currentItem.name}
                             </h2>
 
@@ -528,7 +525,7 @@ export default function ImmersiveMenu({
                             {/* Description */}
                             {desc && (
                                 <div className="mb-2.5">
-                                    <p className={`text-xs sm:text-sm leading-relaxed text-slate-600 font-normal ${!expandedDesc ? "line-clamp-2" : ""}`}>
+                                    <p className={`text-xs leading-relaxed text-slate-600 font-normal ${!expandedDesc ? "line-clamp-2" : ""}`}>
                                         {desc}
                                     </p>
                                     {desc.length > 90 && (
@@ -672,7 +669,7 @@ export default function ImmersiveMenu({
                                                         void goToCheckout();
                                                     }
                                                 }}
-                                                className="flex-1 h-[52px] rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
+                                                className="flex-1 h-[52px] rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-xs transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
                                             >
                                                 <div className="flex items-center gap-1.5">
                                                     <ShoppingBag size={16} strokeWidth={2.5} />

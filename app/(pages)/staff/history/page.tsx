@@ -1,38 +1,38 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import RefundDialog from "@/app/components/billing/RefundDialog";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  format,
-  subDays,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  isToday,
-  isYesterday,
-} from "date-fns";
-import {
-  Clock,
-  Receipt,
-  ChevronRight,
-  X,
-  Loader2,
-  Calendar,
-  Printer,
-  Search,
-  RefreshCw,
-  ShoppingBag,
-  UtensilsCrossed,
-  Download,
-  ArrowRight,
-  SlidersHorizontal,
-} from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import { printReceipt, type ReceiptData } from "@/app/lib/print";
+import {
+  endOfMonth,
+  endOfWeek,
+  format,
+  isToday,
+  isYesterday,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowRight,
+  Calendar,
+  ChevronRight,
+  Clock,
+  Download,
+  Loader2,
+  Printer,
+  Receipt,
+  RefreshCw,
+  Search,
+  ShoppingBag,
+  SlidersHorizontal,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 
 type RecentOrderInfo = {
@@ -73,7 +73,9 @@ export default function OrderHistoryPage() {
   const router = useRouter();
 
   // Filters
-  const [dateFilter, setDateFilter] = useState<"today" | "yesterday" | "week" | "month" | "custom">("today");
+  const [dateFilter, setDateFilter] = useState<
+    "today" | "yesterday" | "week" | "month" | "custom"
+  >("today");
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
     return format(d, "yyyy-MM-dd");
@@ -82,7 +84,9 @@ export default function OrderHistoryPage() {
     const d = new Date();
     return format(d, "yyyy-MM-dd");
   });
-  const [typeFilter, setTypeFilter] = useState<"all" | "dine_in" | "takeaway">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "dine_in" | "takeaway">(
+    "all",
+  );
 
   // Data
   const [orders, setOrders] = useState<RecentOrderInfo[]>([]);
@@ -91,7 +95,8 @@ export default function OrderHistoryPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Detail View
-  const [selectedOrder, setSelectedOrder] = useState<UnifiedHistoryDetail | null>(null);
+  const [selectedOrder, setSelectedOrder] =
+    useState<UnifiedHistoryDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [showRefund, setShowRefund] = useState(false);
   const [me, setMe] = useState<any>(null);
@@ -143,7 +148,9 @@ export default function OrderHistoryPage() {
         limit: "500",
       });
 
-      const res = await api<any>(`/api/admin/orders/recent-completed?${query.toString()}`);
+      const res = await api<any>(
+        `/api/admin/orders/recent-completed?${query.toString()}`,
+      );
       // Backend returns a bare array (not wrapped in {orders:[]})
       if (Array.isArray(res)) {
         setOrders(res);
@@ -170,7 +177,7 @@ export default function OrderHistoryPage() {
     setSelectedOrder(null);
     try {
       const res = await api<UnifiedHistoryDetail>(
-        `/api/admin/history/orders/${order.id}?type=${order.type}`
+        `/api/admin/history/orders/${order.id}?type=${order.type}`,
       );
       setSelectedOrder(res);
     } catch (err) {
@@ -186,7 +193,9 @@ export default function OrderHistoryPage() {
 
     let tn = null;
     if (selectedOrder.type === "dine_in") {
-      const m = selectedOrder.name.match(/T(\d+)/i) || selectedOrder.name.match(/Table\s*(\d+)/i);
+      const m =
+        selectedOrder.name.match(/T(\d+)/i) ||
+        selectedOrder.name.match(/Table\s*(\d+)/i);
       if (m) tn = parseInt(m[1], 10);
     }
 
@@ -225,7 +234,7 @@ export default function OrderHistoryPage() {
         o.name.toLowerCase().includes(q) ||
         o.amount.toString().includes(q) ||
         (o.payment_mode && o.payment_mode.toLowerCase().includes(q)) ||
-        o.id.toLowerCase().includes(q)
+        o.id.toLowerCase().includes(q),
     );
   }, [orders, searchTerm]);
 
@@ -236,7 +245,15 @@ export default function OrderHistoryPage() {
       return;
     }
 
-    const headers = ["Order ID", "Type", "Table/Customer", "Amount (INR)", "Payment Mode", "Date", "Time"];
+    const headers = [
+      "Order ID",
+      "Type",
+      "Table/Customer",
+      "Amount (INR)",
+      "Payment Mode",
+      "Date",
+      "Time",
+    ];
     const rows = filteredOrders.map((o) => [
       o.id,
       o.type === "dine_in" ? "Dine-In" : "Takeaway",
@@ -247,11 +264,16 @@ export default function OrderHistoryPage() {
       format(new Date(o.created_at), "HH:mm:ss"),
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `order_history_${dateFilter}_${format(new Date(), "yyyyMMdd_HHmm")}.csv`);
+    link.setAttribute(
+      "download",
+      `order_history_${dateFilter}_${format(new Date(), "yyyyMMdd_HHmm")}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -273,11 +295,9 @@ export default function OrderHistoryPage() {
     <div className="flex h-screen w-full bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
       <StaffSidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
         {/* Top Header */}
         <header className="bg-white border-b border-slate-200/80 px-8 py-5 flex flex-col gap-5 z-10 sticky top-0 shrink-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            
             {/* Title Block */}
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 text-[#fe5c13] ring-1 ring-[#fe5c13]/20 flex items-center justify-center shadow-xs">
@@ -285,13 +305,17 @@ export default function OrderHistoryPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h1 className="text-xl font-bold tracking-tight text-slate-900">Order History</h1>
+                  <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                    Order History
+                  </h1>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/60">
-                    {filteredOrders.length} {filteredOrders.length === 1 ? "order" : "orders"}
+                    {filteredOrders.length}{" "}
+                    {filteredOrders.length === 1 ? "order" : "orders"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5 font-normal">
-                  Inspect completed bills, verify payment modes & reprint receipts
+                  Inspect completed bills, verify payment modes & reprint
+                  receipts
                 </p>
               </div>
             </div>
@@ -323,7 +347,9 @@ export default function OrderHistoryPage() {
                 title="Refresh order list"
                 className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-xs active:scale-95 disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#fe5c13]" : ""}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#fe5c13]" : ""}`}
+                />
               </button>
 
               <button
@@ -338,13 +364,20 @@ export default function OrderHistoryPage() {
 
           {/* Unified Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            
             {/* Segmented Channel Filter */}
             <div className="inline-flex bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 shadow-inner">
               {[
                 { id: "all", label: "All Orders", count: orders.length },
-                { id: "dine_in", label: "Dine-In", count: orders.filter((o) => o.type === "dine_in").length },
-                { id: "takeaway", label: "Takeaway", count: orders.filter((o) => o.type !== "dine_in").length },
+                {
+                  id: "dine_in",
+                  label: "Dine-In",
+                  count: orders.filter((o) => o.type === "dine_in").length,
+                },
+                {
+                  id: "takeaway",
+                  label: "Takeaway",
+                  count: orders.filter((o) => o.type !== "dine_in").length,
+                },
               ].map((t) => {
                 const active = typeFilter === t.id;
                 return (
@@ -360,7 +393,9 @@ export default function OrderHistoryPage() {
                     <span>{t.label}</span>
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        active ? "bg-[#fe5c13]/10 text-[#fe5c13]" : "bg-slate-200 text-slate-500"
+                        active
+                          ? "bg-[#fe5c13]/10 text-[#fe5c13]"
+                          : "bg-slate-200 text-slate-500"
                       }`}
                     >
                       {t.count}
@@ -431,22 +466,26 @@ export default function OrderHistoryPage() {
 
         {/* Scrollable Main Area */}
         <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-
           {/* Orders Table Container */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-28 text-slate-400">
                 <Loader2 className="w-8 h-8 animate-spin mb-3 text-[#fe5c13]" />
-                <p className="text-sm font-semibold text-slate-600">Retrieving order history...</p>
+                <p className="text-sm font-semibold text-slate-600">
+                  Retrieving order history...
+                </p>
               </div>
             ) : filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-28 text-slate-400">
                 <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mb-4">
                   <Receipt className="w-8 h-8 opacity-40 text-slate-500" />
                 </div>
-                <p className="text-base font-bold text-slate-700">No completed orders found</p>
+                <p className="text-base font-bold text-slate-700">
+                  No completed orders found
+                </p>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm text-center">
-                  Try adjusting the date range or order type filter to find older transactions.
+                  Try adjusting the date range or order type filter to find
+                  older transactions.
                 </p>
               </div>
             ) : (
@@ -602,7 +641,9 @@ export default function OrderHistoryPage() {
                     <Receipt className="w-4 h-4" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-slate-900">Receipt Details</h2>
+                    <h2 className="text-base font-bold text-slate-900">
+                      Receipt Details
+                    </h2>
                     <p className="text-[11px] text-slate-400 font-mono">
                       {selectedOrder ? `#${selectedOrder.id}` : "Loading..."}
                     </p>
@@ -621,11 +662,12 @@ export default function OrderHistoryPage() {
                 {isDetailLoading ? (
                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                     <Loader2 className="w-8 h-8 animate-spin mb-3 text-[#fe5c13]" />
-                    <p className="text-xs font-semibold text-slate-600">Generating receipt...</p>
+                    <p className="text-xs font-semibold text-slate-600">
+                      Generating receipt...
+                    </p>
                   </div>
                 ) : selectedOrder ? (
                   <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 max-w-sm mx-auto font-sans relative">
-                    
                     {/* Thermal Receipt Header */}
                     <div className="text-center pb-5 border-b border-dashed border-slate-200">
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">
@@ -654,14 +696,21 @@ export default function OrderHistoryPage() {
                       </div>
 
                       {selectedOrder.items.map((it, idx) => (
-                        <div key={idx} className="flex justify-between items-start text-xs">
+                        <div
+                          key={idx}
+                          className="flex justify-between items-start text-xs"
+                        >
                           <div className="flex-1 pr-3">
                             <div className="font-bold text-slate-800">
-                              <span className="text-[#fe5c13] font-black mr-1.5">{it.quantity}x</span>
+                              <span className="text-[#fe5c13] font-black mr-1.5">
+                                {it.quantity}x
+                              </span>
                               {it.name}
                             </div>
                             {it.variant_label && (
-                              <div className="text-[10px] text-slate-400 pl-4">{it.variant_label}</div>
+                              <div className="text-[10px] text-slate-400 pl-4">
+                                {it.variant_label}
+                              </div>
                             )}
                             <div className="text-[10px] text-slate-400 pl-4">
                               ₹{it.price.toFixed(2)} each
@@ -686,13 +735,18 @@ export default function OrderHistoryPage() {
                       {selectedOrder.breakdown.discount > 0 && (
                         <div className="flex justify-between text-xs font-medium text-rose-500">
                           <span>Discount</span>
-                          <span className="font-semibold">-₹{selectedOrder.breakdown.discount.toFixed(2)}</span>
+                          <span className="font-semibold">
+                            -₹{selectedOrder.breakdown.discount.toFixed(2)}
+                          </span>
                         </div>
                       )}
 
                       {selectedOrder.breakdown.service_charge > 0 && (
                         <div className="flex justify-between text-xs font-medium text-slate-500">
-                          <span>Service Charge ({selectedOrder.breakdown.service_percent}%)</span>
+                          <span>
+                            Service Charge (
+                            {selectedOrder.breakdown.service_percent}%)
+                          </span>
                           <span className="font-semibold text-slate-700">
                             ₹{selectedOrder.breakdown.service_charge.toFixed(2)}
                           </span>
@@ -701,7 +755,9 @@ export default function OrderHistoryPage() {
 
                       {selectedOrder.breakdown.tax > 0 && (
                         <div className="flex justify-between text-xs font-medium text-slate-500">
-                          <span>GST / Taxes ({selectedOrder.breakdown.tax_percent}%)</span>
+                          <span>
+                            GST / Taxes ({selectedOrder.breakdown.tax_percent}%)
+                          </span>
                           <span className="font-semibold text-slate-700">
                             ₹{selectedOrder.breakdown.tax.toFixed(2)}
                           </span>
@@ -718,7 +774,9 @@ export default function OrderHistoryPage() {
 
                     {/* Footer Info */}
                     <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      <span>Method: {selectedOrder.payment_mode || "Paid"}</span>
+                      <span>
+                        Method: {selectedOrder.payment_mode || "Paid"}
+                      </span>
                       <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-black">
                         COMPLETED
                       </span>
@@ -737,12 +795,14 @@ export default function OrderHistoryPage() {
                     <Printer className="w-4 h-4" />
                     <span>Print Thermal Receipt</span>
                   </button>
-                  {["owner", "manager", "cashier"].includes(String(me?.role || "").toLowerCase()) && (
+                  {["owner", "manager", "cashier"].includes(
+                    String(me?.role || "").toLowerCase(),
+                  ) && (
                     <button
                       onClick={() => setShowRefund(true)}
-                      className="mt-2 w-full rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 transition-all hover:bg-rose-100"
+                      className="mt-2 flex h-10 w-full items-center justify-center rounded-xl border border-rose-200 bg-red-700 px-4 text-xs font-bold text-white transition-colors hover:border-rose-300 hover:bg-rose-100"
                     >
-                      Refund payment…
+                      Refund payment
                     </button>
                   )}
                 </div>
