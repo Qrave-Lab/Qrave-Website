@@ -19,7 +19,7 @@ import {
     Sparkles,
 } from "lucide-react";
 import { useLanguageStore } from "@/stores/languageStore";
-import { getCartKey } from "@/stores/cartStore";
+import { getCartKey, goToCheckout } from "@/stores/cartStore";
 import { getBackendBase } from "@/app/lib/api";
 
 interface ImmersiveMenuProps {
@@ -669,7 +669,7 @@ export default function ImmersiveMenu({
                                                 type="button"
                                                 onClick={() => {
                                                     if (totalCartItems > 0) {
-                                                        window.location.href = "/checkout";
+                                                        void goToCheckout();
                                                     }
                                                 }}
                                                 className="flex-1 h-[52px] rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"

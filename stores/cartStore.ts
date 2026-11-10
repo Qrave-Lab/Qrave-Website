@@ -28,6 +28,20 @@ const enqueueByKey = (key: string, op: () => Promise<void>) => {
   return next;
 };
 
+/**
+ * Resolves once every cart change sent so far has reached the server (or
+ * failed). Call before a full-page navigation: leaving the page cancels
+ * in-flight requests, and the store then rolls the item back out of the cart.
+ */
+export const waitForCartSync = async (timeoutMs = 8000) => {
+  const pending = Array.from(mutationQueueByKey.values());
+  if (pending.length === 0) return;
+  await Promise.race([
+    Promise.allSettled(pending),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+};
+
 export type Order = {
   id: string;
   items: {
@@ -178,3 +192,9 @@ export const useCartStore = create<CartState>()(
     }
   )
 );
+
+/** Opens checkout once pending cart changes are saved. */
+export const goToCheckout = async () => {
+  await waitForCartSync();
+  window.location.href = "/checkout";
+};

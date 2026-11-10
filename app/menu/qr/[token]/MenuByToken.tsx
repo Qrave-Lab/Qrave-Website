@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import { api } from "@/app/lib/api";
 import { useCartStore } from "@/stores/cartStore";
 import MenuClient from "../../MenuClient";

@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/app/lib/api";
-import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan } from "@/app/lib/plans";
 import { AnimatePresence, motion } from "framer-motion";
 import {

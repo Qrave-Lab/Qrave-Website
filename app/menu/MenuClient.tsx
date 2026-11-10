@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import { useRouter, useSearchParams } from "next/navigation";
 import ModernFoodUI from "../(pages)/menu/MenuUi";
 import { api } from "@/app/lib/api";

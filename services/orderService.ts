@@ -1,5 +1,5 @@
 import { api } from "@/app/lib/api";
-import { setTokenCookie, getTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
+import { setTokenCookie, getTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 
 export type CartItemDTO = {

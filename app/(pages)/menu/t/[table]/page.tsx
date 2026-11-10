@@ -3,7 +3,7 @@
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/lib/api";
-import { setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
+import { setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { useCartStore } from "@/stores/cartStore";
 import GuestTableLoader from "@/app/components/GuestTableLoader";

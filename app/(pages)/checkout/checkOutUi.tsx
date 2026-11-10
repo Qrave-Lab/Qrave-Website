@@ -3,8 +3,8 @@
 import { api } from "@/app/lib/api";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { orderService } from "@/services/orderService";
-import { setTokenCookie, getTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
-import { useCartStore } from "@/stores/cartStore";
+import { setTokenCookie, getTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
+import { useCartStore, waitForCartSync } from "@/stores/cartStore";
 import {
   ChevronLeft,
   ChevronRight,
@@ -660,17 +660,21 @@ const CheckoutPage: React.FC = () => {
     return availableCoupons.filter((c) => calculateCouponDiscount(c, lines) > 0);
   }, [availableCoupons, lines]);
 
-  const allPlacedOrders = orders.filter(
-    (o) =>
-      o.id !== currentOrderId &&
-      o.status !== "cart" &&
-      Array.isArray(o.items) &&
-      o.items.length > 0,
-  );
-
-  const placedOrders = isSeparateBill
-    ? allPlacedOrders.filter((o) => myOrderIds.has(o.id))
-    : allPlacedOrders;
+  // Memoized: the breakdown effect below depends on this list, and a fresh
+  // array every render re-ran it forever (fetch → setState → render → fetch).
+  const placedOrders = useMemo(() => {
+    const allPlacedOrders = orders.filter(
+      (o) =>
+        o.id !== currentOrderId &&
+        o.status !== "cart" &&
+        Array.isArray(o.items) &&
+        o.items.length > 0,
+    );
+    return isSeparateBill
+      ? allPlacedOrders.filter((o) => myOrderIds.has(o.id))
+      : allPlacedOrders;
+  }, [orders, currentOrderId, isSeparateBill, myOrderIds]);
+  const placedOrderIdsKey = placedOrders.map((o) => o.id).join(",");
 
   useEffect(() => {
     if (couponCode && currentOrderId && isCartReady) {
@@ -715,7 +719,9 @@ const CheckoutPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [placedOrders]);
+    // Refetch only when the set of orders changes, not on every new array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placedOrderIdsKey]);
 
   if (!isMounted || !isCartReady) {
     return (
@@ -750,6 +756,9 @@ const CheckoutPage: React.FC = () => {
     if (lines.length === 0 || isPlacingOrder) return;
     setIsPlacingOrder(true);
     setIsSyncingAfterPlace(false);
+    // Let quantity taps still on their way reach the server first, or the
+    // order would be finalized without them.
+    await waitForCartSync();
 
     // Optimistic UI for placing order
     const tempOrderId = "temp-" + Date.now();

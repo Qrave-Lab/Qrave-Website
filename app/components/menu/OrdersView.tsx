@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@/app/lib/api";
-import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
+import { goToCheckout } from "@/stores/cartStore";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import {
   CheckCircle2,
   ClipboardList,
@@ -394,7 +395,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
             <div className="ov-summary-actions">
               <button
                 onClick={() => {
-                  window.location.href = "/checkout";
+                  void goToCheckout();
                 }}
                 className="ov-btn-checkout"
               >

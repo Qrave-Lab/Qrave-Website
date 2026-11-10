@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
+import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 
 import CustomerBottomNav, {
   type CustomerTab,
@@ -12,7 +12,7 @@ import OrdersView from "@/app/components/menu/OrdersView";
 import LoyaltyMenuLink from "@/app/components/menu/LoyaltyMenuLink";
 import ServicesView from "@/app/components/menu/ServicesView";
 import { api } from "@/app/lib/api";
-import { getCartKey, useCartStore } from "@/stores/cartStore";
+import { getCartKey, goToCheckout, useCartStore } from "@/stores/cartStore";
 import { useLanguageStore } from "@/stores/languageStore";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -2241,7 +2241,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                             type="button"
                             onClick={() => {
                               setDetailItem(null);
-                              window.location.href = "/checkout";
+                              void goToCheckout();
                             }}
                             className="flex-1 h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
                           >
@@ -2790,7 +2790,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             <button
               onClick={() => {
                 if (previewMode) return;
-                window.location.href = "/checkout";
+                void goToCheckout();
               }}
               className="mu-checkout-bar"
             >

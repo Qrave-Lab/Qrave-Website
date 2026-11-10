@@ -71,7 +71,7 @@ const PUBLIC_ROUTES = [
   "/api/customer/service-calls",
 ];
 
-import { setTokenCookie, getTokenCookie } from "./cookies";
+import { setTokenCookie, getTokenCookie } from "./clientCookies";
 
 async function persistCsrfFromResponse(res: Response): Promise<void> {
   if (typeof window === "undefined") return;
