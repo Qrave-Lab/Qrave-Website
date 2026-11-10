@@ -641,6 +641,18 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   // ── Bottom nav tab state ──
   const [activeTab, setActiveTab] = useState<CustomerTab>("menu");
 
+  // Checkout sends customers here with ?tab=orders after placing an order.
+  // Open that tab, then drop the param so a refresh lands on the menu.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const tab = url.searchParams.get("tab");
+    if (tab === "orders" || tab === "services") {
+      setActiveTab(tab);
+      url.searchParams.delete("tab");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    }
+  }, []);
+
   const { t, setLanguage } = useLanguageStore();
 
   // Translation is disabled — always reset to English on mount

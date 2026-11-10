@@ -78,6 +78,7 @@ type OrderItem = {
   name?: string;
   item_name?: string;
   menu_item_name?: string;
+  variant_label?: string;
 };
 
 type Order = {
@@ -360,6 +361,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
                         item.name ||
                         item.item_name ||
                         `Item`}
+                      {item.variant_label ? ` (${item.variant_label})` : ""}
                     </span>
                     <span className="ov-item-price">
                       ₹{item.price * item.quantity}

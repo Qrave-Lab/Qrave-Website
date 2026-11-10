@@ -247,6 +247,9 @@ const CheckoutPage: React.FC = () => {
   const [billRequested, setBillRequested] = useState(false);
   const [isRequestingBill, setIsRequestingBill] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  // Set once an order is placed: the page shows a loader while it moves to
+  // the menu's Orders tab, instead of flashing an empty cart.
+  const [isOpeningOrders, setIsOpeningOrders] = useState(false);
   const [lastPlacedNums, setLastPlacedNums] = useState<{
     orderNumber: number;
     dailyOrderNumber: number;
@@ -723,13 +726,13 @@ const CheckoutPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placedOrderIdsKey]);
 
-  if (!isMounted || !isCartReady) {
+  if (!isMounted || !isCartReady || isOpeningOrders) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F2EB]">
         <div className="text-center">
           <Loader2 className="h-10 w-10 animate-spin text-[#C9B89A] mx-auto mb-4" />
           <p className="text-xs font-bold uppercase tracking-widest text-[#9B8677]">
-            Loading cart…
+            {isOpeningOrders ? "Opening your orders…" : "Loading cart…"}
           </p>
         </div>
       </div>
@@ -868,6 +871,8 @@ const CheckoutPage: React.FC = () => {
       }));
 
       await removeTokenCookie("order_id");
+      setIsOpeningOrders(true);
+      router.replace("/menu?tab=orders");
     } catch {
       setOrders(prevOrders);
       setMyOrderIds(new Set(prevMyOrderIds));

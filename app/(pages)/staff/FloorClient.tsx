@@ -1708,13 +1708,10 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                           setOpenMenuId(null);
                           return;
                         }
+                        // Tapping a seated table always opens its bill; paying
+                        // and freeing the table live in the card's ⋮ menu.
                         if (table.isOccupied && table.activeSessionId) {
-                          // Unpaid balance: settle in the pay modal right here.
-                          if ((table.currentTotal || 0) > 0 && !isTablePaid(table)) {
-                            requestFreeTable(table.id);
-                          } else {
-                            router.push(`/staff/table/${table.activeSessionId}`);
-                          }
+                          router.push(`/staff/table/${table.activeSessionId}`);
                         }
                       }}
                       className={`relative flex flex-col w-full h-full rounded-2xl bg-white border border-gray-100/80 shadow-xs ${openMenuId === table.id ? "overflow-visible z-40" : "overflow-hidden"} transition-colors cursor-pointer ${cardStyle}`}
