@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Check } from 'lucide-react';
 
 const Pricing = () => {
@@ -21,7 +22,7 @@ const Pricing = () => {
                 "Basic Performance Insights",
                 "Standard Email Support"
             ],
-            buttonText: "Start 7-Day Free Trial",
+            buttonText: "Contact Us",
             buttonVariant: "outline"
         },
         {
@@ -40,7 +41,7 @@ const Pricing = () => {
                 "Advanced Sales & Reports Insights",
                 "Priority VIP Support"
             ],
-            buttonText: "Subscribe Pro",
+            buttonText: "Contact Us",
             buttonVariant: "solid"
         }
     ];
@@ -134,14 +135,15 @@ const Pricing = () => {
                             </div>
 
                             <div className="text-center">
-                                <button
-                                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${plan.buttonVariant === 'solid'
+                                <Link
+                                    href="/#demo"
+                                    className={`block w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${plan.buttonVariant === 'solid'
                                         ? 'bg-[#fe5c13] hover:bg-[#eebb1d] text-[#1F2127] shadow-lg hover:shadow-xl'
                                         : 'bg-white border-2 border-[#fe5c13] text-[#1F2127] hover:bg-[#fe5c13]/5'
                                         }`}
                                 >
                                     {plan.buttonText}
-                                </button>
+                                </Link>
                                 <p className="text-[10px] text-gray-400 font-bold tracking-wider mt-4 uppercase">
                                     7 DAYS FREE • CANCEL ANYTIME
                                 </p>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { trackAR } from "@/app/lib/arTracking";
+import { useModelViewerEvents } from "@/app/lib/useModelViewerEvents";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
@@ -33,6 +34,12 @@ interface ImmersiveMenuProps {
     orderingEnabled?: boolean;
     restaurantName?: string;
     logoUrl?: string;
+    /** When set, the back button calls this even with ordering off (food court stalls). */
+    onBack?: () => void;
+    /** Shown instead of "Table N" in the header pill. */
+    contextLabel?: string;
+    /** Called once each time a dish comes into view. */
+    onItemView?: (item: any) => void;
 }
 
 export default function ImmersiveMenu({
@@ -47,6 +54,9 @@ export default function ImmersiveMenu({
     orderingEnabled = true,
     restaurantName = "Restaurant",
     logoUrl = "",
+    onBack,
+    contextLabel,
+    onItemView,
 }: ImmersiveMenuProps) {
     const router = useRouter();
     const { t } = useLanguageStore();
@@ -68,6 +78,12 @@ export default function ImmersiveMenu({
         setExpandedDesc(false);
         setIsNoteOpen(false);
     }, [currentIndex]);
+
+    const viewedItem = items[currentIndex];
+    useEffect(() => {
+        if (viewedItem && onItemView) onItemView(viewedItem);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewedItem?.id]);
 
     useEffect(() => {
         let mounted = true;
@@ -100,6 +116,9 @@ export default function ImmersiveMenu({
     }, [items]);
 
     const currentItem = items[currentIndex];
+    const attachViewer = useModelViewerEvents({
+        load: () => currentItem && trackAR(currentItem.id, "view_3d"),
+    });
 
     if (!currentItem) {
         return (
@@ -289,9 +308,9 @@ export default function ImmersiveMenu({
             {/* ── Top Header Navigation ── */}
             <header className="relative z-30 px-4 pt-3.5 pb-1.5 flex items-center justify-between shrink-0">
                 <button
-                    onClick={orderingEnabled ? onClose : undefined}
+                    onClick={onBack ?? (orderingEnabled ? onClose : undefined)}
                     className="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-800 border border-slate-200/80 flex items-center justify-center transition-all active:scale-90 shadow-xs cursor-pointer"
-                    aria-label="Back to menu"
+                    aria-label={onBack ? "Back to all stalls" : "Back to menu"}
                 >
                     <ChevronLeft size={20} strokeWidth={2.5} className="pr-0.5" />
                 </button>
@@ -305,7 +324,7 @@ export default function ImmersiveMenu({
                     <div className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-[11px] font-bold text-emerald-700 font-dm-sans">
-                            Table {tableNumber || "4"}
+                            {contextLabel ?? `Table ${tableNumber || "4"}`}
                         </span>
                     </div>
                 </div>
@@ -373,6 +392,7 @@ export default function ImmersiveMenu({
                                 {hasModel && modelViewerReady ? (
                                     <div className="absolute inset-0 z-20">
                                         <model-viewer
+                                            ref={attachViewer}
                                             src={resolvedModelUrl}
                                             alt={currentItem.name}
                                             poster={resolvedImageUrl || undefined}
@@ -387,7 +407,6 @@ export default function ImmersiveMenu({
                                             shadow-intensity="1"
                                             shadow-softness="1"
                                             environment-image="neutral"
-                                            onLoad={() => trackAR(currentItem.id, "view_3d")}
                                             style={{ width: "100%", height: "100%", background: "transparent" }}
                                         >
                                             {/* Photo first; the 3D file downloads only when the guest taps. */}

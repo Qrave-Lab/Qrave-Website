@@ -6,6 +6,7 @@ import { api } from "@/app/lib/api";
 import { setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { useCartStore } from "@/stores/cartStore";
+import GuestTableLoader from "@/app/components/GuestTableLoader";
 
 type SessionResult = {
   session_id: string;
@@ -200,57 +201,7 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
   }
 
   /* ── Loading state ──────────────────────────────────────────── */
-  return (
-    <>
-      <style>{animationStyles}</style>
-      <div className="qrave-loader">
-        {/* Ambient gradient orbs */}
-        <div className="qrave-orb qrave-orb-1" />
-        <div className="qrave-orb qrave-orb-2" />
-        <div className="qrave-orb qrave-orb-3" />
-
-        {/* Spinning ring with icon */}
-        <div className="qrave-ring-wrap">
-          <svg className="qrave-ring-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="60" cy="60" r="54" stroke="rgba(255,255,255,0.05)" strokeWidth="2.5"/>
-            <circle cx="60" cy="60" r="54" stroke="url(#ringGrad)" strokeWidth="2.5"
-              strokeLinecap="round" strokeDasharray="100 240" className="qrave-ring-arc"/>
-            <defs>
-              <linearGradient id="ringGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#FF6B35"/>
-                <stop offset="1" stopColor="#FF9A5C" stopOpacity="0"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <div className="qrave-ring-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <ellipse cx="16" cy="24" rx="10" ry="2.5" fill="rgba(255,107,53,0.15)"/>
-              <path d="M8 16c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="#FF6B35" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="16" cy="20" r="2.5" fill="#FF6B35"/>
-              <path d="M7 23h18" stroke="rgba(255,107,53,0.35)" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-        </div>
-
-        {/* Wordmark */}
-        <div className="qrave-wordmark">
-          {"Qrave".split("").map((char, i) => (
-            <span key={i} className="qrave-letter" style={{ animationDelay: `${0.07 * i + 0.25}s` }}>
-              {char}
-            </span>
-          ))}
-        </div>
-
-        {/* Tagline */}
-        <p className="qrave-tagline">Preparing your table…</p>
-
-        {/* Progress bar */}
-        <div className="qrave-progress">
-          <div className="qrave-progress-fill" />
-        </div>
-      </div>
-    </>
-  );
+  return <GuestTableLoader />;
 }
 
 /* ─── CSS ──────────────────────────────────────────────────────── */

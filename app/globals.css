@@ -1498,3 +1498,102 @@ select option {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Feature pages: one authored entrance moment */
+@keyframes feature-rise {
+  from { opacity: 0; transform: translateY(14px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.feature-rise {
+  animation: feature-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .feature-rise { animation: none; }
+}
+
+/* Demo ticket: confirmation stamp lands once, in response to submit */
+@keyframes demo-stamp {
+  0% { opacity: 0; transform: scale(1.6) rotate(-10deg); }
+  60% { opacity: 1; transform: scale(0.96) rotate(-4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-4deg); }
+}
+.demo-stamp {
+  transform: rotate(-4deg);
+  animation: demo-stamp 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-stamp { animation: none; }
+}
+
+/* ── Loaders ─────────────────────────────────────────────── */
+/* QR mark: data modules fill in on a diagonal sweep, then reset. */
+@keyframes qr-fill {
+  0%, 12% { opacity: 0.1; }
+  30%, 70% { opacity: 1; }
+  90%, 100% { opacity: 0.1; }
+}
+.qr-cell {
+  opacity: 0.1;
+  animation: qr-fill 2.4s ease-in-out infinite;
+}
+
+/* Quiet placeholder shapes with one slow shimmer. */
+@keyframes skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.skeleton {
+  background-color: #e8ebef;
+  background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-shimmer 1.8s linear infinite;
+}
+
+/* Nothing for the first 300ms, so fast loads never flash a loader. */
+@keyframes load-appear { from { opacity: 0; } to { opacity: 1; } }
+.load-delay { opacity: 0; animation: load-appear 200ms ease-out 300ms forwards; }
+/* A plain notice if loading drags on. */
+.load-slow { opacity: 0; animation: load-appear 300ms ease-out 6s forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-cell { animation: none; opacity: 1; }
+  .skeleton { animation: none; background-image: none; }
+}
+
+/* Hero AR demo: the placed dish turns a little, and the scan line sweeps. */
+@keyframes ar-turn {
+  0%, 100% { transform: perspective(360px) rotateY(0deg); }
+  25% { transform: perspective(360px) rotateY(22deg); }
+  75% { transform: perspective(360px) rotateY(-22deg); }
+}
+.ar-turn { animation: ar-turn 2.8s ease-in-out infinite; }
+
+@keyframes qr-scan {
+  0% { transform: translateY(0); opacity: 0; }
+  15%, 85% { opacity: 1; }
+  100% { transform: translateY(98px); opacity: 0; }
+}
+.qr-scan-line { animation: qr-scan 1.5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-turn, .qr-scan-line { animation: none; }
+}
+
+/* AR scene: a detected-surface dot grid and a pulsing placement ring. */
+.ar-plane {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.75) 1.6px, transparent 1.9px);
+  background-size: 20px 20px;
+  transform: perspective(260px) rotateX(58deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 35%, transparent);
+  mask-image: linear-gradient(to top, #000 35%, transparent);
+}
+@keyframes ar-ring {
+  0%, 100% { opacity: 0.55; transform: scale(0.97); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+.ar-ring { animation: ar-ring 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ar-ring { animation: none; }
+}

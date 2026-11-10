@@ -77,12 +77,5 @@ export default function ConnectionBanner() {
       </div>
     );
   }
-  if (backOnline) {
-    return (
-      <div role="status" className="fixed inset-x-0 top-0 z-[200] bg-emerald-600 px-4 py-2 text-center text-sm font-bold text-white shadow-lg print:hidden">
-        Back online. Re-check anything you tried to save while offline.
-      </div>
-    );
-  }
   return null;
 }

@@ -2,7 +2,7 @@
 
 import { api } from "@/app/lib/api";
 import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/cookies";
-import { isArMenuPlan } from "@/app/lib/plans";
+import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan } from "@/app/lib/plans";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     Banknote,
@@ -415,15 +415,13 @@ export default function StaffSidebar() {
     router.replace("/staff/settings/subscription");
   }, [billingLocked, pathname, router]);
 
-  const arMenuOnly = isArMenuPlan(billingPlan);
-  const isArAllowedPath =
-    pathname === "/staff/menu" ||
-    pathname.startsWith("/staff/menu/") ||
-    pathname === "/staff/settings" ||
-    pathname.startsWith("/staff/settings/qr-codes") ||
-    pathname.startsWith("/staff/settings/subscription") ||
-    pathname.startsWith("/staff/settings/profile") ||
-    pathname.startsWith("/staff/settings/theme");
+  // Food court stalls only run their digital menu: no POS screens, no table QR
+  // codes (the court's QR codes list every stall).
+  const foodCourtStall = isFoodCourtStallPlan(billingPlan);
+  const arMenuOnly = isArMenuPlan(billingPlan) || foodCourtStall;
+  const isArAllowedPath = foodCourtStall
+    ? isFoodCourtStallPath(pathname)
+    : isArMenuPath(pathname);
 
   useEffect(() => {
     if (!arMenuOnly || billingLocked || isArAllowedPath) return;
@@ -519,7 +517,7 @@ export default function StaffSidebar() {
             if (arMenuOnly) {
               return (
                 item.href === "/staff/menu" ||
-                item.href === "/staff/settings/qr-codes" ||
+                (!foodCourtStall && item.href === "/staff/settings/qr-codes") ||
                 item.href === "/staff/settings"
               );
             }

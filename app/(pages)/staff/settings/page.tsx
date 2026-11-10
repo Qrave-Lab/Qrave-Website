@@ -29,6 +29,7 @@ import toast from "react-hot-toast";
 import StaffSidebar from "../../../components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
+import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan } from "@/app/lib/plans";
 
 type AdminMeResponse = {
   role?: string;
@@ -241,6 +242,13 @@ export default function SettingsPage() {
     { title: "Sync Queue Monitor", subtitle: "View offline queues and sync statuses", href: "/staff/settings/sync-queue", icon: RefreshCw, show: true },
   ];
 
+  // Food court stalls and AR Menu plans only manage their digital menu.
+  const visibleCards = isFoodCourtStallPlan(planCode)
+    ? cards.filter((c) => isFoodCourtStallPath(c.href))
+    : isArMenuPlan(planCode)
+    ? cards.filter((c) => isArMenuPath(c.href))
+    : cards;
+
   return (
     <div className="flex h-screen w-full bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
       <StaffSidebar />
@@ -279,7 +287,7 @@ export default function SettingsPage() {
             ) : (
               <section>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {cards
+                  {visibleCards
                     .filter((card) => card.show !== false)
                     .map((card) => (
                       <SettingsNavCard key={card.title} {...card} />

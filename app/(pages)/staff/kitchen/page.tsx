@@ -104,12 +104,27 @@ export default function KitchenDisplayPage() {
     [orders]
   );
 
-  const upsertOrder = useCallback((incoming: ActiveOrder) => {
+  // Optimistic status changes that must survive stale fetches/socket events.
+  const overridesRef = useRef<Map<string, { status: string; at: number }>>(new Map());
+  const applyOverride = useCallback((o: ActiveOrder): ActiveOrder => {
+    const id = o.id || o.order_id;
+    const ov = id ? overridesRef.current.get(id) : undefined;
+    if (!id || !ov) return o;
+    const rank: Record<string, number> = { pending: 0, accepted: 1, preparing: 2, ready: 3, served: 4, completed: 5, cancelled: 5 };
+    if (Date.now() - ov.at > 30000 || (rank[o.status] ?? 0) >= (rank[ov.status] ?? 0)) {
+      overridesRef.current.delete(id);
+      return o;
+    }
+    return { ...o, status: ov.status };
+  }, []);
+
+  const upsertOrder = useCallback((incomingRaw: ActiveOrder) => {
+    const incoming = applyOverride(incomingRaw);
     const orderId = incoming.id || incoming.order_id;
     if (!orderId) return;
     const normalized: ActiveOrder = { ...incoming, id: orderId, order_id: orderId };
     setOrders((prev) => [normalized, ...prev.filter((o) => (o.id || o.order_id) !== orderId)]);
-  }, []);
+  }, [applyOverride]);
 
   const handlePrint = (order: ActiveOrder) => {
     const items: KOTItem[] = order.items.map((it) => ({
@@ -178,14 +193,14 @@ export default function KitchenDisplayPage() {
         if (newCount > 0) toast.success(`${newCount} new order${newCount > 1 ? "s" : ""} in kitchen`);
       }
       prevIds.current = nextIds;
-      setOrders(list);
+      setOrders(list.map(applyOverride));
     } catch {
       toast.error("Failed to load kitchen orders");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [router, restaurantName]);
+  }, [router, restaurantName, applyOverride]);
 
   useEffect(() => {
     fetchOrders().catch(() => undefined);
@@ -246,6 +261,7 @@ export default function KitchenDisplayPage() {
   const updateStatus = async (orderId: string, nextStatus: string) => {
     if (!orderId || updatingId) return;
     const previous = orders;
+    overridesRef.current.set(orderId, { status: nextStatus, at: Date.now() });
     setOrders((prev) =>
       prev.map((o) => ((o.id || o.order_id) === orderId ? { ...o, status: nextStatus } : o))
     );
@@ -261,6 +277,7 @@ export default function KitchenDisplayPage() {
         setOrders((prev) => prev.filter((o) => (o.id || o.order_id) !== orderId));
       }
     } catch {
+      overridesRef.current.delete(orderId);
       setOrders(previous);
       toast.error("Unable to update order status");
     } finally {

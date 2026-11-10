@@ -34,6 +34,17 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "react-hot-toast";
 import { arHintSeen, markArHintSeen, trackAR } from "@/app/lib/arTracking";
+import {
+  type Dims,
+  type SizeCm,
+  formatCm,
+  portionGuess,
+  ratioFor,
+  readNaturalDims,
+  scaleString,
+  sizedCm,
+} from "@/app/lib/arSizing";
+import { useModelViewerEvents } from "@/app/lib/useModelViewerEvents";
 
 const resolve = (val: any): string => {
   if (!val) return "";
@@ -74,8 +85,8 @@ const numberFrom = (...values: any[]): number | null => {
   return null;
 };
 
-const getPortionMultiplier = (variant: any): number => {
-  const explicit = numberFrom(
+const getPortionMultiplier = (variant: any): number =>
+  numberFrom(
     variant?.ar_scale,
     variant?.arScale,
     variant?.portion_scale,
@@ -83,46 +94,60 @@ const getPortionMultiplier = (variant: any): number => {
     variant?.model_scale,
     variant?.modelScale,
     variant?.scale,
-  );
-  if (explicit) return explicit;
+  ) ?? portionGuess(resolve(variant?.name ?? variant?.label));
 
-  const name = resolve(variant?.name ?? variant?.label).toLowerCase();
-  if (name.includes("small") || name.includes("regular")) return 0.8;
-  if (name.includes("medium") || name.includes("standard")) return 1;
-  if (name.includes("large") || name.includes("big")) return 1.2;
-  if (name.includes("xl") || name.includes("jumbo")) return 1.35;
-  return 1;
+const widthFrom = (src: any): number | null =>
+  numberFrom(src?.width_cm, src?.widthCM, src?.ar_width_cm, src?.arWidthCm);
+
+/** Size (cm across) staff set for this item / size option, if any. */
+const getTargetCm = (item: any, selectedVariantId: string): number | null => {
+  const variant = item?.variants?.find((v: any) => String(v.id) === String(selectedVariantId));
+  // A size option with its own size wins outright; otherwise scale the base
+  // size by the option's portion (explicit or guessed from its name).
+  const own = widthFrom(variant);
+  if (own) return own;
+  const base = widthFrom(item);
+  return base ? base * getPortionMultiplier(variant) : null;
 };
 
-const getArScaleValue = (viewer: any, item: any, selectedVariantId: string): string => {
-  const currentVariant = item?.variants?.find((v: any) => String(v.id) === String(selectedVariantId));
-  const portionMultiplier = getPortionMultiplier(currentVariant);
-  const modelMultiplier = numberFrom(item?.modelScale, item?.model_scale) ?? 1;
-  const targetW = numberFrom(
-    currentVariant?.width_cm,
-    currentVariant?.widthCM,
-    currentVariant?.ar_width_cm,
-    currentVariant?.arWidthCm,
-    item?.width_cm,
-    item?.widthCM,
-    item?.ar_width_cm,
-    item?.arWidthCm,
-  );
+type ArSizing = { scale: string; size: SizeCm | null };
 
-  if (viewer?.getDimensions && targetW) {
-    try {
-      const dim = viewer.getDimensions();
-      if (dim?.x > 0) {
-        const ratio = (targetW / (dim.x * 100)) * modelMultiplier * portionMultiplier;
-        return `${ratio} ${ratio} ${ratio}`;
-      }
-    } catch {
-      // Fall through to multiplier-only scaling until the model dimensions are ready.
-    }
+const getArSizing = (natural: Dims | null, item: any, selectedVariantId: string): ArSizing => {
+  const variant = item?.variants?.find((v: any) => String(v.id) === String(selectedVariantId));
+  // Older items may still carry a separate % offset; newer saves fold it into the cm value.
+  const legacyMultiplier = numberFrom(item?.modelScale, item?.model_scale) ?? 1;
+  const targetCm = getTargetCm(item, selectedVariantId);
+
+  if (natural && targetCm) {
+    const ratio = ratioFor(natural, targetCm) * legacyMultiplier;
+    return { scale: scaleString(ratio), size: sizedCm(natural, ratio) };
   }
+  // No size set: trust the file, adjusted for portion.
+  const ratio = legacyMultiplier * getPortionMultiplier(variant);
+  return { scale: scaleString(ratio), size: natural ? sizedCm(natural, ratio) : null };
+};
 
-  const ratio = modelMultiplier * portionMultiplier;
-  return `${ratio} ${ratio} ${ratio}`;
+// iOS Chrome/Edge/Firefox can only open Quick Look with a ready-made USDZ file.
+const isIosThirdPartyBrowser = () =>
+  typeof navigator !== "undefined" &&
+  /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+  /CriOS\/|EdgiOS\/|FxiOS\/|GSA\/|DuckDuckGo\//.test(navigator.userAgent);
+
+/**
+ * Quick Look ignores model-viewer's `scale` when given the uploaded USDZ, so
+ * a sized dish would show at whatever size the file happens to be. When a size
+ * is set, leave ios-src off so model-viewer builds the USDZ from the scaled
+ * scene. The info banner rides along on the GLB url's hash, which model-viewer
+ * copies onto the generated file.
+ */
+const getQuickLookSources = (item: any, selectedVariantId: string, banner?: string) => {
+  const glb = sanitizeModelUrl(item?.arModelGlb);
+  const usdz = sanitizeModelUrl(item?.arModelUsdz);
+  const sized = Boolean(getTargetCm(item, selectedVariantId));
+  if (glb && sized && !isIosThirdPartyBrowser()) {
+    return { src: banner ? `${glb}#${banner}` : glb, iosSrc: undefined };
+  }
+  return { src: glb, iosSrc: usdz ? (banner ? `${usdz}#${banner}` : usdz) : undefined };
 };
 
 const getCategoryEmoji = (name: string): string => {
@@ -499,7 +524,22 @@ type ModernFoodUIProps = {
   previewThemeConfig?: ThemeConfig;
   previewRestaurantName?: string;
   previewRestaurantLogoUrl?: string;
+  /** Food court stalls: back button target, header label and dish-view callback. */
+  onBack?: () => void;
+  contextLabel?: string;
+  onItemView?: (item: any) => void;
 };
+
+/** "Real size · 27 × 6 cm" — tells guests the AR dish is to scale. */
+const RealSizeBadge = ({ size, className = "" }: { size: SizeCm; className?: string }) => (
+  <div
+    className={`pointer-events-none inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[#18181B] shadow-sm backdrop-blur ${className}`}
+    aria-label={`Real size: ${formatCm(Math.round(Math.max(size.width, size.depth)))} across, ${formatCm(Math.round(size.height))} tall`}
+  >
+    <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
+    Real size · {Math.round(Math.max(size.width, size.depth))} × {Math.round(size.height)} cm
+  </div>
+);
 
 type RecommendationItem = {
   id: string;
@@ -516,6 +556,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   previewThemeConfig,
   previewRestaurantName,
   previewRestaurantLogoUrl,
+  onBack,
+  contextLabel,
+  onItemView,
 }) => {
   const [menuItems, setMenuItems] = useState(() =>
     Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : [],
@@ -555,6 +598,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const [detailItem, setDetailItem] = useState<any | null>(null);
   const [detailNotes, setDetailNotes] = useState<string>("");
   const [selectedDetailVariantId, setSelectedDetailVariantId] = useState<string>("");
+  // True size of each loaded model file; the scale is derived from it so
+  // re-renders never compound.
+  const [arNatural, setArNatural] = useState<Dims | null>(null);
+  const [detailNatural, setDetailNatural] = useState<Dims | null>(null);
   const modelViewerRef = React.useRef<any>(null);
   const [isBrowser, setIsBrowser] = useState(false);
   const [modelViewerReady, setModelViewerReady] = useState(false);
@@ -564,7 +611,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const [arUnsupported, setArUnsupported] = useState(false);
   const [showArHint, setShowArHint] = useState(false);
   const [detailArNote, setDetailArNote] = useState("");
-  useEffect(() => setDetailArNote(""), [detailItem]);
+  useEffect(() => {
+    setDetailArNote("");
+    setDetailNatural(null);
+  }, [detailItem]);
   const [arModelRenderKey, setArModelRenderKey] = useState(0);
   const [restaurantName, setRestaurantName] = useState("Restaurant");
   const [restaurantLogoUrl, setRestaurantLogoUrl] = useState("");
@@ -1150,7 +1200,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     };
   }, [menuItems]);
 
-  const [arScale, setArScale] = useState<string>("1 1 1");
   const [steamEnabled, setSteamEnabled] = useState<boolean>(false);
   const [selectedArModifiers, setSelectedArModifiers] = useState<Set<string>>(
     new Set(),
@@ -1206,11 +1255,44 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     }
   }, [selectedArModifiers, arItem, arModelRenderKey]);
 
+  const arSizing = useMemo(
+    () => (arItem ? getArSizing(arNatural, arItem, selectedArVariantId) : null),
+    [arItem, arNatural, selectedArVariantId],
+  );
+
+  const attachArViewer = useModelViewerEvents(
+    {
+      load: (viewer) => {
+        setArModelError("");
+        setArNatural(readNaturalDims(viewer));
+        if (arItem) trackAR(arItem.id, "view_3d");
+        if (viewer.canActivateAR === false) {
+          setArUnsupported(true);
+          if (arItem) trackAR(arItem.id, "ar_unsupported");
+        }
+      },
+      error: () => setArModelError("3D model failed to load."),
+    },
+    modelViewerRef,
+  );
+  // Once the real size is applied, re-fit the camera so the dish fills the
+  // preview. Size-option changes after that keep the framing, so a bigger
+  // portion visibly grows.
   useEffect(() => {
-    if (!arItem) return;
-    const viewer = modelViewerRef.current as any;
-    setArScale(getArScaleValue(viewer, arItem, selectedArVariantId));
-  }, [selectedArVariantId, arItem]);
+    if (!arNatural && !detailNatural) return;
+    const raf = requestAnimationFrame(() => modelViewerRef.current?.updateFraming?.());
+    return () => cancelAnimationFrame(raf);
+  }, [arNatural, detailNatural]);
+
+  const attachDetailViewer = useModelViewerEvents(
+    {
+      load: (viewer) => {
+        setDetailNatural(readNaturalDims(viewer));
+        if (detailItem) trackAR(detailItem.id, "view_3d");
+      },
+    },
+    modelViewerRef,
+  );
 
   const handleArOpen = (item: any) => {
     setArModelError("");
@@ -1219,18 +1301,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     setArModelRenderKey((v) => v + 1);
     setArItem(item);
     setSteamEnabled(Boolean(item.hasSteam ?? item.has_steam ?? false));
-    setArScale("1 1 1");
+    setArNatural(null);
     setSelectedArModifiers(new Set());
     const defaultVId = item.variants?.[0]?.id || "";
     setSelectedArVariantId(defaultVId);
-
-    // Reset scale caches
-    const viewer = modelViewerRef.current;
-    if (viewer) {
-      viewer.removeAttribute("data-base-scale-x");
-      viewer.removeAttribute("data-base-scale-y");
-      viewer.removeAttribute("data-base-scale-z");
-    }
   };
 
   const handleArClose = () => {
@@ -1389,6 +1463,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     (v: any) => String(v.id) === String(selectedDetailVariantId),
   );
   const detailVariantDelta = detailVariant?.priceDelta || 0;
+  const detailSizing = detailItem
+    ? getArSizing(detailNatural, detailItem, selectedDetailVariantId)
+    : null;
   const detailDisplayPrice = detailDiscountedBase + detailVariantDelta;
   const detailOriginalPrice = detailBasePrice + detailVariantDelta;
 
@@ -1524,6 +1601,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
           restaurantName={restaurantName}
           logoUrl={restaurantLogoUrl}
           onArClick={handleArOpen}
+          onBack={onBack}
+          contextLabel={contextLabel}
+          onItemView={onItemView}
         />
       )}
 
@@ -1658,18 +1738,19 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                   ) : (
                     <model-viewer
                       key={`${arItem.id || arItem.name}-${arModelRenderKey}`}
-                      ref={modelViewerRef}
-                      src={sanitizeModelUrl(arItem.arModelGlb)}
-                      ios-src={(() => {
-                        const base = sanitizeModelUrl(arItem.arModelUsdz);
-                        if (!base) return undefined;
+                      ref={attachArViewer}
+                      {...(() => {
                         const cal = Math.round((arItem.proteinG || 0) * 4 + (arItem.carbsG || 0) * 4 + (arItem.fatG || 0) * 9);
-                        if (cal > 0) {
-                          const macros = `🔥 ${cal} Cal | 🥩 ${arItem.proteinG || 0}g P | 🍚 ${arItem.carbsG || 0}g C | 🥑 ${arItem.fatG || 0}g F`;
-                          return `${base}#callToAction=Close&checkoutTitle=${encodeURIComponent(arItem.name)}&checkoutSubtitle=${encodeURIComponent(macros)}`;
-                        }
-                        return base;
+                        const macros = cal > 0
+                          ? `🔥 ${cal} Cal | 🥩 ${arItem.proteinG || 0}g P | 🍚 ${arItem.carbsG || 0}g C | 🥑 ${arItem.fatG || 0}g F`
+                          : "";
+                        const banner = macros
+                          ? `callToAction=Close&checkoutTitle=${encodeURIComponent(arItem.name)}&checkoutSubtitle=${encodeURIComponent(macros)}`
+                          : undefined;
+                        const { src, iosSrc } = getQuickLookSources(arItem, selectedArVariantId, banner);
+                        return { src, "ios-src": iosSrc };
                       })()}
+                      ar-usdz-max-texture-size="2048"
                       alt={arItem.name}
                       poster={arItem.image || undefined}
                       loading="eager"
@@ -1684,20 +1765,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       environment-image="neutral"
                       exposure="1.1"
                       shadow-intensity="1"
-                      scale={arScale}
-                      onLoad={() => {
-                        setArModelError("");
-                        const viewer = modelViewerRef.current as any;
-                        setArScale(getArScaleValue(viewer, arItem, selectedArVariantId));
-                        trackAR(arItem.id, "view_3d");
-                        if (viewer && viewer.canActivateAR === false) {
-                          setArUnsupported(true);
-                          trackAR(arItem.id, "ar_unsupported");
-                        }
-                      }}
-                      onError={() =>
-                        setArModelError("3D model failed to load.")
-                      }
+                      scale={arSizing?.scale ?? "1 1 1"}
                       style={{ width: "100%", height: "300px" }}
                     >
                       <style>{`
@@ -1734,9 +1802,12 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                       </div>
                     </model-viewer>
                   )}
+                  {arSizing?.size && !arModelError && (
+                    <RealSizeBadge size={arSizing.size} className="absolute top-3 left-3 z-40" />
+                  )}
                   {showArHint && !arUnsupported && !arModelError && (
                     <div className="pointer-events-none absolute bottom-16 left-1/2 z-40 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-[#3D2B1F] shadow">
-                      Tap, then point your camera at the table and move slowly
+                      Shown at real size · point your camera at the table and move slowly
                     </div>
                   )}
                   {arUnsupported && !arModelError && (
@@ -1782,6 +1853,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                           >
                             {v.name}{" "}
                             {v.priceDelta > 0 ? `(+₹${v.priceDelta})` : ""}
+                            {getTargetCm(arItem, String(v.id)) ? (
+                              <span className="ml-1 font-semibold opacity-60">
+                                · {formatCm(Math.round(getTargetCm(arItem, String(v.id))!))}
+                              </span>
+                            ) : null}
                           </button>
                         ))}
                       </div>
@@ -1905,9 +1981,13 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                         {Boolean(detailItem.arModelGlb) && modelViewerReady ? (
                           <div className="w-full h-full relative">
                             <model-viewer
-                              ref={modelViewerRef}
-                              src={sanitizeModelUrl(detailItem.arModelGlb)}
-                              ios-src={sanitizeModelUrl(detailItem.arModelUsdz) || undefined}
+                              ref={attachDetailViewer}
+                              {...(() => {
+                                const { src, iosSrc } = getQuickLookSources(detailItem, selectedDetailVariantId);
+                                return { src, "ios-src": iosSrc };
+                              })()}
+                              scale={detailSizing?.scale ?? "1 1 1"}
+                              ar-usdz-max-texture-size="2048"
                               alt={detailItem.name}
                               poster={detailItem.image || undefined}
                               reveal="interaction"
@@ -1921,7 +2001,6 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               environment-image="neutral"
                               exposure="1.1"
                               shadow-intensity="1"
-                              onLoad={() => trackAR(detailItem.id, "view_3d")}
                               style={{ width: "100%", height: "100%", background: "transparent" }}
                             >
                               <div slot="poster" className="absolute inset-0 flex items-center justify-center">
@@ -1931,6 +2010,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                                 <span className="relative z-10 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-bold text-white">Tap to view in 3D</span>
                               </div>
                             </model-viewer>
+                            {detailSizing?.size && (
+                              <RealSizeBadge size={detailSizing.size} className="absolute top-4 left-4 z-20" />
+                            )}
                             {detailArNote && (
                               <div className="absolute bottom-12 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-semibold text-white">
                                 {detailArNote}
@@ -2028,6 +2110,11 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                                 }`}
                               >
                                 {v.name} {v.priceDelta > 0 ? `(+₹${v.priceDelta})` : ""}
+                                {detailItem.arModelGlb && getTargetCm(detailItem, String(v.id)) ? (
+                                  <span className="ml-1 font-semibold opacity-60">
+                                    · {formatCm(Math.round(getTargetCm(detailItem, String(v.id))!))}
+                                  </span>
+                                ) : null}
                               </button>
                             ))}
                           </div>

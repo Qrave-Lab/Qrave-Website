@@ -132,7 +132,7 @@ const Navbar = () => {
         }`}
       >
         <div className="flex items-center justify-between">
-          
+
           {/* Brand Logo */}
           <div className="flex items-center">
             <Link
@@ -188,6 +188,7 @@ const Navbar = () => {
               Sign In
             </Link>
 
+            {/* Signup disabled for now
             <Link
               href="/onboarding"
               className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#fe5c13] via-[#ff6a26] to-[#fe5c13] px-5 py-2 text-xs font-bold text-white shadow-md shadow-[#fe5c13]/25 transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:shadow-[#fe5c13]/35 active:scale-[0.98]"
@@ -196,6 +197,7 @@ const Navbar = () => {
               <ArrowRight className="relative z-10 w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-1000 group-hover:translate-x-full pointer-events-none" />
             </Link>
+            */}
           </div>
 
           {/* Mobile Menu Toggle Button */}
@@ -247,6 +249,7 @@ const Navbar = () => {
                   >
                     Sign In
                   </Link>
+                  {/* Signup disabled for now
                   <Link
                     href="/onboarding"
                     onClick={() => setMobileMenuOpen(false)}
@@ -255,6 +258,7 @@ const Navbar = () => {
                     Get Started
                     <ArrowRight className="w-4 h-4" />
                   </Link>
+                  */}
                 </div>
               </motion.div>
             </>

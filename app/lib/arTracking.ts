@@ -4,12 +4,27 @@ export type AREvent = "view_3d" | "ar_open" | "ar_unsupported";
 
 const sent = new Set<string>();
 
+type ARSink = (menuItemId: string, event: AREvent) => void;
+let sink: ARSink | null = null;
+
+/**
+ * Sends AR events somewhere other than the table-session endpoint, e.g. food
+ * court pages, which have no session. Pass null to restore the default.
+ */
+export function setARSink(next: ARSink | null): void {
+  sink = next;
+}
+
 /** Records 3D/AR usage for the owner's stats. Fire-and-forget, once per dish per page visit. */
 export function trackAR(menuItemId: string | undefined, event: AREvent): void {
   if (!menuItemId) return;
   const key = `${menuItemId}:${event}`;
   if (sent.has(key)) return;
   sent.add(key);
+  if (sink) {
+    sink(menuItemId, event);
+    return;
+  }
   void api("/api/customer/ar-events", {
     method: "POST",
     body: JSON.stringify({ menu_item_id: menuItemId, event }),

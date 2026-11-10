@@ -216,6 +216,65 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Mark Paid (without freeing the table): ask for the payment type first.
+  const [markPaidModal, setMarkPaidModal] = useState<{
+    tableId: string;
+    tableCode: string;
+    sessionId: string;
+    total: number;
+    selectedPayment: string;
+    isProcessing: boolean;
+    isTakeaway?: boolean;
+  } | null>(null);
+  // Sessions already settled; survives refreshes so Mark Paid stays disabled.
+  const [paidSessionIds, setPaidSessionIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("qrave_paid_sessions") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const isTablePaid = (t: StaffTable) =>
+    t.billStatus === "paid" || Boolean(t.activeSessionId && paidSessionIds.includes(t.activeSessionId));
+
+  const openMarkPaid = (tableId: string) => {
+    const t = tables.find((x) => x.id === tableId);
+    if (!t || !t.activeSessionId || isTablePaid(t)) return;
+    setOpenMenuId(null);
+    setMarkPaidModal({
+      tableId: t.id,
+      tableCode: t.tableCode,
+      sessionId: t.activeSessionId,
+      total: t.currentTotal || 0,
+      selectedPayment: "cash",
+      isProcessing: false,
+      isTakeaway: t.isTakeaway,
+    });
+  };
+
+  const confirmMarkPaid = async () => {
+    if (!markPaidModal || markPaidModal.isProcessing) return;
+    const m = markPaidModal;
+    setMarkPaidModal({ ...m, isProcessing: true });
+    try {
+      const payload: any = { status: "paid", payment_mode: m.selectedPayment, reason: "staff_mark_paid" };
+      if (m.isTakeaway) payload.takeaway_order_id = m.sessionId;
+      else payload.session_id = m.sessionId;
+      await api(`/api/admin/payments/status`, { method: "POST", body: JSON.stringify(payload) });
+      setPaidSessionIds((prev) => {
+        const next = Array.from(new Set([...prev, m.sessionId])).slice(-200);
+        try { localStorage.setItem("qrave_paid_sessions", JSON.stringify(next)); } catch {}
+        return next;
+      });
+      setTables((prev) => prev.map((t) => (t.id === m.tableId ? { ...t, billStatus: "paid" } : t)));
+      setMarkPaidModal(null);
+      toast.success(`${m.tableCode} marked paid (${m.selectedPayment.toUpperCase()})`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to mark as paid");
+      setMarkPaidModal({ ...m, isProcessing: false });
+    }
+  };
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
@@ -251,6 +310,25 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
   const refreshLockRef = useRef(false);
   const socketRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingRef = useRef(false);
+  // Optimistic status changes (accept / serve) that must survive stale refreshes
+  // and socket events still carrying the old status, so cards don't flicker back.
+  const statusOverridesRef = useRef<Map<string, { status: string; at: number }>>(new Map());
+  const applyStatusOverride = <T extends { id?: string; order_id?: string; status: string }>(o: T): T => {
+    const id = o.id || o.order_id;
+    const ov = id ? statusOverridesRef.current.get(id) : undefined;
+    if (!id || !ov) return o;
+    if (Date.now() - ov.at > 30000) {
+      statusOverridesRef.current.delete(id);
+      return o;
+    }
+    const terminal = o.status === "served" || o.status === "completed" || o.status === "cancelled";
+    const caughtUp = ov.status === "served" ? terminal || o.status === "ready" : o.status !== "pending";
+    if (caughtUp) {
+      statusOverridesRef.current.delete(id);
+      return o;
+    }
+    return { ...o, status: ov.status };
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -426,7 +504,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
   const refreshLiveData = async () => {
     const [tablesRes, ordersRes, sessionsRes, takeawayRes] = await Promise.all([
-      api<TableAPI[]>("/api/admin/tables"),
+      api<TableAPI[]>("/api/admin/tables", { noCache: true }),
       api<ActiveOrdersResponse>("/api/admin/orders/active"),
       api<ActiveSessionsResponse>("/api/admin/sessions/active"),
       api<{ orders: any[] }>("/api/admin/takeaway/orders?status=active").catch(() => ({ orders: [] })),
@@ -486,9 +564,10 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       }
     }
 
-    setActiveOrders(ordersList);
-    setOrders(buildPendingOrders(ordersList));
-    setTables(buildTables(tablesApi, ordersList, sessionsList, takeawayOrdersList, taxPercent, servicePercent));
+    const reconciled = ordersList.map(applyStatusOverride);
+    setActiveOrders(reconciled);
+    setOrders(buildPendingOrders(reconciled));
+    setTables(buildTables(tablesApi, reconciled, sessionsList, takeawayOrdersList, taxPercent, servicePercent));
   };
 
   const refreshDashboard = async () => {
@@ -674,9 +753,10 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       getToken: getRealtimeToken,
       onMessage: (msg: EventSocketMessage) => {
         if (msg?.type === "order.created" || msg?.type === "order.updated") {
-          const data = msg?.data as ActiveOrder;
-          const orderId = data?.id || data?.order_id;
-          if (!data || !orderId) return;
+          const rawData = msg?.data as ActiveOrder;
+          const orderId = rawData?.id || rawData?.order_id;
+          if (!rawData || !orderId) return;
+          const data = applyStatusOverride(rawData);
           // If the incoming status is a terminal/done status and it's not already
           // in our list, there's nothing to add. Just trigger a background refresh.
           const terminalStatus = data.status === "served" || data.status === "completed" || data.status === "cancelled";
@@ -796,7 +876,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     const hasServed =
       tableOrders.some((o) => o.status === "served") ||
       (tw === "ready" || tw === "completed");
-    const hasPaid = table.billStatus === "paid";
+    const hasPaid = isTablePaid(table);
     return [
       { key: "seated", label: "Seated", done: hasSeated },
       { key: "accepted", label: "Accepted", done: hasAccepted },
@@ -809,6 +889,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
   const handleAccept = async (orderId: string) => {
     if (orderActionPending[orderId]) return;
     const previous = activeOrders;
+    statusOverridesRef.current.set(orderId, { status: "accepted", at: Date.now() });
     const next = activeOrders.map((o) =>
       (o.id || o.order_id) === orderId ? { ...o, status: "accepted" } : o
     );
@@ -834,6 +915,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     } catch {
       setActiveOrders(previous);
       setOrders(buildPendingOrders(previous));
+      statusOverridesRef.current.delete(orderId);
       toast.error("Unable to accept order");
     } finally {
       setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
@@ -843,6 +925,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
   const handleServe = async (orderId: string) => {
     if (orderActionPending[orderId]) return;
     const previous = activeOrders;
+    statusOverridesRef.current.set(orderId, { status: "served", at: Date.now() });
     const next = activeOrders.map((o) =>
       (o.id || o.order_id) === orderId ? { ...o, status: "served" } : o
     );
@@ -868,6 +951,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
     } catch {
       setActiveOrders(previous);
       setOrders(buildPendingOrders(previous));
+      statusOverridesRef.current.delete(orderId);
       toast.error("Unable to mark order served");
     } finally {
       setOrderActionPending((prev) => ({ ...prev, [orderId]: false }));
@@ -969,7 +1053,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
     // Check if there is an unpaid balance for this table
     const total = tableToFree.currentTotal || 0;
-    const hasUnpaidBalance = total > 0 && tableToFree.billStatus !== "paid";
+    const hasUnpaidBalance = total > 0 && !isTablePaid(tableToFree);
 
     if (hasUnpaidBalance && tableToFree.activeSessionId) {
       // Show inline modal: let staff choose payment + free the table in one tap
@@ -1545,7 +1629,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                 const isDisabled = table.isEnabled === false;
                 const seatedMinutes = getMinutesDiff(table.seatedAt);
                 const isBillRequested = serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
-                const isPaid = table.billStatus === "paid";
+                const isPaid = isTablePaid(table);
 
                 const activeOrdersForTable = orders.filter((o) => o.tableCode === table.tableCode && (o.status === "pending" || o.status === "cooking")).length;
 
@@ -1593,13 +1677,10 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setTables((prev) =>
-                              prev.map((t) =>
-                                t.id === table.id ? { ...t, billStatus: "paid" } : t
-                              )
-                            );
+                            openMarkPaid(table.id);
                           }}
-                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans"
+                          disabled={isPaid}
+                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:active:scale-100"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           <span className="text-[9px] font-extrabold uppercase tracking-wider">Paid</span>
@@ -1628,7 +1709,12 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                           return;
                         }
                         if (table.isOccupied && table.activeSessionId) {
-                          router.push(`/staff/table/${table.activeSessionId}`);
+                          // Unpaid balance: settle in the pay modal right here.
+                          if ((table.currentTotal || 0) > 0 && !isTablePaid(table)) {
+                            requestFreeTable(table.id);
+                          } else {
+                            router.push(`/staff/table/${table.activeSessionId}`);
+                          }
                         }
                       }}
                       className={`relative flex flex-col w-full h-full rounded-2xl bg-white border border-gray-100/80 shadow-xs ${openMenuId === table.id ? "overflow-visible z-40" : "overflow-hidden"} transition-colors cursor-pointer ${cardStyle}`}
@@ -1696,8 +1782,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                                         }); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                                           <Receipt className="w-3.5 h-3.5" /> Print Bill
                                         </button>
-                                        <button onClick={() => { setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, billStatus: "paid" } : t)); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
-                                          <CheckCircle2 className="w-3.5 h-3.5" /> Mark Paid
+                                        <button disabled={isPaid} onClick={() => openMarkPaid(table.id)} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                                          <CheckCircle2 className="w-3.5 h-3.5" /> {isPaid ? "Paid" : "Mark Paid"}
                                         </button>
                                         <button onClick={() => { requestFreeTable(table.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">
                                           <LogOut className="w-3.5 h-3.5" /> Free Table
@@ -2212,6 +2298,49 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                       Mark Paid & Free Table
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Paid — payment type prompt */}
+      {markPaidModal && (
+        <div className="absolute inset-0 z-[90] bg-gray-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Mark {markPaidModal.tableCode} as paid</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Choose how the guest paid</p>
+              </div>
+              <button onClick={() => setMarkPaidModal(null)} disabled={markPaidModal.isProcessing} className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-40">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                {(["cash", "card", "upi"] as const).map((method) => (
+                  <button
+                    key={method}
+                    onClick={() => setMarkPaidModal((prev) => (prev ? { ...prev, selectedPayment: method } : null))}
+                    disabled={markPaidModal.isProcessing}
+                    className={`py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${
+                      markPaidModal.selectedPayment === method
+                        ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
+                    {method === "cash" ? "💵 Cash" : method === "card" ? "💳 Card" : "📱 UPI"}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setMarkPaidModal(null)} disabled={markPaidModal.isProcessing} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+                  Cancel
+                </button>
+                <button onClick={confirmMarkPaid} disabled={markPaidModal.isProcessing} className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm disabled:opacity-60 flex items-center justify-center gap-1.5">
+                  {markPaidModal.isProcessing ? "Processing..." : (<><CheckCircle2 className="w-4 h-4" /> Confirm Paid</>)}
                 </button>
               </div>
             </div>

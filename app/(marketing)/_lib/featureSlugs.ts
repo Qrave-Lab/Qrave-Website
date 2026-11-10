@@ -7,6 +7,7 @@ export const FEATURE_SLUGS = [
   "virtual-studio",
   "kds-integration",
   "advanced-inventory",
+  "accounting",
   "chefs-insights",
   "multi-location-management",
 ] as const;

@@ -39,6 +39,7 @@ export const PLAN_OPTIONS = [
 
 export const normalizePlanCode = (plan?: string | null): PlanCode => {
   const value = String(plan || "").trim().toLowerCase();
+  if (value === "monthly_799") return "monthly_799";
   if (value === "yearly_8999") return "yearly_8999";
   if (value === "monthly_1299") return "monthly_1299";
   if (value === "yearly_15199") return "yearly_15199";
@@ -60,3 +61,29 @@ export const planLabel = (plan?: string | null): string => {
   if (code === "monthly_499") return "Legacy Monthly ₹499";
   return "Full Access Monthly ₹1,299";
 };
+
+/** Food court stalls are menu-only: their court pays and diners order at the counter. */
+export const FOOD_COURT_STALL_PLAN = "food_court_stall";
+
+export const isFoodCourtStallPlan = (plan?: string | null): boolean =>
+  String(plan || "").trim().toLowerCase() === FOOD_COURT_STALL_PLAN;
+
+/** Staff pages a food court stall can open. */
+const FOOD_COURT_STALL_PATHS = [
+  "/staff/menu",
+  "/staff/settings/subscription",
+  "/staff/settings/profile",
+  "/staff/settings/theme",
+  "/staff/settings/security",
+  "/staff/settings/feedback",
+  "/staff/settings/delete-account",
+];
+
+export const isFoodCourtStallPath = (pathname: string): boolean =>
+  pathname === "/staff/settings" || FOOD_COURT_STALL_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+/** Staff pages an AR Menu restaurant can open: a stall's pages plus table QR codes. */
+export const isArMenuPath = (pathname: string): boolean =>
+  isFoodCourtStallPath(pathname) ||
+  pathname === "/staff/settings/qr-codes" ||
+  pathname.startsWith("/staff/settings/qr-codes/");

@@ -66,6 +66,9 @@ type BillingStatus = {
   days_left?: number;
   pending_plan?: string;
   pending_plan_starts_at?: string | null;
+  /** Set when this restaurant is a food court stall; the court pays. */
+  food_court_id?: string;
+  food_court_name?: string;
 };
 
 type PlanChangeResponse = {
@@ -678,6 +681,35 @@ export default function SubscriptionSettingsPage() {
     if (raw === "past_due") return "bg-amber-50 text-amber-700 border-amber-200";
     return "bg-slate-100 text-slate-600 border-slate-200";
   }, [billing]);
+
+  // Food court stalls don't pay Qrave themselves: their court does.
+  if (!loading && billing?.food_court_name) {
+    const courtLive = billing.is_access_allowed !== false;
+    return (
+      <SettingsPageLayout title="Subscription" description="Your Qrave plan is covered by your food court." fullBleed>
+        <div className="flex flex-1 items-start justify-center bg-[#f8fafc] px-6 py-12">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Plan &amp; Billing</p>
+            <h2 className="mt-1 text-lg font-black text-slate-900">Covered by {billing.food_court_name}</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              This restaurant is a stall in {billing.food_court_name}. The food court pays for Qrave, so there&apos;s nothing for you to buy or renew.
+              Your menu, photos and 3D dishes show on the food court&apos;s QR menu.
+            </p>
+            <div
+              className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
+                courtLive ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"
+              }`}
+            >
+              {courtLive
+                ? "Active. Diners can see your menu."
+                : "The food court's Qrave plan has lapsed, so menus are offline. Please contact the food court management."}
+            </div>
+            <p className="mt-4 text-xs text-slate-500">QR ordering is off for food court stalls; diners order at your counter.</p>
+          </div>
+        </div>
+      </SettingsPageLayout>
+    );
+  }
 
   return (
     <SettingsPageLayout

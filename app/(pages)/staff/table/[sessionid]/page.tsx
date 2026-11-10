@@ -1,7 +1,7 @@
 "use client";
 import { toast } from "react-hot-toast";
 
-import { useEffect, useMemo, useState, use } from "react";
+import { useEffect, useMemo, useRef, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import LoyaltyPanel from "@/app/components/billing/LoyaltyPanel";
 import { motion, AnimatePresence } from "framer-motion";
@@ -105,6 +105,8 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const { sessionid } = use(params);
   const [bill, setBill] = useState<BillData | null>(null);
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
+  // Optimistic status changes that must survive the 4s poll returning stale data.
+  const statusOverridesRef = useRef<Map<string, { status: string; at: number }>>(new Map());
   const [showVoid, setShowVoid] = useState(false);
   const [items, setItems] = useState<BillItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -356,7 +358,16 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       setBillBreakdown(null);
     }
 
-    const nextOrders = (billRes?.orders || []) as ActiveOrder[];
+    const statusRank: Record<string, number> = { pending: 0, accepted: 1, preparing: 2, ready: 3, served: 4, completed: 5, cancelled: 5 };
+    const nextOrders = ((billRes?.orders || []) as ActiveOrder[]).map((o) => {
+      const ov = statusOverridesRef.current.get(o.id);
+      if (!ov) return o;
+      if (Date.now() - ov.at > 30000 || (statusRank[o.status as string] ?? 0) >= (statusRank[ov.status] ?? 0)) {
+        statusOverridesRef.current.delete(o.id);
+        return o;
+      }
+      return { ...o, status: ov.status as OrderStatus };
+    });
     setOrders(nextOrders);
     const tableNumber = nextOrders[0]?.table_number;
     const createdAt = nextOrders[0]?.created_at ? new Date(nextOrders[0].created_at) : new Date();
@@ -441,6 +452,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
     const prevOrders = orders;
     const prevItems = items;
+    statusOverridesRef.current.set(orderId, { status, at: Date.now() });
     setOrders((curr) => curr.map((o) => (o.id === orderId ? { ...o, status } : o)));
     setItems((curr) => curr.map((it) => (it.orderId === orderId ? { ...it, status } : it)));
     try {
@@ -452,6 +464,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       });
       await refreshOrders();
     } catch {
+      statusOverridesRef.current.delete(orderId);
       setOrders(prevOrders);
       setItems(prevItems);
     }

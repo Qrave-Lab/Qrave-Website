@@ -4,9 +4,8 @@ import Navbar from './_sections/Navbar';
 import Hero from './_sections/Hero';
 import TrustedBy from './_sections/TrustedBy';
 import SmartFeatures from './_sections/SmartFeatures';
-import AppMarketplace from './_sections/AppMarketplace';
-import OutletTypes from './_sections/OutletTypes';
-import CtaBanner from './_sections/CtaBanner';
+// import AppMarketplace from './_sections/AppMarketplace';
+// import OutletTypes from './_sections/OutletTypes';
 import DemoForm from './_sections/DemoForm';
 import Footer from './_sections/Footer';
 import GsapReveal from './_components/GsapReveal';
@@ -34,7 +33,7 @@ const jsonLd = {
 
 export default function Home() {
     return (
-        <div className="min-h-screen bg-white overflow-x-hidden">
+        <div className="min-h-screen bg-white overflow-x-clip">
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
@@ -48,15 +47,16 @@ export default function Home() {
                 <GsapReveal delay={0.1} direction="up">
                     <SmartFeatures />
                 </GsapReveal>
+                {/* Ecosystem add-ons section hidden for now
                 <GsapReveal delay={0.1} direction="up">
                     <AppMarketplace />
                 </GsapReveal>
+                */}
+                {/* Outlet types section hidden for now
                 <GsapReveal delay={0.1} direction="up">
                     <OutletTypes />
                 </GsapReveal>
-                <GsapReveal delay={0.1} direction="up">
-                    <CtaBanner />
-                </GsapReveal>
+                */}
                 <GsapReveal delay={0.1} direction="up">
                     <DemoForm />
                 </GsapReveal>

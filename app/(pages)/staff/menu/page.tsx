@@ -35,6 +35,8 @@ import StaffSidebar from "@/app/components/StaffSidebar";
 import { api, getBackendBase } from "@/app/lib/api";
 import { toast } from "react-hot-toast";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
+import ArSizeStudio, { type ArSizePatch } from "@/app/components/menu/ArSizeStudio";
+import { useModelViewerEvents } from "@/app/lib/useModelViewerEvents";
 import { CustomDateTimePicker } from "@/app/components/ui/CustomDateTimePicker";
 
 const generateUUID = (): string => {
@@ -330,7 +332,6 @@ export default function MenuPage() {
   const [bulkPriceValue, setBulkPriceValue] = useState("");
   const [modalMode, setModalMode] = useState<"add" | "edit" | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [activeVariantForScale, setActiveVariantForScale] = useState<string | null>(null);
   const [editingParentId, setEditingParentId] = useState<string>("");
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
@@ -364,7 +365,29 @@ export default function MenuPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
   const staffModelViewerRef = useRef<any>(null);
-  const naturalDimsRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const attachStaffViewer = useModelViewerEvents(
+    {
+      load: () => setModelPreviewError(""),
+      error: () => setModelPreviewError("Unable to load model preview. File URL may be inaccessible."),
+    },
+    staffModelViewerRef,
+  );
+  const applyArSizePatch = React.useCallback((patch: ArSizePatch) => {
+    setEditingItem((prev) =>
+      prev
+        ? {
+            ...prev,
+            ...patch,
+            variants: patch.variants
+              ? prev.variants.map((v) => {
+                  const next = patch.variants!.find((p) => p.id === v.id);
+                  return next ? { ...v, width_cm: next.width_cm } : v;
+                })
+              : prev.variants,
+          }
+        : prev,
+    );
+  }, []);
 
   useEffect(() => {
     refreshMenu();
@@ -1215,6 +1238,29 @@ export default function MenuPage() {
             }),
           });
         }
+      }
+
+      // Existing size options that changed (label, price, stock or AR size).
+      // Without this, a new AR size for e.g. "Large" was silently dropped.
+      for (const v of editingItem.variants) {
+        const before = existing.find((e) => e.id === v.id);
+        if (!before) continue;
+        const sameWidth = (Number(before.width_cm) || null) === (Number(v.width_cm) || null);
+        if (
+          before.label === v.label &&
+          Number(before.price) === Number(v.price) &&
+          (before.stockCount ?? null) === (v.stockCount ?? null) &&
+          sameWidth
+        ) continue;
+        await authFetch(`/api/admin/menu/item/variant?variant_id=${v.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            label: v.label,
+            price: Math.round(Number(v.price)),
+            width_cm: v.width_cm ?? null,
+            ...(v.stockCount != null ? { stock: v.stockCount } : {}),
+          }),
+        });
       }
 
       for (const v of existing) {
@@ -2900,7 +2946,7 @@ export default function MenuPage() {
                                 </div>
                               ) : (
                                 <model-viewer
-                                  ref={staffModelViewerRef}
+                                  ref={attachStaffViewer}
                                   key={editingItem.modelGlb || editingItem.modelUsdz}
                                   src={normalizeAssetUrl(editingItem.modelGlb)}
                                   ios-src={normalizeAssetUrl(editingItem.modelUsdz) || undefined}
@@ -2914,37 +2960,6 @@ export default function MenuPage() {
                                   camera-orbit="0deg 75deg 1.8m"
                                   shadow-intensity="1"
                                   tone-mapping="commerce"
-                                  onLoad={() => {
-                                    setModelPreviewError("");
-                                    const viewer = staffModelViewerRef.current;
-                                    if (viewer) {
-                                      try {
-                                        const dim = viewer.getDimensions();
-                                        if (dim && dim.x > 0 && dim.y > 0 && dim.z > 0) {
-                                          naturalDimsRef.current = { x: dim.x, y: dim.y, z: dim.z };
-                                          
-                                          let currentW = editingItem.width_cm || 20;
-                                          if (activeVariantForScale) {
-                                             const v = editingItem.variants?.find(v => v.id === activeVariantForScale);
-                                             if (v && v.width_cm) {
-                                                currentW = v.width_cm;
-                                             }
-                                          }
-                                          
-                                          const scaleMultiplier = editingItem.modelScale || 1.00;
-                                          const ratio = (currentW / (dim.x * 100)) * scaleMultiplier;
-                                          viewer.scale = `${ratio} ${ratio} ${ratio}`;
-                                        }
-                                      } catch (err) {
-                                        console.warn("Failed to read dimensions:", err);
-                                      }
-                                    }
-                                  }}
-                                  onError={() =>
-                                    setModelPreviewError(
-                                      "Unable to load model preview. File URL may be inaccessible."
-                                    )
-                                  }
                                   style={{ width: "100%", height: "100%", background: "#eef2ff" }}
                                 />
                               )}
@@ -3040,138 +3055,22 @@ export default function MenuPage() {
                           </div>
 
                           */}
-                          {/* Right Configs: Sizes Control */}
-                          <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
-                            <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-800 mb-4">
-                              Physical Scale
-                            </h4>
-                            
-                            <div className="space-y-4">
-                              {/* Default / Base Size */}
-                              <div 
-                                className={`p-4 rounded-2xl border transition-colors shadow-sm cursor-pointer ${(!activeVariantForScale) ? "border-indigo-500 bg-white" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-                                onClick={() => {
-                                  setActiveVariantForScale(null);
-                                  const dims = naturalDimsRef.current;
-                                  if (dims && staffModelViewerRef.current) {
-                                    const val = editingItem.width_cm || 20;
-                                    const scaleMultiplier = editingItem.modelScale || 1.00;
-                                    const ratio = (val / (dims.x * 100)) * scaleMultiplier;
-                                    staffModelViewerRef.current.scale = `${ratio} ${ratio} ${ratio}`;
-                                  }
-                                }}
-                              >
-                                <div className="flex justify-between items-center mb-3">
-                                  <span className="text-xs font-bold text-slate-700">Base Item Size</span>
-                                  <span className="text-xs font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">{editingItem.width_cm || 20} cm</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min="5" max="80" step="1"
-                                  value={editingItem.width_cm || 20}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    setActiveVariantForScale(null);
-                                    const dims = naturalDimsRef.current;
-                                    const scaleMultiplier = editingItem.modelScale || 1.00;
-                                    if (dims) {
-                                      const ratio = val / (dims.x * 100);
-                                      setEditingItem({
-                                        ...editingItem,
-                                        width_cm: val,
-                                        height_cm: Math.round(dims.y * 100 * ratio * 10) / 10,
-                                        depth_cm: Math.round(dims.z * 100 * ratio * 10) / 10,
-                                      });
-                                      if (staffModelViewerRef.current) {
-                                        const totalRatio = ratio * scaleMultiplier;
-                                        staffModelViewerRef.current.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
-                                      }
-                                    } else {
-                                      setEditingItem({ ...editingItem, width_cm: val });
-                                    }
-                                  }}
-                                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
-                                />
-                              </div>
-
-                              {/* Variants Sizes */}
-                              {editingItem.variants?.map((variant) => (
-                                <div 
-                                  key={variant.id}
-                                  className={`p-4 rounded-2xl border transition-colors shadow-sm cursor-pointer ${(activeVariantForScale === variant.id) ? "border-indigo-500 bg-white" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-                                  onClick={() => {
-                                    setActiveVariantForScale(variant.id);
-                                    const dims = naturalDimsRef.current;
-                                    if (dims && staffModelViewerRef.current) {
-                                      const val = variant.width_cm || editingItem.width_cm || 20;
-                                      const scaleMultiplier = editingItem.modelScale || 1.00;
-                                      const ratio = (val / (dims.x * 100)) * scaleMultiplier;
-                                      staffModelViewerRef.current.scale = `${ratio} ${ratio} ${ratio}`;
-                                    }
-                                  }}
-                                >
-                                  <div className="flex justify-between items-center mb-3">
-                                    <span className="text-xs font-bold text-slate-700">{variant.label}</span>
-                                    <span className="text-xs font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">{variant.width_cm || editingItem.width_cm || 20} cm</span>
-                                  </div>
-                                  <input
-                                    type="range"
-                                    min="5" max="80" step="1"
-                                    value={variant.width_cm || editingItem.width_cm || 20}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value);
-                                      setActiveVariantForScale(variant.id);
-                                      
-                                      const newVariants = editingItem.variants!.map(v => 
-                                        v.id === variant.id ? { ...v, width_cm: val } : v
-                                      );
-                                      setEditingItem({ ...editingItem, variants: newVariants });
-                                      
-                                      const dims = naturalDimsRef.current;
-                                      const scaleMultiplier = editingItem.modelScale || 1.00;
-                                      if (dims && staffModelViewerRef.current) {
-                                        const ratio = val / (dims.x * 100);
-                                        const totalRatio = ratio * scaleMultiplier;
-                                        staffModelViewerRef.current.scale = `${totalRatio} ${totalRatio} ${totalRatio}`;
-                                      }
-                                    }}
-                                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
-                                  />
-                                </div>
-                              ))}
-
-                              {/* Scale Offset */}
-                              <div className="pt-4 border-t border-slate-200">
-                                <div className="flex justify-between items-center mb-2">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                    Global Size Offset (Scale)
-                                  </label>
-                                  <span className="text-xs font-black text-slate-600 bg-slate-100 px-2 rounded">
-                                    {Math.round((editingItem.modelScale || 1.00) * 100)}%
-                                  </span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min="0.5" max="2.0" step="0.05"
-                                  value={editingItem.modelScale || 1.00}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    setEditingItem({ ...editingItem, modelScale: val });
-                                    const dims = naturalDimsRef.current;
-                                    if (dims && staffModelViewerRef.current) {
-                                      let currentW = editingItem.width_cm || 20;
-                                      if (activeVariantForScale) {
-                                         const v = editingItem.variants?.find(v => v.id === activeVariantForScale);
-                                         if (v && v.width_cm) currentW = v.width_cm;
-                                      }
-                                      const ratio = (currentW / (dims.x * 100)) * val;
-                                      staffModelViewerRef.current.scale = `${ratio} ${ratio} ${ratio}`;
-                                    }
-                                  }}
-                                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
+                          {/* Real-world AR size */}
+                          <div className="md:col-span-2">
+                            {editingItem.modelGlb ? (
+                              <ArSizeStudio
+                                glbUrl={normalizeAssetUrl(editingItem.modelGlb)}
+                                ready={modelViewerReady}
+                                widthCm={editingItem.width_cm}
+                                legacyScale={editingItem.modelScale}
+                                variants={editingItem.variants}
+                                onChange={applyArSizePatch}
+                              />
+                            ) : (
+                              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                                Upload a GLB file to set the real-world size. Customers on iPhone and Android both use it.
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
