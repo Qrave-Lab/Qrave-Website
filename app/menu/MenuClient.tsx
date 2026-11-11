@@ -31,6 +31,21 @@ type ThemeConfig = {
   };
 };
 
+// Tab-scoped marker: once a table session has ended or expired, a refresh must
+// not silently start a new one from the stale ?table= URL or cached table.
+// Only a fresh QR scan (see MenuByToken / menu/t/[table]) clears it.
+export const SESSION_ENDED_KEY = "session_ended";
+type SessionEndKind = "ended" | "expired";
+
+function readSessionEndMarker(): SessionEndKind | null {
+  try {
+    const v = sessionStorage.getItem(SESSION_ENDED_KEY);
+    return v === "ended" || v === "expired" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function MenuClient({ table }: { table: string | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,11 +96,38 @@ export default function MenuClient({ table }: { table: string | null }) {
     );
   }, [restaurantFromUrl]);
 
+  const endSessionLocally = async (kind: SessionEndKind) => {
+    try {
+      sessionStorage.setItem(SESSION_ENDED_KEY, kind);
+    } catch { }
+    await removeTokenCookie("session_id");
+    for (const key of [
+      "table_number",
+      "table",
+      "session_context_key",
+      "table_occupied",
+      "order_id",
+      "cart-storage",
+      "separate_bill",
+      "my_order_ids",
+    ]) {
+      localStorage.removeItem(key);
+    }
+    clearCart();
+    // Drop ?table= / ?restaurant= so a refresh can't re-seat the guest.
+    try {
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+    } catch { }
+    if (kind === "expired") setSessionExpiredRescan(true);
+    else setSessionEnded(true);
+  };
+
 
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     (async () => {
+      if (readSessionEndMarker()) return;
       const sessionId = await getTokenCookie("session_id");
     const previousTable = localStorage.getItem("table_number");
     const previousRestaurant = localStorage.getItem("restaurant_id");
@@ -127,7 +169,14 @@ export default function MenuClient({ table }: { table: string | null }) {
   }, [resolvedTable, resolvedRestaurant, clearCart]);
 
   useEffect(() => {
-    const handleGlobalExpiry = () => setSessionEnded(true);
+    const marker = readSessionEndMarker();
+    if (marker) {
+      if (marker === "expired") setSessionExpiredRescan(true);
+      else setSessionEnded(true);
+      return;
+    }
+
+    const handleGlobalExpiry = () => { void endSessionLocally("ended"); };
     window.addEventListener("customer_session_expired", handleGlobalExpiry);
 
     setSessionError(null);
@@ -162,7 +211,7 @@ export default function MenuClient({ table }: { table: string | null }) {
         }
       } catch (err: any) {
         if (err?.status === 401 || String(err?.message || "").includes("session expired")) {
-          setSessionEnded(true);
+          void endSessionLocally("ended");
         }
       }
     };
@@ -303,9 +352,8 @@ export default function MenuClient({ table }: { table: string | null }) {
         await syncSessionDetails();
       } catch (err: any) {
         if (err?.status === 401 || String(err?.message || "").includes("session expired")) {
-          await removeTokenCookie("session_id");
           session = null;
-          setSessionExpiredRescan(true);
+          await endSessionLocally("expired");
         } else {
           console.error("Menu fetch failed", err);
         }
@@ -344,8 +392,7 @@ export default function MenuClient({ table }: { table: string | null }) {
           <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
         </div>
         <h1 className="text-3xl font-black text-slate-900 tracking-tight">Thank you for dining with us!</h1>
-        <p className="text-lg text-slate-600 max-w-md mx-auto">Your bill has been settled and the table is now closed. We hope to see you again soon.</p>
-        <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-md hover:bg-slate-800 transition-colors">Start New Order</button>
+        <p className="text-lg text-slate-600 max-w-md mx-auto">Your session has ended and the table is now closed. To order again, please scan the QR code on your table.</p>
       </div>
     );
   }

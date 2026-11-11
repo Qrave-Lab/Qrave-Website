@@ -45,6 +45,7 @@ export default function MenuByToken({ token }: Props) {
       })
         .then(async (res) => {
           await setTokenCookie("session_id", res.session_id);
+          try { sessionStorage.removeItem("session_ended"); } catch { }
           localStorage.setItem("restaurant_id", res.restaurant_id);
           localStorage.setItem("table_number", String(res.table_number));
           localStorage.setItem("qr_token", token);

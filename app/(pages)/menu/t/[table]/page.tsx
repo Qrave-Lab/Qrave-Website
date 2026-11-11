@@ -96,6 +96,7 @@ export default function TablePage({ params }: { params: Promise<{ table: string 
         }
 
         await setTokenCookie("session_id", res.session_id);
+        try { sessionStorage.removeItem("session_ended"); } catch { }
         if (res.table_number) {
           localStorage.setItem("table_number", String(res.table_number));
           redirectTable = String(res.table_number);
