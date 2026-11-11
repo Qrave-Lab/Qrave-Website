@@ -549,8 +549,8 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
             });
             toast.success(`Order marked ${newStatus}`);
             await loadOrders();
-        } catch {
-            toast.error("Failed to update order");
+        } catch (e: any) {
+            toast.error(e?.message || "Failed to update order");
         } finally {
             setUpdatingOrderId(null);
         }
@@ -756,6 +756,17 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                                                     )}
                                                     Mark {STATUS_META[nextSt]?.label}
+                                                </button>
+                                            )}
+                                            {order.status === "pending" && (
+                                                <button
+                                                    onClick={() => updateStatus(order.id, "ready")}
+                                                    disabled={updatingOrderId === order.id}
+                                                    title="Skip preparing and mark this order ready"
+                                                    className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold hover:bg-emerald-100 transition-colors shadow-sm disabled:opacity-50 whitespace-nowrap"
+                                                >
+                                                    <CheckCircle2 className="w-4 h-4" />
+                                                    Mark Ready
                                                 </button>
                                             )}
                                             {order.status !== "cancelled" && order.status !== "completed" && (

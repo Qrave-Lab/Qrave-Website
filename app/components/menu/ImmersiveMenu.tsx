@@ -393,7 +393,7 @@ export default function ImmersiveMenu({
                                             src={resolvedModelUrl}
                                             alt={currentItem.name}
                                             poster={resolvedImageUrl || undefined}
-                                            reveal="interaction"
+                                            reveal="manual"
                                             exposure="1.1"
                                             auto-rotate
                                             rotation-per-second="30deg"
@@ -407,7 +407,15 @@ export default function ImmersiveMenu({
                                             style={{ width: "100%", height: "100%", background: "transparent" }}
                                         >
                                             {/* Photo first; the 3D file downloads only when the guest taps. */}
-                                            <div slot="poster" className="absolute inset-0 flex items-center justify-center">
+                                            <div
+                                              slot="poster"
+                                              role="button"
+                                              aria-label="View in 3D"
+                                              // model-viewer 4 has no reveal="interaction"; the model loads only when
+                                              // dismissPoster() is called, so the tap has to call it.
+                                              onClick={(e) => (e.currentTarget.closest("model-viewer") as any)?.dismissPoster?.()}
+                                              className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                                            >
                                                 {resolvedImageUrl && (
                                                     <img src={resolvedImageUrl} alt={currentItem.name} className="absolute inset-0 h-full w-full object-contain" />
                                                 )}
@@ -666,7 +674,7 @@ export default function ImmersiveMenu({
                                                 type="button"
                                                 onClick={() => {
                                                     if (totalCartItems > 0) {
-                                                        void goToCheckout();
+                                                        void goToCheckout(router.push);
                                                     }
                                                 }}
                                                 className="flex-1 h-[52px] rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-xs transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"

@@ -654,6 +654,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const addItemStore = useCartStore((state) => state.addItem);
   const decrementItemStore = useCartStore((state) => state.decrementItem);
   const router = useRouter();
+  // Load the checkout page's code in the background so View Cart opens at once.
+  useEffect(() => {
+    if (!previewMode) router.prefetch("/checkout");
+  }, [router, previewMode]);
   const cartState = previewMode ? previewCart : cart;
 
   useEffect(() => {
@@ -695,6 +699,9 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     }));
     setMenuItems(enriched);
     setHasArItems(enriched.some((i: any) => Boolean(i.arModelGlb)));
+    // Checkout draws the cart from this straight away instead of refetching
+    // the menu before showing anything.
+    if (!previewMode) useCartStore.getState().setMenuCache(enriched);
   }, [initialMenu]);
 
   useEffect(() => {
@@ -1992,7 +1999,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               ar-usdz-max-texture-size="2048"
                               alt={detailItem.name}
                               poster={detailItem.image || undefined}
-                              reveal="interaction"
+                              reveal="manual"
                               ar
                               ar-modes="webxr scene-viewer quick-look"
                               ar-scale="fixed"
@@ -2005,7 +2012,15 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                               shadow-intensity="1"
                               style={{ width: "100%", height: "100%", background: "transparent" }}
                             >
-                              <div slot="poster" className="absolute inset-0 flex items-center justify-center">
+                              <div
+                                slot="poster"
+                                role="button"
+                                aria-label="View in 3D"
+                                // model-viewer 4 has no reveal="interaction"; the model loads only when
+                                // dismissPoster() is called, so the tap has to call it.
+                                onClick={(e) => (e.currentTarget.closest("model-viewer") as any)?.dismissPoster?.()}
+                                className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                              >
                                 {detailItem.image && (
                                   <img src={detailItem.image} alt={detailItem.name} className="absolute inset-0 h-full w-full object-cover" />
                                 )}
@@ -2243,7 +2258,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                             type="button"
                             onClick={() => {
                               setDetailItem(null);
-                              void goToCheckout();
+                              void goToCheckout(router.push);
                             }}
                             className="flex-1 h-[52px] rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white font-bold text-xs transition-all flex items-center justify-between px-4 shadow-sm cursor-pointer font-dm-sans"
                           >
@@ -2794,7 +2809,7 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             <button
               onClick={() => {
                 if (previewMode) return;
-                void goToCheckout();
+                void goToCheckout(router.push);
               }}
               className="mu-checkout-bar"
             >

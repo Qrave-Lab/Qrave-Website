@@ -2,6 +2,7 @@
 
 import { api } from "@/app/lib/api";
 import { goToCheckout } from "@/stores/cartStore";
+import { useRouter } from "next/navigation";
 import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
 import {
   BellRing,
@@ -102,6 +103,7 @@ interface OrdersViewProps {
 }
 
 export default function OrdersView({ previewMode = false }: OrdersViewProps) {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -403,7 +405,7 @@ export default function OrdersView({ previewMode = false }: OrdersViewProps) {
               <button
                 type="button"
                 onClick={() => {
-                  void goToCheckout();
+                  void goToCheckout(router.push);
                 }}
                 className="ov-btn-checkout"
               >

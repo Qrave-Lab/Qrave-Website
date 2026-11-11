@@ -193,8 +193,17 @@ export const useCartStore = create<CartState>()(
   )
 );
 
-/** Opens checkout once pending cart changes are saved. */
-export const goToCheckout = async () => {
+/**
+ * Opens checkout. With `navigate` (the Next router's push) it is an in-app
+ * move: instant, and cart requests still in flight keep running, so there is
+ * nothing to wait for. Without it, it falls back to a full page load, which
+ * would cancel those requests, so it waits for them first.
+ */
+export const goToCheckout = async (navigate?: (href: string) => void) => {
+  if (navigate) {
+    navigate("/checkout");
+    return;
+  }
   await waitForCartSync();
   window.location.href = "/checkout";
 };

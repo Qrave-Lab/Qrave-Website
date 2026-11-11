@@ -299,6 +299,18 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     setIsMounted(true);
+    // Coming from the menu, every cart item's details are already saved, so
+    // show the cart now and refresh from the server in the background.
+    // Otherwise (empty cart here, or an item we don't know) wait for the load.
+    {
+      const { cart: savedCart, menuCache: savedMenu } = useCartStore.getState();
+      const known = new Set((savedMenu || []).map((i: any) => String(i.id)));
+      const keys = Object.keys(savedCart);
+      if (keys.length > 0 && keys.every((k) => known.has(k.split("::")[0]))) {
+        setMenuItems(savedMenu as MenuItem[]);
+        setIsCartReady(true);
+      }
+    }
     setIsSeparateBill(localStorage.getItem("separate_bill") === "1");
     setIsTableOccupied(localStorage.getItem("table_occupied") === "1");
     getTokenCookie("session_id").then(sessionId => {
@@ -401,16 +413,36 @@ const CheckoutPage: React.FC = () => {
         }
       }
 
+      // Recommendations only fill "You might also like": load them on their
+      // own so a slow or failing call never holds up the cart.
+      api<{
+        popular_with_this?: RecommendationItem[];
+        margin_aware?: RecommendationItem[];
+      }>("/api/customer/recommendations", { method: "GET" })
+        .then((recoRes) => {
+          const recos = [
+            ...(recoRes?.popular_with_this || []),
+            ...(recoRes?.margin_aware || []),
+          ];
+          // Preserve full recommendation data (id + image_url + name + price) — don't strip to just {id}
+          const seen = new Set<string>();
+          const unique = recos
+            .filter((r) => {
+              if (seen.has(String(r.id))) return false;
+              seen.add(String(r.id));
+              return true;
+            })
+            .slice(0, 4);
+          setRecommendations(unique);
+        })
+        .catch(() => {});
+
       Promise.all([
         orderService.getMenu(),
         orderService.getCart(),
         orderService.getOrders(),
-        api<{
-          popular_with_this?: RecommendationItem[];
-          margin_aware?: RecommendationItem[];
-        }>("/api/customer/recommendations", { method: "GET" }),
       ])
-        .then(([menu, cartRes, ordersRes, recoRes]) => {
+        .then(([menu, cartRes, ordersRes]) => {
           const mapped =
             menu?.map((i: any) => {
               const basePrice = Number(
@@ -469,20 +501,9 @@ const CheckoutPage: React.FC = () => {
           if (ordersRes?.orders) {
             setOrders(ordersRes.orders);
           }
-          const recos = [
-            ...(recoRes?.popular_with_this || []),
-            ...(recoRes?.margin_aware || []),
-          ];
-          // Preserve full recommendation data (id + image_url + name + price) — don't strip to just {id}
-          const seen = new Set<string>();
-          const unique = recos
-            .filter((r) => {
-              if (seen.has(String(r.id))) return false;
-              seen.add(String(r.id));
-              return true;
-            })
-            .slice(0, 4);
-          setRecommendations(unique);
+        })
+        .catch(() => {
+          // Keep showing what we have; the cart still works from local state.
         })
         .finally(() => {
           setIsCartReady(true);

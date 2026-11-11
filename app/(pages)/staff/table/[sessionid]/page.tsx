@@ -4,6 +4,7 @@ import { toast } from "react-hot-toast";
 import { useEffect, useMemo, useRef, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import LoyaltyPanel from "@/app/components/billing/LoyaltyPanel";
+import CashCounter, { type CashCount } from "@/app/components/billing/CashCounter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -112,6 +113,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "split">(null);
   const [splitAmounts, setSplitAmounts] = useState({ cash: "", card: "", upi: "" });
+  const [cashCount, setCashCount] = useState<CashCount>({ received: 0, difference: 0, isShort: false });
   const [isProcessing, setIsProcessing] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [taxPercent, setTaxPercent] = useState<number>(5);
@@ -571,16 +573,26 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           body: JSON.stringify({ status: "completed" }),
         });
       } else {
-        const checkoutAmount = Number((billBreakdown?.total ?? total).toFixed(2));
+        const payload: any = {
+          session_id: sessionid,
+          status: "paid",
+          reason: "table_checkout",
+          amount: checkoutAmount,
+        };
+        if (isSplitPayment) {
+          // The backend needs each part of a split; "split" alone is rejected.
+          payload.payment_mode = "split";
+          payload.payments = [
+            { mode: "cash", amount: parseFloat(splitAmounts.cash) || 0 },
+            { mode: "card", amount: parseFloat(splitAmounts.card) || 0 },
+            { mode: "upi", amount: parseFloat(splitAmounts.upi) || 0 },
+          ].filter((p) => p.amount > 0);
+        } else {
+          payload.payment_mode = paymentMethod;
+        }
         await api("/api/admin/payments/status", {
           method: "POST",
-          body: JSON.stringify({
-            session_id: sessionid,
-            status: "paid",
-            payment_mode: paymentMethod,
-            reason: "table_checkout",
-            amount: checkoutAmount,
-          }),
+          body: JSON.stringify(payload),
         });
         await Promise.all(
           billSessionIds.map((id) => api(`/api/admin/sessions/${id}/end`, { method: "POST", suppressErrorLog: true }).catch(() => {}))
@@ -591,6 +603,9 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       setIsCheckoutOpen(false);
       // Directly trigger printer animation for complete experience
       handlePrint();
+    } catch (err: any) {
+      // Before, a rejected payment failed silently and the dialog just sat there.
+      toast.error(err?.message || "Payment failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -1500,6 +1515,12 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                 </button>
               </div>
 
+              {paymentMethod === "cash" && (
+                <div className="px-5 pb-5">
+                  <CashCounter amountDue={billBreakdown?.total ?? total} onChange={setCashCount} />
+                </div>
+              )}
+
               {paymentMethod === "split" && (
                 <div className="px-5 pb-5">
                   <div className="space-y-3 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
@@ -1547,7 +1568,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
               <div className="p-5 pt-0">
                 <button
-                  disabled={!paymentMethod || isProcessing || (paymentMethod === "split" && Math.abs((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0))) > 0.01)}
+                  disabled={!paymentMethod || isProcessing || (paymentMethod === "cash" && cashCount.isShort) || (paymentMethod === "split" && Math.abs((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0))) > 0.01)}
                   onClick={handleCheckout}
                   className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >

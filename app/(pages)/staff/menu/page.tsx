@@ -844,10 +844,58 @@ export default function MenuPage() {
         toast.error("Only owners/managers can add categories");
         return;
       }
-      toast.error("Failed to add subcategory");
+      if (e?.status === 409) {
+        const clash = categories.find(
+          (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+        );
+        const where = clash?.parent_id
+          ? categories.find((c) => c.id === clash.parent_id)?.name
+          : "";
+        toast.error(
+          where
+            ? `"${trimmed}" already exists under ${where}. Use a different name.`
+            : `A category named "${trimmed}" already exists`
+        );
+        refreshCategories();
+        return;
+      }
+      toast.error(e?.message || "Failed to add subcategory");
     } finally {
       setIsCreatingSubcategory(false);
     }
+  };
+
+  const deleteSubcategory = (category: CategoryOption) => {
+    if (!canManageCategories) {
+      toast.error("Insufficient permissions");
+      return;
+    }
+    const parentName =
+      categories.find((c) => c.id === category.parent_id)?.name || "its section";
+    const itemCount = items.filter((i) => i.categoryId === category.id).length;
+    setConfirmDialog({
+      title: `Delete "${category.name}"?`,
+      message:
+        itemCount > 0
+          ? `${itemCount} product(s) in this subcategory will move to ${parentName}. This cannot be undone.`
+          : "This subcategory will be removed. This cannot be undone.",
+      onConfirm: async () => {
+        try {
+          await authFetch(`/api/admin/menu/category/${category.id}`, {
+            method: "DELETE",
+          });
+          if (editingSubcategoryId === category.id) cancelRenameSubcategory();
+          toast.success("Subcategory deleted");
+          await Promise.all([refreshCategories(), refreshMenu(true)]);
+        } catch (e: any) {
+          if (e?.status === 403) {
+            toast.error("Only owners/managers can delete categories");
+            return;
+          }
+          toast.error(e?.message || "Failed to delete subcategory");
+        }
+      },
+    });
   };
 
   const startRenameSubcategory = (category: CategoryOption) => {
@@ -1765,7 +1813,7 @@ export default function MenuPage() {
                                     Position: {((cat as any).sort_order ?? 0) + 1}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
                                   <button
                                     type="button"
                                     onClick={() => moveCategory(cat, -1)}
@@ -1789,6 +1837,15 @@ export default function MenuPage() {
                                     className="h-8 px-3 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
                                   >
                                     Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSubcategory(cat)}
+                                    className="h-8 w-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors"
+                                    title="Delete subcategory"
+                                    aria-label={`Delete ${cat.name}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </>

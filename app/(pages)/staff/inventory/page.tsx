@@ -21,14 +21,48 @@ type Vendor = {
   is_active: boolean;
 };
 
+type PurchaseOrderLine = {
+  id: string;
+  ingredient_id: string;
+  ingredient_name?: string;
+  quantity: number;
+  received_quantity: number;
+  unit: string;
+  status: string;
+  expected_expires_at?: string | null;
+  expected_cost_per_unit?: number;
+};
+
 type PurchaseOrder = {
   id: string;
   vendor_id?: string;
+  vendor_name?: string;
   status: string;
   expected_at?: string;
   notes?: string;
   created_at: string;
+  items?: PurchaseOrderLine[];
 };
+
+type ReceiveRow = {
+  item_id: string;
+  name: string;
+  unit: string;
+  ordered: number;
+  received: number;
+  quantity: string;
+  cost: string;
+  expiry: string;
+  close: boolean;
+};
+
+const poRemaining = (l: PurchaseOrderLine) =>
+  Math.max(0, Number(l.quantity || 0) - Number(l.received_quantity || 0));
+
+const poIsPartlyReceived = (po: PurchaseOrder) =>
+  po.status !== 'received' &&
+  po.status !== 'cancelled' &&
+  (po.items || []).some((l) => Number(l.received_quantity || 0) > 0);
 
 const fmtINR = (n: number) =>
   `₹${Number(n || 0).toLocaleString("en-IN", {
@@ -56,6 +90,9 @@ export default function InventoryDashboard() {
   // PO State
   const [showAddPO, setShowAddPO] = useState(false);
   const [poList, setPoList] = useState<PurchaseOrder[]>([]);
+  const [receivingPO, setReceivingPO] = useState<PurchaseOrder | null>(null);
+  const [receiveRows, setReceiveRows] = useState<ReceiveRow[]>([]);
+  const [isReceiving, setIsReceiving] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState('');
   const [poIngredient, setPoIngredient] = useState('');
   const [poQuantity, setPoQuantity] = useState('');
@@ -150,6 +187,17 @@ export default function InventoryDashboard() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPurchaseOrders = async () => {
+    try {
+      const res = await api<{ purchase_orders: PurchaseOrder[] }>(
+        '/api/admin/inventory/advanced/purchase-orders'
+      );
+      setPoList(res.purchase_orders || []);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -274,6 +322,7 @@ export default function InventoryDashboard() {
       fetchBatches();
       fetchRecipes();
       fetchVendors();
+      fetchPurchaseOrders();
       fetchAdvancedData();
     };
     checkRoleAndLoad();
@@ -364,17 +413,71 @@ export default function InventoryDashboard() {
     setPoExpiry('');
     setPoCost('');
   };
-  const handleReceivePO = async (po: PurchaseOrder) => {
+  const openReceivePO = (po: PurchaseOrder) => {
+    const open = (po.items || []).filter((l) => l.status === 'pending');
+    setReceiveRows(
+      open.map((l) => ({
+        item_id: l.id,
+        name: l.ingredient_name || 'Ingredient',
+        unit: l.unit,
+        ordered: Number(l.quantity || 0),
+        received: Number(l.received_quantity || 0),
+        quantity: String(poRemaining(l)),
+        cost: l.expected_cost_per_unit ? String(l.expected_cost_per_unit) : '',
+        expiry: l.expected_expires_at ? String(l.expected_expires_at).slice(0, 10) : '',
+        close: false,
+      }))
+    );
+    setReceivingPO(po);
+  };
+
+  const updateReceiveRow = (itemId: string, patch: Partial<ReceiveRow>) =>
+    setReceiveRows((rows) => rows.map((r) => (r.item_id === itemId ? { ...r, ...patch } : r)));
+
+  const handleReceivePO = async () => {
+    if (!receivingPO || isReceiving) return;
+    const lines = receiveRows.filter((r) => Number(r.quantity) > 0 || r.close);
+    // A PO loaded without its lines (older server) is received in full.
+    if (receiveRows.length > 0 && lines.length === 0) {
+      toast.error("Enter the quantity that arrived for at least one item");
+      return;
+    }
+    if (lines.some((r) => Number(r.quantity) < 0 || Number(r.cost) < 0)) {
+      toast.error("Quantity and cost can't be negative");
+      return;
+    }
+    setIsReceiving(true);
     try {
-      await api(`/api/admin/inventory/advanced/purchase-orders/${po.id}/receive`, {
-        method: 'POST',
-        body: JSON.stringify({ items: [] })
-      });
-      setPoList(poList.map(p => p.id === po.id ? { ...p, status: 'received' } : p));
-      window.location.reload();
-    } catch (e) {
+      const res = await api<{ fully_received?: boolean }>(
+        `/api/admin/inventory/advanced/purchase-orders/${receivingPO.id}/receive`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            items: lines.map((r) => ({
+              item_id: r.item_id,
+              quantity: Number(r.quantity) || 0,
+              ...(r.cost !== '' ? { cost_per_unit: Number(r.cost) } : {}),
+              ...(r.expiry ? { expires_at: new Date(r.expiry).toISOString() } : {}),
+              close: r.close,
+            })),
+          }),
+        }
+      );
+      toast.success(
+        res?.fully_received === false
+          ? "Stock received. The rest of this order is still open."
+          : "Stock received. Purchase order complete."
+      );
+      setReceivingPO(null);
+      fetchPurchaseOrders();
+      fetchIngredientsAndMenuItems();
+      fetchBatches();
+    } catch (e: any) {
       console.error(e);
-      toast.error("Failed to receive PO");
+      toast.error(e?.message || "Failed to receive PO");
+      fetchPurchaseOrders();
+    } finally {
+      setIsReceiving(false);
     }
   };
 
@@ -391,7 +494,8 @@ export default function InventoryDashboard() {
             quantity: i.quantity,
             unit: i.unit,
             status: 'pending',
-            expected_expires_at: i.expected_expires_at
+            expected_expires_at: i.expected_expires_at,
+            expected_cost_per_unit: i.expected_cost_per_unit ?? 0
           }))
         })
       });
@@ -403,8 +507,10 @@ export default function InventoryDashboard() {
         created_at: new Date().toISOString()
       }, ...poList]);
       setPoItems([]);
-    } catch(e) {
+      fetchPurchaseOrders();
+    } catch (e: any) {
       console.error(e);
+      toast.error(e?.message || "Failed to create purchase order");
     }
   };
 
@@ -882,6 +988,7 @@ export default function InventoryDashboard() {
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
                       <th className="px-8 py-3.5">PO Number</th>
+                      <th className="px-8 py-3.5">Supplier</th>
                       <th className="px-8 py-3.5">Created Date</th>
                       <th className="px-8 py-3.5">Status</th>
                       <th className="px-8 py-3.5 text-right">Actions</th>
@@ -893,6 +1000,14 @@ export default function InventoryDashboard() {
                         <td className="px-8 py-4 font-mono font-bold text-slate-900">
                           PO #{po.id.slice(0,8).toUpperCase()}
                         </td>
+                        <td className="px-8 py-4 text-slate-700 font-medium">
+                          {po.vendor_name || vendors.find((v) => v.id === po.vendor_id)?.name || '—'}
+                          {(po.items?.length ?? 0) > 0 && (
+                            <span className="block text-xs font-normal text-slate-400">
+                              {po.items!.length} {po.items!.length === 1 ? 'item' : 'items'}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-8 py-4 text-slate-500">
                           {new Date(po.created_at).toLocaleDateString("en-IN", {
                             day: "2-digit",
@@ -901,14 +1016,24 @@ export default function InventoryDashboard() {
                           })}
                         </td>
                         <td className="px-8 py-4">
-                          <span className="inline-flex rounded-full bg-amber-50 border border-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700 uppercase tracking-wider">
-                            {po.status}
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
+                              po.status === 'received'
+                                ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                                : po.status === 'cancelled'
+                                  ? 'bg-slate-50 border-slate-200 text-slate-500'
+                                  : poIsPartlyReceived(po)
+                                    ? 'bg-sky-50 border-sky-100 text-sky-700'
+                                    : 'bg-amber-50 border-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {poIsPartlyReceived(po) ? 'Partly received' : po.status}
                           </span>
                         </td>
                         <td className="px-8 py-4 text-right">
-                          {po.status !== 'received' && (
+                          {po.status !== 'received' && po.status !== 'cancelled' && (
                             <button 
-                              onClick={() => handleReceivePO(po)}
+                              onClick={() => openReceivePO(po)}
                               className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
                             >
                               Receive GRN
@@ -1259,6 +1384,117 @@ export default function InventoryDashboard() {
       </AnimatePresence>
 
       {/* Add PO Modal */}
+      {receivingPO && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Receive stock"
+        >
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="px-8 pt-8 pb-4">
+              <h3 className="text-xl font-bold text-slate-900">
+                Receive stock · PO #{receivingPO.id.slice(0, 8).toUpperCase()}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Enter what actually arrived. Anything left over stays open so you can receive it later.
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-8 space-y-3">
+              {receiveRows.length === 0 ? (
+                <p className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600">
+                  Everything still outstanding on this order will be received in full.
+                </p>
+              ) : (
+                receiveRows.map((row) => {
+                  const left = Math.max(0, row.ordered - row.received);
+                  const qty = Number(row.quantity) || 0;
+                  const short = qty < left;
+                  return (
+                    <div key={row.item_id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="text-sm font-bold text-slate-900">{row.name}</span>
+                        <span className="text-xs text-slate-500">
+                          Ordered {row.ordered} {row.unit}
+                          {row.received > 0 ? ` · ${row.received} already received` : ''}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-semibold text-slate-600">Arrived ({row.unit})</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            inputMode="decimal"
+                            value={row.quantity}
+                            onChange={(e) => updateReceiveRow(row.item_id, { quantity: e.target.value })}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-semibold text-slate-600">Cost per {row.unit} (₹)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={row.cost}
+                            onChange={(e) => updateReceiveRow(row.item_id, { cost: e.target.value })}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-semibold text-slate-600">Expiry date</span>
+                          <input
+                            type="date"
+                            value={row.expiry}
+                            onChange={(e) => updateReceiveRow(row.item_id, { expiry: e.target.value })}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </label>
+                      </div>
+                      {short && (
+                        <label className="mt-3 flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={row.close}
+                            onChange={(e) => updateReceiveRow(row.item_id, { close: e.target.checked })}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-emerald-600"
+                          />
+                          <span>
+                            The remaining {Number((left - qty).toFixed(3))} {row.unit} won't arrive. Close this item.
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="flex justify-end gap-3 px-8 py-6">
+              <button
+                type="button"
+                onClick={() => setReceivingPO(null)}
+                disabled={isReceiving}
+                className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleReceivePO}
+                disabled={isReceiving}
+                className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                {isReceiving ? 'Receiving…' : 'Receive stock'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddPO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-xl scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
