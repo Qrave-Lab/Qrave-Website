@@ -49,6 +49,7 @@ export type ReceiptData = {
   paid_at?: string;
   cashier_name?: string;
   gst_number?: string;
+  fssai_number?: string;
   tax_details?: string; // stringified ItemTaxDetail[]
 };
 
@@ -196,6 +197,7 @@ export function printReceipt(data: ReceiptData): void {
     center(data.restaurant_name.toUpperCase()),
     center(data.gst_number ? 'TAX INVOICE' : 'TAX INVOICE / RECEIPT'),
     data.gst_number ? center(`GSTIN: ${data.gst_number}`) : '',
+    data.fssai_number ? center(`FSSAI Lic. No. ${data.fssai_number}`) : '',
     divider('='),
     line('Date:', dateStr),
     line('Time:', timeStr),

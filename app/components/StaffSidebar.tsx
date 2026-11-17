@@ -2,7 +2,7 @@
 
 import { api } from "@/app/lib/api";
 import { getTokenCookie, setTokenCookie, removeTokenCookie } from "@/app/lib/clientCookies";
-import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan } from "@/app/lib/plans";
+import { isArMenuPath, isArMenuPlan, isOpsPath, planHasOps, OPS_UPGRADE_URL, isFoodCourtStallPath, isFoodCourtStallPlan } from "@/app/lib/plans";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     Banknote,
@@ -428,6 +428,13 @@ export default function StaffSidebar() {
     router.replace("/staff/menu");
   }, [arMenuOnly, billingLocked, isArAllowedPath, router]);
 
+  // Ordering and AR tiers have no operations tools (inventory, analytics, ...).
+  const opsLocked = Boolean(billingPlan) && !arMenuOnly && !planHasOps(billingPlan);
+  useEffect(() => {
+    if (!opsLocked || billingLocked || !isOpsPath(pathname)) return;
+    router.replace(OPS_UPGRADE_URL);
+  }, [opsLocked, billingLocked, pathname, router]);
+
   const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
@@ -521,6 +528,7 @@ export default function StaffSidebar() {
                 item.href === "/staff/settings"
               );
             }
+            if (opsLocked && isOpsPath(item.href)) return false;
             const feature =
               item.href === "/staff"
                 ? "floor"
@@ -564,6 +572,13 @@ export default function StaffSidebar() {
     const label = locationLabels[active.restaurant_id];
     return label ? `${active.restaurant} - ${label}` : active.restaurant;
   })();
+  // Show only the branch part; the restaurant name is already the heading.
+  const branchLine = (() => {
+    const full = String(activeLocationLabel || "").trim();
+    const name = String(restaurantName || "").trim();
+    if (!full || full === name) return "";
+    return full.startsWith(`${name} - `) ? full.slice(name.length + 3) : full;
+  })();
   const roleViewLabel = (() => {
     const r = String(currentRole || "")
       .trim()
@@ -580,9 +595,9 @@ export default function StaffSidebar() {
       className="h-screen bg-white border-r border-gray-200 flex flex-col relative z-200 pointer-events-auto shrink-0"
     >
       <div
-        className={`h-16 flex items-center border-b border-gray-100 ${isCollapsed ? "justify-center" : "px-6"}`}
+        className={`staff-topbar flex items-center border-b border-gray-200 ${isCollapsed ? "justify-center" : "px-5"}`}
       >
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 bg-white transition-all duration-300">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-gray-200 bg-white transition-all duration-300">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -602,20 +617,25 @@ export default function StaffSidebar() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="ml-3 overflow-hidden whitespace-nowrap"
+            className="ml-3 min-w-0 flex-1"
           >
-            <h1 className="text-sm font-bold text-gray-900">
+            <h1
+              className="truncate text-sm font-bold leading-tight text-gray-900"
+              title={restaurantName}
+            >
               {restaurantName}
             </h1>
-            <p className="text-[10px] text-gray-500 font-medium">
+            <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-gray-500">
               {roleViewLabel}
             </p>
-            <p
-              className="mt-0.5 truncate text-[10px] font-semibold text-slate-600"
-              title={activeLocationLabel}
-            >
-              {activeLocationLabel}
-            </p>
+            {branchLine && (
+              <p
+                className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-slate-600"
+                title={activeLocationLabel}
+              >
+                {branchLine}
+              </p>
+            )}
           </motion.div>
         )}
       </div>

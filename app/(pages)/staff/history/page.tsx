@@ -220,6 +220,7 @@ export default function OrderHistoryPage() {
       paid_at: new Date().toISOString(),
       cashier_name: me.name || "Cashier",
       gst_number: me.gst_number || "",
+      fssai_number: me.fssai_number || undefined,
       tax_details: bd.tax_details,
     };
 
@@ -676,6 +677,11 @@ export default function OrderHistoryPage() {
                       {me?.gst_number && (
                         <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                           GSTIN: {me.gst_number}
+                        </p>
+                      )}
+                      {me?.fssai_number && (
+                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                          FSSAI Lic. No. {me.fssai_number}
                         </p>
                       )}
                       <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-700">

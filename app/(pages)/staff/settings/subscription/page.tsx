@@ -21,6 +21,7 @@ import { api } from "@/app/lib/api";
 import ConfirmModal from "@/app/components/ui/ConfirmModal";
 import {
   PLAN_OPTIONS,
+  BILLING_GRACE_DAYS,
   type PlanCode,
   normalizePlanCode,
   planLabel,
@@ -257,6 +258,11 @@ function PlanCard({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SubscriptionSettingsPage() {
+  // Set when a locked operations page sent the user here.
+  const [opsUpgradeNotice, setOpsUpgradeNotice] = useState(false);
+  useEffect(() => {
+    setOpsUpgradeNotice(new URLSearchParams(window.location.search).get("upgrade") === "ops");
+  }, []);
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
   const [reactivating, setReactivating] = useState(false);
@@ -300,6 +306,8 @@ export default function SubscriptionSettingsPage() {
         });
       } catch {}
       await refresh();
+      // The sync can change access (locked to active or back): tell the sidebar.
+      window.dispatchEvent(new Event(BILLING_UPDATED_EVENT));
     })();
   }, []);
 
@@ -428,6 +436,10 @@ export default function SubscriptionSettingsPage() {
       ? "YEARLY"
       : "MONTHLY";
     const days = billing?.days_left ?? 0;
+    if (billing?.is_access_allowed === false && (status === "ACTIVE" || status === "PAST_DUE" || status === "HALTED"))
+      return "OVERDUE · ACCESS LOCKED";
+    if (billing?.access_reason === "grace" && status !== "CANCELED" && status !== "EXPIRED")
+      return `OVERDUE (${days} day${days === 1 ? "" : "s"} grace left)`;
     if (status === "TRIALING")
       return `TRIAL (${days} day${days === 1 ? "" : "s"} left)`;
     if (status === "ACTIVE") return `ACTIVE · ${planType}`;
@@ -455,6 +467,10 @@ export default function SubscriptionSettingsPage() {
     const status = raw === "trialing" && hasPaid ? "active" : raw;
     return status === "active";
   }, [billing]);
+
+  // Paid period and grace are both over: the only way forward is to pay.
+  const accessLocked = billing?.is_access_allowed === false;
+  const needsPayment = isInactive || accessLocked;
 
   const currentPlanLabel = useMemo(
     () => (isInactive ? "No current plan" : planLabel(billing?.plan)),
@@ -501,7 +517,9 @@ export default function SubscriptionSettingsPage() {
           const hasPaidCycle =
             Boolean(latest?.last_payment_at) ||
             Boolean(latest?.current_period_end);
-          if (raw === "active" || hasPaidCycle) return true;
+          if (latest?.is_access_allowed === false) {
+            // Still locked: the payment hasn't reached the backend yet.
+          } else if (raw === "active" || hasPaidCycle) return true;
           await new Promise((r) => setTimeout(r, 1500));
         }
         return false;
@@ -586,7 +604,7 @@ export default function SubscriptionSettingsPage() {
       });
       return;
     }
-    if (!isActive) {
+    if (!isActive || accessLocked) {
       await handleReactivate();
       return;
     }
@@ -727,12 +745,12 @@ export default function SubscriptionSettingsPage() {
           {!loading && role === "owner" && (isInactive || isActive) && (
             <button
               type="button"
-              onClick={isInactive ? handleReactivate : handlePlanChange}
+              onClick={needsPayment ? handleReactivate : handlePlanChange}
               disabled={
                 reactivating ||
                 changingPlan ||
                 Boolean(billing?.pending_plan) ||
-                (!isInactive && selectedPlan === normalizePlanCode(billing?.plan))
+                (!needsPayment && selectedPlan === normalizePlanCode(billing?.plan))
               }
               className="inline-flex items-center gap-2 rounded-xl bg-[#fe5c13] hover:brightness-95 active:scale-[0.98] text-white px-5 py-2.5 text-xs font-black shadow-md shadow-orange-100 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed select-none"
             >
@@ -745,6 +763,8 @@ export default function SubscriptionSettingsPage() {
                 ? "Change Scheduled"
                 : isInactive
                 ? "Reactivate Subscription"
+                : accessLocked
+                ? `Pay for ${planLabel(selectedPlan)}`
                 : `Switch to ${planLabel(selectedPlan)}`}
             </button>
           )}
@@ -778,6 +798,28 @@ export default function SubscriptionSettingsPage() {
               >
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 {statusMessage.text}
+              </div>
+            )}
+
+            {accessLocked && !isInactive && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-xs font-bold text-rose-800">
+                Your payment is overdue and the grace period has ended, so the rest of Qrave is locked.
+                Choose a plan and pay to restore access.
+              </div>
+            )}
+
+            {billing?.access_reason === "grace" && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-xs font-bold text-amber-800">
+                Your payment is overdue. You have a {BILLING_GRACE_DAYS}-day grace period
+                {billing.grace_ends_at ? ` (until ${formatDate(billing.grace_ends_at)})` : ""}.
+                Pay before then to keep your access.
+              </div>
+            )}
+
+            {opsUpgradeNotice && (
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-xs font-bold text-slate-700">
+                That page is part of Full Access. Your current plan covers the menu and order handling;
+                upgrade below for inventory, analytics, reservations, takeaway and the other operations tools.
               </div>
             )}
 

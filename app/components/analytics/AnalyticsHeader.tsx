@@ -23,7 +23,7 @@ export default function AnalyticsHeader({
   setCustomDates,
 }: Props) {
   return (
-    <header className="bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shrink-0 z-20 relative">
+    <header className="staff-topbar bg-white border-b border-gray-200 px-8 flex items-center justify-between shrink-0 z-20 relative">
       <div>
         <h1 className="text-xl font-bold text-gray-900">Financial Reports</h1>
         <p className="text-xs text-gray-500 mt-1">

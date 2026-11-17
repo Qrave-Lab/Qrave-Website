@@ -442,7 +442,7 @@ export default function ShiftsPage() {
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900">
       <StaffSidebar />
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8">
+        <header className="staff-topbar sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight text-gray-900">
               <Clock className="h-5 w-5 text-[#fe5c13]" />

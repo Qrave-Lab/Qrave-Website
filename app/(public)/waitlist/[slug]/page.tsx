@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import ConsentNotice from "@/app/components/ConsentNotice";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -454,6 +455,11 @@ export default function WaitlistJoinPage() {
                   )}
                 </div>
               </div>
+
+              <ConsentNotice
+                restaurantName={restaurant?.name}
+                purpose="update you about your table"
+              />
 
               <button
                 type="submit"

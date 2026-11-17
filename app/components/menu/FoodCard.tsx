@@ -96,14 +96,19 @@ const FoodCard: React.FC<FoodCardProps> = ({
   const displayBaseWithoutDiscount = basePrice + variantDelta;
   const hasDiscount = displayBaseWithoutDiscount > displayPrice;
   
+  const toPositive = (v: unknown) => {
+    const n = typeof v === "string" ? parseFloat(v) : (v as number);
+    return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  const proteinVal = toPositive(item.proteinG);
+  const carbsVal = toPositive(item.carbsG);
+  const fatVal = toPositive(item.fatG);
+  const hasMacros = proteinVal > 0 || carbsVal > 0 || fatVal > 0;
+  // Zero / empty means "not provided", so nothing is shown for it.
   const calVal =
-    typeof item.calories === "number" && item.calories > 0
-      ? item.calories
-      : typeof item.kcal === "number" && item.kcal > 0
-        ? item.kcal
-        : (item.proteinG || item.carbsG || item.fatG)
-          ? Math.round((item.proteinG || 0) * 4 + (item.carbsG || 0) * 4 + (item.fatG || 0) * 9)
-          : 0;
+    toPositive(item.calories) ||
+    toPositive(item.kcal) ||
+    (hasMacros ? Math.round(proteinVal * 4 + carbsVal * 4 + fatVal * 9) : 0);
   
   const isSpecial = item.isTodaysSpecial || item.isChefSpecial;
   const hasOffer = hasDiscount || item.offerLabel;
@@ -116,23 +121,24 @@ const FoodCard: React.FC<FoodCardProps> = ({
     return "bg-[#E8650026] text-[#C45200]";
   };
 
-  const AddControls = () => {
+  const renderAddControls = () => {
     if (!isAvailable || !orderingEnabled) return null;
     
     if (currentQty > 0) {
       return (
-        <div className="flex flex-row bg-[#F4F4F5] rounded-[10px] border border-[#E4E4E7] overflow-hidden shrink-0 items-center">
+        <div className="flex flex-row bg-[#F4F4F5] rounded-[12px] border border-[#E4E4E7] overflow-hidden shrink-0 items-center">
           <motion.button
             whileTap={{ scale: 0.92 }}
             onClick={(e) => {
               e.stopPropagation();
               onRemove(item.id, activeVariantId);
             }}
-            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#E4E4E7] transition-colors"
+            aria-label={`Remove one ${item.name}`}
+            className="w-11 h-11 flex flex-col items-center justify-center bg-transparent active:bg-[#E4E4E7] transition-colors"
           >
             <Minus className="w-[14px] h-[14px] text-[#18181B]" strokeWidth={2.5}/>
           </motion.button>
-          <span className="w-[22px] text-center text-[#18181B] text-[13px] font-[700] tabular-nums leading-none">
+          <span className="w-[24px] text-center text-[#18181B] text-[13px] font-[700] tabular-nums leading-none">
             {currentQty}
           </span>
           <motion.button
@@ -141,7 +147,8 @@ const FoodCard: React.FC<FoodCardProps> = ({
               e.stopPropagation();
               onAdd(item.id, activeVariantId, displayPrice);
             }}
-            className="w-[28px] h-[28px] flex flex-col items-center justify-center bg-transparent active:bg-[#E4E4E7] transition-colors"
+            aria-label={`Add one more ${item.name}`}
+            className="w-11 h-11 flex flex-col items-center justify-center bg-transparent active:bg-[#E4E4E7] transition-colors"
           >
             <Plus className="w-[14px] h-[14px] text-[#18181B]" strokeWidth={2.5} />
           </motion.button>
@@ -157,9 +164,12 @@ const FoodCard: React.FC<FoodCardProps> = ({
           e.stopPropagation();
           onAdd(item.id, activeVariantId, displayPrice);
         }}
-        className="w-[30px] h-[30px] rounded-[10px] bg-[#18181B] flex items-center justify-center flex-shrink-0 cursor-pointer shadow-sm transition-all"
+        aria-label={`Add ${item.name}`}
+        className="w-11 h-11 flex items-center justify-center flex-shrink-0 cursor-pointer"
       >
-        <Plus className="w-4 h-4 text-[#FFFFFF]" strokeWidth={2.5} />
+        <span className="w-9 h-9 rounded-[12px] bg-[#18181B] flex items-center justify-center shadow-sm">
+          <Plus className="w-[18px] h-[18px] text-[#FFFFFF]" strokeWidth={2.5} />
+        </span>
       </motion.button>
     );
   };
@@ -171,8 +181,18 @@ const FoodCard: React.FC<FoodCardProps> = ({
 
   return (
     <div 
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for ${item.name}`}
       onClick={() => onCardClick?.(item)}
-      className="flex flex-row p-[18px_16px] bg-[#FFFFFF] border-b border-[#F1F1F1] gap-4 items-start cursor-pointer hover:bg-slate-50/70 transition-colors active:bg-slate-100/50"
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onCardClick?.(item);
+        }
+      }}
+      className="flex flex-row p-4 bg-[#FFFFFF] border-b border-[#F1F1F1] gap-3 items-start cursor-pointer hover:bg-slate-50/70 transition-colors active:bg-slate-100/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#18181B]"
     >
       
       {/* 104x104 Premium Thumb */}
@@ -193,20 +213,17 @@ const FoodCard: React.FC<FoodCardProps> = ({
         {/* AR Button Overlay */}
         {item.arModelGlb && (
           <button
-            onClick={() => onArClick(item)}
-            className={`ar-view-btn absolute z-10 bottom-1.5 left-1.5 w-7 h-7 bg-white/95 backdrop-blur border border-[#EDE5D8] shadow-md rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onArClick(item);
+            }}
+            aria-label={`View ${item.name} in AR`}
+            className={`ar-view-btn absolute z-10 bottom-1.5 left-1.5 w-7 h-7 before:absolute before:-inset-2 before:content-[''] bg-white/95 backdrop-blur border border-[#EDE5D8] shadow-md rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95`}
           >
             <Scan className="w-4 h-4 text-[#3D2B1F]" strokeWidth={2.5}/>
           </button>
         )}
 
-        {/* Indian Standard Veg/Non-veg badge */}
-        {item.isVeg !== undefined && (
-          <div className={`absolute top-[6px] left-[6px] w-[16px] h-[16px] bg-white rounded-[4px] flex items-center justify-center shadow-md border ${item.isVeg ? "border-[#2E7D32]" : "border-[#C62828]"}`}>
-             <div className={`w-[7px] h-[7px] rounded-full ${item.isVeg ? "bg-[#2E7D32]" : "bg-[#C62828]"}`}/>
-          </div>
-        )}
-        
         {isSpecial && (
           <div className="absolute top-0 right-0 bg-[#B45309] px-1.5 py-0.5 rounded-bl-[8px] text-[#FFFFFF] text-[9px] font-[700] tracking-tight font-dm-sans">
              ✦ SPECIAL
@@ -224,9 +241,20 @@ const FoodCard: React.FC<FoodCardProps> = ({
       <div className="flex-1 flex flex-col justify-between self-stretch min-w-0">
         <div>
           <div className="flex justify-between items-start gap-2">
-            <h3 className="font-dm-sans font-[700] text-[15px] leading-tight text-[#3D2B1F] tracking-[-0.01em] line-clamp-1">
-              {item.name}
-            </h3>
+            <div className="flex items-center gap-2 min-w-0">
+              {item.isVeg !== undefined && (
+                <span
+                  role="img"
+                  aria-label={item.isVeg ? "Vegetarian" : "Non-vegetarian"}
+                  className={`shrink-0 w-[16px] h-[16px] bg-white rounded-[4px] flex items-center justify-center border ${item.isVeg ? "border-[#2E7D32]" : "border-[#C62828]"}`}
+                >
+                  <span className={`w-[7px] h-[7px] rounded-full ${item.isVeg ? "bg-[#2E7D32]" : "bg-[#C62828]"}`} />
+                </span>
+              )}
+              <h3 className="font-dm-sans font-[700] text-[15px] leading-tight text-[#3D2B1F] tracking-[-0.01em] line-clamp-1">
+                {item.name}
+              </h3>
+            </div>
             {item.rating > 0 && (
               <div className="flex items-center gap-0.5 shrink-0 bg-[#FEF3C7] border border-[#FDE68A] rounded-full px-1.5 py-0.5 leading-none shadow-sm">
                 <Star className="w-2.5 h-2.5 fill-[#D4AF37] stroke-[#D4AF37]" />
@@ -242,12 +270,17 @@ const FoodCard: React.FC<FoodCardProps> = ({
                 {item.spiceLabel}
               </span>
             )}
-            {item.calories && (
-              <span className="inline-flex items-center mt-1 px-1.5 py-[2px] rounded-[4px] text-[10px] font-[600] leading-none bg-[#F5F5F5] text-[#555] border border-[#E0E0E0]">
-                {item.calories} kcal
-              </span>
-            )}
           </div>
+
+          {Array.isArray(item.allergens) && item.allergens.length > 0 && (
+            <p
+              className="mt-1 font-dm-sans text-[11px] leading-snug text-[#8A5A00] truncate"
+              title={`Contains: ${item.allergens.join(", ")}`}
+              aria-label={`Allergen information: contains ${item.allergens.join(", ")}`}
+            >
+              Contains: {item.allergens.map((x) => x.toLowerCase()).join(", ")}
+            </p>
+          )}
 
           {item.description && (
             <p className="mt-1 font-dm-sans text-[12px] font-[400] leading-[1.4] text-[#6B5B4E] line-clamp-2 pr-1">
@@ -256,17 +289,17 @@ const FoodCard: React.FC<FoodCardProps> = ({
           )}
 
           {/* Metadata: Calories & Prep Time */}
-          {(calVal > 0 || item.estimatedPrepMinutes || item.proteinG != null || item.carbsG != null || item.fatG != null) && (
+          {(calVal > 0 || item.estimatedPrepMinutes) && (
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {(calVal > 0 || item.proteinG != null || item.carbsG != null || item.fatG != null) && (
+              {calVal > 0 && (
                 <span className="inline-flex items-center bg-[#F4F4F5] text-[#18181B] rounded-md px-1.5 py-0.5 text-[9.5px] font-[600] border border-[#E4E4E7] gap-1 leading-none whitespace-nowrap">
                   <Flame className="w-2.5 h-2.5 text-[#71717A] fill-[#71717A] shrink-0" />
                   <span className="font-bold text-[#18181B]">{calVal} kcal</span>
-                  {(item.proteinG != null || item.carbsG != null || item.fatG != null) && (
+                  {hasMacros && (
                     <span className="border-l border-[#A1A1AA]/30 pl-1 flex items-center gap-1 text-[8.5px] text-[#71717A]">
-                      <span><b className="text-[#18181B]">P:</b>{item.proteinG || 0}g</span>
-                      <span><b className="text-[#18181B]">C:</b>{item.carbsG || 0}g</span>
-                      <span><b className="text-[#18181B]">F:</b>{item.fatG || 0}g</span>
+                      {proteinVal > 0 && <span><b className="text-[#18181B]">P:</b>{proteinVal}g</span>}
+                      {carbsVal > 0 && <span><b className="text-[#18181B]">C:</b>{carbsVal}g</span>}
+                      {fatVal > 0 && <span><b className="text-[#18181B]">F:</b>{fatVal}g</span>}
                     </span>
                   )}
                 </span>
@@ -281,7 +314,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
         </div>
         
         {visibleVariants.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {visibleVariants.map((v) => (
               <button
                 key={v.id}
@@ -289,7 +322,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
                   e.stopPropagation();
                   onVariantChange?.(v.id);
                 }}
-                className={`px-2 py-[3px] rounded-[6px] text-[11px] font-[600] border transition-colors ${
+                className={`relative before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] px-2 py-[3px] rounded-[6px] text-[11px] font-[600] border transition-colors ${
                   activeVariantId === v.id
                     ? "bg-[#18181B] border-[#18181B] text-[#FFFFFF]"
                     : "bg-[#FFFFFF] border-[#E4E4E7] text-[#52525B] hover:border-[#18181B]"
@@ -301,8 +334,8 @@ const FoodCard: React.FC<FoodCardProps> = ({
           </div>
         )}
 
-        <div className="flex flex-col mt-2">
-          <div className="flex flex-row justify-between items-center min-h-[32px]">
+        <div className="flex flex-col mt-3">
+          <div className="flex flex-row justify-between items-center min-h-[44px]">
             <div className="flex items-baseline flex-wrap">
               <span className="font-dm-sans text-[16px] font-[800] text-[#3D2B1F] tracking-[-0.02em] leading-none">
               <span className="text-[12px] opacity-80 font-[700] mr-0.5 tracking-normal">₹</span>{formatPrice(displayPrice)}
@@ -315,7 +348,7 @@ const FoodCard: React.FC<FoodCardProps> = ({
             </div>
             
             <div className="relative z-10 flex items-center gap-2">
-              <AddControls />
+              {renderAddControls()}
             </div>
           </div>
         </div>
@@ -324,5 +357,26 @@ const FoodCard: React.FC<FoodCardProps> = ({
     </div>
   );
 };
+
+/** Placeholder row with the same box model as FoodCard, so nothing jumps when data arrives. */
+export const FoodCardSkeleton: React.FC = () => (
+  <div
+    aria-hidden
+    className="flex flex-row p-4 bg-[#FFFFFF] border-b border-[#F1F1F1] gap-3 items-start animate-pulse"
+  >
+    <div className="shrink-0 w-[104px] h-[104px] rounded-[16px] bg-[#EEEAE3]" />
+    <div className="flex-1 flex flex-col justify-between self-stretch min-w-0">
+      <div className="space-y-2">
+        <div className="w-[70%] h-[16px] bg-[#EEEAE3] rounded-[6px]" />
+        <div className="w-[95%] h-[12px] bg-[#EEEAE3] rounded-[4px]" />
+        <div className="w-[60%] h-[12px] bg-[#EEEAE3] rounded-[4px]" />
+      </div>
+      <div className="flex justify-between items-center mt-3 min-h-[44px]">
+        <div className="w-[56px] h-[18px] bg-[#EEEAE3] rounded-[6px]" />
+        <div className="w-9 h-9 bg-[#EEEAE3] rounded-[12px] mr-1" />
+      </div>
+    </div>
+  </div>
+);
 
 export default FoodCard;

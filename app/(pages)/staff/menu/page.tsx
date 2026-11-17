@@ -351,6 +351,8 @@ export default function MenuPage() {
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
+  // QR Menu and Ordering plans have no 3D / AR models.
+  const [arLocked, setArLocked] = useState(false);
   const staffModelViewerRef = useRef<any>(null);
   const attachStaffViewer = useModelViewerEvents(
     {
@@ -416,6 +418,7 @@ export default function MenuPage() {
       const me = await authFetch("/api/admin/me");
       const nextRole = String((me as any)?.role || "").toLowerCase();
       setRole(nextRole);
+      setArLocked((me as any)?.plan_features?.has_ar === false);
       setCurrentRestaurantId((me as any)?.restaurant_id || "");
       const roleAccess = (me as any)?.theme_config?.role_access as Record<string, Record<string, boolean>> | undefined;
       if (nextRole && nextRole !== "owner") {
@@ -1414,7 +1417,7 @@ export default function MenuPage() {
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-40 sticky top-0">
+        <header className="staff-topbar bg-white border-b border-slate-200 px-8 flex items-center justify-between z-40 sticky top-0">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
               Menu Engineering
@@ -2859,6 +2862,11 @@ export default function MenuPage() {
                           <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
                             AR Asset (3D)
                           </label>
+                          {arLocked && (
+                            <span className="text-[10px] font-bold text-amber-700">
+                              Needs the AR or Full Access plan
+                            </span>
+                          )}
                         </div>
                         <input
                           type="file"
@@ -2874,6 +2882,10 @@ export default function MenuPage() {
                               : "border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer flex flex-col items-center justify-center"
                           }`}
                           onClick={() => {
+                            if (arLocked) {
+                              toast.error("3D / AR models need the AR or Full Access plan.");
+                              return;
+                            }
                             if (!editingItem.modelGlb && !editingItem.modelUsdz) {
                               modelInputRef.current?.click();
                             }
@@ -2885,6 +2897,10 @@ export default function MenuPage() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (arLocked) {
+                                    toast.error("3D / AR models need the AR or Full Access plan.");
+                                    return;
+                                  }
                                   modelInputRef.current?.click();
                                 }}
                                 className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 shadow-sm"

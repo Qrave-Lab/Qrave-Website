@@ -428,7 +428,7 @@ export default function AnalyticsPage() {
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-40 sticky top-0">
+        <header className="staff-topbar bg-white border-b border-slate-200 px-8 flex items-center justify-between z-40 sticky top-0">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-slate-500" /> Analytics

@@ -29,7 +29,7 @@ export default function SyncQueueMonitorPage() {
 
   return (
     <div className="flex h-screen flex-col bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
-      <header className="flex items-center gap-4 bg-white border-b border-slate-200 px-8 py-4 shrink-0">
+      <header className="staff-topbar flex items-center gap-4 bg-white border-b border-slate-200 px-8 shrink-0">
         <Link href="/staff/settings" className="p-2 -ml-2 rounded-xl hover:bg-slate-100 transition-colors">
           <ArrowLeft className="w-5 h-5 text-slate-500" />
         </Link>

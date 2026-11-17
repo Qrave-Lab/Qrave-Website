@@ -29,7 +29,7 @@ import toast from "react-hot-toast";
 import StaffSidebar from "../../../components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
-import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan } from "@/app/lib/plans";
+import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan, isOpsPath, planAllowsMoreBranches, planHasOps } from "@/app/lib/plans";
 
 type AdminMeResponse = {
   role?: string;
@@ -194,10 +194,7 @@ export default function SettingsPage() {
 
   const normalizedPlan = String(planCode || "").toLowerCase();
   const isPremiumPlan =
-    normalizedPlan === "monthly_999" ||
-    normalizedPlan === "monthly_1499" ||
-    normalizedPlan === "yearly_10999" ||
-    normalizedPlan === "yearly_14999";
+    planAllowsMoreBranches(normalizedPlan);
   const addBranchLocked = role === "owner" && !isPremiumPlan && branchCount >= 1;
 
   const isOwnerOrManager = role === "owner" || role === "manager";
@@ -215,6 +212,7 @@ export default function SettingsPage() {
     { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt, show: canAccess("floor_plan", isOwnerOrManager) },
     { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users, show: canAccess("team", isOwnerOrManager) },
     { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: QrCode, show: canAccess("devices", isOwnerOrManager) },
+    { title: "FSSAI & Compliance", subtitle: "FSSAI licence number printed on every bill", href: "/staff/settings/compliance", icon: Receipt, show: isOwnerOrManager },
     { title: "Receipts & Billing", subtitle: "Bill templates & print formatting", href: "/staff/settings/receipt", icon: Receipt, show: canAccess("receipts", isOwnerOrManager) },
     { title: "Payments & Billing Controls", subtitle: "UPI ID or Razorpay, discount limits, bill lock, shift cash", href: "/staff/settings/billing", icon: CreditCard, show: isOwnerOrManager },
     { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette, show: canAccess("theme", isOwnerOrManager) },
@@ -247,36 +245,40 @@ export default function SettingsPage() {
     ? cards.filter((c) => isFoodCourtStallPath(c.href))
     : isArMenuPlan(planCode)
     ? cards.filter((c) => isArMenuPath(c.href))
+    : planCode && !planHasOps(planCode)
+    ? cards.filter((c) => !isOpsPath(c.href)) // Ordering and AR plans: no operations tools
     : cards;
 
   return (
     <div className="flex h-screen w-full bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
       <StaffSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between shrink-0 z-10">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Settings Hub</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <Globe className="w-3 h-3 text-slate-400" />
+        <header className="staff-topbar bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 z-10">
+          <div className="min-w-0 shrink-0">
+            <h1 className="text-xl font-bold text-slate-900 whitespace-nowrap">Settings Hub</h1>
+            <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap">
+              <Globe className="w-3 h-3 shrink-0 text-slate-400" />
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 Branch Configuration • {isLoading ? "..." : currency}
               </span>
             </div>
           </div>
           {!isLoading && locations.length > 1 && (
-            <CustomSelect
-              value={activeRestaurantId}
-              onChange={(val: string) => switchLocationFromSettings(val)}
-              options={locations.map((loc) => ({
-                value: loc.restaurant_id,
-                label: locationLabels[loc.restaurant_id]
-                  ? `${loc.restaurant} - ${locationLabels[loc.restaurant_id]}`
-                  : loc.restaurant,
-              }))}
-              placeholder="Select Branch"
-              className={`min-w-[320px] transition-opacity ${isSwitchingLocation ? 'opacity-60 pointer-events-none' : ''}`}
-              buttonClassName="h-[42px] text-xs shadow-sm bg-gradient-to-b from-white to-slate-50 !rounded-xl"
-            />
+            <div className="w-[320px] max-w-[50%] shrink-0 ml-6">
+              <CustomSelect
+                value={activeRestaurantId}
+                onChange={(val: string) => switchLocationFromSettings(val)}
+                options={locations.map((loc) => ({
+                  value: loc.restaurant_id,
+                  label: locationLabels[loc.restaurant_id]
+                    ? `${loc.restaurant} - ${locationLabels[loc.restaurant_id]}`
+                    : loc.restaurant,
+                }))}
+                placeholder="Select Branch"
+                className={`transition-opacity ${isSwitchingLocation ? 'opacity-60 pointer-events-none' : ''}`}
+                buttonClassName="h-[42px] text-xs shadow-sm bg-gradient-to-b from-white to-slate-50 !rounded-xl"
+              />
+            </div>
           )}
         </header>
 

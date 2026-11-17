@@ -579,7 +579,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         api<ServiceCallAPI[]>("/api/admin/service-calls"),
         // Only cashiers and up may see takings; other roles get 403 and no tile.
         api<{ total: number }>("/api/admin/sales/today", { suppressErrorLog: true }).catch(() => null),
-        api<TakeawaySummary>("/api/admin/takeaway/summary"),
+        // Ordering and AR plans have no takeaway tools: the server answers 403.
+        api<TakeawaySummary>("/api/admin/takeaway/summary", { suppressErrorLog: true }).catch(() => null),
         api<{ waitlist?: any[] }>("/api/admin/waitlist").catch(() => ({ waitlist: [] })),
       ]);
       // Get the current set of occupied table codes from the latest tables state
@@ -1358,7 +1359,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <StaffSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white border-b border-gray-200 h-16 flex items-center px-8 z-10 animate-pulse">
+          <header className="staff-topbar bg-white border-b border-gray-200 flex items-center px-8 z-10 animate-pulse">
             <div className="h-6 w-32 bg-gray-200 rounded" />
           </header>
           <div className="p-8">
@@ -1382,7 +1383,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
+        <header className="staff-topbar bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
           <div>
             <h2 className="text-lg font-bold tracking-tight text-gray-900">
               Floor Overview
@@ -1524,58 +1525,65 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                 </div>
               </div>
               <div className="flex flex-col xl:flex-row gap-3.5 items-stretch xl:items-center justify-between bg-white px-4 sm:px-8 py-4">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
                   {uniqueFloors.length > 1 && (
-                    <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
-                      <button
-                        onClick={() => setSelectedFloor("All Floors")}
-                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
-                          selectedFloor === "All Floors"
-                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                            : "text-gray-500 hover:bg-gray-200/50"
-                        }`}
-                      >
-                        All Floors
-                      </button>
-                      {uniqueFloors.map((floor) => (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                        Floors
+                      </span>
+                      <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
                         <button
-                          key={floor}
-                          onClick={() => setSelectedFloor(floor)}
-                          className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
-                            selectedFloor === floor
+                          onClick={() => setSelectedFloor("All Floors")}
+                          className={`min-w-9 whitespace-nowrap px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                            selectedFloor === "All Floors"
                               ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
                               : "text-gray-500 hover:bg-gray-200/50"
                           }`}
                         >
-                          {floor}
+                          All
                         </button>
-                      ))}
+                        {uniqueFloors.map((floor, idx) => (
+                          <button
+                            key={floor}
+                            onClick={() => setSelectedFloor(floor)}
+                            title={floor}
+                            aria-label={floor}
+                            className={`min-w-9 px-3 py-1.5 rounded-md text-[11px] font-bold tabular-nums transition-all ${
+                              selectedFloor === floor
+                                ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                                : "text-gray-500 hover:bg-gray-200/50"
+                            }`}
+                          >
+                            {idx + 1}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
 
-                  {uniqueFloors.length > 1 && <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>}
-
-                  <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
-                    {(
-                      [
-                        "all",
-                        "occupied",
-                        "free",
-                        "bill_requested",
-                      ] as TableFilter[]
-                    ).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setTableFilter(f)}
-                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
-                          tableFilter === f
-                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                            : "text-gray-500 hover:bg-gray-200/50"
-                        }`}
-                      >
-                        {f.replace("_", " ")}
-                      </button>
-                    ))}
+                  <div className="max-w-full overflow-x-auto [scrollbar-width:none]">
+                    <div className="flex w-max items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
+                      {(
+                        [
+                          "all",
+                          "occupied",
+                          "free",
+                          "bill_requested",
+                        ] as TableFilter[]
+                      ).map((f) => (
+                        <button
+                          key={f}
+                          onClick={() => setTableFilter(f)}
+                          className={`whitespace-nowrap px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
+                            tableFilter === f
+                              ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                              : "text-gray-500 hover:bg-gray-200/50"
+                          }`}
+                        >
+                          {f.replace("_", " ")}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 

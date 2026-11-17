@@ -87,6 +87,11 @@ async function persistCsrfFromResponse(res: Response): Promise<void> {
 // is sent to /login at random.
 let refreshInFlight: Promise<string | null> | null = null;
 
+// Why the last renewal failed. "rejected" means the server refused the refresh
+// token (the session really is over); "transient" means it could not be asked
+// (offline, restarting, rate-limited), which must never sign the user out.
+let lastRefreshFailure: "none" | "rejected" | "transient" = "none";
+
 /**
  * Renews the staff tokens, sharing one request between all callers.
  * Resolves to the new access token, "" if renewed without one in the body,
@@ -117,13 +122,42 @@ async function doRefresh(): Promise<string | null> {
       credentials: "include",
     });
     await persistCsrfFromResponse(res);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      lastRefreshFailure = res.status === 400 || res.status === 401 || res.status === 403 ? "rejected" : "transient";
+      return null;
+    }
+    lastRefreshFailure = "none";
     const body = await res.json().catch(() => ({}));
     return String(body?.access_token || "").trim();
   } catch {
+    lastRefreshFailure = "transient";
     return null;
   }
 }
+
+/**
+ * Loads the signed-in staff member for the page guard. signedOut is true only
+ * when the server has definitely ended the session (a 401 that a token renewal
+ * could not fix). A network drop, a restart or a busy server is not a
+ * sign-out: me comes back null and the guard lets the page load.
+ */
+export async function loadStaffSession<T = { role?: string }>(): Promise<{ me: T | null; signedOut: boolean }> {
+  const load = (noCache: boolean) =>
+    api<T>("/api/admin/me", { method: "GET", skipAuthRedirect: true, suppressErrorLog: true, noCache });
+  try {
+    return { me: await load(false), signedOut: false };
+  } catch (e) {
+    if ((e as { status?: number } | null)?.status !== 401) return { me: null, signedOut: false };
+  }
+  const renewed = await refreshAccessToken();
+  if (renewed === null && lastRefreshFailure !== "rejected") return { me: null, signedOut: false };
+  try {
+    return { me: await load(true), signedOut: false };
+  } catch (e) {
+    return { me: null, signedOut: (e as { status?: number } | null)?.status === 401 };
+  }
+}
+
 
 async function getCsrfToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
@@ -334,6 +368,13 @@ async function apiInner<T>(
       // Retry even when this refresh failed: another tab, or the page guard,
       // may have just renewed the tokens, and the retry uses the new cookies.
       return api<T>(path, options, true);
+    }
+    if (lastRefreshFailure === "transient") {
+      // The session could not be renewed because the server was unreachable,
+      // not because it ended. Stay signed in; the next request tries again.
+      const err = new Error("Can't reach the server right now. You're still signed in, please try again.") as Error & { status?: number };
+      err.status = 503;
+      throw err;
     }
     window.location.href = "/login";
     throw new Error("Session expired. Please login again.");

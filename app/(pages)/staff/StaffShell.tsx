@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/app/lib/api";
+import { loadStaffSession } from "@/app/lib/api";
 
 import ManagerPinModal from "@/app/components/ui/ManagerPinModal";
 import ConnectionBanner from "@/app/components/ConnectionBanner";
@@ -17,23 +17,20 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
 
     const checkAccess = async () => {
       try {
-        const me = await api<{ role?: string }>("/api/admin/me", {
-          method: "GET",
-          skipAuthRedirect: true,
-          suppressErrorLog: true,
-        });
+        const { me, signedOut } = await loadStaffSession<{ role?: string }>();
         if (!mounted) return;
-        const role = String(me?.role || "").trim().toLowerCase();
-        if (!role) {
+        // Only a session the server has really ended goes to /login. If the
+        // server can't be reached, keep the user in: each page's own calls
+        // still check the session.
+        const noRole = me !== null && !String(me?.role || "").trim();
+        if (signedOut || noRole) {
           setIsAllowed(false);
           router.replace("/login");
           return;
         }
         setIsAllowed(true);
       } catch {
-        if (!mounted) return;
-        setIsAllowed(false);
-        router.replace("/login");
+        if (mounted) setIsAllowed(true);
       } finally {
         if (mounted) setIsChecking(false);
       }

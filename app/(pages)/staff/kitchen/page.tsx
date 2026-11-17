@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChefHat, Clock3, Loader2, LogOut, RefreshCw, Printer, Flame, Play, CheckCircle2, ChevronRight } from "lucide-react";
+import { ChefHat, Clock3, Loader2, LogOut, RefreshCw, Printer, Flame, Play, CheckCircle2, ChevronRight, Undo2, History, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { api, refreshAccessToken } from "@/app/lib/api";
@@ -71,6 +71,8 @@ const playKdsAlert = () => {
   }
 };
 
+const currentTime = () => Date.now();
+
 export default function KitchenDisplayPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
@@ -87,6 +89,20 @@ export default function KitchenDisplayPage() {
   useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
+
+  // Recently bumped tickets (this session) so a mis-tap can be recalled.
+  type BumpedEntry = { order: ActiveOrder; prevStatus: string; at: number };
+  const BUMP_WINDOW_MS = 15 * 60 * 1000;
+  const UNDO_WINDOW_MS = 10000;
+  const [bumped, setBumped] = useState<BumpedEntry[]>([]);
+  const [showBumped, setShowBumped] = useState(false);
+  const [recallingId, setRecallingId] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => currentTime());
+  useEffect(() => {
+    const t = window.setInterval(() => setNowMs(currentTime()), 30000);
+    return () => window.clearInterval(t);
+  }, []);
+  const recentBumped = bumped.filter((b) => nowMs - b.at <= BUMP_WINDOW_MS);
 
   const queueOrders = useMemo(
     () =>
@@ -111,7 +127,7 @@ export default function KitchenDisplayPage() {
     const ov = id ? overridesRef.current.get(id) : undefined;
     if (!id || !ov) return o;
     const rank: Record<string, number> = { pending: 0, accepted: 1, preparing: 2, ready: 3, served: 4, completed: 5, cancelled: 5 };
-    if (Date.now() - ov.at > 30000 || (rank[o.status] ?? 0) >= (rank[ov.status] ?? 0)) {
+    if (currentTime() - ov.at > 30000 || (rank[o.status] ?? 0) >= (rank[ov.status] ?? 0)) {
       overridesRef.current.delete(id);
       return o;
     }
@@ -203,11 +219,14 @@ export default function KitchenDisplayPage() {
   }, [router, restaurantName, applyOverride]);
 
   useEffect(() => {
-    fetchOrders().catch(() => undefined);
+    const first = window.setTimeout(() => fetchOrders().catch(() => undefined), 0);
     const t = window.setInterval(() => {
       fetchOrders(true).catch(() => undefined);
     }, 60000);
-    return () => window.clearInterval(t);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(t);
+    };
   }, [fetchOrders]);
 
   useEffect(() => {
@@ -257,7 +276,7 @@ export default function KitchenDisplayPage() {
   const updateStatus = async (orderId: string, nextStatus: string) => {
     if (!orderId || updatingId) return;
     const previous = orders;
-    overridesRef.current.set(orderId, { status: nextStatus, at: Date.now() });
+    overridesRef.current.set(orderId, { status: nextStatus, at: currentTime() });
     setOrders((prev) =>
       prev.map((o) => ((o.id || o.order_id) === orderId ? { ...o, status: nextStatus } : o))
     );
@@ -267,7 +286,34 @@ export default function KitchenDisplayPage() {
         method: "PATCH",
         body: JSON.stringify({ status: nextStatus }),
       });
-      toast.success(`Order status updated to ${nextStatus}`);
+      const bumpedOrder = previous.find((o) => (o.id || o.order_id) === orderId);
+      if (nextStatus === "served" && bumpedOrder) {
+        const entry: BumpedEntry = { order: bumpedOrder, prevStatus: bumpedOrder.status, at: currentTime() };
+        setBumped((prev) => [entry, ...prev.filter((b) => (b.order.id || b.order.order_id) !== orderId)].slice(0, 30));
+        toast.custom(
+          (t) => (
+            <div
+              role="status"
+              className="flex items-center gap-4 rounded-xl border border-[#2B2F44] bg-[#161824] px-4 py-3 text-sm font-bold text-white shadow-xl"
+            >
+              <span>Order bumped to served</span>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  recallOrderRef.current(orderId);
+                }}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-orange-500 px-4 text-sm font-black uppercase tracking-wider text-white hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                <Undo2 className="h-4 w-4" aria-hidden />
+                Undo
+              </button>
+            </div>
+          ),
+          { duration: UNDO_WINDOW_MS },
+        );
+      } else {
+        toast.success(`Order status updated to ${nextStatus}`);
+      }
       if (nextStatus === "served" || nextStatus === "ready") {
         // Remove from list if it's served
         setOrders((prev) => prev.filter((o) => (o.id || o.order_id) !== orderId));
@@ -281,6 +327,35 @@ export default function KitchenDisplayPage() {
     }
   };
 
+
+  const recallOrder = async (orderId: string) => {
+    const entry = bumped.find((b) => (b.order.id || b.order.order_id) === orderId);
+    if (!entry || recallingId) return;
+    setRecallingId(orderId);
+    try {
+      // Server steps back one status per call (served -> ready -> preparing);
+      // the board only shows accepted/preparing, so step until we get there.
+      let current = "served";
+      for (let i = 0; i < 2 && current !== entry.prevStatus; i++) {
+        const res = await api<{ status?: string } | null>(`/api/admin/orders/${orderId}/recall`, { method: "POST" });
+        current = res?.status || (current === "served" ? "ready" : "preparing");
+      }
+      overridesRef.current.delete(orderId);
+      setBumped((prev) => prev.filter((b) => (b.order.id || b.order.order_id) !== orderId));
+      upsertOrder({ ...entry.order, status: entry.prevStatus });
+      toast.success("Order returned to the board");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "Unable to recall order");
+    } finally {
+      setRecallingId(null);
+    }
+  };
+
+  const recallOrderRef = useRef(recallOrder);
+  useEffect(() => {
+    recallOrderRef.current = recallOrder;
+  });
+
   const signOut = async () => {
     try {
       await api("/auth/logout", { method: "POST" });
@@ -292,7 +367,7 @@ export default function KitchenDisplayPage() {
   };
 
   const getAgeMins = (createdAt: string) => {
-    return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+    return Math.max(0, Math.floor((nowMs - new Date(createdAt).getTime()) / 60000));
   };
 
   const getAgeStr = (createdAt: string) => {
@@ -356,6 +431,14 @@ export default function KitchenDisplayPage() {
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin text-orange-500" : ""}`} />
             Refresh
+          </button>
+          <button
+            onClick={() => setShowBumped(true)}
+            aria-haspopup="dialog"
+            className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[#2B2F44] bg-[#161824] px-4 text-xs font-bold uppercase tracking-wider text-[#A0A5B9] transition-all hover:bg-[#1F2235] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-500"
+          >
+            <History className="h-4 w-4" aria-hidden />
+            Recently bumped{recentBumped.length > 0 ? ` (${recentBumped.length})` : ""}
           </button>
           <button
             onClick={signOut}
@@ -426,7 +509,7 @@ export default function KitchenDisplayPage() {
                         {/* Card Header */}
                         <div className="flex items-start justify-between border-b border-[#2B2F44]/40 pb-3 mb-3">
                           <div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                            <span className="text-[14px] font-black uppercase tracking-wider text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
                               Table T{order.table_number}
                             </span>
                             <h3 className="mt-2 text-sm font-black text-white">
@@ -438,7 +521,7 @@ export default function KitchenDisplayPage() {
                             </h3>
                           </div>
                           <div className="flex flex-col items-end gap-1.5">
-                            <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-bold ${styles.pill}`}>
+                            <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[14px] font-bold ${styles.pill}`}>
                               <Clock3 className="h-3 w-3" />
                               {getAgeStr(order.created_at)}
                             </span>
@@ -458,24 +541,24 @@ export default function KitchenDisplayPage() {
                             <div key={`${id}-${idx}`} className="rounded-lg bg-[#090A0F]/60 border border-[#1F222F]/50 px-3 py-2">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black text-[#E4E6EB] leading-tight">
+                                  <p className="text-lg font-black text-[#E4E6EB] leading-tight">
                                     {item.menu_item_name}
                                     {item.variant_label && (
-                                      <span className="text-[10px] text-orange-400 font-medium"> ({item.variant_label})</span>
+                                      <span className="text-[14px] text-orange-400 font-medium"> ({item.variant_label})</span>
                                     )}
                                   </p>
                                   {/* Modifiers List */}
                                   {item.modifiers && item.modifiers.length > 0 && (
                                     <div className="mt-1 space-y-0.5 pl-2 border-l border-orange-500/30">
                                       {item.modifiers.map((mod, mIdx) => (
-                                        <p key={mIdx} className="text-[10px] text-[#A0A5B9] font-medium">
+                                        <p key={mIdx} className="text-[14px] text-[#A0A5B9] font-medium">
                                           + {mod.label}
                                         </p>
                                       ))}
                                     </div>
                                   )}
                                 </div>
-                                <span className="rounded bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 text-[10px] font-black text-orange-400">
+                                <span className="rounded bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 text-xl font-black text-orange-400">
                                   x{item.quantity}
                                 </span>
                               </div>
@@ -537,7 +620,7 @@ export default function KitchenDisplayPage() {
                         {/* Card Header */}
                         <div className="flex items-start justify-between border-b border-[#2B2F44]/40 pb-3 mb-3">
                           <div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                            <span className="text-[14px] font-black uppercase tracking-wider text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
                               Table T{order.table_number}
                             </span>
                             <h3 className="mt-2 text-sm font-black text-white">
@@ -549,7 +632,7 @@ export default function KitchenDisplayPage() {
                             </h3>
                           </div>
                           <div className="flex flex-col items-end gap-1.5">
-                            <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-bold ${styles.pill}`}>
+                            <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[14px] font-bold ${styles.pill}`}>
                               <Clock3 className="h-3 w-3" />
                               {getAgeStr(order.created_at)}
                             </span>
@@ -569,24 +652,24 @@ export default function KitchenDisplayPage() {
                             <div key={`${id}-${idx}`} className="rounded-lg bg-[#090A0F]/60 border border-[#1F222F]/50 px-3 py-2">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black text-[#E4E6EB] leading-tight">
+                                  <p className="text-lg font-black text-[#E4E6EB] leading-tight">
                                     {item.menu_item_name}
                                     {item.variant_label && (
-                                      <span className="text-[10px] text-rose-400 font-medium"> ({item.variant_label})</span>
+                                      <span className="text-[14px] text-rose-400 font-medium"> ({item.variant_label})</span>
                                     )}
                                   </p>
                                   {/* Modifiers List */}
                                   {item.modifiers && item.modifiers.length > 0 && (
                                     <div className="mt-1 space-y-0.5 pl-2 border-l border-rose-500/30">
                                       {item.modifiers.map((mod, mIdx) => (
-                                        <p key={mIdx} className="text-[10px] text-[#A0A5B9] font-medium">
+                                        <p key={mIdx} className="text-[14px] text-[#A0A5B9] font-medium">
                                           + {mod.label}
                                         </p>
                                       ))}
                                     </div>
                                   )}
                                 </div>
-                                <span className="rounded bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 text-[10px] font-black text-rose-400">
+                                <span className="rounded bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-xl font-black text-rose-400">
                                   x{item.quantity}
                                 </span>
                               </div>
@@ -613,6 +696,56 @@ export default function KitchenDisplayPage() {
             </div>
           </div>
         </main>
+      )}
+
+      {showBumped && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Recently bumped">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowBumped(false)} aria-hidden />
+          <aside className="relative flex h-full w-full max-w-md flex-col border-l border-[#1F222F] bg-[#0F111A] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#1F222F] px-5 py-4">
+              <h2 className="text-base font-extrabold text-white">Recently bumped (last 15 min)</h2>
+              <button
+                onClick={() => setShowBumped(false)}
+                aria-label="Close recently bumped"
+                className="flex h-11 w-11 items-center justify-center rounded-lg border border-[#2B2F44] bg-[#161824] text-[#A0A5B9] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              {recentBumped.length === 0 ? (
+                <p className="py-10 text-center text-base text-[#7C8194]">Nothing bumped in the last 15 minutes.</p>
+              ) : (
+                recentBumped.map((b) => {
+                  const bid = b.order.id || b.order.order_id || "";
+                  const mins = Math.floor((nowMs - b.at) / 60000);
+                  return (
+                    <div key={bid} className="rounded-xl border border-[#2B2F44] bg-[#161824] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-base font-black text-white">
+                            Table T{b.order.table_number} · #{b.order.daily_order_number || bid.slice(0, 8)}
+                          </p>
+                          <p className="text-sm text-[#A0A5B9]">
+                            {b.order.items.length} item{b.order.items.length === 1 ? "" : "s"} · {mins < 1 ? "just now" : `${mins}m ago`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => recallOrder(bid)}
+                          disabled={recallingId === bid}
+                          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-orange-500 px-4 text-sm font-black uppercase tracking-wider text-white hover:bg-orange-600 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        >
+                          <Undo2 className="h-4 w-4" aria-hidden />
+                          {recallingId === bid ? "Recalling..." : "Recall"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+        </div>
       )}
     </div>
   );

@@ -920,7 +920,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
       onClick={() => setShowMenu(false)}
     >
       {/* === TOP APP BAR (Minimal & Professional, No Gradients/Emojis) === */}
-      <header className="h-14 px-6 bg-white border-b border-slate-200 shrink-0 flex items-center justify-between z-30 print:hidden">
+      <header className="staff-topbar px-6 bg-white border-b border-slate-200 shrink-0 flex items-center justify-between z-30 print:hidden">
         <div className="flex items-center gap-4">
           <motion.button
             whileHover={{ scale: 1.02 }}

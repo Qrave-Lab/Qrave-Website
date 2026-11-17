@@ -545,7 +545,7 @@ export default function ReservationsClient({ initialData }: { initialData?: any 
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-20 sticky top-0">
+        <header className="staff-topbar bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 sticky top-0">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
               Reservations & Waitlist

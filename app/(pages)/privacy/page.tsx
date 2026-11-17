@@ -721,6 +721,12 @@ export default function PrivacyPage() {
         </tbody>
       </table>
 
+      <h2>Your data</h2>
+      <p>
+        You can ask a restaurant that uses Qrave to delete, share or correct the personal data linked to your phone number using our{" "}
+        <a href="/your-data">Your data</a> form.
+      </p>
+
       <footer>
         Qrave Privacy Policy &middot; Last Updated: October 7, 2026
       </footer>
