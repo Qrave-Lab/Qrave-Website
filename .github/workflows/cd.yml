@@ -71,7 +71,7 @@ jobs:
 
       - name: Comment preview URL
         if: steps.gate.outputs.enabled == 'true' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             await github.rest.issues.createComment({
