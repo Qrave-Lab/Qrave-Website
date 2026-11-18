@@ -83,7 +83,7 @@ const OTPInput = ({ value, onChange, onComplete }: { value: string, onChange: (v
           value={digit}
           onChange={(e) => handleChange(i, e)}
           onKeyDown={(e) => handleKeyDown(i, e)}
-          className="w-11 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold bg-slate-50/50 border-2 border-slate-200 rounded-xl focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/20 focus:bg-white outline-none transition-all"
+          className="w-11 h-14 sm:w-14 sm:h-16 text-center text-2xl font-medium bg-slate-50/50 border-2 border-slate-200 rounded-xl focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/20 focus:bg-white outline-none transition-all"
         />
       ))}
     </div>
@@ -293,7 +293,7 @@ export default function WaitlistJoinPage() {
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10 text-red-500" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">Oops!</h2>
+            <h2 className="font-display text-2xl font-normal text-slate-900 mb-2">Oops!</h2>
             <p className="text-slate-500 font-medium">{errorMsg}</p>
           </motion.div>
         );
@@ -303,7 +303,7 @@ export default function WaitlistJoinPage() {
           <motion.div key="phone" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <form onSubmit={handleSendOTP} className="flex flex-col gap-6">
               <div className="text-center mb-2">
-                <h2 className="text-2xl font-black text-slate-900 mb-2">Join the Waitlist</h2>
+                <h2 className="font-display text-2xl font-normal text-slate-900 mb-2">Join the Waitlist</h2>
                 <p className="text-slate-500 text-sm font-medium">Enter your email to hold your spot. We will send you a code.</p>
               </div>
               <div>
@@ -311,7 +311,7 @@ export default function WaitlistJoinPage() {
                   type="email"
                   inputMode="email"
                   autoComplete="email"
-                  className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-4 px-5 text-lg font-bold text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
+                  className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-4 px-5 text-lg font-medium text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -337,7 +337,7 @@ export default function WaitlistJoinPage() {
                 <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <BellRing className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 mb-2">Verify Email</h2>
+                <h2 className="font-display text-2xl font-normal text-slate-900 mb-2">Verify Email</h2>
                 <p className="text-slate-500 text-sm font-medium">We sent a 6-digit code to <br/><span className="text-slate-900 font-bold">{email}</span></p>
               </div>
               <div className="py-2">
@@ -375,20 +375,20 @@ export default function WaitlistJoinPage() {
           <motion.div key="form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <form onSubmit={handleJoin} className="flex flex-col gap-6">
               <div className="text-center mb-2">
-                <h2 className="text-2xl font-black text-slate-900 mb-2">Almost there!</h2>
+                <h2 className="font-display text-2xl font-normal text-slate-900 mb-2">Almost there!</h2>
                 <p className="text-slate-500 text-sm font-medium">Just a few details to get you seated.</p>
               </div>
               
               <div className="space-y-5">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 ml-1">
+                  <label className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5 ml-1">
                     <Phone className="w-3.5 h-3.5" /> Mobile (so the host can reach you)
                   </label>
                   <input
                     type="tel"
                     inputMode="numeric"
                     maxLength={10}
-                    className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-3.5 px-5 text-lg font-bold text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
+                    className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-3.5 px-5 text-lg font-medium text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
                     placeholder="10-digit mobile number"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
@@ -397,12 +397,12 @@ export default function WaitlistJoinPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 ml-1">
+                  <label className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1.5 ml-1">
                     <User className="w-3.5 h-3.5" /> Guest Name
                   </label>
                   <input
                     type="text"
-                    className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-3.5 px-5 text-lg font-bold text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
+                    className="w-full bg-slate-50/50 border-2 border-slate-200 rounded-2xl py-3.5 px-5 text-lg font-medium text-slate-900 placeholder-slate-400 focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/10 outline-none transition-all"
                     placeholder="E.g. John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -412,7 +412,7 @@ export default function WaitlistJoinPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5 ml-1">
+                  <label className="text-xs font-medium text-slate-500 mb-3 flex items-center gap-1.5 ml-1">
                     <Users className="w-3.5 h-3.5" /> Party Size
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -437,7 +437,7 @@ export default function WaitlistJoinPage() {
                         type="number"
                         min="7"
                         max="50"
-                        className="w-full bg-white border-2 border-[#fe5c13] rounded-xl py-3 px-4 text-lg font-bold text-slate-900 focus:ring-4 focus:ring-[#fe5c13]/20 outline-none transition-all"
+                        className="w-full bg-white border-2 border-[#fe5c13] rounded-xl py-3 px-4 text-lg font-medium text-slate-900 focus:ring-4 focus:ring-[#fe5c13]/20 outline-none transition-all"
                         value={partySize}
                         onChange={(e) => setPartySize(parseInt(e.target.value) || 7)}
                       />
@@ -479,7 +479,7 @@ export default function WaitlistJoinPage() {
               </div>
               <span className="absolute bottom-1 right-1 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></span>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">You're in the queue!</h2>
+            <h2 className="font-display text-2xl font-normal text-slate-900 mb-2">You're in the queue!</h2>
             <p className="text-slate-500 font-medium mb-8">We'll let you know when your table is ready.</p>
             
             <div className="bg-slate-50/80 border border-slate-200 rounded-3xl p-6 mb-8 relative overflow-hidden shadow-sm">
@@ -493,14 +493,14 @@ export default function WaitlistJoinPage() {
               )}
               <div className="grid grid-cols-2 gap-4 divide-x divide-slate-200">
                 <div className="px-2">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Position</p>
-                  <p className={`text-5xl font-black ${isNext ? 'text-green-500' : 'text-slate-900'} tracking-tighter`}>
+                  <p className="text-xs font-medium text-slate-500 mb-2">Position</p>
+                  <p className={`text-5xl font-bold ${isNext ? 'text-green-500' : 'text-slate-900'} tracking-tighter`}>
                     {pos > 0 ? `#${pos}` : "--"}
                   </p>
                 </div>
                 <div className="px-2">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Est. Wait</p>
-                  <p className="text-4xl font-black text-slate-900 mt-2 tracking-tighter">
+                  <p className="text-xs font-medium text-slate-500 mb-2">Est. wait</p>
+                  <p className="text-4xl font-bold text-slate-900 mt-2 tracking-tighter">
                     {estWait > 0 ? `${estWait}m` : "--"}
                   </p>
                 </div>
@@ -516,7 +516,7 @@ export default function WaitlistJoinPage() {
             
             <div className="inline-flex items-center justify-center gap-2 bg-slate-100 px-4 py-2 rounded-full">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-[#fe5c13]" />
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Updates</span>
+              <span className="text-xs font-medium text-slate-500">Live updates</span>
             </div>
           </motion.div>
         );
@@ -527,7 +527,7 @@ export default function WaitlistJoinPage() {
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border-2 border-green-200">
               <CheckCircle2 className="w-12 h-12 text-green-600" />
             </div>
-            <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Table Ready! 🎉</h2>
+            <h2 className="font-display text-3xl font-normal text-slate-900 mb-3 tracking-[-0.01em]">Table Ready! 🎉</h2>
             <p className="text-lg text-slate-600 font-medium">Please head to the host stand. We are ready to seat you.</p>
           </motion.div>
         );
@@ -538,7 +538,7 @@ export default function WaitlistJoinPage() {
             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10 text-slate-400" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">No longer in queue</h2>
+            <h2 className="font-display text-2xl font-normal text-slate-900 mb-3 tracking-[-0.01em]">No longer in queue</h2>
             <p className="text-slate-500 font-medium">You have been removed from the waitlist.</p>
             <button 
               onClick={() => { localStorage.removeItem(`qrave_waitlist_${slug}`); setStep("phone"); }}
@@ -569,7 +569,7 @@ export default function WaitlistJoinPage() {
           
           {/* Overlapping Logo */}
           <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex justify-center">
-            <div className="w-24 h-24 rounded-[1.5rem] bg-white shadow-xl shadow-slate-200/50 ring-1 ring-slate-900/5 flex items-center justify-center text-4xl font-black text-[#fe5c13] overflow-hidden">
+            <div className="w-24 h-24 rounded-[1.5rem] bg-white shadow-xl shadow-slate-200/50 ring-1 ring-slate-900/5 flex items-center justify-center text-4xl font-bold text-[#fe5c13] overflow-hidden">
               {restaurant?.logo_url ? (
                 <img src={restaurant.logo_url} alt={restaurant.name} className="w-full h-full object-cover" />
               ) : restaurant?.name ? (
@@ -583,10 +583,10 @@ export default function WaitlistJoinPage() {
           {/* Restaurant Header */}
           {step !== "loading" && step !== "error" && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center mt-6 mb-8">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">{restaurant?.name || "Restaurant"}</h1>
+              <h1 className="font-display text-2xl font-normal text-slate-900 tracking-[-0.01em]">{restaurant?.name || "Restaurant"}</h1>
               
               <div className="flex items-center justify-center gap-2 mt-3">
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-[11px] font-bold tracking-widest uppercase border border-green-100 shadow-sm">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-100 shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                   Accepting Walk-ins
                 </span>
@@ -616,7 +616,7 @@ export default function WaitlistJoinPage() {
 
       {/* Subtle Footer */}
       <footer className="py-8 text-center z-10 mt-auto">
-        <p className="text-[11px] font-bold tracking-widest text-slate-400 uppercase">
+        <p className="text-xs font-medium text-slate-500">
           Powered by <span className="text-slate-900">Qrave</span>
         </p>
       </footer>

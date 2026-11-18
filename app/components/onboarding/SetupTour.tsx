@@ -103,10 +103,10 @@ export default function SetupTour({ open, onClose }: { open: boolean; onClose: (
         <div className="pointer-events-none absolute inset-0 bg-slate-900/60" />
       )}
       <div className="absolute rounded-2xl bg-white p-5 shadow-2xl" style={cardStyle}>
-        <p className="text-[10px] font-black uppercase tracking-widest text-[#fe5c13]">
+        <p className="text-xs font-medium text-[#fe5c13]">
           Step {i + 1} of {STEPS.length}
         </p>
-        <h3 className="mt-1 text-base font-black text-slate-900">{step.title}</h3>
+        <h3 className="mt-1 text-base font-bold text-slate-900">{step.title}</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{step.body}</p>
         <div className="mt-4 flex items-center justify-between">
           <button onClick={finish} className="text-xs font-bold text-slate-400 hover:text-slate-600">

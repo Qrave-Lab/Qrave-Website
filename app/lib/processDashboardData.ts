@@ -186,6 +186,7 @@ export function processDashboardData(initialData: any) {
       seatedAt: occ?.seatedAt || meta?.seatedAt,
       isEnabled: t.is_enabled,
       floorName: t.floor_name || "Main Floor",
+      capacity: typeof t.capacity === "number" ? t.capacity : undefined,
     };
   });
 

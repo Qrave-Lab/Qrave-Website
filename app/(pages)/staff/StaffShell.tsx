@@ -66,7 +66,7 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="admin-ui">
+    <div className="admin-ui qr-ui">
       <ConnectionBanner />
       {children}
       <ManagerPinModal />

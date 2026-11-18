@@ -109,7 +109,7 @@ export default function FoodCourtClient({ slug }: { slug: string }) {
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-extrabold tracking-tight">{court.name}</h1>
+              <h1 className="font-display truncate text-2xl font-normal tracking-[-0.01em]">{court.name}</h1>
               <p className="flex items-center gap-1 text-sm text-white/85">
                 {court.city && (
                   <>
@@ -246,7 +246,7 @@ function Chip({
 function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="mt-6">
-      <h2 className="mb-3 flex items-center gap-1.5 text-[15px] font-extrabold tracking-tight text-slate-900">
+      <h2 className="mb-3 flex items-center gap-1.5 text-[15px] font-bold tracking-tight text-slate-900">
         {icon}
         {title}
       </h2>
@@ -257,7 +257,7 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
 
 function SponsoredTag() {
   return (
-    <span className="rounded-md bg-slate-900/80 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+    <span className="rounded-md bg-slate-900/80 px-1.5 py-0.5 text-xs font-semibold text-white">
       Sponsored
     </span>
   );
@@ -308,7 +308,7 @@ function StallRow({ slug, stall }: { slug: string; stall: StallCard }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={stall.logoUrl} alt="" className="h-full w-full object-contain p-3" loading="lazy" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-2xl font-black text-slate-300">
+          <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-slate-300">
             {stall.name.slice(0, 1)}
           </div>
         )}
@@ -320,7 +320,7 @@ function StallRow({ slug, stall }: { slug: string; stall: StallCard }) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <div className="flex items-center gap-2">
-          <h3 className="truncate text-[16px] font-extrabold tracking-tight">{stall.name}</h3>
+          <h3 className="truncate text-[16px] font-bold tracking-tight">{stall.name}</h3>
           {stall.sponsored && <SponsoredTag />}
         </div>
         <p className="mt-0.5 truncate text-[13px] text-slate-500">
@@ -414,7 +414,7 @@ function DishCard({
           <p className="line-clamp-2 text-[13px] font-bold leading-tight">{dish.name}</p>
         </div>
         <p className="mt-1 truncate text-[11px] text-slate-500">{stall?.name}</p>
-        <p className="mt-1 text-[13px] font-extrabold">{formatPrice(dish.price)}</p>
+        <p className="mt-1 text-[13px] font-bold">{formatPrice(dish.price)}</p>
       </div>
     </Link>
   );
@@ -468,7 +468,7 @@ function SearchResults({
         return (
           <section key={rid}>
             <Link href={`/fc/${slug}/${rid}`} className="mb-2 flex items-center justify-between">
-              <h3 className="text-[14px] font-extrabold">
+              <h3 className="text-[14px] font-bold">
                 {stall?.name || "Stall"}
                 {stall?.stallLabel && <span className="ml-1.5 font-semibold text-slate-400">{stall.stallLabel}</span>}
               </h3>
@@ -491,7 +491,7 @@ function SearchResults({
                         {d.hasAr && <Box size={13} className="mt-0.5 shrink-0 text-slate-500" aria-label="Has 3D view" />}
                       </div>
                       {d.description && <p className="mt-1 line-clamp-1 text-[12px] text-slate-500">{d.description}</p>}
-                      <p className="mt-1 text-[13px] font-extrabold">{formatPrice(d.price)}</p>
+                      <p className="mt-1 text-[13px] font-bold">{formatPrice(d.price)}</p>
                     </div>
                     {d.imageUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -527,7 +527,7 @@ function CourtError({ status }: { status?: number }) {
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#F8FAFC] px-6 text-center">
       <Store size={36} className="text-slate-300" />
-      <h1 className="mt-3 text-lg font-extrabold">{inactive ? "Menus are unavailable right now" : "Food court not found"}</h1>
+      <h1 className="mt-3 text-lg font-bold">{inactive ? "Menus are unavailable right now" : "Food court not found"}</h1>
       <p className="mt-1 max-w-xs text-sm text-slate-500">
         {inactive ? "Please ask the staff at any stall for a menu." : "Check the QR code or link and try again."}
       </p>

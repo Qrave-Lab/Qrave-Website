@@ -34,7 +34,7 @@ export default function SyncQueueMonitorPage() {
           <ArrowLeft className="w-5 h-5 text-slate-500" />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Sync Queue Monitor</h1>
+          <h1 className="font-display text-xl font-normal text-slate-900">Sync Queue Monitor</h1>
           <p className="text-xs text-slate-500 mt-0.5">View offline queues and sync statuses</p>
         </div>
       </header>
@@ -69,7 +69,7 @@ export default function SyncQueueMonitorPage() {
                       <h4 className="text-base font-bold text-slate-900 truncate">
                         {item.type}
                       </h4>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap uppercase tracking-wider ${
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
                         item.status === 'failed' || item.status === 'manual_review' ? 'bg-red-100 text-red-700' :
                         item.status === 'syncing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
                       }`}>

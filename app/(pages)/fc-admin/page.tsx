@@ -40,7 +40,7 @@ export default function FoodCourtOverview() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-extrabold">Overview</h2>
+        <h2 className="font-display text-xl font-normal">Overview</h2>
         <div className="flex rounded-full border border-slate-200 bg-white p-0.5">
           {RANGES.map((r) => (
             <button
@@ -84,7 +84,7 @@ export default function FoodCourtOverview() {
           <Card title="Stalls">
             <div className="-mx-4 overflow-x-auto px-4">
               <table className="w-full min-w-[480px] text-sm">
-                <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead className="text-left text-xs text-slate-500">
                   <tr>
                     <th className="py-2 font-semibold">Stall</th>
                     <th className="py-2 text-right font-semibold">Menu views</th>
@@ -142,7 +142,7 @@ function Stat({ label, value, hint }: { label: string; value: number; hint: stri
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-extrabold tabular-nums">{value.toLocaleString("en-IN")}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums">{value.toLocaleString("en-IN")}</p>
       <p className="mt-0.5 text-[11px] text-slate-400">{hint}</p>
     </div>
   );

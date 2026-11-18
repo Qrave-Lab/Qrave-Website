@@ -3,6 +3,8 @@
 import { api } from "@/app/lib/api";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, ChevronRight, Search } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { CARD, INPUT, THEAD_ROW, TBODY, SectionHeader, EmptyState, fmtDay } from "./ui";
+import { Loader2, TrendingUp } from "lucide-react";
 
 type Point = {
   ingredient_id: string;
@@ -16,7 +18,7 @@ const inr = (n: number) =>
   `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function Spark({ values }: { values: number[] }) {
-  if (values.length < 2) return <span className="text-slate-300">—</span>;
+  if (values.length < 2) return <span className="text-[#C4C4BE]">—</span>;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
@@ -25,7 +27,7 @@ function Spark({ values }: { values: number[] }) {
     .join(" ");
   return (
     <svg width="80" height="24" viewBox="0 0 80 24">
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.6" className="text-slate-500" />
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.6" className="text-[#9CA3AF]" />
     </svg>
   );
 }
@@ -65,95 +67,117 @@ export default function PriceHistoryPanel() {
   }, [points, query]);
 
   return (
-    <div className="flex flex-1 flex-col animate-in fade-in duration-200">
-      <div className="flex flex-col justify-between gap-4 border-b border-slate-100 bg-white px-8 py-5 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">Supplier price history</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Cost per unit from every stock receipt. Biggest price moves are shown first.
-          </p>
-        </div>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+    <div className="px-8 py-6">
+      <SectionHeader
+        title="Price history"
+        count={loading ? undefined : `${groups.length} ${groups.length === 1 ? "ingredient" : "ingredients"}`}
+        description="Cost per unit from every delivery you've received. The biggest price changes are listed first."
+      >
+        <div className="relative w-60">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search ingredient"
-            className="w-56 rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            aria-label="Search ingredient"
+            className={`${INPUT} pl-9 text-[13px]`}
           />
         </div>
-      </div>
+      </SectionHeader>
 
-      {loading ? (
-        <p className="p-10 text-center text-xs font-semibold text-slate-400">Loading prices…</p>
-      ) : groups.length === 0 ? (
-        <p className="m-auto p-16 text-center text-xs text-slate-400">
-          No priced stock receipts yet. Receive a purchase order with unit costs to start tracking.
-        </p>
-      ) : (
-        <table className="w-full border-collapse text-left text-sm text-slate-600">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-              <th className="w-10 px-4 py-3" />
-              <th className="px-4 py-3">Ingredient</th>
-              <th className="px-4 py-3">Latest</th>
-              <th className="px-4 py-3">Change</th>
-              <th className="px-4 py-3">Trend</th>
-              <th className="px-4 py-3">Cheapest supplier</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {groups.map((g) => {
-              const isOpen = open === g.id;
-              return (
-                <React.Fragment key={g.id}>
-                  <tr onClick={() => setOpen(isOpen ? null : g.id)} className="cursor-pointer hover:bg-slate-50/60">
-                    <td className="px-4 py-3.5 text-slate-300">
-                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold text-slate-900">{g.name}</td>
-                    <td className="px-4 py-3.5 font-mono">
-                      {inr(g.latest.cost_per_unit)}
-                      <span className="ml-1.5 text-xs font-sans text-slate-400">{g.latest.supplier_name}</span>
-                    </td>
-                    <td className="px-4 py-3.5 font-bold">
-                      {g.change === 0 ? (
-                        <span className="text-slate-300">—</span>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1 ${g.change > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                          {g.change > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                          {Math.abs(g.change).toFixed(1)}%
-                        </span>
+      <section className={CARD}>
+        {loading ? (
+          <div className="flex h-56 items-center justify-center gap-2 text-[14px] text-[#6B7280]">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading prices
+          </div>
+        ) : groups.length === 0 ? (
+          query.trim() ? (
+            <EmptyState icon={<Search className="h-6 w-6" />} title="No ingredients match your search" />
+          ) : (
+            <EmptyState
+              icon={<TrendingUp className="h-6 w-6" />}
+              title="No prices recorded yet"
+              body="Receive a purchase order with unit costs and the price of each ingredient will be tracked here."
+            />
+          )
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-left">
+              <thead>
+                <tr className={THEAD_ROW}>
+                  <th className="w-10 py-3 pl-4" />
+                  <th className="px-4 py-3 font-medium">Ingredient</th>
+                  <th className="px-4 py-3 text-right font-medium">Latest price</th>
+                  <th className="px-4 py-3 text-right font-medium">Change</th>
+                  <th className="px-4 py-3 font-medium">Trend</th>
+                  <th className="px-4 py-3 font-medium">Cheapest supplier</th>
+                </tr>
+              </thead>
+              <tbody className={TBODY}>
+                {groups.map((g) => {
+                  const isOpen = open === g.id;
+                  return (
+                    <React.Fragment key={g.id}>
+                      <tr
+                        onClick={() => setOpen(isOpen ? null : g.id)}
+                        aria-expanded={isOpen}
+                        className={`cursor-pointer text-[13px] transition-colors hover:bg-[#FAFAF7] ${isOpen ? "bg-[#FAFAF7]" : ""}`}
+                      >
+                        <td className="py-3.5 pl-4 text-[#9CA3AF]">
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </td>
+                        <td className="px-4 py-3.5 text-[14px] font-semibold text-[#0F1117]">{g.name}</td>
+                        <td className="px-4 py-3.5 text-right">
+                          <p className="font-semibold tabular-nums text-[#0F1117]">{inr(g.latest.cost_per_unit)}</p>
+                          <p className="mt-0.5 text-[12px] text-[#9CA3AF]">{g.latest.supplier_name}</p>
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-semibold tabular-nums">
+                          {g.change === 0 ? (
+                            <span className="text-[#C4C4BE]">—</span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-0.5 ${g.change > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                              {g.change > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                              {Math.abs(g.change).toFixed(1)}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5"><Spark values={[...g.list].reverse().map((p) => p.cost_per_unit)} /></td>
+                        <td className="px-4 py-3.5 text-[#4B5563]">
+                          {g.suppliers > 1 && g.cheapest ? (
+                            <>
+                              <span className="text-[#0F1117]">{g.cheapest[0]}</span>{" "}
+                              <span className="tabular-nums text-[#6B7280]">at {inr(g.cheapest[1])}</span>
+                            </>
+                          ) : (
+                            <span className="text-[#9CA3AF]">Only one supplier</span>
+                          )}
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="bg-[#FAFAF7]">
+                          <td />
+                          <td colSpan={5} className="px-4 pb-4 pt-1">
+                            <ul className="grid gap-1.5 sm:grid-cols-2">
+                              {g.list.slice(0, 20).map((p, i) => (
+                                <li key={i} className="flex justify-between gap-3 rounded-lg border border-[#E8E8E3] bg-white px-3 py-2 text-[12px]">
+                                  <span className="text-[#6B7280]">
+                                    <span className="tabular-nums">{fmtDay(p.received_at)}</span>, {p.supplier_name}
+                                  </span>
+                                  <span className="font-semibold tabular-nums text-[#0F1117]">{inr(p.cost_per_unit)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="px-4 py-3.5"><Spark values={[...g.list].reverse().map((p) => p.cost_per_unit)} /></td>
-                    <td className="px-4 py-3.5 text-xs">
-                      {g.suppliers > 1 && g.cheapest ? `${g.cheapest[0]} · ${inr(g.cheapest[1])}` : <span className="text-slate-300">Single supplier</span>}
-                    </td>
-                  </tr>
-                  {isOpen && (
-                    <tr className="bg-slate-50/60">
-                      <td />
-                      <td colSpan={5} className="px-4 py-3">
-                        <ul className="grid gap-1 text-xs sm:grid-cols-2">
-                          {g.list.slice(0, 20).map((p, i) => (
-                            <li key={i} className="flex justify-between rounded-lg bg-white px-3 py-2 ring-1 ring-slate-100">
-                              <span className="text-slate-500">
-                                {new Date(p.received_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })} · {p.supplier_name}
-                              </span>
-                              <span className="font-mono font-bold text-slate-800">{inr(p.cost_per_unit)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

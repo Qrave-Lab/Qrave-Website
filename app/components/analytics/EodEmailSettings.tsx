@@ -4,6 +4,7 @@ import { api } from "@/app/lib/api";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
+import { Select } from "@/app/components/ui/Select";
 type Settings = { enabled: boolean; send_hour: number; recipients: string[] };
 
 /** Owner-only: choose who gets the day-end report by email, and when. */
@@ -57,8 +58,8 @@ export default function EodEmailSettings({ canEdit }: { canEdit: boolean }) {
         <span className="text-sm font-bold text-slate-800">Email the day-end report automatically</span>
       </label>
       <label className="text-xs">
-        <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Send after</span>
-        <select
+        <span className="block text-xs font-medium text-slate-500">Send after</span>
+        <Select
           disabled={!canEdit}
           value={s.send_hour}
           onChange={(e) => setS({ ...s, send_hour: Number(e.target.value) })}
@@ -67,10 +68,10 @@ export default function EodEmailSettings({ canEdit }: { canEdit: boolean }) {
           {Array.from({ length: 24 }, (_, h) => (
             <option key={h} value={h}>{String(h).padStart(2, "0")}:00 IST</option>
           ))}
-        </select>
+        </Select>
       </label>
       <label className="min-w-[260px] flex-1 text-xs">
-        <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Recipients (up to 5, comma separated)</span>
+        <span className="block text-xs font-medium text-slate-500">Recipients (up to 5, comma separated)</span>
         <input
           disabled={!canEdit}
           value={recipients}
@@ -80,7 +81,7 @@ export default function EodEmailSettings({ canEdit }: { canEdit: boolean }) {
         />
       </label>
       {canEdit ? (
-        <button onClick={() => void save()} disabled={saving} className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50">
+        <button onClick={() => void save()} disabled={saving} className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50">
           {saving ? "Saving…" : "Save"}
         </button>
       ) : (

@@ -25,7 +25,7 @@ export default function QRPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 print:hidden">
         <div>
-          <h2 className="text-xl font-extrabold">QR codes</h2>
+          <h2 className="font-display text-xl font-normal">QR codes</h2>
           <p className="text-sm text-slate-500">
             Put these on tables, pillars and entrances. Each one opens the whole food court, and analytics show which code was scanned.
           </p>
@@ -52,9 +52,9 @@ export default function QRPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3">
           {tokens.map((t) => (
             <div key={t.token} className="flex break-inside-avoid flex-col items-center rounded-2xl border border-slate-200 bg-white p-4 text-center">
-              <p className="text-xs font-bold uppercase tracking-wider text-orange-600">{me.court.name}</p>
+              <p className="text-xs font-medium text-orange-600">{me.court.name}</p>
               <QRCodeSVG value={`${origin}/fc/qr/${t.token}`} size={140} className="my-3" />
-              <p className="text-sm font-extrabold">Scan for every menu</p>
+              <p className="text-sm font-bold">Scan for every menu</p>
               {t.zoneLabel && <p className="text-xs text-slate-500">{t.zoneLabel}</p>}
             </div>
           ))}

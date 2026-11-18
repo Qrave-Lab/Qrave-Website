@@ -160,7 +160,7 @@ export default function ManagerPinInput({
                 onKeyDown={(e) => handleKeyDown(idx, e)}
                 onFocus={(e) => e.target.select()}
                 disabled={disabled}
-                className={`w-12 h-14 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-black font-mono rounded-2xl border-2 transition-all outline-none select-none ${
+                className={`w-12 h-14 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-bold font-mono rounded-2xl border-2 transition-all outline-none select-none ${
                   error
                     ? "border-rose-400 bg-rose-50/50 text-rose-600 ring-4 ring-rose-500/10 animate-shake"
                     : isCurrent

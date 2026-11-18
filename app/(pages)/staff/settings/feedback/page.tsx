@@ -87,13 +87,13 @@ function FeedbackCard({ item }: { item: FeedbackEntry }) {
       <div className="px-8 py-4 hover:bg-slate-50/60 transition-colors">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${TYPE_COLORS[item.type]}`}>
+            <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold ${TYPE_COLORS[item.type]}`}>
               {TYPE_LABELS[item.type]}
             </span>
-            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${PRIORITY_COLORS[item.priority]}`}>
+            <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${PRIORITY_COLORS[item.priority]}`}>
               {item.priority}
             </span>
-            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${STATUS_COLORS[item.status]}`}>
+            <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${STATUS_COLORS[item.status]}`}>
               {STATUS_LABELS[item.status]}
             </span>
           </div>
@@ -172,8 +172,8 @@ export default function FeedbackPage() {
           {/* ── Left: Submit form ──────────────────────────────────────── */}
           <div className="xl:w-[40%] border-r border-slate-200 bg-white px-8 py-8 flex flex-col gap-6 overflow-y-auto">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">New Report</p>
-              <h2 className="text-lg font-black text-slate-900 mt-0.5 flex items-center gap-2">
+              <p className="text-xs font-medium text-slate-500">New report</p>
+              <h2 className="text-lg font-bold text-slate-900 mt-0.5 flex items-center gap-2">
                 <Send className="w-4 h-4 text-[#fe5c13]" /> Submit Feedback
               </h2>
             </div>
@@ -182,7 +182,7 @@ export default function FeedbackPage() {
 
               {/* Type pills */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Type</label>
+                <label className="block text-[13px] font-medium text-slate-500 mb-2">Type</label>
                 <div className="flex flex-wrap gap-2">
                   {TYPE_OPTIONS.map((opt) => (
                     <button
@@ -201,7 +201,7 @@ export default function FeedbackPage() {
 
               {/* Priority */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Priority</label>
+                <label className="block text-[13px] font-medium text-slate-500 mb-2">Priority</label>
                 <div className="flex gap-2">
                   {PRIORITY_OPTIONS.map((opt) => (
                     <button
@@ -223,7 +223,7 @@ export default function FeedbackPage() {
 
               {/* Title */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                <label className="block text-[13px] font-medium text-slate-500 mb-2">
                   Title <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -232,14 +232,14 @@ export default function FeedbackPage() {
                   maxLength={200}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Brief summary of the issue or request"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-[#fe5c13] focus:ring-2 focus:ring-orange-100 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-[#fe5c13] focus:ring-2 focus:ring-[#fe5c13]/15 transition-all"
                 />
                 <p className="mt-1 text-right text-[10px] text-slate-400">{title.length}/200</p>
               </div>
 
               {/* Description */}
               <div className="flex-1">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                <label className="block text-[13px] font-medium text-slate-500 mb-2">
                   Description <span className="text-rose-500">*</span>
                 </label>
                 <textarea
@@ -253,7 +253,7 @@ export default function FeedbackPage() {
                     : type === "feature_request" ? "Describe the feature you'd like…"
                     : "Tell us what's on your mind…"
                   }
-                  className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-[#fe5c13] focus:ring-2 focus:ring-orange-100 transition-all"
+                  className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-[#fe5c13] focus:ring-2 focus:ring-[#fe5c13]/15 transition-all"
                 />
                 <p className="mt-1 text-right text-[10px] text-slate-400">{description.length}/5000</p>
               </div>
@@ -261,7 +261,7 @@ export default function FeedbackPage() {
               <button
                 type="submit"
                 disabled={submitting || !title.trim() || !description.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fe5c13] px-4 py-3 text-sm font-black text-white shadow-md shadow-orange-100 transition-all hover:brightness-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fe5c13] px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-100 transition-all hover:brightness-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
                 {submitted ? (
                   <><CheckCircle2 className="h-4 w-4" /> Submitted!</>
@@ -288,7 +288,7 @@ export default function FeedbackPage() {
             <div className="sticky top-0 bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-4 w-4 text-slate-500" />
-                <h2 className="text-sm font-black text-slate-900">Previous Submissions</h2>
+                <h2 className="text-sm font-bold text-slate-900">Previous Submissions</h2>
               </div>
               {!loadingHistory && (
                 <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">

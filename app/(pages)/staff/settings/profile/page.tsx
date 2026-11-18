@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Globe, Loader2, Save } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
@@ -58,21 +58,23 @@ function validatePhone(countryCode: string, phone: string) {
 
 function RestaurantProfileSkeleton() {
   return (
-    <div className="bg-white -m-6 p-8 space-y-8 min-h-[calc(100vh-73px)] animate-pulse">
-      <div className="max-w-4xl space-y-8">
-        <div className="flex items-start gap-6">
-          <div className="h-24 w-24 rounded-2xl bg-slate-100 border border-slate-200 shrink-0" />
-          <div className="flex-1 space-y-3">
-            <div className="h-3 w-28 rounded bg-slate-100" />
-            <div className="h-10 w-full rounded-xl bg-slate-100" />
+    <div className="grid animate-pulse grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-6">
+        {[2, 3, 2].map((rows, i) => (
+          <div key={i} className="rounded-2xl border border-[#E8E8E3] bg-white">
+            <div className="border-b border-[#F0F0EB] px-6 py-4">
+              <div className="h-3.5 w-32 rounded bg-[#E8E8E3]" />
+              <div className="mt-2 h-3 w-56 rounded bg-[#F3F3EF]" />
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              {Array.from({ length: rows }).map((_, r) => (
+                <div key={r} className="h-10 rounded-xl bg-[#F3F3EF]" />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="md:col-span-2 h-10 rounded-xl bg-slate-100" />
-          <div className="md:col-span-2 h-10 rounded-xl bg-slate-100" />
-          <div className="md:col-span-2 h-10 rounded-xl bg-slate-100" />
-        </div>
+        ))}
       </div>
+      <div className="h-72 rounded-2xl border border-[#E8E8E3] bg-white" />
     </div>
   );
 }
@@ -131,19 +133,39 @@ export default function RestaurantProfilePage() {
     setIsSaving(true);
     try {
       await api("/api/admin/update-details", { method: "PATCH", body: JSON.stringify({ name: restaurant.name, address: restaurant.address, phone: restaurant.phone, phone_country_code: restaurant.phoneCountryCode, website: restaurant.website || "", store_slug: restaurant.storeSlug || "", tax_percent: restaurant.taxPercent, service_charge: restaurant.serviceCharge, ordering_enabled: restaurant.orderingEnabled !== false, open_time: restaurant.openTime || "", close_time: restaurant.closeTime || "", gst_number: restaurant.gstNumber || "", tax_config: restaurant.taxConfig && Object.keys(restaurant.taxConfig).length > 0 ? restaurant.taxConfig : null, reservation_deposit_required: restaurant.reservationDepositRequired || false, reservation_deposit_amount: restaurant.reservationDepositAmount || 0, google_review_url: (restaurant.googleReviewUrl || "").trim() }) });
-      await fetchData(); toast.success("Profile updated successfully");
+      await fetchData(); toast.success("Profile saved");
     } catch (err: any) { toast.error(err.message || "Failed to save changes"); } finally { setIsSaving(false); }
   };
 
   return (
     <SettingsPageLayout
-      title="Restaurant Profile"
-      description={<span className="flex items-center gap-1.5"><Globe className="w-3 h-3" /> Brand Profile{!isLoading ? ` • ${restaurant.currency}` : ""}</span>}
-      maxWidth="max-w-none"
+      title="Restaurant profile"
+      description="Name, contact details, hours, tax and deposits"
+      maxWidth="max-w-6xl"
       action={
-        <button onClick={handleSave} disabled={isLoading || isSaving || !isDirty} className="flex items-center gap-2 bg-[#fe5c13] hover:brightness-95 disabled:bg-slate-100 text-white disabled:text-slate-400 px-8 py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm">
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
-        </button>
+        <>
+          {isDirty && !isSaving && (
+            <span className="hidden items-center gap-1.5 text-[13px] text-[#6B7280] sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Unsaved changes
+            </span>
+          )}
+          {isDirty && !isSaving && initialRestaurant && (
+            <button
+              type="button"
+              onClick={() => setRestaurant(initialRestaurant)}
+              className="inline-flex h-10 items-center rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+            >
+              Discard
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={isLoading || isSaving || !isDirty}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:cursor-not-allowed disabled:bg-[#F3F3EF] disabled:text-[#9CA3AF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
+          >
+            {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving</> : isDirty ? "Save changes" : "Saved"}
+          </button>
+        </>
       }
     >
       {isLoading ? <RestaurantProfileSkeleton /> : (

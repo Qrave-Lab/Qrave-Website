@@ -184,7 +184,7 @@ export default function ArSizeStudio({ glbUrl, ready, widthCm, legacyScale, vari
     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-800">
+          <h4 className="flex items-center gap-2 text-xs font-medium text-slate-800">
             <Ruler className="h-3.5 w-3.5 text-indigo-500" /> Real-world size
           </h4>
           <p className="mt-1 text-[11px] font-medium text-slate-500">
@@ -270,7 +270,7 @@ export default function ArSizeStudio({ glbUrl, ready, widthCm, legacyScale, vari
         {/* Controls */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Measure by</span>
+            <span className="text-xs font-medium text-slate-500">Measure by</span>
             <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
               {(["across", "height"] as const).map((m) => (
                 <button
@@ -313,7 +313,7 @@ export default function ArSizeStudio({ glbUrl, ready, widthCm, legacyScale, vari
                   typingRef.current = false;
                   if (shownValue) setDraft(String(Math.round(shownValue * 10) / 10));
                 }}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-4 pr-12 text-center text-lg font-black text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-4 pr-12 text-center text-lg font-bold text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
               />
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">cm</span>
             </label>
@@ -357,7 +357,7 @@ export default function ArSizeStudio({ glbUrl, ready, widthCm, legacyScale, vari
           )}
 
           <div>
-            <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Quick sizes (widest side)</span>
+            <span className="mb-2 block text-xs font-medium text-slate-500">Quick sizes (widest side)</span>
             <div className="flex flex-wrap gap-1.5">
               {SIZE_PRESETS.map((p) => (
                 <button

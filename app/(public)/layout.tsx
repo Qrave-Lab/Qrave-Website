@@ -1,3 +1,3 @@
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <div className="qr-ui contents">{children}</div>;
 }

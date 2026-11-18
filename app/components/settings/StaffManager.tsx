@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Plus, Trash2, Edit2, AlertTriangle, Loader2, Eye, EyeOff, MapPin, ArrowRightLeft, ToggleLeft, ToggleRight } from "lucide-react";
+import { ArrowRightLeft, Edit2, Loader2, MapPin, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { Avatar, STAFF_INPUT, STAFF_ROLES, StaffFields, isPlaceholderEmail, roleLabel } from "./StaffForm";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
 
+import { Select } from "@/app/components/ui/Select";
 type StaffMember = {
   ID: string;
   Email: string;
@@ -39,7 +41,8 @@ export default function StaffManager({ onRefresh }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [editFormLoading, setEditFormLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     email: "",
@@ -105,7 +108,7 @@ export default function StaffManager({ onRefresh }: Props) {
       await api(`/api/admin/delete/${deletingId}`, {
         method: "DELETE",
       });
-      toast.success("Staff member removed");
+      toast.success("Team member removed");
       fetchStaff();
       if (onRefresh) onRefresh();
     } catch (err) {
@@ -119,7 +122,6 @@ export default function StaffManager({ onRefresh }: Props) {
   const openEdit = async (staffId: string) => {
     setEditingId(staffId);
     setIsEditing(true);
-    setShowPassword(false);
     setEditFormLoading(true);
     setEditForm({ email: "", name: "", phone: "", role: "", password: "" });
     try {
@@ -147,7 +149,7 @@ export default function StaffManager({ onRefresh }: Props) {
   const handleUpdate = async () => {
     if (!editingId) return;
     if (editForm.phone && editForm.phone.length !== 10) {
-      toast.error("Phone number must be exactly 10 digits");
+      toast.error("Enter all 10 digits of the phone number, or leave it empty");
       return;
     }
     setIsSavingEdit(true);
@@ -162,7 +164,7 @@ export default function StaffManager({ onRefresh }: Props) {
           password: editForm.password,
         }),
       });
-      toast.success("Staff member updated");
+      toast.success("Team member updated");
       setIsEditing(false);
       setEditingId(null);
       await fetchStaff();
@@ -202,7 +204,7 @@ export default function StaffManager({ onRefresh }: Props) {
         method: "POST",
         body: JSON.stringify({ from_branch_id: moveFromBranch, to_branch_id: moveToBranch }),
       });
-      toast.success("Branch updated");
+      toast.success("Moved to the new branch");
       setMovingStaff(null);
       fetchStaff();
     } catch (err: unknown) {
@@ -249,404 +251,297 @@ export default function StaffManager({ onRefresh }: Props) {
     }
   };
 
+  const multiBranch = isOwner && ownerBranches.length > 1;
+  const q = query.trim().toLowerCase();
+  const roleCounts = staff.reduce<Record<string, number>>((acc, s) => {
+    acc[s.Role] = (acc[s.Role] || 0) + 1;
+    return acc;
+  }, {});
+  const shown = staff
+    .filter((s) => roleFilter === "all" || s.Role === roleFilter)
+    .filter((s) => !q || (s.Name || "").toLowerCase().includes(q) || s.Email.toLowerCase().includes(q) || (s.Phone || "").includes(q))
+    .sort((a, b) => (a.Name || a.Email).localeCompare(b.Name || b.Email));
+  const deleting = staff.find((s) => s.ID === deletingId);
+  const displayName = (s: StaffMember) => s.Name || s.Email.split("@")[0];
+
+  const ICON_BTN = "inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]";
+  const OVERLAY = "fixed inset-0 z-[100] flex items-center justify-center bg-[#0F1117]/40 p-4 backdrop-blur-sm";
+  const DIALOG = "w-full rounded-2xl border border-[#E8E8E3] bg-white shadow-[0_24px_60px_-20px_rgba(15,17,23,0.35)]";
+  const BTN_CANCEL = "h-10 flex-1 rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]";
+  const BTN_PRIMARY = "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fe5c13] text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:cursor-not-allowed disabled:opacity-50";
+
   if (isLoading) {
     return (
-      <div className="flex-1 bg-[#f8fafc] px-8 py-8">
-        <div className="animate-pulse space-y-3">
-          {[1,2,3,4].map((i) => (
-            <div key={i} className="flex items-center gap-4 bg-white border-b border-slate-100 py-4">
-              <div className="w-10 h-10 rounded-full bg-slate-200" />
-              <div className="flex-1 space-y-1.5">
-                <div className="h-3.5 w-36 rounded bg-slate-200" />
-                <div className="h-2.5 w-48 rounded bg-slate-100" />
-              </div>
-              <div className="h-6 w-16 rounded-md bg-slate-100" />
+      <div className="animate-pulse space-y-px overflow-hidden rounded-2xl border border-[#E8E8E3] bg-[#F0F0EB]">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-center gap-3 bg-white px-6 py-4">
+            <div className="h-9 w-9 rounded-full bg-[#F3F3EF]" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3.5 w-36 rounded bg-[#E8E8E3]" />
+              <div className="h-3 w-48 rounded bg-[#F3F3EF]" />
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     );
   }
 
-  const multiBranch = isOwner && ownerBranches.length > 1;
-
   return (
-    <section className="flex flex-col flex-1 min-h-0">
-      {/* Action bar */}
-      <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Staff Management</p>
-          <h2 className="text-sm font-black text-slate-900 mt-0.5">Team Members</h2>
-        </div>
-        <Link
-          href="/staff/settings/AddStaff"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 text-white px-4 py-2 text-xs font-bold hover:bg-gray-800 transition-all"
-        >
-          <Plus className="w-3.5 h-3.5" /> Add Staff
-        </Link>
-      </div>
-
-      {/* Full-width table */}
-      <div className="bg-white flex-1">
-        <table className="w-full text-sm">
-          <thead className="border-b border-slate-100">
-            <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400">
-              <th className="px-8 py-3">Staff Member</th>
-              <th className="px-8 py-3">Role</th>
-              <th className="px-8 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {staff.map((s) => (
-              <tr key={s.ID} className="hover:bg-slate-50/60 transition-colors group">
-                <td className="px-8 py-4">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${s.Email}`}
-                      alt="avatar"
-                      className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 truncate">{s.Name || s.Email.split('@')[0]}</p>
-                      <p className="text-[11px] text-slate-400 truncate font-medium mt-0.5">
-                        {s.Phone ? `${s.Email.startsWith('staff.') ? '' : s.Email + ' · '}${s.Phone}` : (s.Email.startsWith('staff.') ? 'No login email' : s.Email)}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-8 py-4">
-                  <span className={`inline-block text-[10px] uppercase tracking-widest font-extrabold px-2.5 py-1 rounded-md border ${
-                    s.Role === "delivery_rider" ? "bg-orange-50 text-[#fe5c13] border-orange-200"
-                    : s.Role === "manager"       ? "bg-violet-50 text-violet-600 border-violet-200"
-                    : s.Role === "kitchen"        ? "bg-amber-50 text-amber-600 border-amber-200"
-                    : s.Role === "cashier"        ? "bg-sky-50 text-sky-600 border-sky-200"
-                    :                              "bg-slate-100 text-slate-500 border-slate-200"
-                  }`}>
-                    {s.Role === "delivery_rider" ? "Rider" : s.Role}
-                  </span>
-                </td>
-                <td className="px-8 py-4">
-                  <div className="flex items-center gap-1 justify-end">
-                    {multiBranch && s.Role === "manager" && (
-                      <button onClick={() => openBranchAccess(s)} title="Manage branch access"
-                        className="p-2 hover:bg-violet-50 rounded-xl text-slate-400 hover:text-violet-600 transition-colors">
-                        <ToggleRight className="w-4 h-4" />
-                      </button>
-                    )}
-                    {multiBranch && s.Role !== "manager" && s.Role !== "owner" && (
-                      <button onClick={() => openMoveBranch(s)} title="Change branch"
-                        className="p-2 hover:bg-sky-50 rounded-xl text-slate-400 hover:text-sky-600 transition-colors">
-                        <ArrowRightLeft className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button onClick={() => openEdit(s.ID)}
-                      className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition-colors">
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setDeletingId(s.ID)}
-                      className="p-2 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {staff.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-8 py-16 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center mb-1">
-                      <Users className="w-5 h-5 text-slate-300" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-500">No team members onboarded yet.</p>
-                    <p className="text-xs text-slate-400">Click "Add Staff" to invite your first team member.</p>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ── Delete confirmation ──────────────────────────────────────── */}
-      {deletingId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-center w-14 h-14 bg-red-50 text-red-500 rounded-2xl mb-6">
-              <AlertTriangle className="w-7 h-7" />
+    <>
+      {staff.length === 0 ? (
+        <section className="flex flex-col items-center justify-center rounded-2xl border border-[#E8E8E3] bg-white px-6 py-20 text-center">
+          <Users className="h-6 w-6 text-[#C4C4BE]" />
+          <p className="mt-3 text-[15px] font-semibold text-[#0F1117]">No team members yet</p>
+          <p className="mt-1 max-w-sm text-[13px] text-[#6B7280]">Add your managers, chefs, waiters and cashiers so they can sign in and take orders.</p>
+          <Link
+            href="/staff/settings/AddStaff"
+            className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b]"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} /> Add your first team member
+          </Link>
+        </section>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex h-9 max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Filter by role">
+              {[{ id: "all", label: "Everyone" }, ...STAFF_ROLES.filter((r) => roleCounts[r.id])].map((r) => {
+                const on = roleFilter === r.id;
+                const n = r.id === "all" ? staff.length : roleCounts[r.id];
+                return (
+                  <button
+                    key={r.id}
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setRoleFilter(r.id)}
+                    className={`flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[12px] transition-colors ${on ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]" : "font-medium text-[#6B7280] hover:text-[#0F1117]"}`}
+                  >
+                    {r.label}
+                    <span className={`tabular-nums ${on ? "text-[#6B7280]" : "text-[#9CA3AF]"}`}>{n}</span>
+                  </button>
+                );
+              })}
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Remove Staff?</h3>
-            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-              This will revoke all access for this member immediately. This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeletingId(null)}
-                className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
-              >
-                Cancel
-              </button>
+            <div className="relative w-60">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search name, email or phone"
+                aria-label="Search team"
+                className="h-9 w-full rounded-xl border border-[#E8E8E3] bg-white pl-9 pr-3 text-[13px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
+              />
+            </div>
+          </div>
+
+          <section className="overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+            {shown.length === 0 ? (
+              <p className="px-6 py-14 text-center text-[13px] text-[#6B7280]">No one matches.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-[#F0F0EB] text-[12px] text-[#6B7280]">
+                      <th className="px-6 py-3 font-medium">Team member</th>
+                      <th className="px-6 py-3 font-medium">Role</th>
+                      <th className="px-6 py-3 font-medium">Sign in</th>
+                      <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0F0EB] text-[13px]">
+                    {shown.map((s) => {
+                      const noLogin = isPlaceholderEmail(s.Email);
+                      const contact = [noLogin ? "" : s.Email, s.Phone || ""].filter(Boolean).join(", ");
+                      return (
+                        <tr key={s.ID} className="transition-colors hover:bg-[#FAFAF7]">
+                          <td className="px-6 py-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar name={displayName(s)} />
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-semibold text-[#0F1117]">{displayName(s)}</p>
+                                <p className="mt-0.5 truncate text-[12px] tabular-nums text-[#9CA3AF]">{contact || "No contact details"}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3">
+                            <span className="inline-flex items-center rounded-full bg-[#F3F3EF] px-2.5 py-0.5 text-[12px] font-medium text-[#374151]">{roleLabel(s.Role)}</span>
+                          </td>
+                          <td className="px-6 py-3">
+                            {noLogin ? (
+                              <span className="text-[12px] text-[#9CA3AF]">No login</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Can sign in
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex items-center justify-end gap-0.5">
+                              {multiBranch && s.Role === "manager" && (
+                                <button onClick={() => openBranchAccess(s)} title="Branch access" aria-label={`Branch access for ${displayName(s)}`} className={ICON_BTN}>
+                                  <MapPin className="h-4 w-4" />
+                                </button>
+                              )}
+                              {multiBranch && s.Role !== "manager" && s.Role !== "owner" && (
+                                <button onClick={() => openMoveBranch(s)} title="Move to another branch" aria-label={`Move ${displayName(s)} to another branch`} className={ICON_BTN}>
+                                  <ArrowRightLeft className="h-4 w-4" />
+                                </button>
+                              )}
+                              <button onClick={() => openEdit(s.ID)} title="Edit" aria-label={`Edit ${displayName(s)}`} className={ICON_BTN}>
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(s.ID)}
+                                title="Remove"
+                                aria-label={`Remove ${displayName(s)}`}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-rose-50 hover:text-rose-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* Remove */}
+      {deletingId && (
+        <div className={OVERLAY} role="alertdialog" aria-modal="true" aria-label="Remove team member">
+          <div className={`${DIALOG} max-w-sm p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Remove {deleting ? displayName(deleting) : "this team member"}?</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#6B7280]">They lose access straight away. This can&apos;t be undone.</p>
+            <div className="mt-6 flex gap-2">
+              <button onClick={() => setDeletingId(null)} className={BTN_CANCEL}>Keep</button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-all flex items-center justify-center gap-2"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 text-[13px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
               >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Remove"}
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Remove"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Edit modal ──────────────────────────────────────────────── */}
+      {/* Edit */}
       {isEditing && editingId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-200">
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Edit Staff Member</h3>
-            <p className="text-sm text-slate-500 mb-6">
-              Update the existing details and save changes.
-            </p>
-
-            {editFormLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-              </div>
-            ) : (
-              <div className="space-y-4">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Edit team member">
+          <div className={`${DIALOG} flex max-h-[92vh] max-w-lg flex-col`}>
+            <div className="flex items-start justify-between gap-4 px-6 pt-6">
+              <div className="flex items-center gap-3">
+                <Avatar name={editForm.name || editForm.email} size={40} />
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g. John Doe"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Email <span className="text-slate-300 normal-case font-normal">(optional • used for login)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                    placeholder="Leave blank to keep current"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13]"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Phone <span className="text-slate-300 normal-case font-normal">(optional)</span>
-                    </label>
-                    {editForm.phone && (
-                      <span className={`text-[10px] font-semibold ${editForm.phone.length === 10 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {editForm.phone.length}/10 digits
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    value={editForm.phone}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                      setEditForm((prev) => ({ ...prev, phone: val }));
-                    }}
-                    placeholder="10-digit mobile number"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Role
-                  </label>
-                  <select
-                    value={editForm.role}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] bg-white"
-                  >
-                    <option value="manager">Manager</option>
-                    <option value="kitchen">Chef</option>
-                    <option value="waiter">Waiter</option>
-                    <option value="cashier">Cashier</option>
-                    <option value="delivery_rider">Delivery Rider</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    New Password (optional)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={editForm.password}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))}
-                      placeholder="Leave blank to keep current"
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
+                  <h3 className="text-[17px] font-bold text-[#0F1117]">{editForm.name || "Edit team member"}</h3>
+                  <p className="text-[13px] text-[#6B7280]">{roleLabel(editForm.role)}</p>
                 </div>
               </div>
-            )}
-
-            <div className="flex gap-3 mt-8">
-              <button
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditingId(null);
-                }}
-                className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
-              >
-                Cancel
+              <button onClick={() => { setIsEditing(false); setEditingId(null); }} aria-label="Close" className={`${ICON_BTN} -mr-2 -mt-1`}>
+                <X className="h-4 w-4" />
               </button>
-              <button
-                onClick={handleUpdate}
-                disabled={isSavingEdit || editFormLoading}
-                className="flex-1 py-3 rounded-xl bg-[#fe5c13] text-gray-900 font-bold text-sm hover:brightness-95 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {isSavingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {editFormLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-[#9CA3AF]" /></div>
+              ) : (
+                <StaffFields value={editForm} onChange={setEditForm} mode="edit" compact />
+              )}
+            </div>
+            <div className="flex gap-2 border-t border-[#F0F0EB] px-6 py-4">
+              <button onClick={() => { setIsEditing(false); setEditingId(null); }} className={BTN_CANCEL}>Cancel</button>
+              <button onClick={handleUpdate} disabled={isSavingEdit || editFormLoading} className={BTN_PRIMARY}>
+                {isSavingEdit ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving</> : "Save changes"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Move-branch modal ────────────────────────────────────────── */}
+      {/* Move branch */}
       {movingStaff && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-200">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-sky-50 rounded-2xl flex items-center justify-center">
-                <ArrowRightLeft className="w-5 h-5 text-sky-500" />
-              </div>
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Move to another branch">
+          <div className={`${DIALOG} max-w-sm p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Move to another branch</h3>
+            <p className="mt-1 text-[13px] text-[#6B7280]">{displayName(movingStaff)}</p>
+            <div className="mt-5 space-y-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Change Branch</h3>
-                <p className="text-xs text-slate-500">{movingStaff.Name || movingStaff.Email.split('@')[0]}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Current Branch
-                </label>
-                <select
-                  value={moveFromBranch}
-                  onChange={(e) => setMoveFromBranch(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 bg-white"
-                >
+                <label className="mb-1.5 block text-[13px] font-medium text-[#4B5563]">From</label>
+                <Select value={moveFromBranch} onChange={(e) => setMoveFromBranch(e.target.value)} className={STAFF_INPUT}>
                   {staffBranchesForMove.map((b) => (
                     <option key={b.restaurant_id} value={b.restaurant_id}>{b.restaurant}</option>
                   ))}
-                </select>
+                </Select>
               </div>
-
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Move To
-                </label>
-                <select
-                  value={moveToBranch}
-                  onChange={(e) => setMoveToBranch(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 bg-white"
-                >
-                  <option value="">Select a branch…</option>
+                <label className="mb-1.5 block text-[13px] font-medium text-[#4B5563]">To</label>
+                <Select value={moveToBranch} onChange={(e) => setMoveToBranch(e.target.value)} className={STAFF_INPUT}>
+                  <option value="" hidden>Choose a branch</option>
                   {ownerBranches
                     .filter((b) => b.restaurant_id !== moveFromBranch)
                     .map((b) => (
                       <option key={b.restaurant_id} value={b.restaurant_id}>{b.restaurant}</option>
                     ))}
-                </select>
+                </Select>
               </div>
             </div>
-
-            <div className="flex gap-3 mt-8">
-              <button
-                onClick={() => setMovingStaff(null)}
-                className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleMoveBranch}
-                disabled={isMoving || !moveToBranch}
-                className="flex-1 py-3 rounded-xl bg-sky-500 text-white font-bold text-sm hover:bg-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {isMoving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Move"}
+            <div className="mt-6 flex gap-2">
+              <button onClick={() => setMovingStaff(null)} className={BTN_CANCEL}>Cancel</button>
+              <button onClick={handleMoveBranch} disabled={isMoving || !moveToBranch} className={BTN_PRIMARY}>
+                {isMoving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Branch access modal (managers) ──────────────────────────── */}
+      {/* Branch access (managers) */}
       {branchAccessStaff && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-200">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-violet-50 rounded-2xl flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-violet-500" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Branch Access</h3>
-                <p className="text-xs text-slate-500">{branchAccessStaff.Name || branchAccessStaff.Email.split('@')[0]}</p>
-              </div>
-            </div>
-
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Branch access">
+          <div className={`${DIALOG} max-w-sm p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Branch access</h3>
+            <p className="mt-1 text-[13px] text-[#6B7280]">Choose which branches {displayName(branchAccessStaff)} can manage. Changes save straight away.</p>
             {branchAccessLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-              </div>
+              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[#9CA3AF]" /></div>
             ) : (
-              <div className="space-y-2">
+              <ul className="mt-5 divide-y divide-[#F0F0EB] rounded-xl border border-[#E8E8E3]">
                 {ownerBranches.map((branch) => {
                   const granted = staffCurrentBranches.some((b) => b.restaurant_id === branch.restaurant_id);
                   const isToggling = togglingBranchId === branch.restaurant_id;
                   return (
-                    <div key={branch.restaurant_id} className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-sm font-semibold text-slate-700">{branch.restaurant}</span>
+                    <li key={branch.restaurant_id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <span className={`text-[14px] font-medium ${granted ? "text-[#0F1117]" : "text-[#6B7280]"}`}>{branch.restaurant}</span>
                       <button
+                        type="button"
+                        role="switch"
+                        aria-checked={granted}
+                        aria-label={`Access to ${branch.restaurant}`}
                         onClick={() => handleToggleBranchAccess(branch.restaurant_id, granted)}
                         disabled={isToggling}
-                        className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${granted ? "bg-violet-500" : "bg-slate-300"} disabled:opacity-50`}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${granted ? "bg-[#fe5c13]" : "bg-[#D6D6CF]"}`}
                       >
                         {isToggling ? (
-                          <Loader2 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 animate-spin text-white" />
+                          <Loader2 className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 animate-spin text-white" />
                         ) : (
-                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${granted ? "left-5" : "left-0.5"}`} />
+                          <span className={`absolute left-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(15,17,23,0.2)] transition-transform ${granted ? "translate-x-4" : "translate-x-0"}`} />
                         )}
                       </button>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
-
-            <button
-              onClick={() => setBranchAccessStaff(null)}
-              className="w-full mt-6 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
-            >
+            <button onClick={() => setBranchAccessStaff(null)} className="mt-6 h-10 w-full rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]">
               Done
             </button>
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }

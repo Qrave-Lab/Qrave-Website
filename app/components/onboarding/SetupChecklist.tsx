@@ -33,7 +33,7 @@ export default function SetupChecklist({ variant = "card" }: { variant?: "card" 
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-label="Setup checklist">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-black text-slate-900">
+          <h2 className="text-base font-bold text-slate-900">
             {data.finished ? "You're all set up" : "Get your restaurant ready"}
           </h2>
           <p className="mt-0.5 text-xs font-medium text-slate-500">

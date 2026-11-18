@@ -30,50 +30,55 @@ export default function StockAlertsBanner({ refreshKey }: { refreshKey?: number 
   if (low.length === 0 && hidden.length === 0) return null;
 
   return (
-    <div className="grid gap-3 border-b border-slate-100 bg-white px-8 py-4 md:grid-cols-2">
+    <div className="mb-5 grid gap-3 md:grid-cols-2">
       {low.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
-          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-800">
-            <AlertTriangle className="h-4 w-4" /> {low.length} ingredient
-            {low.length === 1 ? "" : "s"} below reorder level
+        <section className="rounded-2xl border border-[#E8E8E3] bg-white p-4">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-[#0F1117]">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            {low.length} ingredient{low.length === 1 ? "" : "s"} below reorder level
           </p>
-          <ul className="mt-2 flex flex-wrap gap-1.5">
+          <ul className="mt-3 flex flex-wrap gap-1.5">
             {low.slice(0, 12).map((i) => (
               <li
                 key={i.ingredient_id}
-                className="rounded-lg border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-900"
+                className="rounded-lg border border-[#E8E8E3] bg-[#FAFAF7] px-2.5 py-1 text-[12px] font-medium text-[#0F1117]"
               >
                 {i.ingredient}{" "}
-                <span className="font-medium text-amber-600">
-                  {i.stock} / {i.reorder_threshold}
+                <span className="tabular-nums text-amber-700">
+                  {i.stock} of {i.reorder_threshold}
                 </span>
               </li>
             ))}
             {low.length > 12 && (
-              <li className="px-1 py-1 text-[11px] font-bold text-amber-700">
+              <li className="px-1 py-1 text-[12px] font-medium text-[#6B7280]">
                 +{low.length - 12} more
               </li>
             )}
           </ul>
-        </div>
+        </section>
       )}
       {hidden.length > 0 && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4">
-          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-rose-800">
-            <EyeOff className="h-4 w-4" /> {hidden.length} dish
-            {hidden.length === 1 ? "" : "es"} hidden — out of stock
+        <section className="rounded-2xl border border-[#E8E8E3] bg-white p-4">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-[#0F1117]">
+            <EyeOff className="h-4 w-4 text-rose-600" />
+            {hidden.length === 1 ? "1 dish is" : `${hidden.length} dishes are`} hidden from the menu because {hidden.length === 1 ? "it" : "they"} ran out
           </p>
-          <ul className="mt-2 flex flex-wrap gap-1.5">
+          <ul className="mt-3 flex flex-wrap gap-1.5">
             {hidden.slice(0, 12).map((d) => (
               <li
                 key={d.id}
-                className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-bold text-rose-900"
+                className="rounded-lg border border-rose-200/70 bg-rose-50 px-2.5 py-1 text-[12px] font-medium text-rose-800"
               >
                 {d.name}
               </li>
             ))}
+            {hidden.length > 12 && (
+              <li className="px-1 py-1 text-[12px] font-medium text-[#6B7280]">
+                +{hidden.length - 12} more
+              </li>
+            )}
           </ul>
-        </div>
+        </section>
       )}
     </div>
   );

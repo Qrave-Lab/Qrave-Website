@@ -158,10 +158,10 @@ export default function PublicBillPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={bill.restaurant.logo_url} alt="" className="mx-auto mb-2 h-14 w-14 rounded-full object-cover" />
           )}
-          <h1 className="text-lg font-black text-slate-900">{bill.restaurant.name}</h1>
+          <h1 className="text-lg font-bold text-slate-900">{bill.restaurant.name}</h1>
           {bill.restaurant.address && <p className="text-xs text-slate-500">{bill.restaurant.address}</p>}
           {bill.gstin && <p className="text-xs text-slate-500">GSTIN: {bill.gstin}</p>}
-          <p className="mt-3 text-xs font-bold uppercase tracking-widest text-slate-400">Tax invoice</p>
+          <p className="mt-3 text-xs font-medium text-slate-500">Tax invoice</p>
           <p className="text-sm font-semibold text-slate-700">{bill.invoice_number}</p>
           <p className="text-xs text-slate-500">
             {new Date(bill.invoice_date).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
@@ -202,7 +202,7 @@ export default function PublicBillPage() {
           {n(bill.cgst) > 0 && <div className="flex justify-between text-slate-600"><dt>CGST</dt><dd>{inr(bill.cgst)}</dd></div>}
           {n(bill.sgst) > 0 && <div className="flex justify-between text-slate-600"><dt>SGST</dt><dd>{inr(bill.sgst)}</dd></div>}
           {n(bill.igst) > 0 && <div className="flex justify-between text-slate-600"><dt>IGST</dt><dd>{inr(bill.igst)}</dd></div>}
-          <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-black text-slate-900"><dt>Total</dt><dd>{inr(bill.grand_total)}</dd></div>
+          <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900"><dt>Total</dt><dd>{inr(bill.grand_total)}</dd></div>
         </dl>
 
         {bill.einvoice?.irn && (

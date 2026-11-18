@@ -26,34 +26,40 @@ export default function SettingsPageLayout({
     children,
 }: Props) {
     return (
-        <div className="flex h-screen w-full bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
+        <div className="flex h-screen w-full overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
             <StaffSidebar />
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* ── Unified top header ─────────────────────────────────────── */}
-                <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between shrink-0 z-10">
-                    <div className="flex items-center gap-4 min-w-0">
+            <div className="flex min-w-0 flex-1 flex-col">
+                <header className="z-10 flex shrink-0 items-center justify-between gap-4 border-b border-[#E8E8E3] bg-white px-8 py-4">
+                    <div className="flex min-w-0 items-center gap-3">
                         <Link
                             href="/staff/settings"
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors shrink-0"
+                            aria-label="Back to settings"
+                            title="Back to settings"
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E8E8E3] bg-white text-[#6B7280] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7] hover:text-[#0F1117] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40"
                         >
-                            <ArrowLeft className="h-3.5 w-3.5" />
-                            Back
+                            <ArrowLeft className="h-4 w-4" />
                         </Link>
                         <div className="min-w-0">
-                            <h1 className="text-xl font-bold text-slate-900 leading-tight truncate">{title}</h1>
+                            <p className="text-[12px] font-medium leading-none text-[#9CA3AF]">
+                                <Link href="/staff/settings" className="transition-colors hover:text-[#0F1117]">
+                                    Settings
+                                </Link>
+                            </p>
+                            <h1 className="mt-1.5 truncate text-[20px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">
+                                {title}
+                            </h1>
                             {description && (
-                                <p className="text-sm text-slate-500 mt-0.5 leading-snug truncate">{description}</p>
+                                <p className="mt-1.5 truncate text-[13px] leading-snug text-[#6B7280]">{description}</p>
                             )}
                         </div>
                     </div>
-                    {action && <div className="shrink-0 ml-4">{action}</div>}
+                    {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
                 </header>
 
-                {/* ── Scrollable content area ────────────────────────────────── */}
                 {fullBleed ? (
-                    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">{children}</div>
+                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
                 ) : (
-                    <main className="flex-1 overflow-y-auto p-6">
+                    <main className="flex-1 overflow-y-auto px-8 py-6">
                         <div className={`mx-auto ${maxWidth} space-y-6 pb-10`}>{children}</div>
                     </main>
                 )}

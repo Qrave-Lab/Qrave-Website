@@ -627,7 +627,7 @@ export default function StaffSidebar() {
             className="px-3 py-2.5 border-b border-gray-100"
             ref={locationDropdownRef}
           >
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 px-1">
+            <p className="text-[11px] font-medium text-gray-400 mb-1.5 px-1">
               Branch
             </p>
             <div className="relative">
@@ -719,7 +719,7 @@ export default function StaffSidebar() {
         {visibleSections.map((section, idx) => (
           <div key={idx} className={isCollapsed ? "px-2 text-center" : "px-4"}>
             {!isCollapsed && (
-              <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2 whitespace-nowrap">
+              <h4 className="text-xs font-medium text-gray-400 mb-2 px-2 whitespace-nowrap">
                 {section.category}
               </h4>
             )}

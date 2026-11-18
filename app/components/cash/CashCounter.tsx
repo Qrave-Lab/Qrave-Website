@@ -44,23 +44,23 @@ export default function CashCounter({ onChange, autoFocus }: Props) {
   }, [mode, manual, countedTotal, anyCounted]);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+    <div className="rounded-2xl border border-[#E8E8E3] bg-white">
+      <div className="flex items-center justify-between border-b border-[#F0F0EB] px-4 py-2.5">
+        <span className="text-[13px] font-medium text-[#4B5563]">
           Count the drawer
         </span>
-        <div className="flex rounded-lg bg-slate-100 p-0.5 text-[10px] font-black uppercase tracking-wider">
+        <div className="flex rounded-lg bg-[#F3F3EF] p-0.5 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setMode("count")}
-            className={`flex items-center gap-1 rounded-md px-2.5 py-1 transition-all ${mode === "count" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 transition-all ${mode === "count" ? "bg-white text-[#0F1117] shadow-sm" : "text-[#6B7280]"}`}
           >
             <Calculator className="h-3 w-3" /> Notes
           </button>
           <button
             type="button"
             onClick={() => setMode("manual")}
-            className={`flex items-center gap-1 rounded-md px-2.5 py-1 transition-all ${mode === "manual" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 transition-all ${mode === "manual" ? "bg-white text-[#0F1117] shadow-sm" : "text-[#6B7280]"}`}
           >
             <Hash className="h-3 w-3" /> Total
           </button>
@@ -72,9 +72,9 @@ export default function CashCounter({ onChange, autoFocus }: Props) {
           {DENOMINATIONS.map((d, i) => (
             <label
               key={d}
-              className="rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-2 focus-within:border-[#fe5c13] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#fe5c13]/10"
+              className="rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] px-3 py-2 transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#fe5c13]/12"
             >
-              <span className="block text-[10px] font-black text-slate-400">
+              <span className="block text-[12px] text-[#6B7280]">
                 ₹{d} ×
               </span>
               <input
@@ -87,7 +87,7 @@ export default function CashCounter({ onChange, autoFocus }: Props) {
                   setCounts((c) => ({ ...c, [d]: e.target.value }))
                 }
                 placeholder="0"
-                className="w-full bg-transparent text-sm font-extrabold text-slate-800 outline-none placeholder:text-slate-300"
+                className="w-full bg-transparent text-[15px] font-medium tabular-nums text-[#0F1117] outline-none placeholder:text-[#C4C4BE]"
               />
             </label>
           ))}
@@ -103,17 +103,17 @@ export default function CashCounter({ onChange, autoFocus }: Props) {
             value={manual}
             onChange={(e) => setManual(e.target.value)}
             placeholder="0.00"
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-lg font-extrabold text-slate-800 shadow-sm focus:border-[#fe5c13] focus:outline-none focus:ring-4 focus:ring-[#fe5c13]/10"
+            className="h-14 w-full rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] px-4 text-[24px] font-medium tabular-nums text-[#0F1117] outline-none placeholder:text-[#C4C4BE] focus:border-[#fe5c13] focus:bg-white focus:ring-4 focus:ring-[#fe5c13]/12"
           />
         </div>
       )}
 
       {mode === "count" && (
-        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-4 py-2.5 rounded-b-2xl">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <div className="flex items-center justify-between rounded-b-2xl border-t border-[#F0F0EB] px-4 py-3">
+          <span className="text-[13px] text-[#6B7280]">
             Counted total
           </span>
-          <span className="text-base font-black text-slate-900">
+          <span className="text-[20px] font-bold tracking-[-0.02em] tabular-nums text-[#0F1117]">
             {fmtINR(countedTotal)}
           </span>
         </div>
@@ -134,7 +134,7 @@ export function VarianceBanner({
   const diff = Math.round((counted - expected) * 100) / 100;
   if (diff === 0) {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-800">
+      <div className="rounded-xl bg-emerald-50 px-4 py-3 text-[13px] font-medium text-emerald-800">
         Drawer is balanced — no difference.
       </div>
     );
@@ -142,13 +142,13 @@ export function VarianceBanner({
   const short = diff < 0;
   return (
     <div
-      className={`rounded-xl border px-3.5 py-2.5 text-xs ${short ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}
+      className={`rounded-xl px-4 py-3 text-[13px] ${short ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"}`}
     >
-      <p className="font-black uppercase tracking-wider text-[10px]">
+      <p className="font-medium">
         {short ? "Shortage" : "Overage"} of {fmtINR(Math.abs(diff))}
       </p>
-      <p className="mt-0.5 font-medium opacity-80">
-        Expected {fmtINR(expected)} · Counted {fmtINR(counted)}. A note is
+      <p className="mt-1 opacity-80">
+        Expected {fmtINR(expected)}, counted {fmtINR(counted)}. A note is
         required, and large differences need a manager PIN.
       </p>
     </div>

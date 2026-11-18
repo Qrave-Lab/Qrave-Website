@@ -2,7 +2,8 @@
 
 import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
 import { api } from "@/app/lib/api";
-import { Loader2, Shield } from "lucide-react";
+import { Loader2, Lock, RotateCcw } from "lucide-react";
+import React from "react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -29,7 +30,7 @@ type RoleAccess = Record<RoleKey, Record<FeatureKey, boolean>>;
 
 const ROLES: { key: RoleKey; label: string }[] = [
   { key: "manager", label: "Manager" },
-  { key: "kitchen", label: "Kitchen/Chef" },
+  { key: "kitchen", label: "Chef" },
   { key: "waiter", label: "Waiter" },
   { key: "cashier", label: "Cashier" },
 ];
@@ -52,6 +53,68 @@ const FEATURES: { key: FeatureKey; label: string }[] = [
   { key: "audit", label: "Audit Logs" },
   { key: "feedback", label: "Feedback & Issues" },
 ];
+
+const FEATURE_NOTES: Record<FeatureKey, string> = {
+  floor: "The live floor, tables and orders",
+  menu: "Dishes, prices and stock",
+  takeaway: "Takeaway and delivery orders",
+  reservations: "Bookings and the waitlist",
+  analytics: "Sales figures and reports",
+  insights: "Menu health and other insights",
+  audit: "Who did what, and when",
+  settings: "Open the settings hub",
+  profile: "Name, hours and tax details",
+  floor_plan: "Tables, floors and sections",
+  team: "Add and edit staff",
+  devices: "Printers and QR codes",
+  theme: "How the guest menu looks",
+  offers: "Discounts and coupon codes",
+  delivery: "Delivery areas and charges",
+  kitchen_capacity: "Order limits and wait time",
+  feedback: "Report a problem to Qrave",
+};
+
+const FEATURE_GROUPS: { title: string; keys: FeatureKey[] }[] = [
+  { title: "Daily work", keys: ["floor", "menu", "takeaway", "reservations"] },
+  { title: "Reports", keys: ["analytics", "insights", "audit"] },
+  { title: "Settings", keys: ["settings", "profile", "floor_plan", "team", "devices", "theme", "offers", "delivery", "kitchen_capacity", "feedback"] },
+];
+
+const FEATURE_LABELS: Record<FeatureKey, string> = {
+  floor: "Floor and tables",
+  menu: "Menu and inventory",
+  takeaway: "Takeaway and delivery",
+  reservations: "Reservations and waitlist",
+  analytics: "Sales and reports",
+  insights: "Insights",
+  audit: "Audit log",
+  settings: "Settings hub",
+  profile: "Restaurant profile",
+  floor_plan: "Floor plan",
+  team: "Team members",
+  devices: "Devices and QR codes",
+  theme: "Theme studio",
+  offers: "Offers and coupons",
+  delivery: "Delivery zones",
+  kitchen_capacity: "Kitchen capacity",
+  feedback: "Feedback and issues",
+};
+const labelOf = (k: FeatureKey) => FEATURE_LABELS[k];
+
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2 ${checked ? "bg-[#fe5c13]" : "bg-[#D6D6CF]"}`}
+    >
+      <span className={`absolute left-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(15,17,23,0.2)] transition-transform ${checked ? "translate-x-4" : "translate-x-0"}`} />
+    </button>
+  );
+}
 
 const defaultRoleAccess = (): RoleAccess => ({
   manager: {
@@ -210,110 +273,140 @@ export default function AccessControlPage() {
         } catch {}
         window.dispatchEvent(new Event("qrave:profile-updated"));
       }
-      toast.success("Access controls updated");
+      toast.success("Role access saved. It applies the next time staff sign in.");
     } catch {
-      toast.error("Failed to save access controls");
+      toast.error("Couldn't save role access");
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (isLoading)
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-      </div>
-    );
+  const BTN_SECONDARY =
+    "inline-flex h-10 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]";
+  const isDefault = JSON.stringify(roleAccess) === JSON.stringify(defaultRoleAccess());
+  const countFor = (r: RoleKey) => FEATURES.filter((f) => roleAccess[r][f.key]).length;
+  const setGroup = (r: RoleKey, keys: FeatureKey[], on: boolean) =>
+    setRoleAccess((prev) => ({ ...prev, [r]: { ...prev[r], ...Object.fromEntries(keys.map((k) => [k, on])) } }));
 
-  if (role !== "owner") {
+  if (isLoading || role !== "owner") {
     return (
-      <SettingsPageLayout
-        title="Access Control"
-        description="Define which roles can access which pages."
-      >
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 max-w-md">
-          <h2 className="text-lg font-bold text-slate-900">Restricted</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Only the restaurant owner can edit role access controls.
-          </p>
-        </div>
+      <SettingsPageLayout title="Role access" description="Choose which pages each staff role can open" maxWidth="max-w-6xl">
+        {isLoading ? (
+          <div className="h-[600px] animate-pulse rounded-2xl border border-[#E8E8E3] bg-white" />
+        ) : (
+          <div className="mx-auto max-w-md rounded-2xl border border-[#E8E8E3] bg-white px-8 py-10 text-center">
+            <Lock className="mx-auto h-6 w-6 text-[#C4C4BE]" />
+            <h2 className="mt-3 text-[17px] font-bold text-[#0F1117]">Only the owner can change this</h2>
+            <p className="mt-1.5 text-[13px] text-[#6B7280]">Ask the restaurant owner if a role needs access to more pages.</p>
+          </div>
+        )}
       </SettingsPageLayout>
     );
   }
 
   return (
     <SettingsPageLayout
-      title="Access Control"
-      description="Define which roles can access which pages."
-      maxWidth="max-w-7xl"
+      title="Role access"
+      description="Choose which pages each staff role can open"
+      maxWidth="max-w-6xl"
       action={
-        <button
-          onClick={save}
-          disabled={isSaving || !hasChanges}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#E8900A] hover:bg-[#D97706] px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white shadow-md transition-all cursor-pointer disabled:opacity-50"
-        >
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-          {isSaving ? "Saving..." : "Save Access"}
-        </button>
+        <>
+          {hasChanges && !isSaving && (
+            <span className="hidden items-center gap-1.5 text-[13px] text-[#6B7280] sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Unsaved changes
+            </span>
+          )}
+          {hasChanges && !isSaving ? (
+            <button type="button" onClick={() => setRoleAccess(normalizeRoleAccess(themeConfig?.role_access))} className={BTN_SECONDARY}>
+              Discard
+            </button>
+          ) : (
+            !isDefault && (
+              <button
+                type="button"
+                onClick={() => setRoleAccess(defaultRoleAccess())}
+                title="Go back to the recommended access for every role. Nothing is saved until you press Save."
+                className={BTN_SECONDARY}
+              >
+                <RotateCcw className="h-4 w-4 text-[#6B7280]" /> Use recommended
+              </button>
+            )
+          )}
+          <button
+            onClick={save}
+            disabled={isSaving || !hasChanges}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:cursor-not-allowed disabled:bg-[#F3F3EF] disabled:text-[#9CA3AF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
+          >
+            {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving</> : hasChanges ? "Save changes" : "Saved"}
+          </button>
+        </>
       }
     >
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">Role Permissions Directory</h2>
-          <p className="mt-1 text-xs text-slate-500">Configure page access rules across the active role tiers. Changes take effect on the next session.</p>
-        </div>
-
+      <section className="overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] border-collapse text-left">
+          <table className="w-full min-w-[760px] border-collapse text-left">
             <thead>
-              <tr className="border-b bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                <th className="px-6 py-4">Feature / Dashboard Module</th>
-                {ROLES.map((r) => (
-                  <th key={r.key} className="px-6 py-4 text-center w-36">
-                    {r.label}
-                  </th>
-                ))}
+              <tr className="border-b border-[#E8E8E3]">
+                <th className="px-6 py-4 align-bottom">
+                  <span className="text-[13px] font-semibold text-[#0F1117]">Page</span>
+                  <span className="mt-0.5 block text-[12px] font-normal text-[#9CA3AF]">Owners can always open everything.</span>
+                </th>
+                {ROLES.map((r) => {
+                  const n = countFor(r.key);
+                  return (
+                    <th key={r.key} className="w-36 px-4 py-4 text-center align-bottom">
+                      <span className="block text-[13px] font-semibold text-[#0F1117]">{r.label}</span>
+                      <span className="mt-0.5 block text-[12px] font-normal tabular-nums text-[#9CA3AF]">
+                        {n} of {FEATURES.length} pages
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {FEATURES.map((f) => (
-                <tr key={f.key} className="hover:bg-slate-50/40 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-800">{f.label}</span>
-                      <span className="text-[11px] text-slate-400 mt-0.5">
-                        Permission tier for the staff dashboard module.
-                      </span>
-                    </div>
-                  </td>
-                  {ROLES.map((r) => (
-                    <td key={r.key} className="px-6 py-4 text-center">
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={() => toggle(r.key, f.key)}
-                          className={`h-6 w-12 rounded-full transition-all relative cursor-pointer shadow-sm ${
-                            roleAccess[r.key][f.key]
-                              ? "bg-emerald-500 hover:bg-emerald-600"
-                              : "bg-slate-300 hover:bg-slate-400"
-                          }`}
-                          aria-label={`${r.label} ${f.label}`}
-                        >
-                          <span
-                            className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                              roleAccess[r.key][f.key] ? "translate-x-6" : "translate-x-0.5"
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </td>
+            <tbody>
+              {FEATURE_GROUPS.map((g) => (
+                <React.Fragment key={g.title}>
+                  <tr className="border-b border-[#F0F0EB] bg-[#FAFAF7]">
+                    <td className="px-6 py-2.5 text-[12px] font-semibold text-[#4B5563]">{g.title}</td>
+                    {ROLES.map((r) => {
+                      const all = g.keys.every((k) => roleAccess[r.key][k]);
+                      return (
+                        <td key={r.key} className="px-4 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setGroup(r.key, g.keys, !all)}
+                            className="rounded-md px-1.5 py-0.5 text-[12px] font-medium text-[#6B7280] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
+                            aria-label={`${all ? "Turn off" : "Turn on"} all ${g.title.toLowerCase()} for ${r.label}`}
+                          >
+                            {all ? "None" : "All"}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {g.keys.map((k) => (
+                    <tr key={k} className="border-b border-[#F0F0EB] transition-colors last:border-b-0 hover:bg-[#FAFAF7]">
+                      <td className="px-6 py-3">
+                        <p className="text-[14px] font-medium text-[#0F1117]">{labelOf(k)}</p>
+                        <p className="mt-0.5 text-[12px] text-[#9CA3AF]">{FEATURE_NOTES[k]}</p>
+                      </td>
+                      {ROLES.map((r) => (
+                        <td key={r.key} className="px-4 py-3">
+                          <div className="flex justify-center">
+                            <Switch checked={roleAccess[r.key][k]} onChange={() => toggle(r.key, k)} label={`${r.label} can open ${labelOf(k)}`} />
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
+      <p className="px-1 text-[12px] text-[#9CA3AF]">Changes apply the next time each staff member signs in.</p>
     </SettingsPageLayout>
   );
 }

@@ -25,7 +25,7 @@ export default function AnalyticsHeader({
   return (
     <header className="bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shrink-0 z-20 relative">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Financial Reports</h1>
+        <h1 className="font-display text-xl font-normal text-gray-900">Financial Reports</h1>
         <p className="text-xs text-gray-500 mt-1">
           Sales performance • <span className="text-emerald-600 font-medium">Verified Owner Access</span>
         </p>
@@ -43,7 +43,7 @@ export default function AnalyticsHeader({
                   setTimeRange(range);
                   setShowDatePicker(false);
                 }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all
                   ${
                     timeRange === range
                       ? "bg-white text-gray-900 shadow-sm"
@@ -59,7 +59,7 @@ export default function AnalyticsHeader({
                 setTimeRange("custom");
                 setShowDatePicker(!showDatePicker);
               }}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide flex items-center gap-1 transition-all
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 transition-all
                 ${
                   timeRange === "custom"
                     ? "bg-white text-gray-900 shadow-sm"

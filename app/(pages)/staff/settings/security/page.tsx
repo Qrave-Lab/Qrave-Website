@@ -137,7 +137,7 @@ export default function SecurityPage() {
             <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-[#fe5c13]" /></div>
           ) : codes ? (
             <section className={card}>
-              <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-[#fe5c13]" /><h2 className="text-sm font-black text-slate-900">Save your recovery codes</h2></div>
+              <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-[#fe5c13]" /><h2 className="text-sm font-bold text-slate-900">Save your recovery codes</h2></div>
               <p className="mt-1 text-xs font-medium leading-relaxed text-slate-500">
                 If you lose your phone, each of these codes lets you sign in once. They are shown only now. Store them somewhere safe, such as a password manager.
               </p>
@@ -155,7 +155,7 @@ export default function SecurityPage() {
             </section>
           ) : status.enabled ? (
             <section className={card}>
-              <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-600" /><h2 className="text-sm font-black text-slate-900">Two-factor authentication is on</h2></div>
+              <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-600" /><h2 className="text-sm font-bold text-slate-900">Two-factor authentication is on</h2></div>
               <p className="mt-1 text-xs font-medium text-slate-500">
                 {status.recovery_codes_left} recovery code{status.recovery_codes_left === 1 ? "" : "s"} left.
                 {status.recovery_codes_left <= 2 && " Generate new ones soon."}
@@ -163,7 +163,7 @@ export default function SecurityPage() {
 
               {action ? (
                 <div className="mt-5">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <label className="block text-[13px] font-medium text-slate-500">
                     Enter a code from your app (or a recovery code) to {action === "regen" ? "get new recovery codes" : "turn 2FA off"}
                   </label>
                   <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" className={`${input} mt-1.5`} autoComplete="one-time-code" />
@@ -186,7 +186,7 @@ export default function SecurityPage() {
             </section>
           ) : setup ? (
             <section className={card}>
-              <h2 className="text-sm font-black text-slate-900">Scan with your authenticator app</h2>
+              <h2 className="text-sm font-bold text-slate-900">Scan with your authenticator app</h2>
               <p className="mt-1 text-xs font-medium leading-relaxed text-slate-500">
                 Use Google Authenticator, Microsoft Authenticator, Authy or 1Password. Scan the code, then type the 6-digit number the app shows.
               </p>
@@ -197,7 +197,7 @@ export default function SecurityPage() {
                   <p className="mt-1 break-all rounded-lg bg-slate-50 p-2 font-mono text-slate-800">{setup.secret}</p>
                 </div>
               </div>
-              <label className="mt-5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">6-digit code</label>
+              <label className="mt-5 block text-[13px] font-medium text-slate-500">6-digit code</label>
               <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" inputMode="numeric" maxLength={7} className={`${input} mt-1.5`} autoComplete="one-time-code" />
               <button onClick={confirm} disabled={busy || code.replace(/\s/g, "").length !== 6} className={`${primary} mt-3`}>
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}Verify and turn on
@@ -205,7 +205,7 @@ export default function SecurityPage() {
             </section>
           ) : (
             <section className={card}>
-              <h2 className="text-sm font-black text-slate-900">Two-factor authentication is off</h2>
+              <h2 className="text-sm font-bold text-slate-900">Two-factor authentication is off</h2>
               <p className="mt-1 text-xs font-medium leading-relaxed text-slate-500">
                 After your password you&apos;ll also enter a 6-digit code from an app on your phone. Even if someone learns your password, they can&apos;t sign in.
               </p>

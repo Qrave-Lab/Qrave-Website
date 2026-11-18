@@ -1,7 +1,11 @@
 "use client";
 
 import { api } from "@/app/lib/api";
-import { CheckCircle2, ClipboardCheck, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ClipboardList, Search, X, XCircle } from "lucide-react";
+import {
+  BTN_PRIMARY, BTN_SECONDARY, CARD, DIALOG, ICON_BTN, INPUT, OVERLAY, THEAD_ROW, TBODY, TR,
+  EmptyState, Pill, SectionHeader, type Tone,
+} from "./ui";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 
@@ -39,11 +43,16 @@ type Count = {
 const inr = (n: number) =>
   `₹${Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-100",
-  approved: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  rejected: "bg-rose-50 text-rose-700 border-rose-100",
+const STATUS: Record<string, { tone: Tone; label: string }> = {
+  pending: { tone: "amber", label: "Awaiting approval" },
+  approved: { tone: "emerald", label: "Approved" },
+  rejected: { tone: "rose", label: "Rejected" },
 };
+const statusOf = (s: string) =>
+  STATUS[s] || { tone: "neutral" as Tone, label: s ? s.charAt(0).toUpperCase() + s.slice(1) : "Unknown" };
+
+const when = (d: string) =>
+  new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 export default function StockTakePanel({
   stocks,
@@ -159,192 +168,191 @@ export default function StockTakePanel({
   };
 
   return (
-    <div className="flex flex-1 flex-col animate-in fade-in duration-200">
-      <div className="flex flex-col justify-between gap-4 border-b border-slate-100 bg-white px-8 py-5 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Physical stock count
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Count what&apos;s on the shelf. Stock only changes after a manager
-            approves the count.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="px-8 py-6">
+      <SectionHeader
+        title="Stock take"
+        description="Count what's on the shelf. Stock only changes once a manager approves the count."
+      >
+        <div className="relative w-56">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search ingredient"
-            className="w-48 rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-          />
-          <button
-            onClick={submit}
-            disabled={entered.length === 0 || saving}
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <ClipboardCheck className="h-4 w-4" />
-            {saving ? "Submitting…" : `Submit count (${entered.length})`}
-          </button>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-sm text-slate-600">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-              <th className="px-8 py-3.5">Ingredient</th>
-              <th className="px-8 py-3.5">System stock</th>
-              <th className="px-8 py-3.5">Reorder level</th>
-              <th className="px-8 py-3.5">Physical count</th>
-              <th className="px-8 py-3.5">Difference</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((item) => {
-              const raw = counts[item.ingredient_id];
-              const diff =
-                raw === undefined || raw === "" ? null : Number(raw) - item.stock;
-              return (
-                <tr key={item.ingredient_id} className="transition-colors hover:bg-slate-50/50">
-                  <td className="px-8 py-3.5 font-semibold text-slate-950">{item.ingredient}</td>
-                  <td className="px-8 py-3.5 font-mono">{item.stock}</td>
-                  <td className="px-8 py-3.5">
-                    <span className="font-mono">{item.reorder_threshold}</span>{" "}
-                    <button
-                      onClick={() => onEditPar(item)}
-                      className="ml-2 text-xs font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                  <td className="px-8 py-3.5">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      placeholder="Count…"
-                      value={raw ?? ""}
-                      onChange={(e) =>
-                        setCounts({ ...counts, [item.ingredient_id]: e.target.value })
-                      }
-                      className="w-36 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-                    />
-                  </td>
-                  <td className="px-8 py-3.5 font-mono font-bold">
-                    {diff === null ? (
-                      <span className="text-slate-300">--</span>
-                    ) : diff === 0 ? (
-                      <span className="text-emerald-600">OK</span>
-                    ) : (
-                      <span className={diff < 0 ? "text-rose-600" : "text-amber-600"}>
-                        {diff > 0 ? "+" : ""}
-                        {Math.round(diff * 1000) / 1000}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {entered.length > 0 && (
-        <div className="border-t border-slate-100 bg-slate-50/60 px-8 py-4">
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Note for the reviewer (e.g. weekly count, after festival rush)"
-            className="w-full max-w-xl rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            aria-label="Search ingredient"
+            className={`${INPUT} pl-9 text-[13px]`}
           />
         </div>
-      )}
+        <button onClick={submit} disabled={entered.length === 0 || saving} className={BTN_PRIMARY}>
+          <ClipboardCheck className="h-4 w-4" />
+          {saving ? "Submitting" : entered.length > 0 ? `Submit count (${entered.length})` : "Submit count"}
+        </button>
+      </SectionHeader>
 
-      <div className="border-t border-slate-200 px-8 py-6">
-        <h3 className="text-sm font-black uppercase tracking-wider text-slate-800">
-          Count history
-        </h3>
-        {history.length === 0 ? (
-          <p className="mt-3 text-xs text-slate-400">No counts submitted yet.</p>
+      <section className={CARD}>
+        {rows.length === 0 ? (
+          query.trim() ? (
+            <EmptyState icon={<Search className="h-6 w-6" />} title="No ingredients match your search" />
+          ) : (
+            <EmptyState icon={<ClipboardList className="h-6 w-6" />} title="No ingredients to count" body="Ingredients appear here once you've received stock." />
+          )
         ) : (
-          <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
-            {history.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => void openCount(c)}
-                className="flex w-full items-center justify-between gap-4 bg-white px-5 py-3.5 text-left text-xs transition-colors hover:bg-slate-50"
-              >
-                <div>
-                  <p className="font-bold text-slate-900">
-                    {new Date(c.created_at).toLocaleString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    · {c.counted_by || "Staff"}
-                  </p>
-                  <p className="mt-0.5 text-slate-500">
-                    {c.line_count} items{c.note ? ` · ${c.note}` : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`font-mono font-bold ${c.variance_value < 0 ? "text-rose-600" : c.variance_value > 0 ? "text-amber-600" : "text-slate-400"}`}
-                  >
-                    {c.variance_value === 0
-                      ? "No variance"
-                      : `${c.variance_value < 0 ? "−" : "+"}${inr(c.variance_value)}`}
-                  </span>
-                  <span
-                    className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${STATUS_STYLE[c.status] || "bg-slate-50 text-slate-600 border-slate-200"}`}
-                  >
-                    {c.status}
-                  </span>
-                </div>
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-left">
+              <thead>
+                <tr className={THEAD_ROW}>
+                  <th className="px-5 py-3 font-medium">Ingredient</th>
+                  <th className="px-5 py-3 text-right font-medium">On system</th>
+                  <th className="px-5 py-3 font-medium">Reorder level</th>
+                  <th className="px-5 py-3 font-medium">Counted</th>
+                  <th className="px-5 py-3 text-right font-medium">Difference</th>
+                </tr>
+              </thead>
+              <tbody className={TBODY}>
+                {rows.map((item) => {
+                  const raw = counts[item.ingredient_id];
+                  const diff = raw === undefined || raw === "" ? null : Number(raw) - item.stock;
+                  return (
+                    <tr key={item.ingredient_id} className={`${TR} text-[13px]`}>
+                      <td className="px-5 py-3 text-[14px] font-semibold text-[#0F1117]">{item.ingredient}</td>
+                      <td className="px-5 py-3 text-right tabular-nums text-[#0F1117]">
+                        {item.stock}
+                        {item.unit && <span className="ml-1 text-[#9CA3AF]">{item.unit}</span>}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="tabular-nums text-[#4B5563]">{item.reorder_threshold}</span>
+                        <button
+                          onClick={() => onEditPar(item)}
+                          className="ml-2 rounded-md px-1.5 py-0.5 text-[12px] font-medium text-[#6B7280] underline decoration-[#D6D6CF] underline-offset-2 transition-colors hover:text-[#0F1117] hover:decoration-[#0F1117]"
+                        >
+                          Change
+                        </button>
+                      </td>
+                      <td className="px-5 py-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          placeholder="Enter count"
+                          aria-label={`Counted ${item.ingredient}`}
+                          value={raw ?? ""}
+                          onChange={(e) => setCounts({ ...counts, [item.ingredient_id]: e.target.value })}
+                          className="h-9 w-32 rounded-lg border border-[#E8E8E3] bg-white px-3 text-[13px] tabular-nums text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
+                        />
+                      </td>
+                      <td className="px-5 py-3 text-right font-semibold tabular-nums">
+                        {diff === null ? (
+                          <span className="text-[#C4C4BE]">—</span>
+                        ) : diff === 0 ? (
+                          <span className="text-emerald-700">Matches</span>
+                        ) : (
+                          <span className={diff < 0 ? "text-rose-600" : "text-amber-700"}>
+                            {diff > 0 ? "+" : "−"}
+                            {Math.abs(Math.round(diff * 1000) / 1000)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
+
+        {entered.length > 0 && (
+          <div className="border-t border-[#F0F0EB] bg-[#FAFAF7] px-5 py-3">
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Note for the reviewer, e.g. weekly count or after the festival rush"
+              aria-label="Note for the reviewer"
+              className={`${INPUT} max-w-xl text-[13px]`}
+            />
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <h3 className="mb-3 text-[15px] font-semibold text-[#0F1117]">Count history</h3>
+        {history.length === 0 ? (
+          <p className="text-[13px] text-[#9CA3AF]">No counts submitted yet.</p>
+        ) : (
+          <div className={`${CARD} divide-y divide-[#F0F0EB]`}>
+            {history.map((c) => {
+              const st = statusOf(c.status);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => void openCount(c)}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors hover:bg-[#FAFAF7]"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-[#0F1117]">
+                      <span className="tabular-nums">{when(c.created_at)}</span>
+                      <span className="font-normal text-[#6B7280]"> by {c.counted_by || "Staff"}</span>
+                    </p>
+                    <p className="mt-0.5 truncate text-[12px] text-[#6B7280]">
+                      {c.line_count} {c.line_count === 1 ? "item" : "items"} counted{c.note ? `. ${c.note}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span
+                      className={`text-[13px] font-semibold tabular-nums ${c.variance_value < 0 ? "text-rose-600" : c.variance_value > 0 ? "text-amber-700" : "text-[#9CA3AF]"}`}
+                    >
+                      {c.variance_value === 0
+                        ? "No difference"
+                        : `${c.variance_value < 0 ? "−" : "+"}${inr(c.variance_value)}`}
+                    </span>
+                    <Pill tone={st.tone}>{st.label}</Pill>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl bg-white p-7 shadow-2xl">
-            <div className="flex items-start justify-between">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Review stock count">
+          <div className={`${DIALOG} flex max-h-[90vh] max-w-2xl flex-col p-6`}>
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Stock count review</h3>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {open.counted_by} · {new Date(open.created_at).toLocaleString("en-IN")}
-                  {open.reviewed_by ? ` · reviewed by ${open.reviewed_by}` : ""}
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-[17px] font-bold text-[#0F1117]">Stock count</h3>
+                  <Pill tone={statusOf(open.status).tone}>{statusOf(open.status).label}</Pill>
+                </div>
+                <p className="mt-1 text-[13px] text-[#6B7280]">
+                  Counted by {open.counted_by || "Staff"} on <span className="tabular-nums">{when(open.created_at)}</span>
+                  {open.reviewed_by ? `. Reviewed by ${open.reviewed_by}` : ""}
                 </p>
               </div>
-              <button onClick={() => setOpen(null)} className="text-slate-400 hover:text-slate-700">
-                ✕
+              <button onClick={() => setOpen(null)} className={`${ICON_BTN} -mr-2 -mt-1`} aria-label="Close">
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-4 flex-1 overflow-y-auto rounded-2xl border border-slate-100">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    <th className="px-4 py-2.5">Ingredient</th>
-                    <th className="px-4 py-2.5 text-right">System</th>
-                    <th className="px-4 py-2.5 text-right">Counted</th>
-                    <th className="px-4 py-2.5 text-right">Diff</th>
-                    <th className="px-4 py-2.5 text-right">Value</th>
+            <div className="mt-5 flex-1 overflow-y-auto rounded-xl border border-[#E8E8E3]">
+              <table className="w-full text-left text-[13px]">
+                <thead className="sticky top-0 bg-white">
+                  <tr className={THEAD_ROW}>
+                    <th className="px-4 py-2.5 font-medium">Ingredient</th>
+                    <th className="px-4 py-2.5 text-right font-medium">On system</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Counted</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Difference</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Value</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={TBODY}>
                   {(open.lines || []).map((l) => (
                     <tr key={l.ingredient_id}>
-                      <td className="px-4 py-2.5 font-semibold text-slate-800">{l.ingredient}</td>
-                      <td className="px-4 py-2.5 text-right font-mono">{l.system_qty} {l.unit}</td>
-                      <td className="px-4 py-2.5 text-right font-mono">{l.counted_qty} {l.unit}</td>
-                      <td className={`px-4 py-2.5 text-right font-mono font-bold ${l.difference < 0 ? "text-rose-600" : l.difference > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                        {l.difference > 0 ? "+" : ""}{l.difference}
+                      <td className="px-4 py-2.5 font-semibold text-[#0F1117]">{l.ingredient}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-[#4B5563]">{l.system_qty} {l.unit}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-[#0F1117]">{l.counted_qty} {l.unit}</td>
+                      <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${l.difference < 0 ? "text-rose-600" : l.difference > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                        {l.difference === 0 ? "Matches" : `${l.difference > 0 ? "+" : "−"}${Math.abs(l.difference)}`}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-slate-500">
-                        {l.difference === 0 ? "--" : `${l.difference < 0 ? "−" : "+"}${inr(l.difference * l.cost_per_unit)}`}
+                      <td className="px-4 py-2.5 text-right tabular-nums text-[#6B7280]">
+                        {l.difference === 0 ? "—" : `${l.difference < 0 ? "−" : "+"}${inr(l.difference * l.cost_per_unit)}`}
                       </td>
                     </tr>
                   ))}
@@ -352,37 +360,32 @@ export default function StockTakePanel({
               </table>
             </div>
             {open.review_reason && (
-              <p className="mt-3 text-xs text-slate-500">Reviewer note: {open.review_reason}</p>
+              <p className="mt-3 rounded-lg bg-[#F3F3EF] px-3 py-2 text-[12px] text-[#4B5563]">Reviewer note: {open.review_reason}</p>
             )}
             {open.status === "pending" && canReview ? (
-              <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+              <div className="mt-5 space-y-3">
                 <input
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="Reason (required to reject)"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="Reason (needed if you reject)"
+                  aria-label="Review reason"
+                  className={`${INPUT} text-[13px]`}
                 />
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button
                     onClick={() => void review(false)}
                     disabled={reviewing}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                    className={`${BTN_SECONDARY} flex-1 !text-rose-700 hover:!border-rose-200 hover:!bg-rose-50`}
                   >
                     <XCircle className="h-4 w-4" /> Reject
                   </button>
-                  <button
-                    onClick={() => void review(true)}
-                    disabled={reviewing}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Approve &amp; update stock
+                  <button onClick={() => void review(true)} disabled={reviewing} className={`${BTN_PRIMARY} flex-1`}>
+                    <CheckCircle2 className="h-4 w-4" /> Approve and update stock
                   </button>
                 </div>
               </div>
             ) : open.status === "pending" ? (
-              <p className="mt-4 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500">
-                Waiting for a manager to approve this count.
-              </p>
+              <p className="mt-5 text-[13px] text-[#6B7280]">Waiting for a manager to approve this count.</p>
             ) : null}
           </div>
         </div>

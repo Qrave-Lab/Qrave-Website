@@ -7,6 +7,7 @@ import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
 
+import { Select } from "@/app/components/ui/Select";
 export default function AddBranchPage() {
   const router = useRouter();
   const [brandName, setBrandName] = useState("");
@@ -137,7 +138,7 @@ export default function AddBranchPage() {
 
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-4">
-              <h1 className="text-xl font-black text-slate-900">Add Branch</h1>
+              <h1 className="font-display text-xl font-normal text-slate-900">Add Branch</h1>
               <p className="mt-1 text-sm text-slate-500">Create a new branch/location with initial table setup.</p>
             </div>
             {isBranchLockedByPlan && (
@@ -157,7 +158,7 @@ export default function AddBranchPage() {
             )}
             <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Brand name (shared across branches)</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-500">Brand name (shared across branches)</label>
                 <input
                   value={brandName}
                   disabled
@@ -165,7 +166,7 @@ export default function AddBranchPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Currency</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-500">Currency</label>
                 <input
                   value={form.currency}
                   onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
@@ -173,7 +174,7 @@ export default function AddBranchPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Initial tables</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-500">Initial tables</label>
                 <input
                   type="number"
                   min={1}
@@ -184,7 +185,7 @@ export default function AddBranchPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Location (branch area/address)</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-500">Location (branch area/address)</label>
                 <input
                   value={form.address}
                   onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
@@ -193,7 +194,7 @@ export default function AddBranchPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Phone</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-500">Phone</label>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
@@ -202,8 +203,8 @@ export default function AddBranchPage() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Code</label>
-                  <select
+                  <label className="mb-1 block text-[13px] font-medium text-slate-500">Code</label>
+                  <Select
                     value={form.phone_country_code}
                     onChange={(e) => setForm((p) => ({ ...p, phone_country_code: e.target.value }))}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -214,10 +215,10 @@ export default function AddBranchPage() {
                     <option value="+61">+61</option>
                     <option value="+65">+65</option>
                     <option value="+971">+971</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Open</label>
+                  <label className="mb-1 block text-[13px] font-medium text-slate-500">Open</label>
                   <input
                     type="time"
                     value={form.open_time}
@@ -226,7 +227,7 @@ export default function AddBranchPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Close</label>
+                  <label className="mb-1 block text-[13px] font-medium text-slate-500">Close</label>
                   <input
                     type="time"
                     value={form.close_time}
@@ -237,7 +238,7 @@ export default function AddBranchPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Logo</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-500">Logo</label>
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
                   <div className="flex items-center gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-200 bg-white flex items-center justify-center">

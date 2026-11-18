@@ -16,7 +16,7 @@ export default function TopItemsTable({ items }: { items: TopItem[] }) {
       </div>
       <div className="p-0">
         <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+          <thead className="bg-gray-50 text-xs text-gray-500">
             <tr>
               <th className="px-5 py-3 font-medium">Item</th>
               <th className="px-5 py-3 font-medium text-right">Sold</th>

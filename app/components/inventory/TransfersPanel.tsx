@@ -1,10 +1,15 @@
 "use client";
 
 import { api } from "@/app/lib/api";
-import { ArrowRight, PackageCheck, Plus, Send, Store, Trash2 } from "lucide-react";
+import { ArrowRight, PackageCheck, Plus, Send, Store, X } from "lucide-react";
+import {
+  BTN_PRIMARY, BTN_SECONDARY, CARD, DIALOG, ICON_BTN_DANGER, INPUT, LABEL, OVERLAY,
+  EmptyState, Pill, SectionHeader, type Tone,
+} from "./ui";
 import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
+import { Select } from "@/app/components/ui/Select";
 type Branch = { restaurant_id: string; name: string; is_archived: boolean };
 type Transfer = {
   id: string;
@@ -17,12 +22,17 @@ type Transfer = {
 };
 type Ingredient = { ingredient_id: string; ingredient: string; stock: number };
 
-const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-100",
-  shipped: "bg-sky-50 text-sky-700 border-sky-100",
-  received: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  cancelled: "bg-slate-100 text-slate-500 border-slate-200",
+const STATUS: Record<string, { tone: Tone; label: string }> = {
+  pending: { tone: "amber", label: "Waiting to dispatch" },
+  shipped: { tone: "sky", label: "On the way" },
+  received: { tone: "emerald", label: "Received" },
+  cancelled: { tone: "neutral", label: "Cancelled" },
 };
+const statusOf = (s: string) =>
+  STATUS[s] || { tone: "neutral" as Tone, label: s ? s.charAt(0).toUpperCase() + s.slice(1) : "Unknown" };
+
+const ROW_ACTION =
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0F1117] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-[#1F2937] disabled:opacity-50";
 
 const UNITS = ["kg", "g", "l", "ml", "pcs"];
 
@@ -98,79 +108,88 @@ export default function TransfersPanel({ ingredients }: { ingredients: Ingredien
     }
   };
 
-  const Row = ({ t, side }: { t: Transfer; side: "out" | "in" }) => (
-    <div className="flex items-center justify-between gap-4 bg-white px-5 py-3.5 text-xs">
-      <div className="flex items-center gap-2 font-bold text-slate-800">
-        {name(t.from_restaurant_id)} <ArrowRight className="h-3.5 w-3.5 text-slate-300" /> {name(t.to_restaurant_id)}
-        <span className="ml-2 font-medium text-slate-400">
-          {new Date(t.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
-        </span>
+  const Row = ({ t, side }: { t: Transfer; side: "out" | "in" }) => {
+    const st = statusOf(t.status);
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-[14px] font-semibold text-[#0F1117]">
+            {name(t.from_restaurant_id)}
+            <ArrowRight className="h-3.5 w-3.5 text-[#9CA3AF]" />
+            {name(t.to_restaurant_id)}
+          </p>
+          <p className="mt-0.5 text-[12px] tabular-nums text-[#9CA3AF]">
+            Created {new Date(t.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Pill tone={st.tone}>{st.label}</Pill>
+          {side === "out" && t.status === "pending" && (
+            <button disabled={busy === t.id} onClick={() => void act(t, "dispatch")} className={ROW_ACTION}>
+              <Send className="h-3.5 w-3.5" /> Dispatch
+            </button>
+          )}
+          {side === "in" && t.status === "shipped" && (
+            <button disabled={busy === t.id} onClick={() => void act(t, "receive")} className={ROW_ACTION}>
+              <PackageCheck className="h-3.5 w-3.5" /> Mark received
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${STATUS_STYLE[t.status] || ""}`}>
-          {t.status}
-        </span>
-        {side === "out" && t.status === "pending" && (
-          <button disabled={busy === t.id} onClick={() => void act(t, "dispatch")} className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 font-bold text-white hover:bg-slate-800 disabled:opacity-50">
-            <Send className="h-3.5 w-3.5" /> Dispatch
-          </button>
-        )}
-        {side === "in" && t.status === "shipped" && (
-          <button disabled={busy === t.id} onClick={() => void act(t, "receive")} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
-            <PackageCheck className="h-3.5 w-3.5" /> Mark received
-          </button>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const incomingOnly = incoming.filter((t) => t.to_restaurant_id === me);
 
   return (
-    <div className="flex flex-1 flex-col animate-in fade-in duration-200">
-      <div className="flex flex-col justify-between gap-4 border-b border-slate-100 bg-white px-8 py-5 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">Branch transfers</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Send ingredients to another branch you own. Stock leaves on dispatch and is added when they confirm receipt.
-          </p>
-        </div>
+    <div className="px-8 py-6">
+      <SectionHeader
+        title="Branch transfers"
+        description="Send ingredients to another branch you own. Stock leaves when you dispatch and is added when they confirm it arrived."
+      >
         <button
           onClick={() => setShowNew(true)}
           disabled={destinations.length === 0}
           title={destinations.length === 0 ? "You need a second branch to transfer stock" : undefined}
-          className="flex items-center gap-2 self-start rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 sm:self-auto"
+          className={BTN_PRIMARY}
         >
-          <Plus size={16} /> New transfer
+          <Plus className="h-4 w-4" strokeWidth={2.5} /> New transfer
         </button>
-      </div>
+      </SectionHeader>
 
       {outgoing.length === 0 && incomingOnly.length === 0 ? (
-        <div className="m-auto p-16 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
-            <Store size={28} />
-          </div>
-          <h3 className="text-base font-semibold text-slate-900">No transfers yet</h3>
-          <p className="mx-auto mt-1 max-w-sm text-xs text-slate-500">
-            {destinations.length === 0
-              ? "Add another branch from Settings → Branches to start moving stock."
-              : "Create a transfer to move stock to another branch."}
-          </p>
-        </div>
+        <section className={CARD}>
+          <EmptyState
+            icon={<Store className="h-6 w-6" />}
+            title="No transfers yet"
+            body={
+              destinations.length === 0
+                ? "Add another branch in Settings, under Branches, to start moving stock between them."
+                : "Create a transfer to send stock to another branch."
+            }
+          />
+        </section>
       ) : (
-        <div className="space-y-6 p-8">
-          {[
-            ["Outgoing", outgoing, "out"],
-            ["Incoming", incomingOnly, "in"],
-          ].map(([title, list, side]) => (
-            <section key={title as string}>
-              <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">{title as string}</h3>
-              {(list as Transfer[]).length === 0 ? (
-                <p className="text-xs text-slate-400">None</p>
+        <div className="space-y-6">
+          {(
+            [
+              ["Outgoing", outgoing, "out"],
+              ["Incoming", incomingOnly, "in"],
+            ] as const
+          ).map(([title, list, side]) => (
+            <section key={title}>
+              <h3 className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-[#0F1117]">
+                {title}
+                <span className="text-[13px] font-medium tabular-nums text-[#9CA3AF]">{list.length}</span>
+              </h3>
+              {list.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-[#E8E8E3] px-5 py-4 text-[13px] text-[#9CA3AF]">
+                  {side === "out" ? "Nothing sent from this branch." : "Nothing on its way to this branch."}
+                </p>
               ) : (
-                <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
-                  {(list as Transfer[]).map((t) => (
-                    <Row key={t.id} t={t} side={side as "out" | "in"} />
+                <div className={`${CARD} divide-y divide-[#F0F0EB]`}>
+                  {list.map((t) => (
+                    <Row key={t.id} t={t} side={side} />
                   ))}
                 </div>
               )}
@@ -180,59 +199,66 @@ export default function TransfersPanel({ ingredients }: { ingredients: Ingredien
       )}
 
       {showNew && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-          <form onSubmit={create} className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900">New transfer</h3>
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Send to</label>
-              <select value={to} onChange={(e) => setTo(e.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-                <option value="">Select branch…</option>
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="New transfer">
+          <form onSubmit={create} className={`${DIALOG} max-h-[90vh] max-w-lg overflow-y-auto p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">New transfer</h3>
+            <p className="mt-1 text-[13px] text-[#6B7280]">Stock is deducted here when you dispatch it.</p>
+            <div className="mt-5">
+              <label className={LABEL}>Send to</label>
+              <Select value={to} onChange={(e) => setTo(e.target.value)} className={INPUT}>
+                <option value="">Choose a branch</option>
                 {destinations.map((b) => (
                   <option key={b.restaurant_id} value={b.restaurant_id}>{b.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Items</label>
-              {lines.map((l, i) => (
-                <div key={i} className="flex gap-2">
-                  <select
-                    value={l.ingredient_id}
-                    onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, ingredient_id: e.target.value } : x)))}
-                    className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  >
-                    <option value="">Ingredient…</option>
-                    {ingredients.map((g) => (
-                      <option key={g.ingredient_id} value={g.ingredient_id}>{g.ingredient} ({g.stock} in stock)</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number" step="0.01" min={0} placeholder="Qty" value={l.quantity}
-                    onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)))}
-                    className="w-20 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  />
-                  <select
-                    value={l.unit}
-                    onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, unit: e.target.value } : x)))}
-                    className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-sm"
-                  >
-                    {UNITS.map((u) => <option key={u}>{u}</option>)}
-                  </select>
-                  {lines.length > 1 && (
-                    <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))} className="px-1 text-slate-400 hover:text-rose-600">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button type="button" onClick={() => setLines([...lines, { ingredient_id: "", quantity: "", unit: "kg" }])} className="text-xs font-bold text-emerald-700 hover:underline">
-                + Add another item
+            <div className="mt-5">
+              <p className={LABEL}>Items</p>
+              <div className="space-y-2">
+                {lines.map((l, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Select
+                      value={l.ingredient_id}
+                      onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, ingredient_id: e.target.value } : x)))}
+                      className={`${INPUT} min-w-0 flex-1`}
+                    >
+                      <option value="">Ingredient</option>
+                      {ingredients.map((g) => (
+                        <option key={g.ingredient_id} value={g.ingredient_id}>{g.ingredient} ({g.stock} in stock)</option>
+                      ))}
+                    </Select>
+                    <input
+                      type="number" step="0.01" min={0} placeholder="Qty" aria-label="Quantity" value={l.quantity}
+                      onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)))}
+                      className={`${INPUT} w-20 shrink-0 tabular-nums`}
+                    />
+                    <Select
+                      value={l.unit}
+                      onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, unit: e.target.value } : x)))}
+                      className={`${INPUT} w-20 shrink-0`}
+                    >
+                      {UNITS.map((u) => <option key={u}>{u}</option>)}
+                    </Select>
+                    {lines.length > 1 && (
+                      <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))} className={`${ICON_BTN_DANGER} shrink-0`} aria-label="Remove item">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setLines([...lines, { ingredient_id: "", quantity: "", unit: "kg" }])}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-[13px] font-semibold text-[#374151] transition-colors hover:text-[#0F1117]"
+              >
+                <Plus className="h-4 w-4" /> Add another item
               </button>
             </div>
-            <div className="flex gap-3 border-t border-slate-100 pt-4">
-              <button type="button" onClick={() => setShowNew(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-              <button type="submit" disabled={busy === "create"} className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
-                {busy === "create" ? "Creating…" : "Create transfer"}
+            <div className="mt-6 flex gap-2">
+              <button type="button" onClick={() => setShowNew(false)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+              <button type="submit" disabled={busy === "create"} className={`${BTN_PRIMARY} flex-1`}>
+                {busy === "create" ? "Creating" : "Create transfer"}
               </button>
             </div>
           </form>

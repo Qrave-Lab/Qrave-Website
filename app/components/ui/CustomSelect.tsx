@@ -136,10 +136,10 @@ export function CustomSelect<T extends string = string>({
 
   const themeItemSelected =
     theme === "emerald"
-      ? "text-emerald-800 font-bold bg-emerald-50"
+      ? "text-slate-900 font-semibold"
       : theme === "slate"
-      ? "text-slate-900 font-bold bg-slate-100"
-      : "text-[#fe5c13] font-bold bg-orange-50";
+      ? "text-slate-900 font-semibold"
+      : "text-slate-900 font-semibold";
 
   const themeCheckIcon =
     theme === "emerald"
@@ -154,7 +154,7 @@ export function CustomSelect<T extends string = string>({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full min-h-[46px] px-4 py-2.5 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all flex items-center justify-between text-left hover:bg-slate-100/70 hover:border-slate-300 cursor-pointer ${
+        className={`w-full min-h-12 px-4 py-2.5 text-[15px] bg-[#F8F9FA] border border-[#DEE2E6] rounded-xl outline-none transition-all flex items-center justify-between text-left hover:bg-slate-100/70 hover:border-slate-300 cursor-pointer ${
           isOpen ? `bg-white ${themeActiveBorder}` : ""
         } ${buttonClassName}`}
       >
@@ -187,7 +187,7 @@ export function CustomSelect<T extends string = string>({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: openDirection === "up" ? 6 : -6, scale: 0.98 }}
             transition={{ duration: 0.14, ease: "easeOut" }}
-            className={`absolute z-50 w-full bg-white border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-slate-900/5 max-h-72 flex flex-col ${
+            className={`absolute z-50 w-full bg-white border border-slate-200 rounded-xl shadow-[0_18px_40px_-16px_rgba(15,17,23,0.35)] overflow-hidden max-h-72 flex flex-col ${
               openDirection === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5"
             }`}
           >
@@ -202,7 +202,7 @@ export function CustomSelect<T extends string = string>({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search options..."
-                    className="w-full text-xs bg-transparent outline-none text-slate-800 placeholder:text-slate-400 font-medium"
+                    className="w-full text-[14px] bg-transparent outline-none text-slate-800 placeholder:text-slate-400"
                   />
                   {searchQuery && (
                     <button
@@ -227,7 +227,7 @@ export function CustomSelect<T extends string = string>({
                 // Grouped rendering
                 Object.entries(groupedOptions).map(([groupName, items]) => (
                   <div key={groupName} className="mb-2 last:mb-0">
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/80 rounded-lg flex items-center justify-between mb-1">
+                    <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-slate-50/80 rounded-lg flex items-center justify-between mb-1">
                       <span>{groupName}</span>
                       <span className="text-[9px] font-semibold text-slate-500 bg-slate-200/70 px-1.5 py-0.2 rounded-full">
                         {items.length}
@@ -247,7 +247,7 @@ export function CustomSelect<T extends string = string>({
                               setIsOpen(false);
                               setSearchQuery("");
                             }}
-                            className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold rounded-xl transition-all flex items-center justify-between cursor-pointer ${
+                            className={`w-full text-left px-3 py-2.5 text-[14px] rounded-lg transition-all flex items-center justify-between cursor-pointer ${
                               opt.disabled
                                 ? "opacity-40 cursor-not-allowed bg-slate-50 text-slate-400"
                                 : isSelected
@@ -286,7 +286,7 @@ export function CustomSelect<T extends string = string>({
                           setIsOpen(false);
                           setSearchQuery("");
                         }}
-                        className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold rounded-xl transition-all flex items-center justify-between cursor-pointer ${
+                        className={`w-full text-left px-3 py-2.5 text-[14px] rounded-lg transition-all flex items-center justify-between cursor-pointer ${
                           opt.disabled
                             ? "opacity-40 cursor-not-allowed bg-slate-50 text-slate-400"
                             : isSelected

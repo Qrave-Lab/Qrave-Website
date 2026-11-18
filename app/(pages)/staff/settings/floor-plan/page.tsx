@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
@@ -69,10 +70,28 @@ export default function FloorPlanPage() {
   };
 
   return (
-    <SettingsPageLayout title="Floor Plan" description="Manage your tables and seating layout." maxWidth="max-w-6xl">
+    <SettingsPageLayout
+      title="Floor plan"
+      description="Tables, floors and sections, and which tables are in service"
+      maxWidth="max-w-6xl"
+      action={
+        <Link
+          href="/staff/settings/tables/add"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.5} /> Add table
+        </Link>
+      }
+    >
       {isLoading ? (
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <div className="animate-pulse space-y-6">
+          <div className="h-[76px] rounded-2xl border border-[#E8E8E3] bg-white" />
+          <div className="h-9 w-72 rounded-xl bg-[#F3F3EF]" />
+          <div className="space-y-px overflow-hidden rounded-2xl border border-[#E8E8E3] bg-[#F0F0EB]">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-14 bg-white" />
+            ))}
+          </div>
         </div>
       ) : (
         <TableManager

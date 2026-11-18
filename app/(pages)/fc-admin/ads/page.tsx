@@ -7,6 +7,7 @@ import { fcAdmin, type OperatorStall, type Placement } from "@/app/lib/foodCourt
 import { fetchStallMenu } from "@/app/lib/foodCourt";
 import { Card, useOperator } from "../FcAdminShell";
 
+import { Select } from "@/app/components/ui/Select";
 const SLOT_LABEL = { top_stall: "Top of stall list", featured_item: "Featured dish" } as const;
 
 function status(p: Placement, now: number): "Running" | "Scheduled" | "Ended" {
@@ -53,7 +54,7 @@ export default function AdsPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-extrabold">Ads</h2>
+          <h2 className="font-display text-xl font-normal">Ads</h2>
           <p className="text-sm text-slate-500">
             Paid spots are always labeled &ldquo;Sponsored&rdquo; for diners. One stall can hold the top spot at a time, and up to 3 dishes can be featured.
           </p>
@@ -89,7 +90,7 @@ export default function AdsPage() {
         ) : (
           <div className="-mx-4 overflow-x-auto px-4">
             <table className="w-full min-w-[640px] text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+              <thead className="text-left text-xs text-slate-500">
                 <tr>
                   <th className="py-2 font-semibold">Stall</th>
                   <th className="py-2 font-semibold">Spot</th>
@@ -218,33 +219,33 @@ function NewAdForm({ slug, onDone, onCancel }: { slug: string; onDone: () => voi
       <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-semibold">
           Stall
-          <select value={restaurantId} onChange={(e) => (setRestaurantId(e.target.value), setMenuItemId(""))} className={field} required>
+          <Select value={restaurantId} onChange={(e) => (setRestaurantId(e.target.value), setMenuItemId(""))} className={field} required>
             <option value="">Choose a stall</option>
             {stalls.map((s) => (
               <option key={s.restaurantId} value={s.restaurantId}>
                 {s.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="text-sm font-semibold">
           Spot
-          <select value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} className={field}>
+          <Select value={slot} onChange={(e) => setSlot(e.target.value as typeof slot)} className={field}>
             <option value="top_stall">Top of stall list</option>
             <option value="featured_item">Featured dish</option>
-          </select>
+          </Select>
         </label>
         {slot === "featured_item" && (
           <label className="text-sm font-semibold sm:col-span-2">
             Dish
-            <select value={menuItemId} onChange={(e) => setMenuItemId(e.target.value)} className={field} required disabled={!restaurantId}>
+            <Select value={menuItemId} onChange={(e) => setMenuItemId(e.target.value)} className={field} required disabled={!restaurantId}>
               <option value="">{restaurantId ? "Choose a dish" : "Choose a stall first"}</option>
               {dishes.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         <label className="text-sm font-semibold">

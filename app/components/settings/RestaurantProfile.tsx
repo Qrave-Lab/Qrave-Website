@@ -1,7 +1,8 @@
 import React from "react";
-import { Camera, CheckCircle2, Loader2, Image as ImageIcon } from "lucide-react";
+import { Camera, CheckCircle2, ExternalLink, Loader2, Image as ImageIcon, XCircle } from "lucide-react";
 import type { Restaurant, TaxConfig } from "./types";
 
+import { Select } from "@/app/components/ui/Select";
 /* ---------- 24h ↔ 12h helpers ---------- */
 function parse24(time: string): { hour: number; minute: number; period: "AM" | "PM" } {
   const [h, m] = (time || "00:00").split(":").map(Number);
@@ -36,6 +37,109 @@ const PHONE_RULES: Record<string, { max: number; example: string; pattern: RegEx
   "+971": { max: 9, example: "501234567", pattern: /^5[0-9]{8}$/ },
 };
 
+
+/* ---------- Shared look (Qrave palette) ---------- */
+const INPUT =
+  "h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[14px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]";
+const SEG_ON = "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]";
+const SEG_OFF = "font-medium text-[#6B7280] hover:text-[#0F1117]";
+
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-[#E8E8E3] bg-white">
+      <div className="border-b border-[#F0F0EB] px-6 py-4">
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0F1117]">{title}</h2>
+        {description && <p className="mt-0.5 text-[13px] text-[#6B7280]">{description}</p>}
+      </div>
+      <div className="px-6 py-5">{children}</div>
+    </section>
+  );
+}
+
+function Label({ htmlFor, optional, children }: { htmlFor?: string; optional?: boolean; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-medium text-[#4B5563]">
+      {children}
+      {optional && <span className="ml-1.5 font-normal text-[#9CA3AF]">Optional</span>}
+    </label>
+  );
+}
+
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2 ${checked ? "bg-[#fe5c13]" : "bg-[#D6D6CF]"}`}
+    >
+      <span
+        className={`absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(15,17,23,0.2)] transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`}
+      />
+    </button>
+  );
+}
+
+function ToggleRow({
+  title,
+  description,
+  checked,
+  onChange,
+  bare,
+  className = "",
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: () => void;
+  bare?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-4 ${bare ? "px-4 py-3.5" : "rounded-xl border border-[#E8E8E3] px-4 py-3.5"} ${className}`}
+    >
+      <div>
+        <p className="text-[14px] font-semibold text-[#0F1117]">{title}</p>
+        <p className="mt-0.5 text-[12px] text-[#6B7280]">{description}</p>
+      </div>
+      <Switch checked={checked} onChange={onChange} label={title} />
+    </div>
+  );
+}
+
+function PercentInput({
+  value,
+  onChange,
+  onBlur,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="flex h-10 w-28 shrink-0 overflow-hidden rounded-xl border border-[#E8E8E3] bg-white transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13]">
+      <input
+        type="number"
+        min="0"
+        max="100"
+        step="0.5"
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder="0"
+        className="w-full min-w-0 bg-transparent px-3 text-right text-[14px] tabular-nums text-[#0F1117] outline-none"
+      />
+      <span className="flex items-center border-l border-[#E8E8E3] bg-[#F3F3EF] px-3 text-[13px] font-medium text-[#6B7280]">%</span>
+    </div>
+  );
+}
+
 /* ---------- TimePicker field ---------- */
 function TimePickerField({
   label,
@@ -47,53 +151,46 @@ function TimePickerField({
   onChange: (v: string) => void;
 }) {
   const { hour, minute, period } = parse24(value);
-
   const update = (h: number, m: number, p: "AM" | "PM") => onChange(to24(h, m, p));
-  const selectClass =
-    "h-10 rounded-lg border border-slate-200 bg-slate-50/30 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] transition-all cursor-pointer";
+  const sel = "h-10 w-[4.5rem] rounded-xl border border-[#E8E8E3] bg-white px-3 text-[14px] tabular-nums text-[#0F1117]";
 
   return (
     <div>
-      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-        {label}
-      </label>
-      <div className="flex items-center gap-1.5">
-        <select
-          value={hour}
-          onChange={(e) => update(Number(e.target.value), minute, period)}
-          className={`${selectClass} w-[4.5rem] px-2 text-center`}
-        >
+      <p className="mb-1.5 text-[13px] font-medium text-[#4B5563]">{label}</p>
+      <div className="flex items-center gap-1.5" role="group" aria-label={label}>
+        <Select value={hour} onChange={(e) => update(Number(e.target.value), minute, period)} className={sel} aria-label={`${label} hour`}>
           {HOURS.map((h) => (
             <option key={h} value={h}>
               {h}
             </option>
           ))}
-        </select>
-        <span className="text-slate-400 font-bold text-sm">:</span>
-        <select
-          value={minute}
-          onChange={(e) => update(hour, Number(e.target.value), period)}
-          className={`${selectClass} w-[4.5rem] px-2 text-center`}
-        >
+        </Select>
+        <span className="text-[14px] font-semibold text-[#9CA3AF]">:</span>
+        <Select value={minute} onChange={(e) => update(hour, Number(e.target.value), period)} className={sel} aria-label={`${label} minute`}>
           {MINUTES.map((m) => (
             <option key={m} value={m}>
               {String(m).padStart(2, "0")}
             </option>
           ))}
-        </select>
-        <select
-          value={period}
-          onChange={(e) => update(hour, minute, e.target.value as "AM" | "PM")}
-          className={`${selectClass} w-[4.5rem] px-2 text-center font-bold`}
-        >
-          <option value="AM">AM</option>
-          <option value="PM">PM</option>
-        </select>
+        </Select>
+        <div className="ml-1 inline-flex h-10 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="radiogroup" aria-label={`${label} AM or PM`}>
+          {(["AM", "PM"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="radio"
+              aria-checked={period === p}
+              onClick={() => update(hour, minute, p)}
+              className={`flex h-8 items-center rounded-lg px-3 text-[13px] transition-colors ${period === p ? SEG_ON : SEG_OFF}`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
-
 
 type Props = {
   data: Restaurant;
@@ -144,517 +241,412 @@ export default function RestaurantProfile({ data, onChange, onLogoChange, onLogo
   const serviceAmount = Math.round((inclusive ? taxableAmount : PREVIEW_BASE) * ((data.serviceCharge || 0) / 100));
   const previewTotal = (inclusive ? PREVIEW_BASE : PREVIEW_BASE + taxAmount) + cessAmount + serviceAmount;
 
-  const fmtPreview = (n: number) => `₹${n.toFixed(2)}`;
-  const inputCls = "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900";
+  const fmtPreview = (n: number) =>
+    `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const phoneInvalid = !!data.phone.trim() && !!PHONE_RULES[data.phoneCountryCode] && !PHONE_RULES[data.phoneCountryCode].pattern.test(data.phone.trim());
+  const inputCls = INPUT;
 
-
-  return (
-    <div className="bg-white -m-6 p-8 min-h-[calc(100vh-73px)]">
-      <div className="max-w-4xl space-y-8">
-        <div className="flex items-start gap-6">
-          <div className="flex flex-col items-center gap-2 shrink-0">
-            <div className="relative">
-              <div className="w-24 h-24 bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
-                {data.logo_url ? (
-                  <img
-                    src={data.logo_url}
-                    alt="Restaurant Logo"
-                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                  />
-                ) : (
-                  <ImageIcon className="w-8 h-8 text-slate-300" />
-                )}
-              </div>
-              <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#fe5c13] hover:brightness-95 text-gray-900 rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all active:scale-90 border-2 border-white">
-                {isUploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={onLogoChange}
-                  disabled={isUploading}
-                />
-              </label>
+  const sliceLeft = (
+    <div className="min-w-0 space-y-6">
+      <Section title="Brand" description="Shown on your menu, bills and the staff app.">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+          <div className="flex items-center gap-4 sm:w-auto">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#E8E8E3] bg-[#FAFAF7]">
+              {data.logo_url ? (
+                <img src={data.logo_url} alt="Restaurant logo" className="h-full w-full object-cover" />
+              ) : (
+                <ImageIcon className="h-7 w-7 text-[#C4C4BE]" />
+              )}
             </div>
-            {data.logo_url && onLogoRemove && (
-              <button
-                type="button"
-                onClick={onLogoRemove}
-                disabled={isRemovingLogo || isUploading}
-                className="flex items-center gap-1 text-[11px] font-semibold text-rose-500 hover:text-rose-700 disabled:opacity-50 transition-colors mt-1"
+            <div className="space-y-2">
+              <label
+                className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117] focus-within:border-[#fe5c13] ${isUploading ? "pointer-events-none opacity-60" : ""}`}
               >
-                {isRemovingLogo ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                {isRemovingLogo ? "Removing…" : "Remove Photo"}
-              </button>
-            )}
-          </div>
-
-          <div className="flex-1 space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Restaurant Name
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4 text-[#6B7280]" />}
+                {isUploading ? "Uploading" : data.logo_url ? "Replace logo" : "Upload logo"}
+                <input type="file" className="sr-only" accept="image/*" onChange={onLogoChange} disabled={isUploading} />
               </label>
-              <input
-                value={data.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                placeholder="The Golden Bistro"
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 font-medium text-slate-900"
-              />
+              {data.logo_url && onLogoRemove ? (
+                <button
+                  type="button"
+                  onClick={onLogoRemove}
+                  disabled={isRemovingLogo || isUploading}
+                  className="block text-[12px] font-medium text-[#6B7280] transition-colors hover:text-rose-600 disabled:opacity-50"
+                >
+                  {isRemovingLogo ? "Removing" : "Remove logo"}
+                </button>
+              ) : (
+                <p className="text-[12px] text-[#9CA3AF]">A square image works best.</p>
+              )}
             </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <Label htmlFor="rp-name">Restaurant name</Label>
+            <input
+              id="rp-name"
+              value={data.name}
+              onChange={(e) => handleChange("name", e.target.value)}
+              placeholder="The Golden Bistro"
+              className={`${inputCls} h-11 text-[16px] font-semibold`}
+            />
           </div>
         </div>
+      </Section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <Section title="Contact and location" description="How guests and delivery partners reach you.">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Business Address
-            </label>
+            <Label htmlFor="rp-address">Address</Label>
             <input
+              id="rp-address"
               value={data.address}
               onChange={(e) => handleChange("address", e.target.value)}
               placeholder="123 Gourmet Ave, Food City"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
+              className={inputCls}
             />
           </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Website URL <span className="normal-case text-slate-300 ml-1">(optional)</span>
-            </label>
-            <input
-              type="url"
-              value={data.website || ""}
-              onChange={(e) => handleChange("website", e.target.value)}
-              placeholder="https://yourrestaurant.com"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Google Review Link <span className="normal-case text-slate-300 ml-1">(optional)</span>
-            </label>
-            <input
-              type="url"
-              value={data.googleReviewUrl || ""}
-              onChange={(e) => handleChange("googleReviewUrl", e.target.value)}
-              placeholder="https://g.page/r/your-business/review"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
-            />
-            <p className="mt-1.5 text-[11px] text-slate-400">
-              Guests who rate 4 or 5 stars on their bill are sent here. Lower ratings stay private as feedback. Find yours in Google Business Profile → &quot;Get more reviews&quot;.
-            </p>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Digital Menu Link (Subdomain)
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={data.storeSlug || ""}
-                onChange={(e) => handleChange("storeSlug", e.target.value)}
-                placeholder="your-restaurant-name"
-                className="w-full border border-slate-200 rounded-xl pl-4 pr-[120px] py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400 text-sm">
-                .qravetech.in
-              </div>
-            </div>
-            {data.storeSlug && (
-              <p className="mt-1 text-xs text-slate-500">
-                Menu will be available at: <a href={`https://${data.storeSlug}.qravetech.in`} target="_blank" rel="noreferrer" className="text-[#fe5c13] hover:underline">https://{data.storeSlug}.qravetech.in</a>
-              </p>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Phone Number
-            </label>
-            <div className="flex gap-2">
-              <select
+          <div>
+            <Label htmlFor="rp-phone">Phone</Label>
+            <div className="flex h-10 overflow-hidden rounded-xl border border-[#E8E8E3] bg-white transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13]">
+              <Select
                 value={data.phoneCountryCode}
                 onChange={(e) => handleChange("phoneCountryCode", e.target.value)}
-                className="w-[130px] border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
+                className="h-full w-[118px] shrink-0 border-r border-[#E8E8E3] bg-[#F3F3EF] px-3 text-[13px] font-medium text-[#374151]"
               >
                 {PHONE_COUNTRY_CODES.map((opt) => (
                   <option key={opt.code} value={opt.code}>
                     {opt.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <input
+                id="rp-phone"
                 value={data.phone}
                 onChange={(e) => {
                   const digits = e.target.value.replace(/\D/g, "");
                   const max = PHONE_RULES[data.phoneCountryCode]?.max ?? 14;
                   handleChange("phone", digits.slice(0, max));
                 }}
-                placeholder={PHONE_RULES[data.phoneCountryCode]?.example || "Business contact number"}
+                placeholder={PHONE_RULES[data.phoneCountryCode]?.example || "Business number"}
                 inputMode="tel"
-                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 focus:border-[#fe5c13] outline-none transition-all bg-slate-50/30 text-slate-900"
+                className="w-full min-w-0 bg-transparent px-3.5 text-[14px] tabular-nums text-[#0F1117] outline-none placeholder:text-[#9CA3AF]"
               />
             </div>
-            {data.phone.trim() && !PHONE_RULES[data.phoneCountryCode]?.pattern.test(data.phone.trim()) && (
-              <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-red-500">
-                Invalid number format for {data.phoneCountryCode}. Example: {PHONE_RULES[data.phoneCountryCode]?.example}
-              </div>
+            {phoneInvalid && (
+              <p className="mt-1.5 text-[12px] text-rose-600">
+                That doesn&apos;t look like a {data.phoneCountryCode} number. For example {PHONE_RULES[data.phoneCountryCode]?.example}.
+              </p>
             )}
           </div>
-        </div>
-
-        {/* ── GST & Tax Settings ─────────────────────────────────────── */}
-        <section className="pt-4 border-t border-slate-100 space-y-5">
           <div>
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">GST &amp; Tax</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Configure how taxes and charges appear on your bills</p>
+            <Label htmlFor="rp-web" optional>Website</Label>
+            <input
+              id="rp-web"
+              type="url"
+              value={data.website || ""}
+              onChange={(e) => handleChange("website", e.target.value)}
+              placeholder="https://yourrestaurant.com"
+              className={inputCls}
+            />
           </div>
+        </div>
+      </Section>
 
-          {/* GSTIN */}
+      <Section title="Menu link and reviews" description="Where guests find your menu and leave reviews.">
+        <div className="space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              GSTIN <span className="normal-case text-slate-300">(optional)</span>
-            </label>
-            <div className="relative">
+            <Label htmlFor="rp-slug">Digital menu address</Label>
+            <div className="flex h-10 overflow-hidden rounded-xl border border-[#E8E8E3] bg-white transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13]">
               <input
+                id="rp-slug"
+                type="text"
+                value={data.storeSlug || ""}
+                onChange={(e) => handleChange("storeSlug", e.target.value)}
+                placeholder="your-restaurant-name"
+                className="w-full min-w-0 bg-transparent px-3.5 text-[14px] text-[#0F1117] outline-none placeholder:text-[#9CA3AF]"
+              />
+              <span className="flex shrink-0 items-center border-l border-[#E8E8E3] bg-[#F3F3EF] px-3.5 text-[13px] text-[#6B7280]">
+                .qravetech.in
+              </span>
+            </div>
+            {data.storeSlug && (
+              <a
+                href={`https://${data.storeSlug}.qravetech.in`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-medium text-[#6B7280] transition-colors hover:text-[#0F1117]"
+              >
+                {data.storeSlug}.qravetech.in <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="rp-review" optional>Google review link</Label>
+            <input
+              id="rp-review"
+              type="url"
+              value={data.googleReviewUrl || ""}
+              onChange={(e) => handleChange("googleReviewUrl", e.target.value)}
+              placeholder="https://g.page/r/your-business/review"
+              className={inputCls}
+            />
+            <p className="mt-1.5 text-[12px] leading-relaxed text-[#9CA3AF]">
+              Guests who rate 4 or 5 stars on their bill are sent here. Lower ratings stay private as feedback. You&apos;ll find the link in Google Business Profile under &ldquo;Get more reviews&rdquo;.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Hours and ordering" description="When you're open, and whether guests can order from the menu.">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <TimePickerField label="Opens at" value={data.openTime || ""} onChange={(v) => handleChange("openTime", v)} />
+          <TimePickerField label="Closes at" value={data.closeTime || ""} onChange={(v) => handleChange("closeTime", v)} />
+        </div>
+        <ToggleRow
+          className="mt-5"
+          title="Online ordering"
+          description={data.orderingEnabled !== false ? "Guests can order from the QR menu." : "Guests can only browse the menu and AR view."}
+          checked={data.orderingEnabled !== false}
+          onChange={() => handleChange("orderingEnabled", !(data.orderingEnabled !== false))}
+        />
+      </Section>
+
+      <Section title="GST and tax" description="How tax and charges are worked out on your bills.">
+        <div className="space-y-6">
+          <div>
+            <Label htmlFor="rp-gstin" optional>GSTIN</Label>
+            <div className="relative max-w-sm">
+              <input
+                id="rp-gstin"
                 value={data.gstNumber ?? ""}
                 onChange={(e) => handleChange("gstNumber", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15))}
                 placeholder="22AAAAA0000A1Z5"
                 spellCheck={false}
-                className={`${inputCls} pr-10 font-mono tracking-widest`}
+                className={`${inputCls} pr-10 tabular-nums tracking-wider ${data.gstNumber && !gstinIsValid ? "!border-rose-300" : ""}`}
               />
               {data.gstNumber && (
-                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold ${gstinIsValid ? "text-emerald-500" : "text-red-400"}`}>
-                  {gstinIsValid ? <CheckCircle2 className="w-4 h-4" /> : "✗"}
+                <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {gstinIsValid ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4 text-rose-500" />}
                 </span>
               )}
             </div>
             {data.gstNumber && !gstinIsValid && (
-              <p className="mt-1 text-[10px] text-red-400 font-medium">Format: 2-digit state code + PAN + entity + Z + check digit (e.g. 22AAAAA0000A1Z5)</p>
+              <p className="mt-1.5 text-[12px] text-rose-600">
+                A GSTIN is 15 characters: state code, PAN, entity number, Z and a check digit. For example 22AAAAA0000A1Z5.
+              </p>
             )}
           </div>
 
-          {/* GST Slab */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">GST Slab</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {GST_SLABS.map((slab) => (
+            <Label>GST rate</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex h-10 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="radiogroup" aria-label="GST rate">
+                {GST_SLABS.map((slab) => {
+                  const on = !customSlab && (data.taxPercent ?? 0) === slab;
+                  return (
+                    <button
+                      key={slab}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => {
+                        setCustomSlab(false);
+                        setTaxInput(String(slab));
+                        handleChange("taxPercent", slab);
+                      }}
+                      className={`flex h-8 min-w-[3.25rem] items-center justify-center rounded-lg px-3 text-[13px] tabular-nums transition-colors ${on ? SEG_ON : SEG_OFF}`}
+                    >
+                      {slab}%
+                    </button>
+                  );
+                })}
                 <button
-                  key={slab}
                   type="button"
-                  onClick={() => {
-                    setCustomSlab(false);
-                    setTaxInput(String(slab));
-                    handleChange("taxPercent", slab);
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${!customSlab && (data.taxPercent ?? 0) === slab
-                    ? "bg-[#fe5c13] text-gray-900 border-[#fe5c13] shadow-sm"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                    }`}
+                  role="radio"
+                  aria-checked={customSlab}
+                  onClick={() => setCustomSlab(true)}
+                  className={`flex h-8 items-center justify-center rounded-lg px-3 text-[13px] transition-colors ${customSlab ? SEG_ON : SEG_OFF}`}
                 >
-                  {slab}%
+                  Custom
                 </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setCustomSlab(true)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${customSlab
-                  ? "bg-[#fe5c13] text-gray-900 border-[#fe5c13]"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                  }`}
-              >
-                Custom
-              </button>
+              </div>
               {customSlab && (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={taxInput}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setTaxInput(v);
-                      if (v !== "") handleChange("taxPercent", Number(v));
-                    }}
-                    onBlur={() => { if (taxInput === "") { setTaxInput("0"); handleChange("taxPercent", 0); } }}
-                    className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50"
-                    placeholder="0"
-                  />
-                  <span className="text-xs text-slate-400 font-bold">%</span>
-                </div>
+                <PercentInput
+                  value={taxInput}
+                  ariaLabel="Custom GST rate"
+                  onChange={(v) => {
+                    setTaxInput(v);
+                    if (v !== "") handleChange("taxPercent", Number(v));
+                  }}
+                  onBlur={() => { if (taxInput === "") { setTaxInput("0"); handleChange("taxPercent", 0); } }}
+                />
               )}
             </div>
+            <p className="mt-1.5 text-[12px] text-[#9CA3AF]">Most restaurants charge 5%.</p>
           </div>
 
-          {/* Tax Mode CGST+SGST vs IGST */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tax Breakup on Bill</label>
-            <div className="grid grid-cols-2 gap-3">
+            <Label>Show tax on the bill as</Label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Tax breakup">
               {([
-                { key: "cgst_sgst", title: "CGST + SGST", desc: "Intra-state (most restaurants)" },
-                { key: "igst", title: "IGST", desc: "Inter-state supply" },
-              ] as const).map(({ key, title, desc }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleTaxConfigChange("mode", key)}
-                  className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-left transition-all ${mode === key
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 bg-white hover:border-slate-400 text-slate-700"
-                    }`}
-                >
-                  <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${mode === key ? "border-white" : "border-slate-400"
-                    }`}>
-                    {mode === key && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold">{title}</p>
-                    <p className={`text-[10px] mt-0.5 ${mode === key ? "text-white/60" : "text-slate-400"}`}>{desc}</p>
-                  </div>
-                </button>
-              ))}
+                { key: "cgst_sgst", title: "CGST + SGST", desc: "Selling within your state. Most restaurants." },
+                { key: "igst", title: "IGST", desc: "Selling to another state." },
+              ] as const).map(({ key, title, desc }) => {
+                const on = mode === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => handleTaxConfigChange("mode", key)}
+                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${on ? "border-[#fe5c13] bg-[#FFF4EC]" : "border-[#E8E8E3] bg-white hover:border-[#D6D6CF]"}`}
+                  >
+                    <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${on ? "border-[#fe5c13]" : "border-[#C4C4BE]"}`}>
+                      {on && <span className="h-2 w-2 rounded-full bg-[#fe5c13]" />}
+                    </span>
+                    <span>
+                      <span className="block text-[14px] font-semibold text-[#0F1117]">{title}</span>
+                      <span className="mt-0.5 block text-[12px] text-[#6B7280]">{desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Inclusive / Exclusive */}
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3">
+          <div className="divide-y divide-[#F0F0EB] rounded-xl border border-[#E8E8E3]">
+            <ToggleRow
+              bare
+              title="Prices include tax"
+              description={inclusive ? "Menu prices already include GST." : "GST is added on top of menu prices."}
+              checked={inclusive}
+              onChange={() => handleTaxConfigChange("inclusive", !inclusive)}
+            />
             <div>
-              <p className="text-xs font-bold text-slate-800">Tax-Inclusive Prices</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {inclusive ? "Menu prices already include tax" : "Tax added on top of menu prices"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleTaxConfigChange("inclusive", !inclusive)}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${inclusive ? "bg-emerald-500" : "bg-slate-300"}`}
-            >
-              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${inclusive ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-          </div>
-
-          {/* Cess */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3">
-              <div>
-                <p className="text-xs font-bold text-slate-800">Cess</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Additional cess levied on top of GST</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleTaxConfigChange("cess_enabled", !cessEnabled)}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${cessEnabled ? "bg-amber-500" : "bg-slate-300"}`}
-              >
-                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${cessEnabled ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
-            </div>
-            {cessEnabled && (
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Cess (%)</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
+              <ToggleRow
+                bare
+                title="Cess"
+                description="An extra cess charged on top of GST."
+                checked={cessEnabled}
+                onChange={() => handleTaxConfigChange("cess_enabled", !cessEnabled)}
+              />
+              {cessEnabled && (
+                <div className="flex items-center gap-3 px-4 pb-4">
+                  <span className="text-[13px] text-[#4B5563]">Cess rate</span>
+                  <PercentInput
                     value={cessInput}
-                    onChange={(e) => {
-                      const v = e.target.value;
+                    ariaLabel="Cess rate"
+                    onChange={(v) => {
                       setCessInput(v);
                       if (v !== "") handleTaxConfigChange("cess_percent", Number(v));
                     }}
                     onBlur={() => { if (cessInput === "") { setCessInput("0"); handleTaxConfigChange("cess_percent", 0); } }}
-                    className="w-28 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50/30 text-slate-900"
                   />
-                  <span className="text-sm text-slate-400 font-bold">%</span>
                 </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+              <div>
+                <p className="text-[14px] font-semibold text-[#0F1117]">Service charge</p>
+                <p className="mt-0.5 text-[12px] text-[#6B7280]">Added to every bill. Set 0 to turn it off.</p>
               </div>
-            )}
-          </div>
-
-          {/* Service Charge */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Service Charge (%)</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
+              <PercentInput
                 value={serviceInput}
-                onChange={(e) => {
-                  const v = e.target.value;
+                ariaLabel="Service charge"
+                onChange={(v) => {
                   setServiceInput(v);
                   if (v !== "") handleChange("serviceCharge", Number(v));
                 }}
                 onBlur={() => { if (serviceInput === "") { setServiceInput("0"); handleChange("serviceCharge", 0); } }}
-                className="w-28 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50/30 text-slate-900"
               />
-              <span className="text-sm text-slate-400 font-bold">%</span>
             </div>
           </div>
-
-          {/* Bill Preview */}
-          <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Bill Preview</p>
-              {data.gstNumber && gstinIsValid && (
-                <p className="text-[10px] font-mono text-white/40">{data.gstNumber}</p>
-              )}
-            </div>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between text-white/70">
-                <span>{inclusive ? "Subtotal (incl. tax)" : "Subtotal"}</span>
-                <span className="font-mono">{fmtPreview(PREVIEW_BASE)}</span>
-              </div>
-              {!inclusive && (data.taxPercent ?? 0) > 0 && (
-                mode === "cgst_sgst" ? (
-                  <>
-                    <div className="flex justify-between text-white/60">
-                      <span>CGST ({((data.taxPercent ?? 0) / 2).toFixed(1)}%)</span>
-                      <span className="font-mono">{fmtPreview(taxAmount / 2)}</span>
-                    </div>
-                    <div className="flex justify-between text-white/60">
-                      <span>SGST ({((data.taxPercent ?? 0) / 2).toFixed(1)}%)</span>
-                      <span className="font-mono">{fmtPreview(taxAmount / 2)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between text-white/60">
-                    <span>IGST ({data.taxPercent ?? 0}%)</span>
-                    <span className="font-mono">{fmtPreview(taxAmount)}</span>
-                  </div>
-                )
-              )}
-              {inclusive && (data.taxPercent ?? 0) > 0 && (
-                mode === "cgst_sgst" ? (
-                  <>
-                    <div className="flex justify-between text-white/50 text-[10px]">
-                      <span>incl. CGST ({((data.taxPercent ?? 0) / 2).toFixed(1)}%)</span>
-                      <span className="font-mono">{fmtPreview(taxAmount / 2)}</span>
-                    </div>
-                    <div className="flex justify-between text-white/50 text-[10px]">
-                      <span>incl. SGST ({((data.taxPercent ?? 0) / 2).toFixed(1)}%)</span>
-                      <span className="font-mono">{fmtPreview(taxAmount / 2)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between text-white/50 text-[10px]">
-                    <span>incl. IGST ({data.taxPercent ?? 0}%)</span>
-                    <span className="font-mono">{fmtPreview(taxAmount)}</span>
-                  </div>
-                )
-              )}
-              {cessEnabled && cessPercent > 0 && (
-                <div className="flex justify-between text-amber-300">
-                  <span>Cess ({cessPercent}%)</span>
-                  <span className="font-mono">{fmtPreview(cessAmount)}</span>
-                </div>
-              )}
-              {(data.serviceCharge ?? 0) > 0 && (
-                <div className="flex justify-between text-white/60">
-                  <span>Service Charge ({data.serviceCharge}%)</span>
-                  <span className="font-mono">{fmtPreview(serviceAmount)}</span>
-                </div>
-              )}
-            </div>
-            <div className="border-t border-white/10 pt-2 flex justify-between">
-              <span className="text-sm font-bold">Total</span>
-              <span className="text-sm font-bold font-mono">{fmtPreview(previewTotal)}</span>
-            </div>
-            <p className="text-[9px] text-white/30 text-center uppercase tracking-widest">Based on ₹1,000 order · for illustration only</p>
-          </div>
-        </section>
-
-        {/* ── Table Reservation Deposits ───────────────────────────────── */}
-        <section className="pt-4 border-t border-slate-100 space-y-5">
-          <div>
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Table Reservation Deposits</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Require guests to pay a secure deposit to confirm their table bookings</p>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3">
-            <div>
-              <p className="text-xs font-bold text-slate-800">Require Reservation Deposit</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {data.reservationDepositRequired ? "Guests must pay a deposit when booking" : "Reservations are free of deposit"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleChange("reservationDepositRequired", !data.reservationDepositRequired)}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${data.reservationDepositRequired ? "bg-emerald-500" : "bg-slate-300"}`}
-            >
-              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.reservationDepositRequired ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-          </div>
-
-          {data.reservationDepositRequired && (
-            <div className="space-y-2 animate-in slide-in-from-top-2 duration-150">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Deposit Amount ({data.currency})
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-slate-400">{data.currency}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={data.reservationDepositAmount ?? 0}
-                  onChange={(e) => handleChange("reservationDepositAmount", Math.max(0, Number(e.target.value) || 0))}
-                  className="w-32 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-yellow-500/20 outline-none bg-slate-50/30 text-slate-900 font-bold"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          )}
-        </section>
-
-        <div className="grid grid-cols-2 gap-4 pt-2">
-          <TimePickerField
-            label="Opens At"
-            value={data.openTime || ""}
-            onChange={(v) => handleChange("openTime", v)}
-          />
-          <TimePickerField
-            label="Closes At"
-            value={data.closeTime || ""}
-            onChange={(v) => handleChange("closeTime", v)}
-          />
         </div>
+      </Section>
 
-        <div className="pt-4 border-t border-slate-100">
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3">
-            <div>
-              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Ordering
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                When off, guests can view menu and AR only.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleChange("orderingEnabled", !(data.orderingEnabled !== false))}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${data.orderingEnabled !== false ? "bg-emerald-500" : "bg-slate-300"
-                }`}
-            >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${data.orderingEnabled !== false ? "translate-x-6" : "translate-x-1"
-                  }`}
+      <Section title="Reservation deposits" description="Ask guests to pay upfront to hold a table.">
+        <ToggleRow
+          title="Require a deposit"
+          description={data.reservationDepositRequired ? "Guests pay a deposit when they book." : "Bookings are free to make."}
+          checked={!!data.reservationDepositRequired}
+          onChange={() => handleChange("reservationDepositRequired", !data.reservationDepositRequired)}
+        />
+        {data.reservationDepositRequired && (
+          <div className="mt-4">
+            <Label htmlFor="rp-deposit">Deposit per booking</Label>
+            <div className="flex h-10 w-48 overflow-hidden rounded-xl border border-[#E8E8E3] bg-white transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13]">
+              <span className="flex shrink-0 items-center border-r border-[#E8E8E3] bg-[#F3F3EF] px-3 text-[13px] font-medium text-[#6B7280]">
+                {data.currency === "INR" ? "₹" : data.currency}
+              </span>
+              <input
+                id="rp-deposit"
+                type="number"
+                min="0"
+                step="1"
+                value={data.reservationDepositAmount ?? 0}
+                onChange={(e) => handleChange("reservationDepositAmount", Math.max(0, Number(e.target.value) || 0))}
+                className="w-full min-w-0 bg-transparent px-3 text-[14px] tabular-nums text-[#0F1117] outline-none"
+                placeholder="0"
               />
-            </button>
+            </div>
           </div>
-      </div>
+        )}
+      </Section>
     </div>
-  </div>
+  );
+
+  const pct = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+  const Line = ({ label, value, muted }: { label: string; value: number; muted?: boolean }) => (
+    <div className={`flex justify-between gap-4 ${muted ? "text-[12px] text-[#9CA3AF]" : "text-[13px] text-[#4B5563]"}`}>
+      <span>{label}</span>
+      <span className="tabular-nums">{fmtPreview(value)}</span>
+    </div>
+  );
+  const rate = data.taxPercent ?? 0;
+
+  const preview = (
+    <aside className="xl:sticky xl:top-0">
+      <div className="rounded-2xl border border-[#E8E8E3] bg-white">
+        <div className="border-b border-dashed border-[#E8E8E3] px-5 py-4">
+          <p className="text-[14px] font-semibold text-[#0F1117]">Bill preview</p>
+          <p className="mt-0.5 text-[12px] text-[#6B7280]">A ₹1,000 order with your current settings.</p>
+        </div>
+        <div className="px-5 py-4">
+          <p className="truncate text-center text-[14px] font-semibold text-[#0F1117]">{data.name || "Your restaurant"}</p>
+          {data.gstNumber && gstinIsValid && (
+            <p className="mt-0.5 text-center text-[11px] tabular-nums tracking-wide text-[#9CA3AF]">GSTIN {data.gstNumber}</p>
+          )}
+          <div className="mt-4 space-y-1.5">
+            <Line label={inclusive ? "Subtotal, tax included" : "Subtotal"} value={PREVIEW_BASE} />
+            {rate > 0 &&
+              (mode === "cgst_sgst" ? (
+                <>
+                  <Line label={`${inclusive ? "Includes " : ""}CGST ${pct(rate / 2)}%`} value={taxAmount / 2} muted={inclusive} />
+                  <Line label={`${inclusive ? "Includes " : ""}SGST ${pct(rate / 2)}%`} value={taxAmount / 2} muted={inclusive} />
+                </>
+              ) : (
+                <Line label={`${inclusive ? "Includes " : ""}IGST ${pct(rate)}%`} value={taxAmount} muted={inclusive} />
+              ))}
+            {cessEnabled && cessPercent > 0 && <Line label={`Cess ${pct(cessPercent)}%`} value={cessAmount} />}
+            {(data.serviceCharge ?? 0) > 0 && <Line label={`Service charge ${pct(data.serviceCharge ?? 0)}%`} value={serviceAmount} />}
+          </div>
+          <div className="mt-4 flex items-baseline justify-between border-t border-dashed border-[#E8E8E3] pt-3">
+            <span className="text-[14px] font-semibold text-[#0F1117]">Total</span>
+            <span className="text-[20px] font-bold tabular-nums tracking-[-0.02em] text-[#0F1117]">{fmtPreview(previewTotal)}</span>
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 px-1 text-[12px] leading-relaxed text-[#9CA3AF]">
+        Updates as you change tax settings. Figures are rounded and only for illustration.
+      </p>
+    </aside>
+  );
+
+  return (
+    <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {sliceLeft}
+      {preview}
+    </div>
   );
 }

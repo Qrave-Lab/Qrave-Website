@@ -77,17 +77,17 @@ export default function CashCounter({
     return (
       <div
         key={d}
-        className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors ${
-          n > 0 ? "border-slate-900/20 bg-white" : "border-slate-200 bg-white/60"
+        className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 transition-colors ${
+          n > 0 ? "border-[#fe5c13]/40 bg-[#FFF4EC]" : "border-[#E8E8E3] bg-white"
         }`}
       >
-        <span className="w-11 text-xs font-bold text-slate-800 tabular-nums">₹{d}</span>
+        <span className="w-11 text-[13px] font-semibold text-[#0F1117] tabular-nums">₹{d}</span>
         <button
           type="button"
           onClick={() => bump(d, -1)}
           disabled={n === 0}
           aria-label={`One less ₹${d}`}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-30"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E8E8E3] bg-white text-[#4B5563] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117] disabled:opacity-30"
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
@@ -99,17 +99,17 @@ export default function CashCounter({
           placeholder="0"
           onChange={(e) => setCount(d, e.target.value)}
           aria-label={`Number of ₹${d}`}
-          className="h-7 w-10 rounded-md border border-slate-200 text-center text-xs font-bold tabular-nums text-slate-900 focus:border-slate-900 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="h-8 w-11 rounded-lg border border-[#E8E8E3] bg-white text-center text-[13px] font-medium tabular-nums text-[#0F1117] placeholder:text-[#C4C4BE] focus:border-[#fe5c13] focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
         <button
           type="button"
           onClick={() => bump(d, 1)}
           aria-label={`One more ₹${d}`}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white hover:bg-black"
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fe5c13] text-white transition-colors hover:bg-[#e44e0b]"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
-        <span className="ml-auto text-xs font-semibold tabular-nums text-slate-500">
+        <span className="ml-auto text-[13px] font-medium tabular-nums text-[#6B7280]">
           {n > 0 ? formatINR(d * n) : ""}
         </span>
       </div>
@@ -117,17 +117,17 @@ export default function CashCounter({
   };
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
+    <div className="space-y-3.5 rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-bold text-slate-900">Count cash received</p>
-          <p className="text-[11px] text-slate-500">Optional — shows the change to give back</p>
+          <p className="text-[14px] font-semibold text-[#0F1117]">Count the cash</p>
+          <p className="mt-0.5 text-[12px] text-[#6B7280]">Optional. Shows the change to give back.</p>
         </div>
         {counted && (
           <button
             type="button"
             onClick={() => setCounts({})}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F3EF] hover:text-[#0F1117]"
           >
             <RotateCcw className="h-3 w-3" /> Reset
           </button>
@@ -135,42 +135,42 @@ export default function CashCounter({
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Notes</p>
+        <p className="text-[12px] font-medium text-[#6B7280]">Notes</p>
         {NOTES.map(row)}
-        <p className="pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Coins</p>
+        <p className="pt-1.5 text-[12px] font-medium text-[#6B7280]">Coins</p>
         {COINS.map(row)}
       </div>
 
-      <div className="space-y-1 border-t border-slate-200 pt-2.5 text-xs">
-        <div className="flex justify-between font-semibold text-slate-600">
+      <div className="space-y-1.5 border-t border-[#E8E8E3] pt-3 text-[13px]">
+        <div className="flex justify-between text-[#6B7280]">
           <span>Bill</span>
-          <span className="tabular-nums">{formatINR(due)}</span>
+          <span className="tabular-nums text-[#0F1117]">{formatINR(due)}</span>
         </div>
-        <div className="flex justify-between font-semibold text-slate-600">
+        <div className="flex justify-between text-[#6B7280]">
           <span>Received</span>
-          <span className="tabular-nums">{formatINR(received)}</span>
+          <span className="tabular-nums text-[#0F1117]">{formatINR(received)}</span>
         </div>
         {counted && (
           <div
-            className={`flex justify-between rounded-lg px-2.5 py-2 text-sm font-bold ${
+            className={`flex justify-between rounded-lg px-3 py-2 text-[14px] font-semibold ${
               isShort
                 ? "bg-rose-50 text-rose-700"
                 : difference > 0
                   ? "bg-emerald-50 text-emerald-700"
-                  : "bg-slate-100 text-slate-800"
+                  : "bg-[#F3F3EF] text-[#0F1117]"
             }`}
           >
             <span>{isShort ? "Still short" : difference > 0 ? "Change to return" : "Exact amount"}</span>
-            <span className="tabular-nums">{difference === 0 ? "✓" : formatINR(Math.abs(difference))}</span>
+            <span className="tabular-nums">{difference === 0 ? "No change" : formatINR(Math.abs(difference))}</span>
           </div>
         )}
         {change.length > 0 && (
-          <p className="px-1 text-[11px] font-medium text-emerald-800">
+          <p className="px-1 text-[12px] font-medium text-emerald-800">
             Give back: {change.map(([d, n]) => `${n} × ₹${d}`).join(" + ")}
           </p>
         )}
         {counted && !Number.isInteger(due) && difference > 0 && (
-          <p className="px-1 text-[11px] text-slate-500">Paise are rounded when suggesting notes.</p>
+          <p className="px-1 text-[12px] text-[#6B7280]">Paise are rounded when suggesting notes.</p>
         )}
       </div>
     </div>

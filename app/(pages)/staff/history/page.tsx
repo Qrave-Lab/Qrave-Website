@@ -16,10 +16,7 @@ import {
 } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowRight,
-  Calendar,
   ChevronRight,
-  Clock,
   Download,
   Loader2,
   Printer,
@@ -28,11 +25,12 @@ import {
   Search,
   ShoppingBag,
   SlidersHorizontal,
-  UtensilsCrossed,
+  Utensils,
   X,
 } from "lucide-react";
+import { DateRangePicker } from "@/app/components/ui/DateRangePicker";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 
 type RecentOrderInfo = {
@@ -98,6 +96,11 @@ export default function OrderHistoryPage() {
   const [selectedOrder, setSelectedOrder] =
     useState<UnifiedHistoryDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  // The row that was clicked: gives the receipt its real date and lets us
+  // retry if loading fails.
+  const [selectedRow, setSelectedRow] = useState<RecentOrderInfo | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const detailRequestRef = useRef(0);
   const [showRefund, setShowRefund] = useState(false);
   const [me, setMe] = useState<any>(null);
 
@@ -172,18 +175,70 @@ export default function OrderHistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter, fromDate, toDate, typeFilter]);
 
+  // Today's list keeps up on its own: bills closed on the floor show up
+  // within 30 seconds, and straight away when you come back to this tab.
+  useEffect(() => {
+    if (dateFilter !== "today") return;
+    const tick = () => {
+      if (document.visibilityState === "visible") void loadOrders(true);
+    };
+    const id = window.setInterval(tick, 30_000);
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFilter, typeFilter]);
+
+  const closeDetail = () => {
+    detailRequestRef.current++;
+    setSelectedOrder(null);
+    setSelectedRow(null);
+    setDetailError(null);
+    setIsDetailLoading(false);
+  };
+
   const fetchOrderDetail = async (order: RecentOrderInfo) => {
+    const requestId = ++detailRequestRef.current;
+    setSelectedRow(order);
+    setDetailError(null);
     setIsDetailLoading(true);
     setSelectedOrder(null);
     try {
       const res = await api<UnifiedHistoryDetail>(
-        `/api/admin/history/orders/${order.id}?type=${order.type}`,
+        `/api/admin/history/orders/${order.id}?type=${encodeURIComponent(order.type)}`,
+        { noCache: true },
       );
-      setSelectedOrder(res);
+      // A newer click (or closing the panel) wins over a slow response.
+      if (requestId !== detailRequestRef.current) return;
+      if (!res || !res.id) throw new Error("empty receipt");
+      const bd = res.breakdown || ({} as UnifiedHistoryDetail["breakdown"]);
+      setSelectedOrder({
+        ...res,
+        name: res.name || order.name,
+        payment_mode: res.payment_mode || order.payment_mode,
+        items: Array.isArray(res.items)
+          ? res.items.map((it: UnifiedHistoryItem) => ({ ...it, quantity: Number(it.quantity) || 0, price: Number(it.price) || 0 }))
+          : [],
+        breakdown: {
+          ...bd,
+          subtotal: Number(bd.subtotal) || 0,
+          discount: Number(bd.discount) || 0,
+          service_charge: Number(bd.service_charge) || 0,
+          tax: Number(bd.tax) || 0,
+          total: Number(bd.total) || Number(order.amount) || 0,
+          tax_percent: Number(bd.tax_percent) || 0,
+          service_percent: Number(bd.service_percent) || 0,
+        },
+      });
     } catch (err) {
-      toast.error("Failed to load receipt details");
+      if (requestId !== detailRequestRef.current) return;
+      setDetailError("Couldn't load this receipt. Check your connection and try again.");
     } finally {
-      setIsDetailLoading(false);
+      if (requestId === detailRequestRef.current) setIsDetailLoading(false);
     }
   };
 
@@ -216,8 +271,9 @@ export default function OrderHistoryPage() {
       total: bd.total,
       tax_percent: bd.tax_percent,
       service_percent: bd.service_percent,
-      payment_mode: selectedOrder.payment_mode || "Paid",
-      paid_at: new Date().toISOString(),
+      payment_mode: methodName(selectedOrder.payment_mode) || "Not recorded",
+      // The date the bill was paid, not the date it's reprinted.
+      paid_at: selectedRow?.created_at || new Date().toISOString(),
       cashier_name: me.name || "Cashier",
       gst_number: me.gst_number || "",
       tax_details: bd.tax_details,
@@ -259,7 +315,7 @@ export default function OrderHistoryPage() {
       o.type === "dine_in" ? "Dine-In" : "Takeaway",
       `"${o.name.replace(/"/g, '""')}"`,
       o.amount.toFixed(2),
-      o.payment_mode || "Paid",
+      methodName(o.payment_mode) || "Not recorded",
       format(new Date(o.created_at), "yyyy-MM-dd"),
       format(new Date(o.created_at), "HH:mm:ss"),
     ]);
@@ -280,6 +336,34 @@ export default function OrderHistoryPage() {
     toast.success("CSV exported successfully");
   };
 
+  const inr = (n: number) =>
+    `₹${(Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // "upi" -> "UPI", "cash" -> "Cash"; missing mode reads as "Paid".
+  // Payment method as people say it. The backend sends one method ("upi"),
+  // several joined with " + " for a split ("cash + upi"), or nothing when no
+  // method was recorded. Returns "" when there's nothing to show.
+  const MODE_NAMES: Record<string, string> = {
+    cash: "Cash",
+    card: "Card",
+    upi: "UPI",
+    qr: "UPI QR",
+    wallet: "Wallet",
+    online: "Online",
+    razorpay: "Online",
+    stripe: "Online",
+    split: "Split",
+  };
+  const methodName = (mode?: string | null) => {
+    const parts = String(mode || "")
+      .split(/\s*[+,]\s*/)
+      .map((p) => p.trim().toLowerCase())
+      .filter((p) => p && p !== "paid");
+    const names = Array.from(new Set(parts.map((p) => MODE_NAMES[p] || p[0].toUpperCase() + p.slice(1))));
+    return names.join(" + ");
+  };
+  const modeLabel = (mode?: string | null) => methodName(mode) || "Paid";
+
   const formatOrderDate = (dateStr: string) => {
     const d = new Date(dateStr);
     if (isToday(d)) {
@@ -288,55 +372,44 @@ export default function OrderHistoryPage() {
     if (isYesterday(d)) {
       return `Yesterday, ${format(d, "h:mm a")}`;
     }
-    return format(d, "MMM d, yyyy • h:mm a");
+    return format(d, "d MMM yyyy, h:mm a");
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
+    <div className="flex h-screen w-full overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <header className="bg-white border-b border-slate-200/80 px-8 py-5 flex flex-col gap-5 z-10 sticky top-0 shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            {/* Title Block */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 text-[#fe5c13] ring-1 ring-[#fe5c13]/20 flex items-center justify-center shadow-xs">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                    Order History
-                  </h1>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/60">
-                    {filteredOrders.length}{" "}
-                    {filteredOrders.length === 1 ? "order" : "orders"}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5 font-normal">
-                  Inspect completed bills, verify payment modes & reprint
-                  receipts
-                </p>
-              </div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-10 shrink-0 border-b border-[#E8E8E3] bg-white px-8 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <div className="flex items-center gap-3">
+              <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">
+                Order history
+              </h1>
+              {!isLoading && (
+                <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-[#6B7280]">
+                  {filteredOrders.length} {filteredOrders.length === 1 ? "order" : "orders"}
+                </span>
+              )}
             </div>
 
-            {/* Controls (Search + Actions) */}
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <div className="relative w-72">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
                 <input
                   type="text"
-                  placeholder="Search table, customer, amount..."
+                  placeholder="Search table, customer or amount"
+                  aria-label="Search orders"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9.5 pr-8 py-2 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200/90 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#fe5c13]/20 focus:border-[#fe5c13] transition-all shadow-xs"
+                  className="h-10 w-full rounded-xl border border-[#E8E8E3] bg-white pl-9 pr-8 text-[13px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
                 />
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                    aria-label="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-[#9CA3AF] hover:text-[#0F1117]"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
@@ -345,74 +418,55 @@ export default function OrderHistoryPage() {
                 onClick={() => loadOrders(true)}
                 disabled={isRefreshing}
                 title="Refresh order list"
-                className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-xs active:scale-95 disabled:opacity-50"
+                aria-label="Refresh order list"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E8E8E3] bg-white text-[#6B7280] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7] hover:text-[#0F1117] disabled:opacity-50"
               >
-                <RefreshCw
-                  className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#fe5c13]" : ""}`}
-                />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               </button>
 
               <button
                 onClick={handleExportCSV}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs active:scale-95"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
               >
-                <Download className="w-3.5 h-3.5 text-slate-500" />
-                <span>Export CSV</span>
+                <Download className="h-4 w-4 text-[#6B7280]" />
+                Export CSV
               </button>
             </div>
           </div>
 
-          {/* Unified Filter Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            {/* Segmented Channel Filter */}
-            <div className="inline-flex bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 shadow-inner">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Order type">
               {[
-                { id: "all", label: "All Orders", count: orders.length },
-                {
-                  id: "dine_in",
-                  label: "Dine-In",
-                  count: orders.filter((o) => o.type === "dine_in").length,
-                },
-                {
-                  id: "takeaway",
-                  label: "Takeaway",
-                  count: orders.filter((o) => o.type !== "dine_in").length,
-                },
+                { id: "all", label: "All orders", count: orders.length },
+                { id: "dine_in", label: "Dine-in", count: orders.filter((o) => o.type === "dine_in").length },
+                { id: "takeaway", label: "Takeaway", count: orders.filter((o) => o.type !== "dine_in").length },
               ].map((t) => {
                 const active = typeFilter === t.id;
                 return (
                   <button
                     key={t.id}
+                    role="tab"
+                    aria-selected={active}
                     onClick={() => setTypeFilter(t.id as any)}
-                    className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      active
-                        ? "bg-white text-slate-900 shadow-sm font-bold ring-1 ring-black/5"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    <span>{t.label}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        active
-                          ? "bg-[#fe5c13]/10 text-[#fe5c13]"
-                          : "bg-slate-200 text-slate-500"
+                    className={`flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-colors ${active
+                      ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]"
+                      : "text-[#6B7280] hover:text-[#0F1117]"
                       }`}
-                    >
-                      {t.count}
-                    </span>
+                  >
+                    {t.label}
+                    <span className={`tabular-nums ${active ? "text-[#6B7280]" : "text-[#9CA3AF]"}`}>{t.count}</span>
                   </button>
                 );
               })}
             </div>
 
-            {/* Date Range Selector & Custom Inputs */}
-            <div className="flex items-center gap-2">
-              <div className="inline-flex bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 shadow-inner">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Date range">
                 {[
                   { id: "today", label: "Today" },
                   { id: "yesterday", label: "Yesterday" },
-                  { id: "week", label: "This Week" },
-                  { id: "month", label: "This Month" },
+                  { id: "week", label: "This week" },
+                  { id: "month", label: "This month" },
                   { id: "custom", label: "Custom", icon: SlidersHorizontal },
                 ].map((d) => {
                   const active = dateFilter === d.id;
@@ -420,188 +474,117 @@ export default function OrderHistoryPage() {
                   return (
                     <button
                       key={d.id}
+                      role="tab"
+                      aria-selected={active}
                       onClick={() => setDateFilter(d.id as any)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        active
-                          ? "bg-white text-[#fe5c13] shadow-sm font-bold ring-1 ring-black/5"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
+                      className={`flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-colors ${active
+                        ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]"
+                        : "text-[#6B7280] hover:text-[#0F1117]"
+                        }`}
                     >
-                      {Icon && <Icon className="w-3 h-3" />}
-                      <span>{d.label}</span>
+                      {Icon && <Icon className="h-3 w-3" />}
+                      {d.label}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Styled Custom Date Range Picker */}
-              <AnimatePresence>
-                {dateFilter === "custom" && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="flex items-center gap-1.5 bg-white border border-slate-200/90 shadow-xs px-2.5 py-1 rounded-xl"
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-0.5" />
-                    <input
-                      type="date"
-                      value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                      className="bg-transparent border-none text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer py-1"
-                    />
-                    <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
-                    <input
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      className="bg-transparent border-none text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer py-1"
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {dateFilter === "custom" && (
+                <DateRangePicker
+                  from={fromDate}
+                  to={toDate}
+                  defaultOpen
+                  onChange={(f, t) => {
+                    setFromDate(f);
+                    setToDate(t);
+                  }}
+                />
+              )}
             </div>
           </div>
         </header>
 
-        {/* Scrollable Main Area */}
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-          {/* Orders Table Container */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <main className="flex-1 overflow-y-auto px-8 py-6">
+          <div className="overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-28 text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin mb-3 text-[#fe5c13]" />
-                <p className="text-sm font-semibold text-slate-600">
-                  Retrieving order history...
-                </p>
+              <div className="flex items-center justify-center gap-2 py-28 text-[14px] text-[#6B7280]">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading order history
               </div>
             ) : filteredOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-28 text-slate-400">
-                <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mb-4">
-                  <Receipt className="w-8 h-8 opacity-40 text-slate-500" />
-                </div>
-                <p className="text-base font-bold text-slate-700">
-                  No completed orders found
+              <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
+                <Receipt className="h-6 w-6 text-[#C4C4BE]" />
+                <p className="mt-3 text-[15px] font-semibold text-[#0F1117]">
+                  {searchTerm ? "No orders match your search" : "No completed orders in this range"}
                 </p>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm text-center">
-                  Try adjusting the date range or order type filter to find
-                  older transactions.
+                <p className="mt-1 max-w-sm text-[13px] text-[#6B7280]">
+                  {searchTerm ? "Try a table number, customer name or amount." : "Pick another date range or order type to see older bills."}
                 </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr className="bg-slate-50/70 border-b border-slate-200/80">
-                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Order & Table
-                      </th>
-                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Type
-                      </th>
-                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Completed Time
-                      </th>
-                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Payment Mode
-                      </th>
-                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">
-                        Total Amount
-                      </th>
-                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">
-                        Action
-                      </th>
+                    <tr className="border-b border-[#F0F0EB] text-[12px] text-[#6B7280]">
+                      <th className="px-6 py-3 font-medium">Order</th>
+                      <th className="px-6 py-3 font-medium">Type</th>
+                      <th className="px-6 py-3 font-medium">Completed</th>
+                      <th className="px-6 py-3 font-medium">Payment</th>
+                      <th className="px-6 py-3 text-right font-medium">Total</th>
+                      <th className="px-6 py-3 font-medium"><span className="sr-only">Receipt</span></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-[#F0F0EB]">
                     {filteredOrders.map((order) => {
                       const isDineIn = order.type === "dine_in";
+                      const d = new Date(order.created_at);
+                      const recent = isToday(d) || isYesterday(d);
                       return (
                         <tr
                           key={order.id}
                           onClick={() => fetchOrderDetail(order)}
-                          className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                          className="group cursor-pointer transition-colors hover:bg-[#FAFAF7]"
                         >
-                          {/* Order & Table */}
-                          <td className="px-6 py-4.5">
+                          <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div
-                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                  isDineIn
-                                    ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/10"
-                                    : "bg-orange-50 text-[#fe5c13] ring-1 ring-[#fe5c13]/10"
-                                }`}
-                              >
-                                {isDineIn ? (
-                                  <UtensilsCrossed className="w-4 h-4" />
-                                ) : (
-                                  <ShoppingBag className="w-4 h-4" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-slate-900 group-hover:text-[#fe5c13] transition-colors">
-                                  {order.name}
-                                </p>
-                                <p className="text-[11px] font-mono text-slate-400 mt-0.5">
-                                  #{order.id.slice(0, 8)}
-                                </p>
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F3F3EF] text-[#4B5563]">
+                                {isDineIn ? <Utensils className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-semibold text-[#0F1117]">{order.name}</p>
+                                <p className="mt-0.5 text-[12px] tabular-nums text-[#9CA3AF]">#{order.id.slice(0, 8)}</p>
                               </div>
                             </div>
                           </td>
 
-                          {/* Type */}
-                          <td className="px-6 py-4.5">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
-                                isDineIn
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
-                                  : "bg-orange-50 text-[#fe5c13] border-orange-200/60"
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isDineIn ? "bg-emerald-500" : "bg-[#fe5c13]"
-                                }`}
-                              />
-                              {isDineIn ? "Dine-In" : "Takeaway"}
+                          <td className="px-6 py-4 text-[13px] text-[#374151]">
+                            {isDineIn ? "Dine-in" : "Takeaway"}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <p className="text-[13px] tabular-nums text-[#0F1117]">{formatOrderDate(order.created_at)}</p>
+                            {!recent && <p className="mt-0.5 text-[12px] text-[#9CA3AF]">{format(d, "EEEE")}</p>}
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none text-[#374151]">
+                              {modeLabel(order.payment_mode)}
                             </span>
                           </td>
 
-                          {/* Completed Time */}
-                          <td className="px-6 py-4.5">
-                            <p className="text-xs font-semibold text-slate-700">
-                              {formatOrderDate(order.created_at)}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-                              {format(new Date(order.created_at), "EEEE")}
-                            </p>
+                          <td className="px-6 py-4 text-right">
+                            <p className="text-[15px] font-semibold tabular-nums text-[#0F1117]">{inr(order.amount)}</p>
                           </td>
 
-                          {/* Payment Mode */}
-                          <td className="px-6 py-4.5">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/60 uppercase tracking-wide">
-                              {order.payment_mode || "Paid"}
-                            </span>
-                          </td>
-
-                          {/* Total Amount */}
-                          <td className="px-6 py-4.5 text-right">
-                            <p className="text-base font-black text-slate-900 tracking-tight">
-                              ₹{order.amount.toFixed(2)}
-                            </p>
-                          </td>
-
-                          {/* Action Button */}
-                          <td className="px-6 py-4.5 text-right">
+                          <td className="px-6 py-4 text-right">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 fetchOrderDetail(order);
                               }}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 group-hover:bg-[#fe5c13] group-hover:text-white transition-all shadow-2xs"
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#6B7280] transition-colors group-hover:text-[#0F1117] hover:bg-[#F3F3EF]"
                             >
-                              <span>View Receipt</span>
-                              <ChevronRight className="w-3.5 h-3.5" />
+                              View receipt
+                              <ChevronRight className="h-3.5 w-3.5" />
                             </button>
                           </td>
                         </tr>
@@ -615,16 +598,15 @@ export default function OrderHistoryPage() {
         </main>
       </div>
 
-      {/* Slide-over Receipt Drilldown Panel */}
       <AnimatePresence>
-        {(isDetailLoading || selectedOrder) && (
+        {(isDetailLoading || selectedOrder || detailError) && (
           <div className="fixed inset-0 z-50 flex justify-end">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/30 backdrop-blur-xs"
-              onClick={() => setSelectedOrder(null)}
+              className="absolute inset-0 bg-[#0F1117]/30 backdrop-blur-xs"
+              onClick={closeDetail}
             />
 
             <motion.div
@@ -632,175 +614,144 @@ export default function OrderHistoryPage() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10"
+              className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-[#E8E8E3] bg-white shadow-[0_20px_60px_-15px_rgba(15,17,23,0.3)]"
             >
-              {/* Header */}
-              <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-orange-50 text-[#fe5c13]">
-                    <Receipt className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">
-                      Receipt Details
-                    </h2>
-                    <p className="text-[11px] text-slate-400 font-mono">
-                      {selectedOrder ? `#${selectedOrder.id}` : "Loading..."}
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between border-b border-[#E8E8E3] px-6 py-4">
+                <div>
+                  <h2 className="text-[17px] font-bold leading-none tracking-[-0.01em] text-[#0F1117]">Receipt</h2>
+                  <p className="mt-1.5 text-[12px] tabular-nums text-[#9CA3AF]">
+                    {selectedRow
+                      ? `${formatOrderDate(selectedRow.created_at)}, #${selectedRow.id.slice(0, 8)}`
+                      : "Loading"}
+                  </p>
                 </div>
                 <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+                  onClick={closeDetail}
+                  aria-label="Close receipt"
+                  className="rounded-xl p-2 text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Receipt Body */}
-              <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+              <div className="flex-1 overflow-y-auto bg-[#FAFAF7] p-6">
                 {isDetailLoading ? (
-                  <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                    <Loader2 className="w-8 h-8 animate-spin mb-3 text-[#fe5c13]" />
-                    <p className="text-xs font-semibold text-slate-600">
-                      Generating receipt...
-                    </p>
+                  <div className="flex h-64 items-center justify-center gap-2 text-[13px] text-[#6B7280]">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading receipt
+                  </div>
+                ) : detailError ? (
+                  <div className="flex h-64 flex-col items-center justify-center text-center">
+                    <p className="text-[15px] font-semibold text-[#0F1117]">Receipt didn't load</p>
+                    <p className="mt-1 max-w-[260px] text-[13px] text-[#6B7280]">{detailError}</p>
+                    {selectedRow && (
+                      <button
+                        onClick={() => void fetchOrderDetail(selectedRow)}
+                        className="mt-4 h-9 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                      >
+                        Try again
+                      </button>
+                    )}
                   </div>
                 ) : selectedOrder ? (
-                  <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 max-w-sm mx-auto font-sans relative">
-                    {/* Thermal Receipt Header */}
-                    <div className="text-center pb-5 border-b border-dashed border-slate-200">
-                      <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  <div className="mx-auto max-w-sm rounded-2xl border border-[#E8E8E3] bg-white p-6">
+                    <div className="border-b border-dashed border-[#E8E8E3] pb-5 text-center">
+                      <h3 className="text-[17px] font-bold tracking-[-0.01em] text-[#0F1117]">
                         {me?.restaurant || "Qrave Restaurant"}
                       </h3>
                       {me?.gst_number && (
-                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                          GSTIN: {me.gst_number}
-                        </p>
+                        <p className="mt-1 text-[11px] font-medium text-[#9CA3AF]">GSTIN {me.gst_number}</p>
                       )}
-                      <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-700">
+                      <div className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-[#F3F3EF] px-3 py-1 text-[12px] font-medium text-[#374151]">
                         {selectedOrder.type === "dine_in" ? (
-                          <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-600" />
+                          <Utensils className="h-3.5 w-3.5 text-[#6B7280]" />
                         ) : (
-                          <ShoppingBag className="w-3.5 h-3.5 text-[#fe5c13]" />
+                          <ShoppingBag className="h-3.5 w-3.5 text-[#6B7280]" />
                         )}
-                        <span>{selectedOrder.name}</span>
+                        {selectedOrder.name}
                       </div>
                     </div>
 
-                    {/* Items List */}
-                    <div className="py-4 space-y-3">
-                      <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100">
+                    <div className="space-y-3 py-4">
+                      <div className="flex justify-between border-b border-[#F0F0EB] pb-1.5 text-[12px] font-medium text-[#6B7280]">
                         <span>Item</span>
-                        <span>Total</span>
+                        <span>Amount</span>
                       </div>
-
+                      {selectedOrder.items.length === 0 && (
+                        <p className="py-2 text-center text-[13px] text-[#9CA3AF]">No item details were saved for this bill.</p>
+                      )}
                       {selectedOrder.items.map((it, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-start text-xs"
-                        >
+                        <div key={idx} className="flex items-start justify-between text-[13px]">
                           <div className="flex-1 pr-3">
-                            <div className="font-bold text-slate-800">
-                              <span className="text-[#fe5c13] font-black mr-1.5">
-                                {it.quantity}x
-                              </span>
+                            <p className="font-medium text-[#0F1117]">
+                              <span className="mr-1.5 tabular-nums text-[#9CA3AF]">{it.quantity}×</span>
                               {it.name}
-                            </div>
-                            {it.variant_label && (
-                              <div className="text-[10px] text-slate-400 pl-4">
-                                {it.variant_label}
-                              </div>
-                            )}
-                            <div className="text-[10px] text-slate-400 pl-4">
-                              ₹{it.price.toFixed(2)} each
-                            </div>
+                            </p>
+                            {it.variant_label && <p className="pl-5 text-[12px] text-[#6B7280]">{it.variant_label}</p>}
+                            <p className="pl-5 text-[12px] tabular-nums text-[#9CA3AF]">{inr(it.price)} each</p>
                           </div>
-                          <div className="font-bold text-slate-900">
-                            ₹{(it.quantity * it.price).toFixed(2)}
-                          </div>
+                          <p className="font-medium tabular-nums text-[#0F1117]">{inr(it.quantity * it.price)}</p>
                         </div>
                       ))}
                     </div>
 
-                    {/* Financial Summary */}
-                    <div className="border-t border-dashed border-slate-200 pt-4 space-y-2">
-                      <div className="flex justify-between text-xs font-medium text-slate-500">
+                    <div className="space-y-2 border-t border-dashed border-[#E8E8E3] pt-4 text-[13px]">
+                      <div className="flex justify-between text-[#6B7280]">
                         <span>Subtotal</span>
-                        <span className="font-semibold text-slate-700">
-                          ₹{selectedOrder.breakdown.subtotal.toFixed(2)}
-                        </span>
+                        <span className="tabular-nums text-[#374151]">{inr(selectedOrder.breakdown.subtotal)}</span>
                       </div>
-
                       {selectedOrder.breakdown.discount > 0 && (
-                        <div className="flex justify-between text-xs font-medium text-rose-500">
+                        <div className="flex justify-between text-emerald-700">
                           <span>Discount</span>
-                          <span className="font-semibold">
-                            -₹{selectedOrder.breakdown.discount.toFixed(2)}
-                          </span>
+                          <span className="tabular-nums">−{inr(selectedOrder.breakdown.discount)}</span>
                         </div>
                       )}
-
                       {selectedOrder.breakdown.service_charge > 0 && (
-                        <div className="flex justify-between text-xs font-medium text-slate-500">
-                          <span>
-                            Service Charge (
-                            {selectedOrder.breakdown.service_percent}%)
-                          </span>
-                          <span className="font-semibold text-slate-700">
-                            ₹{selectedOrder.breakdown.service_charge.toFixed(2)}
-                          </span>
+                        <div className="flex justify-between text-[#6B7280]">
+                          <span>Service charge ({selectedOrder.breakdown.service_percent}%)</span>
+                          <span className="tabular-nums text-[#374151]">{inr(selectedOrder.breakdown.service_charge)}</span>
                         </div>
                       )}
-
                       {selectedOrder.breakdown.tax > 0 && (
-                        <div className="flex justify-between text-xs font-medium text-slate-500">
-                          <span>
-                            GST / Taxes ({selectedOrder.breakdown.tax_percent}%)
-                          </span>
-                          <span className="font-semibold text-slate-700">
-                            ₹{selectedOrder.breakdown.tax.toFixed(2)}
-                          </span>
+                        <div className="flex justify-between text-[#6B7280]">
+                          <span>GST ({selectedOrder.breakdown.tax_percent}%)</span>
+                          <span className="tabular-nums text-[#374151]">{inr(selectedOrder.breakdown.tax)}</span>
                         </div>
                       )}
-
-                      <div className="flex justify-between items-center text-base font-black text-slate-900 pt-3 border-t border-slate-200 mt-2">
-                        <span>Grand Total</span>
-                        <span className="text-lg text-[#fe5c13]">
-                          ₹{selectedOrder.breakdown.total.toFixed(2)}
+                      <div className="mt-2 flex items-baseline justify-between border-t border-[#E8E8E3] pt-3">
+                        <span className="text-[14px] font-semibold text-[#0F1117]">Total</span>
+                        <span className="text-[20px] font-bold tabular-nums tracking-[-0.02em] text-[#0F1117]">
+                          {inr(selectedOrder.breakdown.total)}
                         </span>
                       </div>
                     </div>
 
-                    {/* Footer Info */}
-                    <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="mt-5 flex items-center justify-between border-t border-[#F0F0EB] pt-4 text-[12px] text-[#6B7280]">
                       <span>
-                        Method: {selectedOrder.payment_mode || "Paid"}
+                        {methodName(selectedOrder.payment_mode)
+                          ? `Paid by ${methodName(selectedOrder.payment_mode)}`
+                          : "Payment method not recorded"}
                       </span>
-                      <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-black">
-                        COMPLETED
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 font-medium leading-none text-emerald-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Completed
                       </span>
                     </div>
                   </div>
                 ) : null}
               </div>
 
-              {/* Action Bar */}
               {selectedOrder && (
-                <div className="p-4 border-t border-slate-100 bg-white">
+                <div className="space-y-2 border-t border-[#E8E8E3] bg-white p-4">
                   <button
                     onClick={handlePrint}
-                    className="w-full py-3 bg-[#fe5c13] hover:bg-orange-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#fe5c13] text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b]"
                   >
-                    <Printer className="w-4 h-4" />
-                    <span>Print Thermal Receipt</span>
+                    <Printer className="h-4 w-4" />
+                    Print receipt
                   </button>
-                  {["owner", "manager", "cashier"].includes(
-                    String(me?.role || "").toLowerCase(),
-                  ) && (
+                  {["owner", "manager", "cashier"].includes(String(me?.role || "").toLowerCase()) && (
                     <button
                       onClick={() => setShowRefund(true)}
-                      className="mt-2 flex h-10 w-full items-center justify-center rounded-xl border border-rose-200 bg-red-700 px-4 text-xs font-bold text-white transition-colors hover:border-rose-300 hover:bg-rose-100"
+                      className="flex h-10 w-full items-center justify-center rounded-xl border border-rose-200 bg-white text-[13px] font-semibold text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50"
                     >
                       Refund payment
                     </button>

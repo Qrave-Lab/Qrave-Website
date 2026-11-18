@@ -42,7 +42,7 @@ export default function StallsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-extrabold">Stalls</h2>
+        <h2 className="font-display text-xl font-normal">Stalls</h2>
         <p className="text-sm text-slate-500">
           Each stall manages its own menu, photos and 3D dishes from its Qrave account. To add or remove a stall, contact Qrave.
         </p>

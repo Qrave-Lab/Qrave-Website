@@ -106,7 +106,7 @@ export default function AddTablesPage() {
 
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-4">
-              <h1 className="text-xl font-black text-slate-900">Add Tables</h1>
+              <h1 className="font-display text-xl font-normal text-slate-900">Add Tables</h1>
               <p className="mt-1 text-sm text-slate-500">
                 Create one or more tables for a selected floor and counter.
               </p>
@@ -120,8 +120,8 @@ export default function AddTablesPage() {
               <div className="space-y-5 p-6">
                 {/* Number of tables */}
                 <div>
-                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Number of Tables
+                  <label className="mb-1.5 block text-[13px] font-medium text-slate-500">
+                    Number of tables
                   </label>
                   <input
                     type="number"
@@ -137,8 +137,8 @@ export default function AddTablesPage() {
 
                 {/* Floor */}
                 <div>
-                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Floor Name
+                  <label className="mb-1.5 block text-[13px] font-medium text-slate-500">
+                    Floor name
                   </label>
                   <input
                     list="floor-suggestions"
@@ -161,8 +161,8 @@ export default function AddTablesPage() {
 
                 {/* Counter */}
                 <div>
-                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Counter / Zone
+                  <label className="mb-1.5 block text-[13px] font-medium text-slate-500">
+                    Counter / zone
                   </label>
                   <input
                     list="counter-suggestions"

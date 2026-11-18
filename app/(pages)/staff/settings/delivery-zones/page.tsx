@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Bike, Plus, Trash2, Loader2, MapPin, Clock, Save, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Bike, Edit2, Info, Loader2, Plus, Trash2, X } from "lucide-react";
+import ConfirmModal from "@/app/components/ui/ConfirmModal";
 import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
@@ -36,6 +37,7 @@ export default function DeliveryZonesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ZoneForm>(emptyForm);
   const [showAdd, setShowAdd] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<DeliveryZone | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -75,12 +77,12 @@ export default function DeliveryZonesPage() {
 
   const saveZone = async (isNew: boolean) => {
     if (!form.name.trim()) {
-      toast.error("Zone name required");
+      toast.error("Give the zone a name");
       return;
     }
     const fee = parseFloat(form.fee);
     if (isNaN(fee) || fee < 0) {
-      toast.error("Invalid fee");
+      toast.error("Enter a delivery charge of 0 or more");
       return;
     }
     setIsSaving(true);
@@ -124,214 +126,325 @@ export default function DeliveryZonesPage() {
     }
   };
 
-  const renderForm = (isNew: boolean) => (
-    <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-6 space-y-5 animate-slideDown mb-6 max-w-xl">
-      <div>
-        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
-          {isNew ? "New Delivery Zone" : "Modify Zone Settings"}
-        </h3>
-        <p className="text-xs font-semibold text-slate-500 mt-0.5">
-          Define geographical boundaries and service charge rates.
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 pl-1">
-            Zone Name *
-          </label>
-          <input
-            value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="e.g. City Centre, Zone A, 0–3 km"
-            className="w-full h-11 px-4 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-orange-105 transition-all placeholder:text-slate-405"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 pl-1">
-            Distance Limit (km)
-          </label>
-          <div className="relative flex items-center">
-            <MapPin className="absolute left-4 w-4 h-4 text-slate-400" />
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={form.distance_km}
-              onChange={e => setForm(f => ({ ...f, distance_km: e.target.value }))}
-              placeholder="e.g. 5"
-              className="w-full h-11 pl-11 pr-4 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-orange-105 transition-all placeholder:text-slate-405"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 pl-1">
-            Delivery Charge (₹) *
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            value={form.fee}
-            onChange={e => setForm(f => ({ ...f, fee: e.target.value }))}
-            placeholder="e.g. 40"
-            className="w-full h-11 px-4 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-orange-105 transition-all placeholder:text-slate-405"
-          />
-        </div>
-        <div className="col-span-2">
-          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 pl-1">
-            Estimated Journey Time (minutes)
-          </label>
-          <div className="relative flex items-center">
-            <Clock className="absolute left-4 w-4 h-4 text-slate-400" />
-            <input
-              type="number"
-              min="0"
-              value={form.estimated_minutes}
-              onChange={e => setForm(f => ({ ...f, estimated_minutes: e.target.value }))}
-              placeholder="e.g. 15"
-              className="w-full h-11 pl-11 pr-4 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-orange-105 transition-all placeholder:text-slate-405"
-            />
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-3 pt-2">
-        <button
-          onClick={() => saveZone(isNew)}
-          disabled={isSaving}
-          className="h-11 px-5 rounded-xl bg-[#fe5c13] hover:brightness-95 active:scale-[0.98] text-white text-xs font-black shadow-md shadow-orange-100 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2"
-        >
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Save className="w-4 h-4 text-white" />}
-          {isSaving ? "Saving..." : "Save Zone"}
-        </button>
-        <button
-          onClick={cancelEdit}
-          className="h-11 px-5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 transition-all flex items-center justify-center gap-1.5"
-        >
-          <X className="w-4 h-4" /> Cancel
-        </button>
-      </div>
-    </div>
+  const sorted = useMemo(
+    () =>
+      [...zones].sort((a, b) => {
+        const da = a.distance_km ?? Number.POSITIVE_INFINITY;
+        const db = b.distance_km ?? Number.POSITIVE_INFINITY;
+        return da - db || a.fee - b.fee || a.name.localeCompare(b.name);
+      }),
+    [zones]
   );
+  const withDistance = sorted.filter((z) => z.distance_km != null && z.distance_km > 0);
+  const maxKm = withDistance.length ? Math.max(...withDistance.map((z) => z.distance_km as number)) : 0;
+  const LADDER = ["#FFF4EC", "#FFE7D6", "#FFD7BC", "#FFC6A0", "#FDB384", "#FBA06A"];
+  const fmtFee = (n: number) => (n === 0 ? "Free" : `₹${n.toLocaleString("en-IN")}`);
+  const fmtKm = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)} km`;
+
+  const INPUT_WRAP =
+    "flex h-10 overflow-hidden rounded-xl border border-[#E8E8E3] bg-white transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13]";
+  const INPUT_BARE = "w-full min-w-0 bg-transparent px-3.5 text-[14px] tabular-nums text-[#0F1117] outline-none placeholder:text-[#9CA3AF]";
+  const ADDON = "flex shrink-0 items-center border-[#E8E8E3] bg-[#F3F3EF] px-3 text-[13px] font-medium text-[#6B7280]";
+  const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4B5563]";
+
+  const formOpen = showAdd || editingId !== null;
+  const previewFee = parseFloat(form.fee);
+  const previewKm = parseFloat(form.distance_km);
+  const previewMin = parseInt(form.estimated_minutes, 10);
 
   return (
     <SettingsPageLayout
-      title="Delivery Zones"
-      description="Configure delivery areas and fees based on distance or zone name."
-      fullBleed
+      title="Delivery zones"
+      description="Where you deliver and what each area costs"
+      maxWidth="max-w-4xl"
+      action={
+        <button
+          onClick={startAdd}
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.5} /> Add zone
+        </button>
+      }
     >
-      <div className="flex flex-col flex-1 min-h-0 bg-[#f8fafc]">
-        {/* Sticky top sub-header */}
-        <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Settings Hub</p>
-            <h2 className="text-sm font-black text-slate-900 mt-0.5">Delivery Zones</h2>
+      {isLoading ? (
+        <div className="animate-pulse space-y-6">
+          <div className="h-28 rounded-2xl border border-[#E8E8E3] bg-white" />
+          <div className="space-y-px overflow-hidden rounded-2xl border border-[#E8E8E3] bg-[#F0F0EB]">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-14 bg-white" />
+            ))}
           </div>
-          {!showAdd && !editingId && (
-            <button
-              onClick={startAdd}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#fe5c13] hover:brightness-95 active:scale-[0.98] text-white text-xs font-black shadow-md shadow-orange-100 transition-all select-none"
-            >
-              <Plus className="w-4 h-4" /> Add Zone
-            </button>
-          )}
         </div>
-
-        {/* Scrollable page body */}
-        <div className="flex-1 bg-white px-8 py-8 overflow-y-auto space-y-6">
-          {/* Loading skeleton */}
-          {isLoading && (
-            <div className="space-y-4 animate-pulse">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 rounded-2xl bg-slate-100 w-full" />
-              ))}
-            </div>
+      ) : zones.length === 0 ? (
+        <section className="flex flex-col items-center justify-center rounded-2xl border border-[#E8E8E3] bg-white px-6 py-20 text-center">
+          <Bike className="h-6 w-6 text-[#C4C4BE]" />
+          <p className="mt-3 text-[15px] font-semibold text-[#0F1117]">No delivery zones yet</p>
+          <p className="mt-1 max-w-sm text-[13px] text-[#6B7280]">
+            Add the areas you deliver to and what each one costs. Staff pick a zone on delivery orders and the charge is added for them.
+          </p>
+          <button
+            onClick={startAdd}
+            className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b]"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} /> Add your first zone
+          </button>
+        </section>
+      ) : (
+        <>
+          {withDistance.length > 0 && (
+            <section className="rounded-2xl border border-[#E8E8E3] bg-white px-6 py-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-[15px] font-semibold text-[#0F1117]">Charges by distance</h2>
+                <p className="text-[12px] text-[#6B7280]">From your kitchen out to {fmtKm(maxKm)}</p>
+              </div>
+              <div className="mt-4 flex h-11 overflow-hidden rounded-xl border border-[#E8E8E3]">
+                {withDistance.map((z, i) => {
+                  const prev = i === 0 ? 0 : (withDistance[i - 1].distance_km as number);
+                  const span = Math.max((z.distance_km as number) - prev, 0);
+                  return (
+                    <div
+                      key={z.id}
+                      title={`${z.name}: ${fmtKm(prev)} to ${fmtKm(z.distance_km as number)}, ${fmtFee(z.fee)}`}
+                      className={`flex min-w-[56px] items-center justify-center px-2 ${i > 0 ? "border-l border-white" : ""}`}
+                      style={{ flexGrow: span || 0.0001, flexBasis: 0, background: LADDER[Math.min(i, LADDER.length - 1)] }}
+                    >
+                      <span className="truncate text-[13px] font-semibold tabular-nums text-[#0F1117]">{fmtFee(z.fee)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-1.5 flex text-[11px] tabular-nums text-[#9CA3AF]">
+                <span className="w-0 overflow-visible whitespace-nowrap">0</span>
+                {withDistance.map((z, i) => {
+                  const prev = i === 0 ? 0 : (withDistance[i - 1].distance_km as number);
+                  const span = Math.max((z.distance_km as number) - prev, 0);
+                  return (
+                    <span key={z.id} className="min-w-[56px] text-right" style={{ flexGrow: span || 0.0001, flexBasis: 0 }}>
+                      {fmtKm(z.distance_km as number)}
+                    </span>
+                  );
+                })}
+              </div>
+            </section>
           )}
 
-          {/* Empty state */}
-          {!isLoading && zones.length === 0 && !showAdd && (
-            <div className="text-center py-16 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 max-w-xl mx-auto">
-              <Bike className="w-10 h-10 mx-auto mb-3 opacity-30 text-slate-450" />
-              <p className="font-black text-slate-700 text-sm">No delivery zones defined</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                Add delivery coverage zones and price levels to automatically update fees during order checkout.
-              </p>
-              <button
-                onClick={startAdd}
-                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#fe5c13] hover:brightness-95 active:scale-[0.98] text-white text-xs font-black shadow-md shadow-orange-100 transition-all select-none"
-              >
-                <Plus className="w-4 h-4" /> Add First Zone
-              </button>
+          <section className="overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+            <div className="flex items-center gap-2.5 border-b border-[#F0F0EB] px-6 py-4">
+              <h2 className="text-[15px] font-semibold text-[#0F1117]">Zones</h2>
+              <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-[#6B7280]">
+                {zones.length}
+              </span>
             </div>
-          )}
-
-          {/* Zones list */}
-          {!isLoading && (zones.length > 0 || showAdd) && (
-            <div className="max-w-4xl divide-y divide-slate-100">
-              {showAdd && renderForm(true)}
-              {zones.map((zone) => (
-                <div key={zone.id} className="py-4">
-                  {editingId === zone.id ? (
-                    renderForm(false)
-                  ) : (
-                    <div className="flex items-center justify-between hover:bg-slate-50/40 px-4 py-3 rounded-2xl transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100">
-                          <Bike className="w-5 h-5 text-[#fe5c13]" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-slate-900">{zone.name}</p>
-                          <div className="flex items-center gap-3 mt-1 text-[11px] font-semibold text-slate-400">
-                            {zone.distance_km != null && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                                {zone.distance_km} km
-                              </span>
-                            )}
-                            {zone.estimated_minutes != null && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                {zone.estimated_minutes} mins
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm font-black text-[#fe5c13]">₹{zone.fee}</span>
-                        <div className="flex items-center gap-2">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-[#F0F0EB] text-[12px] text-[#6B7280]">
+                    <th className="px-6 py-3 font-medium">Zone</th>
+                    <th className="px-6 py-3 font-medium">Up to</th>
+                    <th className="px-6 py-3 font-medium">Delivery time</th>
+                    <th className="px-6 py-3 text-right font-medium">Charge</th>
+                    <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0F0EB] text-[13px] text-[#4B5563]">
+                  {sorted.map((zone) => (
+                    <tr key={zone.id} className="transition-colors hover:bg-[#FAFAF7]">
+                      <td className="px-6 py-3.5 text-[14px] font-semibold text-[#0F1117]">{zone.name}</td>
+                      <td className="px-6 py-3.5 tabular-nums">
+                        {zone.distance_km != null ? fmtKm(zone.distance_km) : <span className="text-[#9CA3AF]">Any distance</span>}
+                      </td>
+                      <td className="px-6 py-3.5 tabular-nums">
+                        {zone.estimated_minutes != null ? `About ${zone.estimated_minutes} min` : <span className="text-[#9CA3AF]">Not set</span>}
+                      </td>
+                      <td className="px-6 py-3.5 text-right text-[14px] font-semibold tabular-nums text-[#0F1117]">
+                        {zone.fee === 0 ? <span className="text-emerald-700">Free</span> : `₹${zone.fee.toLocaleString("en-IN")}`}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex justify-end gap-0.5">
                           <button
                             onClick={() => startEdit(zone)}
-                            className="text-[11px] font-black text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 px-3 h-8 rounded-xl border border-slate-200 shadow-sm transition-all"
+                            aria-label={`Edit ${zone.name}`}
+                            title="Edit zone"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
                           >
-                            Edit
+                            <Edit2 className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => deleteZone(zone.id)}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50/50 transition-all"
+                            onClick={() => setPendingDelete(zone)}
+                            aria-label={`Delete ${zone.name}`}
+                            title="Delete zone"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-rose-50 hover:text-rose-600"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+          </section>
 
-          {/* Pricing info banner */}
-          <div className="bg-sky-50/40 border border-sky-100/70 rounded-2xl p-5 max-w-4xl mt-8">
-            <h3 className="text-xs font-black text-sky-950 mb-1.5 flex items-center gap-1.5">
-              <span className="text-base leading-none">💡</span> How distance-based pricing works
-            </h3>
-            <p className="text-[11px] text-sky-850 leading-relaxed font-semibold">
-              Create zones for different delivery areas. Staff select the applicable zone when placing a delivery order
-              — the fee is automatically added to the order total.
-            </p>
-          </div>
+          <p className="flex items-start gap-2 px-1 text-[12px] leading-relaxed text-[#6B7280]">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#9CA3AF]" />
+            Staff choose a zone when they place a delivery order, and its charge is added to the bill automatically.
+          </p>
+        </>
+      )}
+
+      {formOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1117]/40 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label={showAdd ? "Add delivery zone" : "Edit delivery zone"}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveZone(showAdd);
+            }}
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white shadow-[0_24px_60px_-20px_rgba(15,17,23,0.35)]"
+          >
+            <div className="flex items-start justify-between gap-4 px-6 pt-6">
+              <div>
+                <h3 className="text-[17px] font-bold text-[#0F1117]">{showAdd ? "Add delivery zone" : "Edit delivery zone"}</h3>
+                <p className="mt-1 text-[13px] text-[#6B7280]">Name the area and set what delivery there costs.</p>
+              </div>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                aria-label="Close"
+                className="-mr-2 -mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 pt-5">
+              <div>
+                <label htmlFor="dz-name" className={LABEL}>Zone name</label>
+                <input
+                  id="dz-name"
+                  autoFocus
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Nearby, City centre, 0 to 3 km"
+                  className="h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[14px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="dz-fee" className={LABEL}>Delivery charge</label>
+                  <div className={INPUT_WRAP}>
+                    <span className={`${ADDON} border-r`}>₹</span>
+                    <input
+                      id="dz-fee"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      inputMode="decimal"
+                      value={form.fee}
+                      onChange={(e) => setForm((f) => ({ ...f, fee: e.target.value }))}
+                      placeholder="40"
+                      className={`${INPUT_BARE} px-3`}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="dz-km" className={LABEL}>
+                    Up to <span className="font-normal text-[#9CA3AF]">Optional</span>
+                  </label>
+                  <div className={INPUT_WRAP}>
+                    <input
+                      id="dz-km"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      inputMode="decimal"
+                      value={form.distance_km}
+                      onChange={(e) => setForm((f) => ({ ...f, distance_km: e.target.value }))}
+                      placeholder="5"
+                      className={INPUT_BARE}
+                    />
+                    <span className={`${ADDON} border-l`}>km</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="dz-min" className={LABEL}>
+                  Delivery time <span className="font-normal text-[#9CA3AF]">Optional</span>
+                </label>
+                <div className={`${INPUT_WRAP} w-40`}>
+                  <input
+                    id="dz-min"
+                    type="number"
+                    min="0"
+                    inputMode="numeric"
+                    value={form.estimated_minutes}
+                    onChange={(e) => setForm((f) => ({ ...f, estimated_minutes: e.target.value }))}
+                    placeholder="15"
+                    className={INPUT_BARE}
+                  />
+                  <span className={`${ADDON} border-l`}>min</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[#F0F0EB] bg-[#FAFAF7] px-4 py-3">
+                <p className="text-[12px] font-medium text-[#6B7280]">On a delivery order</p>
+                <div className="mt-1.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-[#0F1117]">{form.name.trim() || "Zone name"}</p>
+                    <p className="text-[12px] tabular-nums text-[#6B7280]">
+                      {[
+                        !isNaN(previewKm) && previewKm > 0 ? `Up to ${fmtKm(previewKm)}` : "Any distance",
+                        !isNaN(previewMin) && previewMin > 0 ? `about ${previewMin} min` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[15px] font-bold tabular-nums text-[#0F1117]">
+                    {isNaN(previewFee) ? "₹—" : previewFee === 0 ? "Free" : `+ ₹${previewFee.toLocaleString("en-IN")}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-2 border-t border-[#F0F0EB] px-6 py-4">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="h-10 flex-1 rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fe5c13] text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:opacity-50"
+              >
+                {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving</> : showAdd ? "Add zone" : "Save changes"}
+              </button>
+            </div>
+          </form>
         </div>
-      </div>
+      )}
+
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title="Delete this zone?"
+        message={pendingDelete ? `${pendingDelete.name} will no longer be offered on delivery orders.` : ""}
+        confirmText="Delete zone"
+        cancelText="Keep zone"
+        destructive
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) deleteZone(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
     </SettingsPageLayout>
   );
 }

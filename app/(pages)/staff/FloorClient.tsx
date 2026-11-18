@@ -24,14 +24,13 @@ import {
   Trash2,
   Printer,
   Plus,
-  ShoppingBag,
-  Bike,
   Frown
 } from "lucide-react";
 import Link from "next/link";
 import LoyaltyPanel from "@/app/components/billing/LoyaltyPanel";
 import { AnimatePresence, motion } from "framer-motion";
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
+import { TableSketch, type SketchTone } from "@/app/components/settings/TableManager";
 import { useRouter } from "next/navigation";
 import StaffSidebar from "../../components/StaffSidebar";
 import SetupChecklist from "../../components/onboarding/SetupChecklist";
@@ -59,6 +58,8 @@ type StaffTable = {
   billStatus?: BillStatus;
   seatedAt?: Date;
   floorName?: string;
+  /** Seats at the table, from the floor plan. */
+  capacity?: number;
 };
 
 type OrderStatus = "pending" | "cooking";
@@ -111,6 +112,7 @@ type TableAPI = {
   is_enabled: boolean;
   floor_name?: string;
   needs_cleaning?: boolean;
+  capacity?: number | null;
 };
 
 type ActiveOrderItem = {
@@ -498,6 +500,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         isEnabled: t.is_enabled,
         needsCleaning: Boolean(t.needs_cleaning) && !occ && !hasActiveOrders,
         floorName: t.floor_name || "Main Floor",
+        capacity: typeof t.capacity === "number" ? t.capacity : undefined,
       } as StaffTable;
     });
   };
@@ -805,9 +808,41 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
   const uniqueFloors = Array.from(new Set(tables.map((t) => t.floorName || "Main Floor").filter(Boolean))) as string[];
   const totalSales = todaySales;
 
-  const pendingOrdersCount = orders.filter((o) => o.status === "pending").length;
-  const cookingOrdersCount = orders.filter((o) => o.status === "cooking").length;
-  const delayedOrdersCount = orders.filter(
+  // `orders` has one row per item. Accept, cancel, serve and KOT all act on a
+  // whole order, so the kitchen list and its counts work per order.
+  const kitchenOrders = (() => {
+    const byId = new Map<
+      string,
+      {
+        orderId: string;
+        tableCode: string;
+        orderedAt: Date;
+        status: OrderStatus;
+        dailyOrderNumber?: number | null;
+        items: { key: string; name: string; quantity: number }[];
+      }
+    >();
+    for (const row of orders) {
+      let group = byId.get(row.orderId);
+      if (!group) {
+        group = {
+          orderId: row.orderId,
+          tableCode: row.tableCode,
+          orderedAt: row.orderedAt,
+          status: row.status,
+          dailyOrderNumber: row.dailyOrderNumber,
+          items: [],
+        };
+        byId.set(row.orderId, group);
+      }
+      group.items.push({ key: row.id, name: row.itemName, quantity: row.quantity });
+    }
+    return Array.from(byId.values());
+  })();
+
+  const pendingOrdersCount = kitchenOrders.filter((o) => o.status === "pending").length;
+  const cookingOrdersCount = kitchenOrders.filter((o) => o.status === "cooking").length;
+  const delayedOrdersCount = kitchenOrders.filter(
     (o) => o.status === "pending" && getMinutesDiff(o.orderedAt) > 10
   ).length;
 
@@ -1376,498 +1411,450 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
 
   return (
     <div
-      className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden"
+      className="flex h-screen overflow-hidden bg-[#FAFAF7] text-[#0F1117]"
       onClick={() => setOpenMenuId(null)}
     >
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
-          <div>
-            <h2 className="text-lg font-bold tracking-tight text-gray-900">
-              Floor Overview
-            </h2>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                Live Service
+        <header className="shrink-0 border-b border-[#E8E8E3] bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-8 py-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">Floor overview</h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium leading-none text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Live
               </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <dl className="hidden items-stretch overflow-hidden rounded-xl border border-[#E8E8E3] bg-white lg:flex">
+                {(() => {
+                  const money = (n?: number) => `₹${(n || 0).toLocaleString("en-IN")}`;
+                  const orders = (n?: number) => (n ? `${n} ${n === 1 ? "order" : "orders"}` : null);
+                  const used = totalTables ? Math.round((occupiedCount / totalTables) * 100) : 0;
+                  const cells: { label: string; body: React.ReactNode; tone?: string }[] = [];
+
+                  if (totalSales !== null) {
+                    cells.push({
+                      label: "Today's sales",
+                      body: (
+                        <span className={totalSales ? "text-[#0F1117]" : "text-[#9CA3AF]"}>{money(totalSales)}</span>
+                      ),
+                    });
+                  }
+                  if (takeawaySummary) {
+                    for (const [label, rev, count] of [
+                      ["Takeaway", takeawaySummary.takeout_revenue, takeawaySummary.takeout_count],
+                      ["Delivery", takeawaySummary.delivery_revenue, takeawaySummary.delivery_count],
+                    ] as const) {
+                      cells.push({
+                        label,
+                        body: (
+                          <span className="flex items-baseline gap-1.5">
+                            <span className={rev || count ? "text-[#0F1117]" : "text-[#9CA3AF]"}>{money(rev)}</span>
+                            {orders(count) && <span className="text-[12px] font-medium text-[#6B7280]">{orders(count)}</span>}
+                          </span>
+                        ),
+                      });
+                    }
+                  }
+                  cells.push({
+                    label: "Tables in use",
+                    body: (
+                      <span className="flex items-center gap-2.5">
+                        <span className="flex items-baseline gap-1">
+                          <span className={occupiedCount ? "text-[#0F1117]" : "text-[#9CA3AF]"}>{occupiedCount}</span>
+                          <span className="text-[12px] font-medium text-[#6B7280]">of {totalTables}</span>
+                        </span>
+                        <span className="block h-1 w-14 overflow-hidden rounded-full bg-[#F3F3EF]" aria-hidden>
+                          <span className="block h-full rounded-full bg-[#fe5c13]" style={{ width: `${used}%` }} />
+                        </span>
+                      </span>
+                    ),
+                  });
+                  cells.push({
+                    label: "Waitlist",
+                    body: waitlistCount > 0 ? (
+                      <span className="text-[#fe5c13]">{waitlistCount} waiting</span>
+                    ) : (
+                      <span className="text-[#9CA3AF]">None</span>
+                    ),
+                  });
+
+                  return cells.map((c, i) => (
+                    <div key={c.label} className={`flex flex-col justify-center px-5 py-2.5 ${i > 0 ? "border-l border-[#E8E8E3]" : ""}`}>
+                      <dt className="text-[12px] font-medium leading-none text-[#6B7280]">{c.label}</dt>
+                      <dd className="mt-1.5 whitespace-nowrap text-[15px] font-semibold leading-none tabular-nums tracking-[-0.01em]">
+                        {c.body}
+                      </dd>
+                    </div>
+                  ));
+                })()}
+              </dl>
+
+              <Link
+                href="/staff/takeaway?new=1"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.5} />
+                New order
+              </Link>
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-6 divide-x divide-gray-100 hidden lg:flex">
-            <div className="flex items-center gap-6 pr-6">
-              {totalSales !== null && (
-              <div className="flex flex-col items-end">
-                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-0.5">
-                  Today's Sales
+          <div className="grid grid-cols-2 gap-3 border-t border-[#E8E8E3] bg-[#FAFAF7] px-8 py-3 lg:grid-cols-4">
+            {[
+              { label: "Pending orders", count: pendingOrdersCount, Icon: ChefHat, hot: pendingOrdersCount > 5, tone: "text-[#fe5c13]", tint: "border-[#fe5c13]/25 bg-[#FFF8F3]" },
+              { label: "Bill requests", count: billRequestedCount, Icon: Receipt, hot: billRequestedCount > 0, tone: "text-indigo-600", tint: "border-indigo-200 bg-indigo-50/50" },
+              { label: "Service calls", count: activeServiceCallsCount, Icon: Bell, hot: activeServiceCallsCount > 0, tone: "text-sky-600", tint: "border-sky-200 bg-sky-50/50" },
+              { label: "Long sitting", count: longSittingCount, Icon: Clock, hot: longSittingCount > 0, tone: "text-rose-600", tint: "border-rose-200 bg-rose-50/50" },
+            ].map(({ label, count, Icon, hot, tone, tint }) => (
+              <div
+                key={label}
+                className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5 ${hot ? tint : "border-[#E8E8E3] bg-white"}`}
+              >
+                <span className="flex items-center gap-2.5 text-[13px] font-medium text-[#0F1117]">
+                  <Icon className={`h-4 w-4 ${hot ? tone : "text-[#9CA3AF]"}`} />
+                  {label}
                 </span>
-                <span className="text-xl font-black text-emerald-600 tabular-nums">
-                  ₹{totalSales.toLocaleString()}
+                <span className={`text-[15px] font-semibold tabular-nums ${hot ? tone : count > 0 ? "text-[#0F1117]" : "text-[#C4C4BE]"}`}>
+                  {count}
                 </span>
               </div>
-              )}
-              
-              {takeawaySummary && (
-                <div className="flex flex-col gap-1 border-l border-gray-100 pl-6 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-orange-50 p-1 rounded">
-                      <ShoppingBag className="w-3.5 h-3.5 text-orange-500" />
-                    </div>
-                    <span className="text-xs font-semibold text-gray-700 w-4 text-center">{takeawaySummary.takeout_count}</span>
-                    <span className="text-[10px] text-gray-300">•</span>
-                    <span className="text-xs font-bold text-gray-600">₹{(takeawaySummary.takeout_revenue || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-sky-50 p-1 rounded">
-                      <Bike className="w-3.5 h-3.5 text-sky-500" />
-                    </div>
-                    <span className="text-xs font-semibold text-gray-700 w-4 text-center">{takeawaySummary.delivery_count}</span>
-                    <span className="text-[10px] text-gray-300">•</span>
-                    <span className="text-xs font-bold text-gray-600">₹{(takeawaySummary.delivery_revenue || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col items-end px-8">
-              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-                Occupancy
-              </span>
-              <span className="text-lg font-bold text-gray-700">
-                {occupiedCount}
-                <span className="text-gray-300 font-light mx-1">/</span>
-                {totalTables}
-              </span>
-            </div>
-            <div className="flex flex-col items-end pl-8">
-              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-                Waitlist
-              </span>
-              <span className="text-lg font-bold text-[#fe5c13] flex items-center gap-1">
-                <Users className="w-4 h-4 text-[#fe5c13]" />
-                {waitlistCount} Waiting
-              </span>
-            </div>
-            </div>
-            <Link
-              href="/staff/takeaway?new=1"
-              className="bg-[#fe5c13] hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-transform active:scale-95 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              New Order
-            </Link>
+            ))}
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-gray-50/30">
-          <div className="px-4 sm:px-8 pt-4 empty:hidden">
+        <main className="flex-1 overflow-y-auto bg-[#FAFAF7]">
+          <div className="px-8 pt-6 empty:hidden">
             <SetupChecklist />
           </div>
           <div className="flex flex-col">
-            <div className="bg-white border-b border-gray-200 shadow-sm flex flex-col sticky top-0 z-30">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-0 divide-x divide-y lg:divide-y-0 divide-gray-100 border-b border-gray-100 px-4 sm:px-8">
-                <div className="py-4 sm:pr-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-                      Pending Orders
-                    </span>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {pendingOrdersCount}
-                    </div>
-                  </div>
-                  <div className={`p-2 rounded-lg ${pendingOrdersCount > 5 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-400"}`}>
-                    <ChefHat className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="p-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-                      Bill Requests
-                    </span>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {billRequestedCount}
-                    </div>
-                  </div>
-                  <div className={`p-2 rounded-lg ${billRequestedCount > 0 ? "bg-slate-50 text-[#fe5c13]" : "bg-gray-50 text-gray-400"}`}>
-                    <Receipt className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="p-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-                      Service Calls
-                    </span>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {activeServiceCallsCount}
-                    </div>
-                  </div>
-                  <div className={`p-2 rounded-lg ${activeServiceCallsCount > 0 ? "bg-sky-50 text-sky-600" : "bg-gray-50 text-gray-400"}`}>
-                    <Bell className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="py-4 sm:pl-4 flex items-center justify-between bg-white hover:bg-gray-50/50 transition-colors">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-                      Long Sitting
-                    </span>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">
-                      {longSittingCount}
-                    </div>
-                  </div>
-                  <div className={`p-2 rounded-lg ${longSittingCount > 0 ? "bg-rose-50 text-rose-600" : "bg-gray-50 text-gray-400"}`}>
-                    <Clock className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col xl:flex-row gap-3.5 items-stretch xl:items-center justify-between bg-white px-4 sm:px-8 py-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  {uniqueFloors.length > 1 && (
-                    <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
+            <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E8E3] bg-[#FAFAF7]/95 px-8 py-3 backdrop-blur">
+              <div className="flex flex-wrap items-center gap-3">
+                {uniqueFloors.length > 1 && (
+                  <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Floor">
+                    {["All Floors", ...uniqueFloors].map((floor) => (
                       <button
-                        onClick={() => setSelectedFloor("All Floors")}
-                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
-                          selectedFloor === "All Floors"
-                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                            : "text-gray-500 hover:bg-gray-200/50"
-                        }`}
+                        key={floor}
+                        role="tab"
+                        aria-selected={selectedFloor === floor}
+                        onClick={() => setSelectedFloor(floor)}
+                        className={`flex h-7 items-center whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-all ${selectedFloor === floor ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]" : "text-[#6B7280] hover:text-[#0F1117]"}`}
                       >
-                        All Floors
-                      </button>
-                      {uniqueFloors.map((floor) => (
-                        <button
-                          key={floor}
-                          onClick={() => setSelectedFloor(floor)}
-                          className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
-                            selectedFloor === floor
-                              ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                              : "text-gray-500 hover:bg-gray-200/50"
-                          }`}
-                        >
-                          {floor}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {uniqueFloors.length > 1 && <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>}
-
-                  <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-lg">
-                    {(
-                      [
-                        "all",
-                        "occupied",
-                        "free",
-                        "bill_requested",
-                      ] as TableFilter[]
-                    ).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setTableFilter(f)}
-                        className={`px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
-                          tableFilter === f
-                            ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                            : "text-gray-500 hover:bg-gray-200/50"
-                        }`}
-                      >
-                        {f.replace("_", " ")}
+                        {floor === "All Floors" ? "All floors" : floor}
                       </button>
                     ))}
                   </div>
+                )}
+
+                <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Table status">
+                  {(
+                    [
+                      ["all", "All tables"],
+                      ["occupied", "Occupied"],
+                      ["free", "Free"],
+                      ["bill_requested", "Bill requested"],
+                    ] as [TableFilter, string][]
+                  ).map(([f, label]) => (
+                    <button
+                      key={f}
+                      role="tab"
+                      aria-selected={tableFilter === f}
+                      onClick={() => setTableFilter(f)}
+                      className={`flex h-7 items-center whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-all ${tableFilter === f ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]" : "text-[#6B7280] hover:text-[#0F1117]"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                {/* Sort & Search in one single line */}
-                <div className="flex items-center gap-2.5 w-full xl:w-auto shrink-0">
-                  <div className="w-44 sm:w-48 shrink-0">
-                    <CustomSelect
-                      value={tableSort}
-                      onChange={(val: TableSort) => setTableSort(val)}
-                      buttonClassName="!h-10 !rounded-xl !bg-white"
-                      options={[
-                        { value: "table", label: "Sort by Number" },
-                        { value: "total", label: "Sort by Value" },
-                        { value: "seated", label: "Sort by Time" }
-                      ]}
-                    />
-                  </div>
-
-                  <div className="relative group flex-1 sm:w-64">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      placeholder="Search table..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full h-10 pl-9 pr-4 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900/10 bg-gray-50 focus:bg-white transition-all"
-                    />
-                  </div>
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="w-44 shrink-0">
+                  <CustomSelect
+                    value={tableSort}
+                    onChange={(val: TableSort) => setTableSort(val)}
+                    buttonClassName="!h-9 !min-h-[36px] !py-0 !rounded-xl !border-[#E8E8E3] !bg-white !text-[13px] !font-medium !text-[#0F1117]"
+                    options={[
+                      { value: "table", label: "Table number" },
+                      { value: "total", label: "Bill value" },
+                      { value: "seated", label: "Time seated" },
+                    ]}
+                  />
+                </div>
+                <div className="relative w-60">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Find a table"
+                    aria-label="Find a table"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-[#E8E8E3] bg-white pl-9 pr-3.5 text-[13px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="p-4 sm:p-8">
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-              {filteredTables.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
-                  <UtensilsCrossed className="w-10 h-10 mb-3 opacity-40" />
-                  <p className="text-sm font-semibold">No tables match this filter</p>
-                </div>
+            <div className="px-8 py-6">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                {filteredTables.length === 0 && (
+                  <div className="col-span-full rounded-2xl border border-dashed border-[#D6D6CF] bg-white py-16 text-center">
+                    <p className="text-[15px] font-semibold text-[#0F1117]">No tables match these filters</p>
+                    <p className="mt-1 text-[14px] text-[#6B7280]">Try another floor or status, or clear the search.</p>
+                  </div>
+                )}
 
-              )}
+                {filteredTables.map((table) => {
+                  const isFree = !table.isOccupied;
+                  const isDisabled = table.isEnabled === false;
+                  const seatedMinutes = getMinutesDiff(table.seatedAt);
+                  const isBillRequested = serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
+                  const isPaid = isTablePaid(table);
+                  const activeOrdersForTable = kitchenOrders.filter((o) => o.tableCode === table.tableCode && (o.status === "pending" || o.status === "cooking")).length;
+                  const timeStr = seatedMinutes < 60 ? `${seatedMinutes}m` : `${Math.floor(seatedMinutes / 60)}h ${seatedMinutes % 60}m`;
+                  const timeline = table.isOccupied ? buildTableTimeline(table) : [];
+                  const current = [...timeline].reverse().find((s) => s.done);
+                  const eta = (() => {
+                    const first = activeOrders.find((o) => o.table_id === table.id && (o.status === "pending" || o.status === "accepted" || o.status === "preparing"));
+                    return first?.estimated_prep_minutes ? `${first.estimated_prep_minutes}m` : null;
+                  })();
 
-              {filteredTables.map((table) => {
+                  const seats = table.capacity && table.capacity > 0 ? table.capacity : 4;
+                  const tone: SketchTone = isDisabled
+                    ? "idle"
+                    : isFree
+                      ? table.needsCleaning ? "cleaning" : "idle"
+                      : isBillRequested ? "bill" : isPaid ? "paid" : "occupied";
 
-                const isFree = !table.isOccupied;
-                const isDisabled = table.isEnabled === false;
-                const seatedMinutes = getMinutesDiff(table.seatedAt);
-                const isBillRequested = serviceCalls.some((c) => c.type === "bill" && c.tableCode === table.tableCode);
-                const isPaid = isTablePaid(table);
+                  let accent = "bg-transparent";
+                  if (isDisabled) accent = "bg-transparent";
+                  else if (isFree && table.needsCleaning) accent = "bg-sky-400";
+                  else if (!isFree && isBillRequested) accent = "bg-indigo-500";
+                  else if (!isFree && isPaid) accent = "bg-emerald-500";
+                  else if (!isFree) accent = "bg-[#fe5c13]";
 
-                const activeOrdersForTable = orders.filter((o) => o.tableCode === table.tableCode && (o.status === "pending" || o.status === "cooking")).length;
+                  const shell = isDisabled
+                    ? "border-dashed border-[#E8E8E3] bg-transparent"
+                    : isBillRequested
+                      ? "border-indigo-300 bg-white ring-2 ring-indigo-500/15"
+                      : isFree
+                        ? "border-[#E8E8E3] bg-white"
+                        : "border-[#E8E8E3] bg-white hover:border-[#D6D6CF] hover:shadow-[0_6px_20px_-12px_rgba(15,17,23,0.18)]";
 
-                let ringStyle = "";
-                if (!isFree && !isDisabled) {
-                  ringStyle = "border-gray-200";
-                } else if (isDisabled) {
-                  ringStyle = "border-gray-200 border-dashed opacity-60";
-                } else {
-                  ringStyle = "border-gray-200 border-dashed";
-                }
-
-                let cardStyle = "bg-white shadow-sm hover:shadow-md";
-                if (isDisabled || isFree) cardStyle = "bg-gray-50 shadow-none";
-                else if (isBillRequested) cardStyle = "bg-slate-50/40";
-
-                let statusBar = "bg-gray-200";
-                if (isDisabled) statusBar = "bg-gray-200";
-                else if (isFree && table.needsCleaning) statusBar = "bg-sky-400";
-                else if (!isFree && isBillRequested) statusBar = "bg-indigo-400";
-                else if (!isFree && isPaid) statusBar = "bg-emerald-400";
-                else if (!isFree) statusBar = "bg-[#fe5c13]";
-
-                const timeStr = seatedMinutes < 60 ? `${seatedMinutes}m` : `${Math.floor(seatedMinutes / 60)}h ${seatedMinutes % 60}m`;
-                const headline = !isFree && !isDisabled ? `${table.tableCode} · ₹${(table.currentTotal ?? 0).toLocaleString()} · ${timeStr}` : table.needsCleaning ? `${table.tableCode} · Needs cleaning` : table.tableCode;
-
-                return (
-                  <div
-                    key={table.id}
-                    className={`relative w-full rounded-2xl border bg-slate-100/90 ${ringStyle} ${openMenuId === table.id ? "z-30 overflow-visible" : "z-0 overflow-hidden"}`}
-                  >
-                    {/* Background Actions (Swipe to reveal) */}
-                    {table.isOccupied && (
-                      <div className="absolute inset-y-0 right-0 w-[140px] flex items-center justify-end px-3 gap-2 bg-slate-100 rounded-r-2xl">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markBillPrinted(table.id);
-                          }}
-                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans"
-                        >
-                          <Receipt className="w-4 h-4" />
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider">Bill</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openMarkPaid(table.id);
-                          }}
-                          disabled={isPaid}
-                          className="w-12 h-12 flex flex-col items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm active:scale-90 transition-all cursor-pointer font-dm-sans disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 disabled:active:scale-100"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider">Paid</span>
-                        </button>
-                      </div>
-                    )}
-
-                    <motion.div
-                      drag={table.isOccupied ? "x" : false}
-                      dragConstraints={{ left: -130, right: 0 }}
-                      dragElastic={{ left: 0.12, right: 0.02 }}
-                      dragTransition={{ bounceStiffness: 600, bounceDamping: 32 }}
-                      whileTap={{ cursor: "grabbing" }}
-                      onDragStart={() => {
-                        isDraggingRef.current = true;
-                      }}
-                      onDragEnd={() => {
-                        setTimeout(() => {
-                          isDraggingRef.current = false;
-                        }, 120);
-                      }}
-                      onClick={() => {
-                        if (isDraggingRef.current) return;
-                        if (openMenuId === table.id) {
-                          setOpenMenuId(null);
-                          return;
-                        }
-                        // Tapping a seated table always opens its bill; paying
-                        // and freeing the table live in the card's ⋮ menu.
-                        if (table.isOccupied && table.activeSessionId) {
-                          router.push(`/staff/table/${table.activeSessionId}`);
-                        }
-                      }}
-                      className={`relative flex flex-col w-full h-full rounded-2xl bg-white border border-gray-100/80 shadow-xs ${openMenuId === table.id ? "overflow-visible z-40" : "overflow-hidden"} transition-colors cursor-pointer ${cardStyle}`}
+                  return (
+                    <div
+                      key={table.id}
+                      className={`relative w-full rounded-2xl ${openMenuId === table.id ? "z-30 overflow-visible" : "z-0 overflow-hidden"} ${table.isOccupied ? "bg-[#F3F3EF]" : ""}`}
                     >
-                      <div className={`h-1 w-full rounded-t-2xl ${statusBar}`} />
-                      
-                      {/* Giant Unmissable Bill Request Overlay */}
-                      {isBillRequested && (
-                        <div className="absolute inset-x-0 top-1 bottom-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[2px] rounded-b-2xl pointer-events-none">
-                          <Bell className="w-16 h-16 text-indigo-600 animate-[bounce_1s_infinite] drop-shadow-2xl" />
-                          <span className="mt-2 text-indigo-900 font-black text-sm uppercase tracking-widest bg-white/80 px-3 py-1 rounded-full shadow-sm">Bill Requested</span>
+                      {table.isOccupied && (
+                        <div className="absolute inset-y-0 right-0 flex w-[140px] items-center justify-end gap-2 rounded-r-2xl px-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markBillPrinted(table.id);
+                            }}
+                            className="flex h-12 w-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 shadow-sm"
+                          >
+                            <Receipt className="h-4 w-4" />
+                            <span className="text-[11px] font-medium">Bill</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openMarkPaid(table.id);
+                            }}
+                            disabled={isPaid}
+                            className="flex h-12 w-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl bg-emerald-600 text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-[11px] font-medium">Paid</span>
+                          </button>
                         </div>
                       )}
 
-                      <div className="p-4 flex flex-col gap-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className={`text-[15px] font-black tracking-tight leading-none ${isFree ? "text-gray-400" : "text-gray-900"}`}>
-                              {headline}
-                            </span>
+                      <motion.div
+                        drag={table.isOccupied ? "x" : false}
+                        dragConstraints={{ left: -130, right: 0 }}
+                        dragElastic={{ left: 0.12, right: 0.02 }}
+                        dragTransition={{ bounceStiffness: 600, bounceDamping: 32 }}
+                        whileTap={table.isOccupied ? { cursor: "grabbing" } : undefined}
+                        onDragStart={() => {
+                          isDraggingRef.current = true;
+                        }}
+                        onDragEnd={() => {
+                          setTimeout(() => {
+                            isDraggingRef.current = false;
+                          }, 120);
+                        }}
+                        onClick={() => {
+                          if (isDraggingRef.current) return;
+                          if (openMenuId === table.id) {
+                            setOpenMenuId(null);
+                            return;
+                          }
+                          if (table.isOccupied && table.activeSessionId) {
+                            router.push(`/staff/table/${table.activeSessionId}`);
+                          }
+                        }}
+                        className={`relative flex h-full min-h-[154px] w-full flex-col rounded-2xl border transition-[border-color,box-shadow] duration-150 ${shell} ${table.isOccupied ? "cursor-pointer" : ""} ${openMenuId === table.id ? "z-40 overflow-visible" : "overflow-hidden"}`}
+                      >
+                        <div className={`absolute inset-x-0 top-0 h-[3px] ${accent}`} />
+
+                        {isBillRequested && (
+                          <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-5 py-2 text-[12px] font-semibold text-indigo-700">
+                            <Bell className="h-3.5 w-3.5 animate-[wiggle_1s_ease-in-out_infinite] motion-reduce:animate-none" />
+                            Bill requested
                           </div>
+                        )}
 
-                          {table.isOccupied ? (
-                            <div className="flex items-center gap-1.5 relative z-20">
-                              {isPaid && (
-                                <span className="flex items-center gap-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full">
-                                  <Check className="w-2.5 h-2.5" /> Paid
-                                </span>
-                              )}
+                        <div className="flex flex-1 flex-col p-4">
+                          <div className="flex min-h-[28px] items-center justify-between gap-2">
+                            {isDisabled ? (
+                              <span className="text-[12px] font-medium text-[#9CA3AF]">Not in use</span>
+                            ) : isFree ? (
+                              table.needsCleaning ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 text-sky-700 px-2.5 py-1 text-[11px] font-semibold"><span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Needs cleaning</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-1 text-[11px] font-semibold"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Free</span>
+                              )
+                            ) : isPaid ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                <Check className="h-3 w-3 stroke-[2.5]" /> Paid
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF4EC] text-[#C2410C] px-2.5 py-1 text-[11px] font-semibold"><span className="h-1.5 w-1.5 rounded-full bg-[#fe5c13]" /> Seated</span>
+                            )}
 
+                            {table.isOccupied && (
+                              <div className="relative z-20 -mr-1.5">
                               <div className="relative">
                                 <button
+                                  aria-label={`Actions for ${table.tableCode}`}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setOpenMenuId(openMenuId === table.id ? null : table.id);
                                   }}
-                                  className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"
+                                  className="rounded-lg p-1.5 text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
                                 >
-                                  <MoreVertical className="w-4 h-4" />
+                                  <MoreVertical className="h-4 w-4" />
                                 </button>
 
                                 <AnimatePresence>
                                   {openMenuId === table.id && (
                                     <motion.div
-                                      initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                                      exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                      className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden ring-1 ring-black/10"
+                                      initial={{ opacity: 0, y: 4 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, y: 4 }}
+                                      transition={{ duration: 0.12 }}
+                                      className="absolute right-0 top-full z-50 mt-1.5 w-48 overflow-hidden rounded-xl border border-[#E8E8E3] bg-white p-1.5 shadow-[0_18px_40px_-16px_rgba(15,17,23,0.35)]"
                                       onClick={(e) => e.stopPropagation()}
                                     >
-                                      <div className="py-1">
-                                        <button onClick={() => { setActiveTableId(table.id); setShowMoveModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                          <ArrowRightLeft className="w-3.5 h-3.5" /> Move Table
-                                        </button>
-                                        <button onClick={() => { setActiveTableId(table.id); setSelectedMergeTableIds([]); setShowMergeModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                          <Merge className="w-3.5 h-3.5" /> Merge Bill
-                                        </button>
-                                      </div>
-                                      <div className="border-t border-gray-100 py-1">
-                                        <button onClick={() => { setConfirmAction({
-                                          title: `Print and close ${table.tableCode}?`,
-                                          message: "This will mark bill action and end the active session.",
-                                          onConfirm: async () => markBillPrinted(table.id),
-                                        }); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                          <Receipt className="w-3.5 h-3.5" /> Print Bill
-                                        </button>
-                                        <button disabled={isPaid} onClick={() => openMarkPaid(table.id)} className="w-full text-left px-4 py-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
-                                          <CheckCircle2 className="w-3.5 h-3.5" /> {isPaid ? "Paid" : "Mark Paid"}
-                                        </button>
-                                        <button onClick={() => { requestFreeTable(table.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-2">
-                                          <LogOut className="w-3.5 h-3.5" /> Free Table
-                                        </button>
-                                      </div>
+                                      <button onClick={() => { setActiveTableId(table.id); setShowMoveModal(true); setOpenMenuId(null); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] text-[#374151] hover:bg-[#FAFAF7]">
+                                        <ArrowRightLeft className="h-4 w-4 text-[#9CA3AF]" /> Move table
+                                      </button>
+                                      <button onClick={() => { setActiveTableId(table.id); setSelectedMergeTableIds([]); setShowMergeModal(true); setOpenMenuId(null); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] text-[#374151] hover:bg-[#FAFAF7]">
+                                        <Merge className="h-4 w-4 text-[#9CA3AF]" /> Merge bill
+                                      </button>
+                                      <div className="my-1 border-t border-[#F0F0EB]" />
+                                      <button onClick={() => { setConfirmAction({
+                                        title: `Print and close ${table.tableCode}?`,
+                                        message: "This will mark bill action and end the active session.",
+                                        onConfirm: async () => markBillPrinted(table.id),
+                                      }); setOpenMenuId(null); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] text-[#374151] hover:bg-[#FAFAF7]">
+                                        <Receipt className="h-4 w-4 text-[#9CA3AF]" /> Print bill
+                                      </button>
+                                      <button disabled={isPaid} onClick={() => openMarkPaid(table.id)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent">
+                                        <CheckCircle2 className="h-4 w-4" /> {isPaid ? "Paid" : "Mark paid"}
+                                      </button>
+                                      <button onClick={() => { requestFreeTable(table.id); setOpenMenuId(null); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] text-[#374151] hover:bg-rose-50 hover:text-rose-700">
+                                        <LogOut className="h-4 w-4 text-[#9CA3AF]" /> Free table
+                                      </button>
                                     </motion.div>
                                   )}
                                 </AnimatePresence>
                               </div>
-                            </div>
-                          ) : (
-                            isDisabled ? (
-                              <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                                Disabled
-                              </span>
-                            ) : (
-                            table.needsCleaning ? (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleMarkClean(table.id); }}
-                                className="text-[10px] font-extrabold text-sky-700 bg-sky-100 hover:bg-sky-200 px-2.5 py-1 rounded-full transition-colors"
-                              >
-                                Mark clean
-                              </button>
-                            ) : (
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                              Free
-                            </span>
-                            )
-                            )
-                          )}
-                        </div>
-
-                        {isDisabled ? (
-                          <div className="flex flex-col items-center justify-center py-6 opacity-40">
-                            <XCircle className="w-7 h-7 mb-1.5" />
-                            <span className="text-xs font-semibold">Not in use</span>
-                          </div>
-                        ) : isFree ? (
-                          <div className="flex flex-col items-center justify-center py-6 opacity-25">
-                            <UtensilsCrossed className="w-7 h-7 mb-1.5" />
-                            <span className="text-xs font-semibold">Available</span>
-                          </div>
-                        ) : (
-                          <div
-                            className="flex flex-col gap-2 group"
-                          >
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
-                                <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">Items</span>
-                                <span className="text-base font-extrabold text-gray-800">{table.itemsCount ?? "—"}</span>
-                              </div>
-                              <div className="bg-gray-50 rounded-xl p-2 text-center border border-gray-100">
-                                <span className="block text-[9px] text-gray-400 uppercase font-bold mb-0.5">ETA</span>
-                                <span className="text-base font-extrabold text-gray-800">
-                                  {(() => {
-                                    const first = activeOrders.find((o) => o.table_id === table.id && (o.status === "pending" || o.status === "accepted" || o.status === "preparing"));
-                                    if (!first) return "—";
-                                    if (first.estimated_prep_minutes) return `${first.estimated_prep_minutes}m`;
-                                    return "—";
-                                  })()}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {buildTableTimeline(table).map((step) => (
-                                <span
-                                  key={`${table.id}-${step.key}`}
-                                  className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${step.done ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-400 border-gray-200"}`}
-                                >
-                                  {step.label}
-                                </span>
-                              ))}
-                            </div>
-                            
-                            {activeOrdersForTable > 0 && (
-                              <div className="pt-1">
-                                  <span className="inline-flex text-[9px] text-amber-700 font-extrabold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 items-center gap-1">
-                                    <Clock className="w-2.5 h-2.5" /> {activeOrdersForTable} active orders
-                                  </span>
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  </div>
-                );
-              })}
+
+                          <div className={`mt-2 flex h-[104px] items-center justify-center rounded-xl border ${isDisabled ? "border-dashed border-[#E8E8E3]" : "border-[#F0F0EB] bg-[#FAFAF7]"}`}>
+                            <TableSketch
+                              number={table.tableCode}
+                              seats={seats}
+                              enabled={!isDisabled}
+                              tone={tone}
+                              filledSeats={table.guests || undefined}
+                              maxWidth={190}
+                            />
+                          </div>
+
+                          {table.isOccupied ? (
+                            <div className="mt-auto pt-4">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-[20px] font-bold tabular-nums tracking-[-0.02em] text-[#0F1117]">
+                                  ₹{(table.currentTotal ?? 0).toLocaleString("en-IN")}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[12px] font-medium tabular-nums text-[#6B7280]" title="Time since seated">
+                                  <Clock className="h-3.5 w-3.5 text-[#9CA3AF]" /> {timeStr}
+                                </span>
+                              </div>
+                              <p className="mt-1.5 text-[12px] font-medium text-[#6B7280]">
+                                {table.guests ? `${table.guests} ${table.guests === 1 ? "guest" : "guests"}` : null}
+                                {table.guests && (table.itemsCount ?? 0) > 0 ? ", " : ""}
+                                {(table.itemsCount ?? 0) > 0 ? `${table.itemsCount} ${table.itemsCount === 1 ? "item" : "items"}` : !table.guests ? "No items yet" : ""}
+                                {eta ? `, ready in ${eta}` : ""}
+                              </p>
+                              {timeline.length > 0 && (
+                                <div className="mt-3.5">
+                                  <div className="flex gap-1" aria-hidden>
+                                    {timeline.map((step) => (
+                                      <span key={`${table.id}-${step.key}`} className={`h-1 flex-1 rounded-full ${step.done ? "bg-emerald-500" : "bg-[#E8E8E3]"}`} />
+                                    ))}
+                                  </div>
+                                  <p className="mt-2 flex items-center justify-between text-[12px] font-medium text-[#6B7280]">
+                                    <span>{current ? current.label : "Waiting"}</span>
+                                    {activeOrdersForTable > 0 && (
+                                      <span className="font-semibold text-[#fe5c13]">
+                                        {activeOrdersForTable} in kitchen
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mt-auto pt-4">
+                              {!isDisabled && table.needsCleaning ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleMarkClean(table.id); }}
+                                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#E8E8E3] bg-white px-3 text-[12px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF]"
+                                >
+                                  <Check className="h-3.5 w-3.5 text-sky-600" strokeWidth={2.5} /> Mark clean
+                                </button>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-[12px] font-medium ${isDisabled ? "text-[#C4C4BE]" : "text-[#6B7280]"}`}>
+                                    {table.floorName || (uniqueFloors.length > 1 ? "Main Floor" : "Ground")}
+                                  </span>
+                                  <span className={`text-[12px] font-medium ${isDisabled ? "text-[#C4C4BE]" : "text-[#9CA3AF]"}`}>
+                                    {isDisabled ? "Turned off" : "Ready to seat"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
           </div>
         </main>
 
@@ -1889,21 +1876,21 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
               <div className="p-6">
                 <div className="mb-6 flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center text-lg font-black text-gray-700 shadow-sm">
+                    <div className="w-14 h-14 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center text-lg font-bold text-gray-700 shadow-sm">
                       {tables.find((t) => t.id === activeTableId)?.tableCode}
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1">
                       <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
                          <ArrowRight className="w-5 h-5 text-gray-400" />
                       </motion.div>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Move to</span>
+                      <span className="text-xs font-medium text-gray-500">Move to</span>
                     </div>
-                    <div className="w-14 h-14 rounded-full bg-transparent border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-black text-gray-400">
+                    <div className="w-14 h-14 rounded-full bg-transparent border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-bold text-gray-400">
                       ?
                     </div>
                   </div>
                 </div>
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Select Destination</h4>
+                <h4 className="text-xs font-medium text-gray-500 mb-4">Select destination</h4>
                 <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                   {tables.filter((t) => !t.isOccupied && !t.needsCleaning).map((t) => (
                     <button
@@ -1947,18 +1934,18 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                 {selectedMergeTableIds.length > 0 && (
                   <div className="mb-6 flex flex-col items-center justify-center p-4 bg-amber-50/50 rounded-xl border border-amber-100">
                     <div className="flex items-center gap-6">
-                      <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-black text-gray-700 shadow-sm relative">
+                      <div className="w-14 h-14 rounded-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center text-lg font-bold text-gray-700 shadow-sm relative">
                         {tables.find((t) => t.id === activeTableId)?.tableCode}
                       </div>
                       <div className="flex flex-col items-center justify-center gap-1">
                         <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
                            <ArrowRight className="w-5 h-5 text-amber-500" />
                         </motion.div>
-                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Merge</span>
+                        <span className="text-xs font-medium text-amber-600">Merge</span>
                       </div>
                       <div className="flex -space-x-4">
                         {selectedMergeTableIds.map((id, i) => (
-                           <div key={id} className="w-14 h-14 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-lg font-black text-amber-700 shadow-sm relative" style={{ zIndex: 10 - i }}>
+                           <div key={id} className="w-14 h-14 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-lg font-bold text-amber-700 shadow-sm relative" style={{ zIndex: 10 - i }}>
                              {tables.find((t) => t.id === id)?.tableCode}
                            </div>
                         ))}
@@ -1966,7 +1953,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                     </div>
                   </div>
                 )}
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Select Target Table</h4>
+                <h4 className="text-xs font-medium text-gray-500 mb-4">Select target table</h4>
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                   {tables.filter((t) => t.isOccupied && t.id !== activeTableId).map((t) => (
                     <button
@@ -2056,149 +2043,200 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
             animate={{ width: 380, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="bg-white border-l border-gray-200 hidden xl:flex flex-col overflow-hidden whitespace-nowrap z-10 shadow-2xl"
+            className="z-10 hidden flex-col overflow-hidden whitespace-nowrap border-l border-[#E8E8E3] bg-white xl:flex"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-gray-100 bg-white">
-              <h3 className="font-bold text-gray-900 text-sm mb-3">Activity Feed</h3>
-              <div className="flex p-1 bg-gray-100 rounded-lg">
-                {/* Only show Kitchen tab if there are orders, otherwise disable or hide logic could apply, but for now we keep it simple */}
-                <button onClick={() => setActiveSidebarTab("kitchen")} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeSidebarTab === 'kitchen' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                  Kitchen
-                  {pendingOrdersCount > 0 && <span className="bg-amber-100 text-amber-700 px-1.5 rounded-full text-[10px]">{pendingOrdersCount}</span>}
-                </button>
-                <button onClick={() => setActiveSidebarTab("service")} className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeSidebarTab === 'service' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                  Service
-                  {activeServiceCallsCount > 0 && <span className="bg-sky-100 text-sky-700 px-1.5 rounded-full text-[10px]">{activeServiceCallsCount}</span>}
-                </button>
+            <div className="border-b border-[#F0F0EB] px-5 pb-4 pt-7">
+              <h3 className="font-display text-[20px] leading-none text-[#0F1117]">Activity</h3>
+              <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-[#F3F3EF] p-1" role="tablist">
+                {(
+                  [
+                    ["kitchen", "Kitchen", pendingOrdersCount],
+                    ["service", "Service", activeServiceCallsCount],
+                  ] as const
+                ).map(([id, label, count]) => (
+                  <button
+                    key={id}
+                    role="tab"
+                    aria-selected={activeSidebarTab === id}
+                    onClick={() => setActiveSidebarTab(id)}
+                    className={`flex items-center justify-center gap-2 rounded-lg py-1.5 text-[13px] font-medium transition-colors ${activeSidebarTab === id ? "bg-white text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.08)]" : "text-[#6B7280] hover:text-[#0F1117]"}`}
+                  >
+                    {label}
+                    {count > 0 && <span className="tabular-nums text-[#9CA3AF]">{count}</span>}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-gray-50/50 p-4">
-              {activeSidebarTab === 'kitchen' ? (
-                <div className="space-y-3">
+            <div className="flex-1 overflow-y-auto">
+              {activeSidebarTab === "kitchen" ? (
+                <div className="divide-y divide-[#F0F0EB]">
+                  {kitchenOrders.length === 0 && (
+                    <p className="px-5 py-12 text-center text-[14px] text-[#6B7280]">No orders waiting on the kitchen.</p>
+                  )}
                   <AnimatePresence mode="popLayout">
-                    {orders.map((order) => {
+                    {kitchenOrders.map((order) => {
                       const minutes = getMinutesDiff(order.orderedAt);
                       const delayed = order.status === "pending" && minutes > 10;
+                      const busy = Boolean(orderActionPending[order.orderId]);
+                      const statusLabel = order.status === "cooking" ? "Cooking" : delayed ? "Delayed" : "New";
+                      const dot = order.status === "cooking" ? "bg-blue-500" : delayed ? "bg-rose-500" : "bg-amber-500";
                       return (
-                        <motion.div key={order.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={`bg-white p-3 rounded-xl border shadow-sm ${order.status === 'cooking' ? 'border-blue-100' : delayed ? 'border-red-200 bg-red-50/10' : 'border-gray-200'}`}>
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-700">{order.tableCode}</span>
-                              {order.dailyOrderNumber != null && (
-                                <span className="font-bold text-xs text-orange-600">#{order.dailyOrderNumber}</span>
-                              )}
-                              <span className="text-[10px] text-gray-400 font-medium">{getTimeAgo(order.orderedAt)}</span>
-                            </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'cooking' ? 'bg-blue-100 text-blue-700' : delayed ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {order.status === 'cooking' ? 'Cooking' : delayed ? 'Delayed' : 'Pending'}
+                        <motion.div
+                          key={order.orderId}
+                          layout
+                          initial={{ opacity: 0, x: 16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -16 }}
+                          className={`px-5 py-4 ${delayed ? "bg-rose-50/40" : ""}`}
+                        >
+                          <div className="flex items-center justify-between gap-3 text-[13px]">
+                            <span className="flex items-center gap-2 text-[#6B7280]">
+                              <span className="font-medium text-[#0F1117]">{order.tableCode}</span>
+                              {order.dailyOrderNumber != null && <span className="tabular-nums">#{order.dailyOrderNumber}</span>}
+                              <span>{getTimeAgo(order.orderedAt)}</span>
+                            </span>
+                            <span className={`flex items-center gap-1.5 ${delayed ? "font-medium text-rose-700" : "text-[#4B5563]"}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+                              {statusLabel}
                             </span>
                           </div>
-                          <div className="flex gap-3 mb-3">
-                            <div className="mt-1 min-w-[32px] h-8 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
-                              <ChefHat className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-800">{order.itemName}</p>
-                              <p className="text-xs text-gray-500">Qty: {order.quantity}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            {order.status === 'pending' ? (
+                          <ul className="mt-2 space-y-1" aria-label={`Items in ${order.tableCode} order`}>
+                            {order.items.map((item) => (
+                              <li key={item.key} className="flex gap-1.5 whitespace-normal text-[15px] leading-snug text-[#0F1117]">
+                                <span className="w-7 shrink-0 tabular-nums text-[#9CA3AF]">{item.quantity}×</span>
+                                <span>{item.name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="mt-3 flex gap-2">
+                            {order.status === "pending" ? (
                               <>
                                 <button
                                   onClick={() => handleAccept(order.orderId)}
-                                  disabled={Boolean(orderActionPending[order.orderId])}
-                                  className="flex-1 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100"
+                                  disabled={busy}
+                                  className="h-9 flex-1 rounded-lg bg-[#0F1117] text-[13px] font-medium text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                  {orderActionPending[order.orderId] ? "Updating..." : "Accept"}
+                                  {busy ? "Updating" : "Accept"}
                                 </button>
                                 <button
                                   onClick={() => handleReject(order.orderId)}
-                                  disabled={Boolean(orderActionPending[order.orderId])}
-                                  className="flex-1 bg-rose-50 hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed text-rose-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-rose-100"
+                                  disabled={busy}
+                                  className="h-9 rounded-lg border border-[#E8E8E3] px-3 text-[13px] font-medium text-[#4B5563] transition-colors hover:border-rose-200 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                  {orderActionPending[order.orderId] ? "Updating..." : "Cancel"}
-                                </button>
-                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-slate-50 hover:bg-indigo-100 text-gray-900 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1">
-                                  <Printer className="w-3.5 h-3.5" /> KOT
+                                  Cancel
                                 </button>
                               </>
                             ) : (
-                              <div className="w-full flex gap-2">
-                                <button
-                                  onClick={() => handleServe(order.orderId)}
-                                  disabled={Boolean(orderActionPending[order.orderId])}
-                                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors"
-                                >
-                                  {orderActionPending[order.orderId] ? "Updating..." : "Mark Served"}
-                                </button>
-                                <button onClick={() => printOrderKOT(order.orderId)} className="px-2.5 bg-slate-50 hover:bg-indigo-100 text-gray-900 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1">
-                                  <Printer className="w-3.5 h-3.5" /> KOT
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => handleServe(order.orderId)}
+                                disabled={busy}
+                                className="h-9 flex-1 rounded-lg bg-[#0F1117] text-[13px] font-medium text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {busy ? "Updating" : "Mark served"}
+                              </button>
                             )}
+                            <button
+                              onClick={() => printOrderKOT(order.orderId)}
+                              title="Print kitchen ticket"
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#E8E8E3] px-3 text-[13px] font-medium text-[#4B5563] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                            >
+                              <Printer className="h-4 w-4 text-[#9CA3AF]" /> KOT
+                            </button>
                           </div>
                         </motion.div>
-                      )
+                      );
                     })}
                   </AnimatePresence>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="divide-y divide-[#F0F0EB]">
+                  {serviceCalls.filter((c) => c.status !== "done").length === 0 && (
+                    <p className="px-5 py-12 text-center text-[14px] text-[#6B7280]">No guests are waiting for staff.</p>
+                  )}
                   <AnimatePresence mode="popLayout">
-                    {serviceCalls.filter(c => c.status !== 'done').map((call) => (
-                      <motion.div key={call.id} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={`p-3 rounded-xl border shadow-sm hover:shadow-md transition-all ${
-                        call.type === 'low-rating' ? "border-rose-200 bg-rose-50/50 shadow-[0_0_12px_rgba(244,63,94,0.15)] ring-1 ring-rose-200 animate-pulse" : "bg-white border-sky-100"
-                      }`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-bold text-xs bg-gray-100 px-2 py-1 rounded-md text-gray-700">{call.tableCode}</span>
-                          <span className="text-[10px] text-gray-400">{getTimeAgo(call.createdAt)}</span>
-                        </div>
-                        <div className="flex gap-3 mb-3 items-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            call.type === 'low-rating' ? 'bg-rose-100 text-rose-600 shadow-sm' : call.type === 'cleaning' ? 'bg-sky-100 text-sky-600' : call.type === 'waiter' ? 'bg-amber-100 text-amber-600' : call.type === 'water' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'
-                          }`}>
-                            {call.type === 'low-rating' ? <Frown className="w-4 h-4 animate-bounce" /> : call.type === 'waiter' ? <Bell className="w-4 h-4" /> : call.type === 'water' ? <Droplets className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                    {serviceCalls.filter((c) => c.status !== "done").map((call) => {
+                      const low = call.type === "low-rating";
+                      const Icon = low ? Frown : call.type === "waiter" ? Bell : call.type === "water" ? Droplets : call.type === "bill" ? Receipt : AlertTriangle;
+                      const title = low
+                        ? `Low rating, ${call.rating}/5`
+                        : call.type === "bill"
+                          ? "Asked for the bill"
+                          : call.type === "water"
+                            ? "Asked for water"
+                            : call.type === "waiter"
+                              ? "Called a waiter"
+                              : call.type === "cleaning"
+                                ? "Needs cleaning"
+                                : "Needs help";
+                      return (
+                        <motion.div
+                          key={call.id}
+                          layout
+                          initial={{ opacity: 0, x: 16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -16 }}
+                          className={`px-5 py-4 ${low ? "bg-rose-50/50" : ""}`}
+                        >
+                          <div className="flex items-center justify-between text-[13px] text-[#6B7280]">
+                            <span className="font-medium text-[#0F1117]">{call.tableCode}</span>
+                            <span>{getTimeAgo(call.createdAt)}</span>
                           </div>
-                          <div>
-                            <p className={`text-sm font-bold capitalize ${call.type === 'low-rating' ? 'text-rose-900 font-extrabold' : 'text-gray-800'}`}>
-                              {call.type === 'low-rating' ? `Low Rating (⭐ ${call.rating}/5)` : `${call.type} Request`}
-                            </p>
-                            <p className={`text-xs ${call.type === 'low-rating' ? 'text-rose-600 font-semibold' : 'text-gray-500'}`}>
-                              {call.status === 'attending' ? (call.type === 'low-rating' ? 'Manager attending...' : 'Staff attending...') : (call.type === 'low-rating' ? 'Floor recovery needed' : 'Waiting for staff')}
-                            </p>
+                          <div className="mt-2 flex items-start gap-2.5">
+                            <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${low ? "text-rose-600" : "text-[#9CA3AF]"}`} />
+                            <div className="whitespace-normal">
+                              <p className={`text-[15px] ${low ? "font-medium text-rose-900" : "text-[#0F1117]"}`}>{title}</p>
+                              <p className="mt-0.5 text-[13px] text-[#6B7280]">
+                                {call.status === "attending"
+                                  ? low ? "A manager is on it" : "Someone is on it"
+                                  : low ? "Needs a manager visit" : "Waiting for staff"}
+                              </p>
+                              {low && call.comment && (
+                                <p className="mt-2 rounded-lg bg-white px-3 py-2 text-[13px] leading-relaxed text-[#374151]">“{call.comment}”</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        {call.type === 'low-rating' && call.comment && (
-                          <div className="mt-2 bg-white border border-rose-100 p-2.5 rounded-lg text-xs italic text-slate-700 shadow-sm leading-relaxed mb-3">
-                            "{call.comment}"
+                          <div className="mt-3 flex gap-2">
+                            {call.status === "open" ? (
+                              <>
+                                <button
+                                  onClick={() => handleServiceCallStatus(call.id, "attending")}
+                                  className="h-9 flex-1 rounded-lg bg-[#0F1117] text-[13px] font-medium text-white transition-colors hover:bg-black"
+                                >
+                                  Attend
+                                </button>
+                                <button
+                                  onClick={() => handleServiceCallStatus(call.id, "done")}
+                                  className="h-9 flex-1 rounded-lg border border-[#E8E8E3] text-[13px] font-medium text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                                >
+                                  Done
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleServiceCallStatus(call.id, "done")}
+                                className="h-9 w-full rounded-lg bg-[#0F1117] text-[13px] font-medium text-white transition-colors hover:bg-black"
+                              >
+                                Mark resolved
+                              </button>
+                            )}
                           </div>
-                        )}
-                        <div className="flex gap-2">
-                          {call.status === 'open' ? (
-                            <>
-                              <button onClick={() => handleServiceCallStatus(call.id, 'attending')} className={`flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors border ${
-                                call.type === 'low-rating' ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border-rose-200' : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-100'
-                              }`}>Attend</button>
-                              <button onClick={() => handleServiceCallStatus(call.id, 'done')} className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold py-1.5 rounded-lg transition-colors border border-emerald-100">Done</button>
-                            </>
-                          ) : (
-                            <button onClick={() => handleServiceCallStatus(call.id, 'done')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg shadow-sm transition-colors">Mark Resolved</button>
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      );
+                    })}
                   </AnimatePresence>
                 </div>
               )}
             </div>
 
-            <div className="p-4 border-t border-gray-100 bg-white">
-              <button className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
-                Open Full Kitchen Display
-                <ArrowRight className="w-3.5 h-3.5 opacity-50" />
+            <div className="border-t border-[#F0F0EB] p-4">
+              <button
+                onClick={() => router.push("/staff/kitchen")}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#E8E8E3] text-[14px] font-medium text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+              >
+                Open kitchen display
+                <ArrowRight className="h-4 w-4 text-[#9CA3AF]" />
               </button>
             </div>
           </motion.aside>
@@ -2228,7 +2266,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
             <div className="px-6 py-4">
               <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 mb-5">
                 <span className="text-sm font-semibold text-emerald-800">Bill Total</span>
-                <span className="text-xl font-black text-emerald-700">
+                <span className="text-xl font-bold text-emerald-700">
                   ₹{freeTableModal.totalAmount.toLocaleString()}
                 </span>
               </div>
@@ -2249,7 +2287,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
               </div>
 
               {/* Payment Method */}
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Payment Method</p>
+              <p className="text-xs font-medium text-gray-400 mb-2">Payment method</p>
               <div className="grid grid-cols-3 gap-2 mb-6">
                 {(["cash", "card", "upi"] as const).map((method) => (
                   <button
@@ -2258,7 +2296,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                       setFreeTableModal(prev => prev ? { ...prev, selectedPayment: method } : null)
                     }
                     disabled={freeTableModal.isProcessing}
-                    className={`py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${
+                    className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
                       freeTableModal.selectedPayment === method
                         ? "bg-gray-900 text-white border-gray-900 shadow-sm"
                         : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
@@ -2318,7 +2356,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
                     key={method}
                     onClick={() => setMarkPaidModal((prev) => (prev ? { ...prev, selectedPayment: method } : null))}
                     disabled={markPaidModal.isProcessing}
-                    className={`py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${
+                    className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
                       markPaidModal.selectedPayment === method
                         ? "bg-gray-900 text-white border-gray-900 shadow-sm"
                         : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"

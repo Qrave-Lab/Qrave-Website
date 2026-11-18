@@ -162,27 +162,27 @@ function PlanCard({
     >
       {/* Yearly savings badge */}
       {isYearly && (
-        <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-          Best Value
+        <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
+          Best value
         </div>
       )}
 
       {/* Current plan badge */}
       {isCurrent && (
-        <div className="absolute top-3 right-3 flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+        <div className="absolute top-3 right-3 flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">
           <CheckCircle2 className="w-2.5 h-2.5" /> Current
         </div>
       )}
 
       <div className="p-5">
         {/* Plan label */}
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <p className="text-xs font-medium text-slate-500">
           {plan.name} · {plan.cadence}
         </p>
 
         {/* Price */}
         <p
-          className={`text-2xl font-black mt-1.5 tracking-tight transition-colors duration-200 ${
+          className={`text-2xl font-bold mt-1.5 tracking-tight transition-colors duration-200 ${
             selected ? "text-[#fe5c13]" : "text-slate-900"
           }`}
         >
@@ -198,7 +198,7 @@ function PlanCard({
         {selected && (
           <div className="mt-3 flex items-center gap-1.5 animate-fadeIn">
             <div className="w-2 h-2 rounded-full bg-[#fe5c13] animate-pulse" />
-            <span className="text-[10px] font-black text-[#fe5c13] uppercase tracking-wider">
+            <span className="text-xs font-medium text-[#fe5c13]">
               Selected
             </span>
           </div>
@@ -689,8 +689,8 @@ export default function SubscriptionSettingsPage() {
       <SettingsPageLayout title="Subscription" description="Your Qrave plan is covered by your food court." fullBleed>
         <div className="flex flex-1 items-start justify-center bg-[#f8fafc] px-6 py-12">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Plan &amp; Billing</p>
-            <h2 className="mt-1 text-lg font-black text-slate-900">Covered by {billing.food_court_name}</h2>
+            <p className="text-xs font-medium text-slate-500">Plan &amp; Billing</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">Covered by {billing.food_court_name}</h2>
             <p className="mt-2 text-sm text-slate-600">
               This restaurant is a stall in {billing.food_court_name}. The food court pays for Qrave, so there&apos;s nothing for you to buy or renew.
               Your menu, photos and 3D dishes show on the food court&apos;s QR menu.
@@ -721,8 +721,8 @@ export default function SubscriptionSettingsPage() {
         {/* Sticky top sub-header */}
         <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Plan &amp; Billing</p>
-            <h2 className="text-sm font-black text-slate-900 mt-0.5">Plan &amp; Subscriptions</h2>
+            <p className="text-xs font-medium text-slate-500">Plan &amp; Billing</p>
+            <h2 className="text-sm font-bold text-slate-900 mt-0.5">Plan &amp; Subscriptions</h2>
           </div>
           {!loading && role === "owner" && (isInactive || isActive) && (
             <button
@@ -734,7 +734,7 @@ export default function SubscriptionSettingsPage() {
                 Boolean(billing?.pending_plan) ||
                 (!isInactive && selectedPlan === normalizePlanCode(billing?.plan))
               }
-              className="inline-flex items-center gap-2 rounded-xl bg-[#fe5c13] hover:brightness-95 active:scale-[0.98] text-white px-5 py-2.5 text-xs font-black shadow-md shadow-orange-100 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed select-none"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#fe5c13] hover:brightness-95 active:scale-[0.98] text-white px-5 py-2.5 text-xs font-bold shadow-md shadow-orange-100 transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed select-none"
             >
               {reactivating || changingPlan ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -805,19 +805,19 @@ export default function SubscriptionSettingsPage() {
                     idx > 0 ? "md:border-l md:border-slate-200/60 md:pl-6" : ""
                   }`}
                 >
-                  <p className="text-[10px] uppercase tracking-widest font-black text-slate-400">
+                  <p className="text-xs font-medium text-slate-500">
                     {label}
                   </p>
                   {chip ? (
                     <div className="mt-1.5">
                       <span
-                        className={`inline-flex items-center border rounded-full px-2.5 py-0.5 text-[10px] font-black ${statusChipClass}`}
+                        className={`inline-flex items-center border rounded-full px-2.5 py-0.5 text-[10px] font-bold ${statusChipClass}`}
                       >
                         {val}
                       </span>
                     </div>
                   ) : (
-                    <p className="mt-1.5 text-xs font-black text-slate-900 leading-tight">
+                    <p className="mt-1.5 text-xs font-bold text-slate-900 leading-tight">
                       {val}
                     </p>
                   )}
@@ -830,7 +830,7 @@ export default function SubscriptionSettingsPage() {
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 flex items-start gap-3">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                  <p className="text-xs font-medium text-emerald-700">
                     Plan change scheduled
                   </p>
                   <p className="mt-0.5 text-xs font-semibold text-emerald-700">
@@ -849,10 +849,10 @@ export default function SubscriptionSettingsPage() {
             {(isInactive || isActive) && (
               <div className="space-y-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-xs font-medium text-slate-500">
                     {isInactive ? "Choose a plan" : "Select Plan"}
                   </p>
-                  <h3 className="text-sm font-black text-slate-900 mt-0.5">
+                  <h3 className="text-sm font-bold text-slate-900 mt-0.5">
                     {isInactive
                       ? "Reactivate your subscription"
                       : "Select a new billing plan"}
@@ -882,8 +882,8 @@ export default function SubscriptionSettingsPage() {
               billing?.status !== "expired" && (
                 <div className="bg-white rounded-2xl border border-slate-200/60 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      Danger Zone
+                    <p className="text-xs font-medium text-slate-500">
+                      Danger zone
                     </p>
                     <p className="text-xs font-semibold text-slate-500 mt-1">
                       Cancel subscription plan anytime. Access remains active until the end of the current billing cycle.

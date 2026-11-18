@@ -9,6 +9,7 @@ import { api } from "@/app/lib/api";
 import { toast } from "react-hot-toast";
 import { printReceipt, type ReceiptData, type ReceiptItem } from "@/app/lib/print";
 
+import { Select } from "@/app/components/ui/Select";
 type Table = {
   id: string;
   table_number: number;
@@ -307,7 +308,7 @@ export default function CashierPage() {
                   <CreditCard className="h-5 w-5" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-black text-slate-900">Cashier Counter</h1>
+                  <h1 className="font-display text-2xl font-normal text-slate-900">Cashier Counter</h1>
                   <p className="text-sm text-slate-500">Close table bills, accept payments & print receipts.</p>
                 </div>
               </div>
@@ -322,7 +323,7 @@ export default function CashierPage() {
 
             {/* Filters */}
             <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <select
+              <Select
                 value={floorFilter}
                 onChange={(e) => setFloorFilter(e.target.value)}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm"
@@ -331,8 +332,8 @@ export default function CashierPage() {
                 {floors.map((f) => (
                   <option key={f} value={f}>{f}</option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 value={counterFilter}
                 onChange={(e) => setCounterFilter(e.target.value)}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm"
@@ -341,7 +342,7 @@ export default function CashierPage() {
                 {counters.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {/* Grid */}
@@ -349,13 +350,13 @@ export default function CashierPage() {
               {rows.map((row) => (
                 <div key={row.session_id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Table</p>
+                    <p className="text-xs font-medium text-slate-500">Table</p>
                     <Receipt className="h-4 w-4 text-slate-400" />
                   </div>
-                  <p className="mt-1 text-3xl font-black text-slate-900">T{row.table_number}</p>
+                  <p className="mt-1 text-3xl font-bold text-slate-900">T{row.table_number}</p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">{row.floor_name} • {row.counter_name}</p>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Amount due</p>
-                  <p className="text-2xl font-black text-emerald-700">₹{Math.round(row.amount_due)}</p>
+                  <p className="mt-4 text-xs font-semibold text-slate-500">Amount due</p>
+                  <p className="text-2xl font-bold text-emerald-700">₹{Math.round(row.amount_due)}</p>
 
                   <button
                     onClick={() => row.session_id && openCheckout(row.session_id, row.table_number)}
@@ -387,8 +388,8 @@ export default function CashierPage() {
               {/* Checkout Header */}
               <div className="flex items-center justify-between border-b pb-4 mb-6">
                 <div>
-                  <h2 className="text-xl font-black text-slate-900">Settle Table T{selectedTableNumber}</h2>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Checkout Terminal</p>
+                  <h2 className="font-display text-xl font-normal text-slate-900">Settle Table T{selectedTableNumber}</h2>
+                  <p className="text-xs text-slate-500">Checkout terminal</p>
                 </div>
                 <button
                   onClick={() => { setSelectedSessionId(null); setBreakdown(null); }}
@@ -415,7 +416,7 @@ export default function CashierPage() {
                   </div>
                   {/* Bill Summary */}
                   <div className="rounded-2xl bg-slate-50 border p-4 mb-6">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Bill Breakdown</h3>
+                    <h3 className="text-xs font-medium text-slate-500 mb-3">Bill breakdown</h3>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm font-semibold text-slate-600">
                         <span>Subtotal</span>
@@ -439,7 +440,7 @@ export default function CashierPage() {
                           <span>₹{breakdown.tax.toFixed(2)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between border-t pt-2 text-lg font-black text-slate-900">
+                      <div className="flex justify-between border-t pt-2 text-lg font-bold text-slate-900">
                         <span>Grand Total</span>
                         <span>₹{breakdown.total.toFixed(2)}</span>
                       </div>
@@ -448,7 +449,7 @@ export default function CashierPage() {
 
                   {/* Payment Mode */}
                   <div className="mb-6">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Select Payment Mode</h3>
+                    <h3 className="text-xs font-medium text-slate-500 mb-3">Select payment mode</h3>
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => setPaymentMode("cash")}
@@ -478,25 +479,25 @@ export default function CashierPage() {
                   {paymentMode === "cash" && (
                     <div className="space-y-4 mb-6">
                       <div>
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-400">Cash Received (₹)</label>
+                        <label className="text-xs font-medium text-slate-500">Cash received (₹)</label>
                         <input
                           type="number"
                           value={cashReceived}
                           onChange={(e) => handleCashChange(e.target.value)}
                           placeholder="Enter cash received"
-                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none"
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none"
                         />
                       </div>
                       
                       {/* Till Buttons */}
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Cash Till</p>
+                        <p className="text-xs font-medium text-slate-500 mb-2">Quick cash till</p>
                         <div className="flex flex-wrap gap-1.5">
                           {[100, 200, 500, 1000, 2000].map((amt) => (
                             <button
                               key={amt}
                               onClick={() => selectQuickCash(amt)}
-                              className="rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-extrabold hover:bg-slate-100 border-slate-200 text-slate-700"
+                              className="rounded-lg border bg-slate-50 px-3 py-1.5 text-xs font-bold hover:bg-slate-100 border-slate-200 text-slate-700"
                             >
                               ₹{amt}
                             </button>
@@ -506,7 +507,7 @@ export default function CashierPage() {
 
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 flex items-center justify-between text-emerald-800">
                         <span className="text-xs font-bold">Change Due to Guest:</span>
-                        <span className="text-lg font-black">₹{changeDue.toFixed(2)}</span>
+                        <span className="text-lg font-bold">₹{changeDue.toFixed(2)}</span>
                       </div>
                     </div>
                   )}
@@ -528,7 +529,7 @@ export default function CashierPage() {
               <button
                 onClick={markPaidAndClose}
                 disabled={closingSessionId !== null || (paymentMode === 'cash' && (!cashReceived || parseFloat(cashReceived) < (breakdown?.total || 0)))}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#090A0F] px-4 py-3.5 text-sm font-black uppercase tracking-wider text-white hover:bg-slate-800 shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#090A0F] px-4 py-3.5 text-sm font-bold uppercase tracking-wider text-white hover:bg-slate-800 shadow-md disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 {closingSessionId ? "Settling..." : "Mark Paid & Settle"}

@@ -351,7 +351,7 @@ export default function StaffOperationsControlPage() {
             <button
               type="button"
               onClick={() => void load(true)}
-              className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh
@@ -359,7 +359,7 @@ export default function StaffOperationsControlPage() {
             <button
               type="button"
               onClick={exportCsv}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-900 hover:brightness-95 transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-gray-900 hover:brightness-95 transition-all shadow-sm cursor-pointer"
             >
               <Download className="h-4 w-4" />
               Export CSV
@@ -427,23 +427,23 @@ export default function StaffOperationsControlPage() {
               <>
                 <div className="mb-4 grid gap-3 md:grid-cols-4">
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ingredients</p>
+                    <p className="text-xs font-semibold text-slate-500">Ingredients</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900">{inventoryOverview.ingredient_count}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Low Stock</p>
+                    <p className="text-xs font-semibold text-slate-500">Low stock</p>
                     <p className="mt-1 text-2xl font-bold text-rose-700">{inventoryOverview.low_stock_count}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total On Hand</p>
+                    <p className="text-xs font-semibold text-slate-500">Total on hand</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900">{inventoryOverview.total_on_hand.toFixed(1)}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">24h Deduction</p>
+                    <p className="text-xs font-semibold text-slate-500">24h Deduction</p>
                     <p className="mt-1 text-2xl font-bold text-emerald-700">{inventoryOverview.deduction_24h.toFixed(1)}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">24h Wastage</p>
+                    <p className="text-xs font-semibold text-slate-500">24h Wastage</p>
                     <p className="mt-1 text-2xl font-bold text-amber-700">{inventoryOverview.wastage_24h.toFixed(1)}</p>
                   </article>
                 </div>
@@ -454,7 +454,7 @@ export default function StaffOperationsControlPage() {
                     <div className="max-h-64 overflow-auto">
                       <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                          <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                             <th className="px-2 py-2">Ingredient</th>
                             <th className="px-2 py-2">Stock</th>
                             <th className="px-2 py-2">Threshold</th>
@@ -478,7 +478,7 @@ export default function StaffOperationsControlPage() {
                     <div className="max-h-64 overflow-auto">
                       <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                          <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                             <th className="px-2 py-2">Ingredient</th>
                             <th className="px-2 py-2">Type</th>
                             <th className="px-2 py-2">Delta</th>
@@ -508,7 +508,7 @@ export default function StaffOperationsControlPage() {
                     <div className="max-h-64 overflow-auto">
                       <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                          <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                             <th className="px-2 py-2">Ingredient</th>
                             <th className="px-2 py-2">Qty</th>
                             <th className="px-2 py-2">Shift</th>
@@ -534,7 +534,7 @@ export default function StaffOperationsControlPage() {
                     <div className="max-h-64 overflow-auto">
                       <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                          <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                             <th className="px-2 py-2">Ingredient</th>
                             <th className="px-2 py-2">Daily Use</th>
                             <th className="px-2 py-2">Lead</th>
@@ -591,23 +591,23 @@ export default function StaffOperationsControlPage() {
               <>
                 <div className="mb-4 grid gap-3 md:grid-cols-5">
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Customers</p>
+                    <p className="text-xs font-semibold text-slate-500">Customers</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900">{crmOverview.total_customers}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Points Balance</p>
+                    <p className="text-xs font-semibold text-slate-500">Points balance</p>
                     <p className="mt-1 text-2xl font-bold text-gray-900">{crmOverview.total_points_balance}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ledger 24h</p>
+                    <p className="text-xs font-semibold text-slate-500">Ledger 24h</p>
                     <p className="mt-1 text-2xl font-bold text-slate-900">{crmOverview.ledger_entries_24h}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Birthdays Today</p>
+                    <p className="text-xs font-semibold text-slate-500">Birthdays today</p>
                     <p className="mt-1 text-2xl font-bold text-gray-900">{crmOverview.birthday_due_count}</p>
                   </article>
                   <article className="rounded-xl border border-slate-200 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Anniversaries Today</p>
+                    <p className="text-xs font-semibold text-slate-500">Anniversaries today</p>
                     <p className="mt-1 text-2xl font-bold text-gray-900">{crmOverview.anniversary_due_count}</p>
                   </article>
                 </div>
@@ -618,7 +618,7 @@ export default function StaffOperationsControlPage() {
                     <div className="max-h-64 overflow-auto">
                       <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                          <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                             <th className="px-2 py-2">Customer</th>
                             <th className="px-2 py-2">Event</th>
                             <th className="px-2 py-2">Delta</th>
@@ -682,7 +682,7 @@ export default function StaffOperationsControlPage() {
                         <div className="max-h-64 overflow-auto">
                           <table className="min-w-full text-sm">
                             <thead>
-                              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                              <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                                 <th className="px-2 py-2">Customer</th>
                                 <th className="px-2 py-2">Phone</th>
                                 <th className="px-2 py-2">Tier</th>
@@ -711,7 +711,7 @@ export default function StaffOperationsControlPage() {
                   <div className="max-h-60 overflow-auto">
                     <table className="min-w-full text-sm">
                       <thead>
-                        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                        <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                           <th className="px-2 py-2">Type</th>
                           <th className="px-2 py-2">Status</th>
                           <th className="px-2 py-2">Coupon</th>
@@ -778,7 +778,7 @@ export default function StaffOperationsControlPage() {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
                       <th className="px-2 py-2">Module</th>
                       <th className="px-2 py-2">Status</th>
                       <th className="px-2 py-2">Rollout</th>

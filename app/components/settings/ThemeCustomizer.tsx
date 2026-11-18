@@ -4,53 +4,123 @@ import React, { useRef, useState } from "react";
 import { Check, ImagePlus, Trash2, UploadCloud } from "lucide-react";
 import type { ThemeConfig } from "./types";
 
-// ─── Tab types & helpers ──────────────────────────────────────────────────────
+import { Select } from "@/app/components/ui/Select";
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 type Tab = "presets" | "colors" | "typography" | "layout" | "background";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "presets",    label: "Presets"     },
-  { id: "colors",     label: "Colors"      },
-  { id: "typography", label: "Typography"  },
-  { id: "layout",     label: "Layout"      },
-  { id: "background", label: "Background"  },
+  { id: "presets", label: "Presets" },
+  { id: "colors", label: "Colours" },
+  { id: "typography", label: "Text" },
+  { id: "layout", label: "Layout" },
+  { id: "background", label: "Background" },
 ];
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">{children}</p>;
-}
+// ─── Shared look (Qrave palette) ─────────────────────────────────────────────
 
-function Divider() { return <div className="my-4 border-t border-slate-100" />; }
+const INPUT =
+  "h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[14px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]";
+const OPT_ON = "border-[#fe5c13] bg-[#FFF4EC] text-[#0F1117]";
+const OPT_OFF = "border-[#E8E8E3] bg-white text-[#4B5563] hover:border-[#D6D6CF] hover:text-[#0F1117]";
 
-type VisualOpt<T extends string> = { value: T; label: string; icon?: string };
-
-function VisualPicker<T extends string>({
-  options, value, onChange, cols,
-}: { options: VisualOpt<T>[]; value: T; onChange: (v: T) => void; cols?: number }) {
-  const gridCols = cols ?? Math.min(options.length, 4);
+function Group({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}>
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => onChange(opt.value)}
-          className={`relative flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-semibold transition-all ${
-            value === opt.value
-              ? "border-slate-900 bg-[#fe5c13] text-gray-900 shadow-sm font-semibold"
-              : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
-          }`}
-        >
-          {opt.icon && <span className="text-sm leading-none">{opt.icon}</span>}
-          <span>{opt.label}</span>
-          {value === opt.value && (
-            <span className="absolute top-1 right-1"><Check className="w-2.5 h-2.5" /></span>
-          )}
-        </button>
-      ))}
+    <div>
+      <div className="mb-2.5">
+        <p className="text-[13px] font-semibold text-[#0F1117]">{title}</p>
+        {hint && <p className="mt-0.5 text-[12px] text-[#6B7280]">{hint}</p>}
+      </div>
+      {children}
     </div>
   );
 }
+
+function Divider() {
+  return <div className="border-t border-[#F0F0EB]" />;
+}
+
+type VisualOpt<T extends string> = { value: T; label: string; art?: React.ReactNode };
+
+function VisualPicker<T extends string>({
+  options,
+  value,
+  onChange,
+  cols,
+  label,
+}: {
+  options: VisualOpt<T>[];
+  value: T;
+  onChange: (v: T) => void;
+  cols?: number;
+  label?: string;
+}) {
+  const gridCols = cols ?? Math.min(options.length, 4);
+  return (
+    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }} role="radiogroup" aria-label={label}>
+      {options.map((opt) => {
+        const on = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(opt.value)}
+            className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border px-2 text-[13px] font-medium transition-colors ${opt.art ? "py-3" : "h-10"} ${on ? OPT_ON : OPT_OFF}`}
+          >
+            {opt.art}
+            <span>{opt.label}</span>
+            {on && opt.art && (
+              <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#fe5c13] text-white">
+                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Tiny schematics so a layout choice shows what it does */
+const bar = "rounded-[2px] bg-current";
+const LayoutArt = {
+  list: (
+    <span className="flex w-10 flex-col gap-1 opacity-60">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="flex items-center gap-1">
+          <span className={`h-2.5 w-2.5 ${bar}`} />
+          <span className={`h-1 flex-1 ${bar}`} />
+        </span>
+      ))}
+    </span>
+  ),
+  grid: (
+    <span className="grid w-10 grid-cols-2 gap-1 opacity-60">
+      {[0, 1, 2, 3].map((i) => (
+        <span key={i} className={`h-2.5 ${bar}`} />
+      ))}
+    </span>
+  ),
+  compact: (
+    <span className="flex w-10 flex-col gap-[3px] opacity-60">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} className={`h-[3px] ${bar}`} />
+      ))}
+    </span>
+  ),
+  magazine: (
+    <span className="flex w-10 flex-col gap-1 opacity-60">
+      <span className={`h-4 ${bar}`} />
+      <span className="grid grid-cols-2 gap-1">
+        <span className={`h-2 ${bar}`} />
+        <span className={`h-2 ${bar}`} />
+      </span>
+    </span>
+  ),
+};
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -206,47 +276,105 @@ const withDefaults = (v?: ThemeConfig): ThemeConfig => ({
   colors: { ...DEFAULT_THEME.colors, ...(v?.colors || {}) },
 });
 
+
+export const THEME_DEFAULTS = DEFAULT_THEME;
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab: Presets
+// Presets
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PresetsTab({ onChange }: { onChange: (next: ThemeConfig) => void }) {
+function PresetsTab({ theme, onChange }: { theme: ThemeConfig; onChange: (next: ThemeConfig) => void }) {
   return (
-    <div className="space-y-4">
-      <SectionLabel>Starter presets</SectionLabel>
-      <div className="grid grid-cols-2 gap-3">
-        {PRESETS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => onChange({ ...withDefaults(p.config) })}
-            className="group flex flex-col items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-slate-400 hover:bg-white"
-          >
-            <span className="text-lg">{p.emoji}</span>
-            <span className="text-sm font-semibold text-slate-800">{p.name}</span>
-            <div className="flex gap-1">
-              {p.palette.map((c, i) => (
-                <span key={i} className="h-3 w-3 rounded-full border border-black/10" style={{ background: c }} />
-              ))}
-            </div>
-          </button>
-        ))}
-      </div>
-      <Divider />
-      <button
-        type="button"
-        onClick={() => onChange(DEFAULT_THEME)}
-        className="w-full rounded-xl border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-      >
-        Reset to defaults
-      </button>
+    <div className="space-y-6">
+      <Group title="Start from a preset" hint="Sets colours, fonts and layout in one go. You can fine-tune everything afterwards.">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {PRESETS.map((p) => {
+            const c = p.config.colors || {};
+            const on = theme.preset === p.id;
+            const radius = p.config.card_style === "sharp" ? 4 : p.config.card_style === "soft" ? 12 : 8;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onChange({ ...withDefaults(p.config) })}
+                aria-pressed={on}
+                className={`group overflow-hidden rounded-xl border text-left transition-colors ${on ? "border-[#fe5c13] ring-1 ring-[#fe5c13]" : "border-[#E8E8E3] hover:border-[#D6D6CF]"}`}
+              >
+                <span className="block p-3" style={{ background: c.bg }}>
+                  <span
+                    className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-semibold"
+                    style={{ background: c.header_bg, color: c.header_text, borderRadius: radius, fontFamily: p.config.heading_font || p.config.font_family }}
+                  >
+                    Aa Menu
+                  </span>
+                  <span className="mt-2 flex items-center gap-2 p-2" style={{ background: c.surface, borderRadius: radius }}>
+                    <span className="h-6 w-6 shrink-0" style={{ background: c.muted, opacity: 0.35, borderRadius: radius / 2 }} />
+                    <span className="min-w-0 flex-1 space-y-1">
+                      <span className="block h-1.5 w-3/4 rounded-full" style={{ background: c.text, opacity: 0.85 }} />
+                      <span className="block h-1.5 w-1/2 rounded-full" style={{ background: c.muted, opacity: 0.6 }} />
+                    </span>
+                    <span
+                      className="h-4 w-7 shrink-0"
+                      style={
+                        p.config.button_style === "outline"
+                          ? { border: `1.5px solid ${c.accent}`, borderRadius: 999 }
+                          : { background: c.accent, borderRadius: 999 }
+                      }
+                    />
+                  </span>
+                </span>
+                <span className="flex items-center justify-between border-t border-[#F0F0EB] bg-white px-3 py-2">
+                  <span className="text-[13px] font-semibold text-[#0F1117]">{p.name}</span>
+                  {on ? (
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#fe5c13] text-white">
+                      <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                    </span>
+                  ) : (
+                    <span className="flex -space-x-1">
+                      {p.palette.slice(2).map((col, i) => (
+                        <span key={i} className="h-3 w-3 rounded-full border border-white" style={{ background: col }} />
+                      ))}
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Group>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab: Colors
+// Colours
 // ─────────────────────────────────────────────────────────────────────────────
+
+type ColorKey = keyof NonNullable<ThemeConfig["colors"]>;
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex h-10 items-center gap-2.5 rounded-xl border border-[#E8E8E3] bg-white pl-1.5 pr-3 transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13]">
+      <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-lg border border-black/10" style={{ background: value || "#000000" }}>
+        <input
+          type="color"
+          value={/^#[0-9a-f]{6}$/i.test(value) ? value : "#000000"}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          aria-label={`${label} colour`}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-[#4B5563]">{label}</span>
+      <input
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={`${label} hex code`}
+        spellCheck={false}
+        className="w-[4.75rem] bg-transparent text-right text-[12px] uppercase tabular-nums text-[#0F1117] outline-none"
+      />
+    </label>
+  );
+}
 
 function ColorsTab({
   theme,
@@ -254,256 +382,267 @@ function ColorsTab({
   onChange,
 }: {
   theme: ThemeConfig;
-  setColor: (k: keyof NonNullable<ThemeConfig["colors"]>, v: string) => void;
+  setColor: (k: ColorKey, v: string) => void;
   onChange: (next: ThemeConfig) => void;
 }) {
-  const SWATCH_KEYS: [keyof NonNullable<ThemeConfig["colors"]>, string][] = [
-    ["bg", "Background"],
-    ["surface", "Surface"],
-    ["text", "Text"],
-    ["muted", "Muted"],
-    ["accent", "Accent"],
-    ["accent_text", "Accent Text"],
-    ["header_bg", "Header BG"],
-    ["header_text", "Header Text"],
+  const GROUPS: { title: string; keys: [ColorKey, string][] }[] = [
+    { title: "Page", keys: [["bg", "Background"], ["surface", "Cards"]] },
+    { title: "Text", keys: [["text", "Main text"], ["muted", "Secondary text"]] },
+    { title: "Buttons", keys: [["accent", "Button"], ["accent_text", "Button text"]] },
+    { title: "Header", keys: [["header_bg", "Header"], ["header_text", "Header text"]] },
   ];
+  const cur = theme.colors || {};
   return (
-    <div className="space-y-4">
-      <SectionLabel>Palettes</SectionLabel>
-      <div className="grid grid-cols-5 gap-2">
-        {PALETTES.map((pal) => (
-          <button
-            key={pal.name}
-            type="button"
-            title={pal.name}
-            onClick={() => onChange({ ...theme, colors: { ...theme.colors, ...pal.colors } })}
-            className="group flex flex-col items-center gap-1"
-          >
-            <div className="flex h-8 w-full overflow-hidden rounded-lg border border-slate-200 shadow-sm group-hover:ring-2 group-hover:ring-slate-400">
-              <span className="flex-1" style={{ background: pal.colors.bg }} />
-              <span className="flex-1" style={{ background: pal.colors.surface }} />
-              <span className="flex-1" style={{ background: pal.colors.accent }} />
-            </div>
-            <span className="text-[10px] text-slate-500">{pal.name}</span>
-          </button>
-        ))}
-      </div>
+    <div className="space-y-6">
+      <Group title="Colour palettes" hint="Applies a matching set of colours.">
+        <div className="grid grid-cols-5 gap-2">
+          {PALETTES.map((pal) => {
+            const on = cur.bg === pal.colors.bg && cur.accent === pal.colors.accent && cur.surface === pal.colors.surface;
+            return (
+              <button
+                key={pal.name}
+                type="button"
+                title={pal.name}
+                aria-pressed={on}
+                onClick={() => onChange({ ...theme, colors: { ...theme.colors, ...pal.colors } })}
+                className="group flex flex-col items-center gap-1.5"
+              >
+                <span
+                  className={`flex h-9 w-full overflow-hidden rounded-lg border transition-colors ${on ? "border-[#fe5c13] ring-1 ring-[#fe5c13]" : "border-[#E8E8E3] group-hover:border-[#D6D6CF]"}`}
+                >
+                  <span className="flex-1" style={{ background: pal.colors.bg }} />
+                  <span className="flex-1" style={{ background: pal.colors.surface }} />
+                  <span className="flex-1" style={{ background: pal.colors.accent }} />
+                </span>
+                <span className={`text-[12px] ${on ? "font-semibold text-[#0F1117]" : "text-[#6B7280]"}`}>{pal.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Group>
       <Divider />
-      <SectionLabel>Individual colors</SectionLabel>
-      <div className="grid grid-cols-2 gap-2">
-        {SWATCH_KEYS.map(([key, label]) => (
-          <div key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-            <input
-              type="color"
-              value={theme.colors?.[key] || "#000000"}
-              onChange={(e) => setColor(key, e.target.value.toUpperCase())}
-              className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent p-0"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-[10px] font-semibold text-slate-700">{label}</p>
-              <input
-                value={theme.colors?.[key] || ""}
-                onChange={(e) => setColor(key, e.target.value)}
-                className="w-full bg-transparent text-[11px] text-slate-500 outline-none"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab: Typography
-// ─────────────────────────────────────────────────────────────────────────────
-
-function TypographyTab({
-  theme,
-  setField,
-}: {
-  theme: ThemeConfig;
-  setField: (k: keyof ThemeConfig, v: string) => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <SectionLabel>Body font</SectionLabel>
-      <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200">
-        {FONTS.map((f, i) => {
-          const active = theme.font_family === f.value;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setField("font_family", f.value)}
-              className={`flex w-full items-center gap-3 px-3 py-2 text-left transition ${i > 0 ? "border-t border-slate-100" : ""} ${active ? "bg-[#fe5c13] text-gray-900 font-bold" : "hover:bg-slate-50"}`}
-            >
-              <span className="w-6 shrink-0 text-base" style={{ fontFamily: f.value }}>Aa</span>
-              <div className="min-w-0 flex-1">
-                <p className={`text-xs font-semibold ${active ? "text-white" : "text-slate-800"}`}>{f.label}</p>
-                <p className={`text-[10px] ${active ? "text-slate-300" : "text-slate-400"}`}>{f.hint}</p>
+      <Group title="Fine-tune" hint="Click a swatch to pick a colour, or type a hex code.">
+        <div className="space-y-4">
+          {GROUPS.map((g) => (
+            <div key={g.title}>
+              <p className="mb-1.5 text-[12px] font-medium text-[#6B7280]">{g.title}</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {g.keys.map(([key, label]) => (
+                  <ColorField key={key} label={label} value={cur[key] || ""} onChange={(v) => setColor(key, v)} />
+                ))}
               </div>
-              {active && <Check className="h-3.5 w-3.5 shrink-0" />}
-            </button>
-          );
-        })}
-      </div>
-
-      <div>
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Heading font (optional)</p>
-        <select
-          value={theme.heading_font || ""}
-          onChange={(e) => setField("heading_font", e.target.value)}
-          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-        >
-          <option value="">— Same as body —</option>
-          {FONTS.map((f) => (
-            <option key={f.value} value={f.value}>{f.label}</option>
+            </div>
           ))}
-        </select>
-      </div>
-
-      <Divider />
-      <SectionLabel>Size</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "sm", label: "Small" },
-          { value: "md", label: "Medium" },
-          { value: "lg", label: "Large" },
-        ]}
-        value={theme.font_size ?? "md"}
-        onChange={(v) => setField("font_size", v)}
-        cols={3}
-      />
-
-      <Divider />
-      <SectionLabel>Hero texts</SectionLabel>
-      <div className="space-y-2">
-        <input
-          value={theme.hero_title || ""}
-          onChange={(e) => setField("hero_title", e.target.value)}
-          placeholder="Main heading (e.g. Welcome to Osha Thai)"
-          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400"
-        />
-        <input
-          value={theme.hero_subtitle || ""}
-          onChange={(e) => setField("hero_subtitle", e.target.value)}
-          placeholder="Sub-heading (e.g. Authentic flavours, every visit)"
-          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400"
-        />
-      </div>
-
-      <Divider />
-      <SectionLabel>Section icon</SectionLabel>
-      <div className="flex flex-wrap gap-1.5">
-        {["•", "◆", "✦", "✺", "◈", "✿", "▶", "›", "❖", "⬡", "◉", "◬"].map((ic) => (
-          <button
-            key={ic}
-            type="button"
-            onClick={() => setField("section_icon", ic)}
-            className={`rounded-lg border px-2.5 py-1 text-sm ${theme.section_icon === ic ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          >
-            {ic}
-          </button>
-        ))}
-      </div>
+        </div>
+      </Group>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab: Layout
+// Text
 // ─────────────────────────────────────────────────────────────────────────────
 
-function LayoutTab({
-  theme,
-  setField,
-}: {
-  theme: ThemeConfig;
-  setField: (k: keyof ThemeConfig, v: string) => void;
-}) {
+function TypographyTab({ theme, setField }: { theme: ThemeConfig; setField: (k: keyof ThemeConfig, v: string) => void }) {
   return (
-    <div className="space-y-4">
-      <SectionLabel>Menu layout</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "list",     label: "List" },
-          { value: "grid",     label: "Grid" },
-          { value: "compact",  label: "Compact" },
-          { value: "magazine", label: "Magazine" },
-        ]}
-        value={theme.layout ?? "list"}
-        onChange={(v) => setField("layout", v)}
-        cols={4}
-      />
-
-      <SectionLabel>Item images</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "none",  label: "None" },
-          { value: "small", label: "Small" },
-          { value: "large", label: "Large" },
-          { value: "full",  label: "Full" },
-        ]}
-        value={theme.image_style ?? "small"}
-        onChange={(v) => setField("image_style", v)}
-        cols={4}
-      />
-
-      <SectionLabel>Spacing</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "compact",  label: "Compact" },
-          { value: "normal",   label: "Normal" },
-          { value: "relaxed",  label: "Relaxed" },
-        ]}
-        value={theme.spacing ?? "normal"}
-        onChange={(v) => setField("spacing", v)}
-        cols={3}
-      />
-
-      <SectionLabel>Card style</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "sharp",   label: "Sharp" },
-          { value: "rounded", label: "Rounded" },
-          { value: "soft",    label: "Soft" },
-        ]}
-        value={theme.card_style ?? "rounded"}
-        onChange={(v) => setField("card_style", v)}
-        cols={3}
-      />
-
-      <SectionLabel>Button style</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "solid",   label: "Solid" },
-          { value: "outline", label: "Outline" },
-          { value: "glass",   label: "Glass" },
-        ]}
-        value={theme.button_style ?? "solid"}
-        onChange={(v) => setField("button_style", v)}
-        cols={3}
-      />
-
-      <SectionLabel>Shadow</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "none", label: "None" },
-          { value: "sm",   label: "Sm" },
-          { value: "md",   label: "Md" },
-          { value: "lg",   label: "Lg" },
-        ]}
-        value={theme.shadow ?? "sm"}
-        onChange={(v) => setField("shadow", v)}
-        cols={4}
-      />
+    <div className="space-y-6">
+      <Group title="Welcome text" hint="Shown at the top of your menu.">
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="th-hero" className="mb-1.5 block text-[13px] font-medium text-[#4B5563]">Heading</label>
+            <input
+              id="th-hero"
+              value={theme.hero_title || ""}
+              onChange={(e) => setField("hero_title", e.target.value)}
+              placeholder="Welcome to Osha Thai"
+              className={INPUT}
+            />
+          </div>
+          <div>
+            <label htmlFor="th-sub" className="mb-1.5 block text-[13px] font-medium text-[#4B5563]">Tagline</label>
+            <input
+              id="th-sub"
+              value={theme.hero_subtitle || ""}
+              onChange={(e) => setField("hero_subtitle", e.target.value)}
+              placeholder="Authentic flavours, every visit"
+              className={INPUT}
+            />
+          </div>
+        </div>
+      </Group>
+      <Divider />
+      <Group title="Font">
+        <div className="max-h-64 overflow-y-auto rounded-xl border border-[#E8E8E3]" role="radiogroup" aria-label="Font">
+          {FONTS.map((f, i) => {
+            const active = theme.font_family === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setField("font_family", f.value)}
+                className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors ${i > 0 ? "border-t border-[#F0F0EB]" : ""} ${active ? "bg-[#FFF4EC]" : "hover:bg-[#FAFAF7]"}`}
+              >
+                <span className="w-8 shrink-0 text-[18px] text-[#0F1117]" style={{ fontFamily: f.value }}>Aa</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-medium text-[#0F1117]" style={{ fontFamily: f.value }}>{f.label}</span>
+                  <span className="block text-[12px] text-[#6B7280]">{f.hint}</span>
+                </span>
+                {active && (
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fe5c13] text-white">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Group>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Group title="Heading font">
+          <Select value={theme.heading_font || ""} onChange={(e) => setField("heading_font", e.target.value)} className={INPUT}>
+            <option value="">Same as the font above</option>
+            {FONTS.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </Select>
+        </Group>
+        <Group title="Text size">
+          <VisualPicker
+            label="Text size"
+            options={[
+              { value: "sm", label: "Small" },
+              { value: "md", label: "Medium" },
+              { value: "lg", label: "Large" },
+            ]}
+            value={theme.font_size ?? "md"}
+            onChange={(v) => setField("font_size", v)}
+            cols={3}
+          />
+        </Group>
+      </div>
+      <Divider />
+      <Group title="Category marker" hint="The small symbol shown before each menu category.">
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Category marker">
+          {["•", "◆", "✦", "✺", "◈", "✿", "▶", "›", "❖", "⬡", "◉", "◬"].map((ic) => {
+            const on = theme.section_icon === ic;
+            return (
+              <button
+                key={ic}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setField("section_icon", ic)}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg border text-[15px] transition-colors ${on ? OPT_ON : OPT_OFF}`}
+              >
+                {ic}
+              </button>
+            );
+          })}
+        </div>
+      </Group>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab: Background
+// Layout
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LayoutTab({ theme, setField }: { theme: ThemeConfig; setField: (k: keyof ThemeConfig, v: string) => void }) {
+  return (
+    <div className="space-y-6">
+      <Group title="Menu layout" hint="How dishes are arranged on the page.">
+        <VisualPicker
+          label="Menu layout"
+          options={[
+            { value: "list", label: "List", art: LayoutArt.list },
+            { value: "grid", label: "Grid", art: LayoutArt.grid },
+            { value: "compact", label: "Compact", art: LayoutArt.compact },
+            { value: "magazine", label: "Magazine", art: LayoutArt.magazine },
+          ]}
+          value={theme.layout ?? "list"}
+          onChange={(v) => setField("layout", v)}
+          cols={4}
+        />
+      </Group>
+      <Group title="Dish photos">
+        <VisualPicker
+          label="Dish photos"
+          options={[
+            { value: "none", label: "None" },
+            { value: "small", label: "Small" },
+            { value: "large", label: "Large" },
+            { value: "full", label: "Full width" },
+          ]}
+          value={theme.image_style ?? "small"}
+          onChange={(v) => setField("image_style", v)}
+          cols={4}
+        />
+      </Group>
+      <Divider />
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Group title="Spacing">
+          <VisualPicker
+            label="Spacing"
+            options={[
+              { value: "compact", label: "Tight" },
+              { value: "normal", label: "Normal" },
+              { value: "relaxed", label: "Airy" },
+            ]}
+            value={theme.spacing ?? "normal"}
+            onChange={(v) => setField("spacing", v)}
+            cols={3}
+          />
+        </Group>
+        <Group title="Card corners">
+          <VisualPicker
+            label="Card corners"
+            options={[
+              { value: "sharp", label: "Sharp" },
+              { value: "rounded", label: "Rounded" },
+              { value: "soft", label: "Soft" },
+            ]}
+            value={theme.card_style ?? "rounded"}
+            onChange={(v) => setField("card_style", v)}
+            cols={3}
+          />
+        </Group>
+        <Group title="Buttons">
+          <VisualPicker
+            label="Buttons"
+            options={[
+              { value: "solid", label: "Solid" },
+              { value: "outline", label: "Outline" },
+              { value: "glass", label: "Glass" },
+            ]}
+            value={theme.button_style ?? "solid"}
+            onChange={(v) => setField("button_style", v)}
+            cols={3}
+          />
+        </Group>
+        <Group title="Shadow">
+          <VisualPicker
+            label="Shadow"
+            options={[
+              { value: "none", label: "None" },
+              { value: "sm", label: "Light" },
+              { value: "md", label: "Medium" },
+              { value: "lg", label: "Strong" },
+            ]}
+            value={theme.shadow ?? "sm"}
+            onChange={(v) => setField("shadow", v)}
+            cols={4}
+          />
+        </Group>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Background
 // ─────────────────────────────────────────────────────────────────────────────
 
 function BackgroundTab({
@@ -527,75 +666,71 @@ function BackgroundTab({
     const url = await onBackgroundUpload(file);
     if (url) setField("bg_image_url", url);
   };
+  const tint = Math.round((theme.bg_overlay_opacity ?? 0.92) * 100);
 
   return (
-    <div className="space-y-4">
-      <SectionLabel>Pattern overlay</SectionLabel>
-      <div className="grid grid-cols-4 gap-2">
-        {PATTERNS.map((pat) => {
-          const active = (theme.pattern_style ?? "none") === pat.id;
-          return (
+    <div className="space-y-6">
+      <Group title="Background photo" hint="A photo behind your menu, softened so dishes stay readable.">
+        {theme.bg_image_url ? (
+          <div className="overflow-hidden rounded-xl border border-[#E8E8E3]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={theme.bg_image_url} alt="Menu background" className="h-28 w-full object-cover" />
+            <div className="space-y-3 border-t border-[#F0F0EB] p-4">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label htmlFor="th-tint" className="text-[13px] font-medium text-[#4B5563]">Soften photo</label>
+                  <span className="text-[12px] tabular-nums text-[#6B7280]">{tint}%</span>
+                </div>
+                <input
+                  id="th-tint"
+                  type="range"
+                  min={60}
+                  max={99}
+                  step={1}
+                  value={tint}
+                  onChange={(e) => onChange({ ...theme, bg_overlay_opacity: Number(e.target.value) / 100 })}
+                  className="w-full accent-[#fe5c13]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={isBackgroundUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117] disabled:opacity-60"
+                >
+                  <ImagePlus className="h-4 w-4 text-[#6B7280]" /> {isBackgroundUploading ? "Uploading" : "Replace"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setField("bg_image_url", "")}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-[13px] font-medium text-[#6B7280] transition-colors hover:bg-rose-50 hover:text-rose-600"
+                >
+                  <Trash2 className="h-4 w-4" /> Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={async (e) => { e.preventDefault(); setIsDragOver(false); await handleFile(e.dataTransfer.files?.[0]); }}
+            className={`flex flex-col items-center rounded-xl border border-dashed px-5 py-7 text-center transition-colors ${isDragOver ? "border-[#fe5c13] bg-[#FFF4EC]" : "border-[#D6D6CF] bg-[#FAFAF7]"}`}
+          >
+            <UploadCloud className="h-5 w-5 text-[#9CA3AF]" />
+            <p className="mt-2 text-[13px] text-[#4B5563]">Drop a photo here, or</p>
             <button
-              key={pat.id}
               type="button"
-              onClick={() => setField("pattern_style", pat.id)}
-              className={`flex h-14 flex-col items-center justify-end rounded-xl border pb-1 transition ${active ? "border-slate-900 ring-2 ring-slate-900" : "border-slate-200 hover:border-slate-400"}`}
-              style={
-                pat.bgImage !== "none"
-                  ? { backgroundImage: pat.bgImage, backgroundSize: pat.bgSize || "auto", backgroundColor: "#f8fafc" }
-                  : { background: "#f8fafc" }
-              }
+              disabled={isBackgroundUploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-2.5 inline-flex h-9 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117] disabled:opacity-60"
             >
-              <span className={`text-[10px] font-semibold ${active ? "text-slate-900" : "text-slate-500"}`}>{pat.label}</span>
+              <ImagePlus className="h-4 w-4 text-[#6B7280]" />
+              {isBackgroundUploading ? "Uploading" : "Choose a photo"}
             </button>
-          );
-        })}
-      </div>
-
-      <Divider />
-      <SectionLabel>Header style</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "classic",  label: "Classic" },
-          { value: "elegant",  label: "Elegant" },
-          { value: "festival", label: "Festival" },
-        ]}
-        value={theme.header_style ?? "classic"}
-        onChange={(v) => setField("header_style", v)}
-        cols={3}
-      />
-
-      <SectionLabel>Ornament level</SectionLabel>
-      <VisualPicker
-        options={[
-          { value: "off",    label: "Off" },
-          { value: "subtle", label: "Subtle" },
-          { value: "bold",   label: "Bold" },
-        ]}
-        value={theme.ornament_level ?? "off"}
-        onChange={(v) => setField("ornament_level", v)}
-        cols={3}
-      />
-
-      <Divider />
-      <SectionLabel>Background image</SectionLabel>
-      <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-        onDragLeave={() => setIsDragOver(false)}
-        onDrop={async (e) => { e.preventDefault(); setIsDragOver(false); await handleFile(e.dataTransfer.files?.[0]); }}
-        className={`rounded-xl border-2 border-dashed p-5 text-center transition ${isDragOver ? "border-slate-500 bg-slate-50" : "border-slate-200"}`}
-      >
-        <UploadCloud className="mx-auto h-5 w-5 text-slate-400" />
-        <p className="mt-1 text-xs font-medium text-slate-600">Drag image or</p>
-        <button
-          type="button"
-          disabled={isBackgroundUploading}
-          onClick={() => fileInputRef.current?.click()}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-        >
-          <ImagePlus className="h-3.5 w-3.5" />
-          {isBackgroundUploading ? "Uploading…" : "Browse"}
-        </button>
+          </div>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -607,32 +742,60 @@ function BackgroundTab({
             e.currentTarget.value = "";
           }}
         />
-      </div>
-
-      {theme.bg_image_url && (
-        <div className="overflow-hidden rounded-xl border border-slate-200">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={theme.bg_image_url} alt="BG preview" className="h-24 w-full object-cover" />
-          <div className="border-t border-slate-100 p-3">
-            <label className="mb-1 block text-[11px] font-medium text-slate-600">
-              Overlay tint ({Math.round((theme.bg_overlay_opacity ?? 0.92) * 100)}%)
-            </label>
-            <input
-              type="range" min={60} max={99} step={1}
-              value={Math.round((theme.bg_overlay_opacity ?? 0.92) * 100)}
-              onChange={(e) => onChange({ ...theme, bg_overlay_opacity: Number(e.target.value) / 100 })}
-              className="w-full"
-            />
-            <button
-              type="button"
-              onClick={() => setField("bg_image_url", "")}
-              className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:underline"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Remove image
-            </button>
-          </div>
+      </Group>
+      <Divider />
+      <Group title="Pattern" hint="A subtle texture behind the menu.">
+        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Pattern">
+          {PATTERNS.map((pat) => {
+            const active = (theme.pattern_style ?? "none") === pat.id;
+            return (
+              <button
+                key={pat.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setField("pattern_style", pat.id)}
+                className={`flex h-16 flex-col items-center justify-end rounded-xl border pb-1.5 transition-colors ${active ? "border-[#fe5c13] ring-1 ring-[#fe5c13]" : "border-[#E8E8E3] hover:border-[#D6D6CF]"}`}
+                style={
+                  pat.bgImage !== "none"
+                    ? { backgroundImage: pat.bgImage, backgroundSize: pat.bgSize || "auto", backgroundColor: "#FAFAF7" }
+                    : { background: "#FAFAF7" }
+                }
+              >
+                <span className={`rounded-md bg-white/90 px-1.5 text-[12px] ${active ? "font-semibold text-[#0F1117]" : "text-[#6B7280]"}`}>{pat.label}</span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </Group>
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Group title="Header style">
+          <VisualPicker
+            label="Header style"
+            options={[
+              { value: "classic", label: "Classic" },
+              { value: "elegant", label: "Elegant" },
+              { value: "festival", label: "Festive" },
+            ]}
+            value={theme.header_style ?? "classic"}
+            onChange={(v) => setField("header_style", v)}
+            cols={3}
+          />
+        </Group>
+        <Group title="Decorations">
+          <VisualPicker
+            label="Decorations"
+            options={[
+              { value: "off", label: "Off" },
+              { value: "subtle", label: "Subtle" },
+              { value: "bold", label: "Bold" },
+            ]}
+            value={theme.ornament_level ?? "off"}
+            onChange={(v) => setField("ornament_level", v)}
+            cols={3}
+          />
+        </Group>
+      </div>
     </div>
   );
 }
@@ -641,54 +804,35 @@ function BackgroundTab({
 // Main export
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ThemeCustomizer({
-  value,
-  onChange,
-  onBackgroundUpload,
-  isBackgroundUploading = false,
-}: Props) {
+export default function ThemeCustomizer({ value, onChange, onBackgroundUpload, isBackgroundUploading = false }: Props) {
   const theme = withDefaults(value);
   const [tab, setTab] = useState<Tab>("presets");
 
-  const setField = (key: keyof ThemeConfig, val: string) =>
-    onChange({ ...theme, [key]: val });
-  const setColor = (key: keyof NonNullable<ThemeConfig["colors"]>, val: string) =>
-    onChange({ ...theme, colors: { ...(theme.colors || {}), [key]: val } });
+  const setField = (key: keyof ThemeConfig, val: string) => onChange({ ...theme, [key]: val });
+  const setColor = (key: ColorKey, val: string) => onChange({ ...theme, colors: { ...(theme.colors || {}), [key]: val } });
 
   return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900">Theme Studio</h2>
-          <p className="text-[11px] text-slate-500">Customize your menu&apos;s look &amp; feel</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onChange(DEFAULT_THEME)}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          Reset
-        </button>
-      </div>
+    <section className="flex flex-col overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+      <nav className="flex items-center gap-1 overflow-x-auto border-b border-[#F0F0EB] px-3" role="tablist" aria-label="Theme settings">
+        {TABS.map((t) => {
+          const on = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => setTab(t.id)}
+              className={`-mb-px h-12 shrink-0 border-b-2 px-3 text-[13px] transition-colors ${on ? "border-[#fe5c13] font-semibold text-[#0F1117]" : "border-transparent font-medium text-[#6B7280] hover:text-[#0F1117]"}`}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </nav>
 
-      {/* Tab bar */}
-      <div className="flex border-b border-slate-100 bg-slate-50">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`flex-1 py-2.5 text-[11px] font-semibold transition ${tab === t.id ? "border-b-2 border-slate-900 bg-white text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {tab === "presets" && <PresetsTab onChange={onChange} />}
+      <div className="flex-1 p-6">
+        {tab === "presets" && <PresetsTab theme={theme} onChange={onChange} />}
         {tab === "colors" && <ColorsTab theme={theme} setColor={setColor} onChange={onChange} />}
         {tab === "typography" && <TypographyTab theme={theme} setField={setField} />}
         {tab === "layout" && <LayoutTab theme={theme} setField={setField} />}

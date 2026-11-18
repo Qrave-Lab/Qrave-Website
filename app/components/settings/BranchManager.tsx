@@ -6,6 +6,7 @@ import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
+import { Select } from "@/app/components/ui/Select";
 type Branch = {
   restaurant_id: string;
   name: string;
@@ -190,7 +191,7 @@ export default function BranchManager() {
         )}
         {branches.length > 0 ? (
           <div className="space-y-3">
-            <select
+            <Select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium"
@@ -200,10 +201,10 @@ export default function BranchManager() {
                   {b.address ? `${b.name} - ${b.address}` : `${b.name} (${b.role})`}
                 </option>
               ))}
-            </select>
+            </Select>
 
             <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Edit Branch</p>
+              <p className="text-xs font-medium text-slate-500">Edit branch</p>
               <div className="grid grid-cols-2 gap-2">
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs bg-slate-100 text-slate-500" value={editForm.name} disabled />
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs" value={editForm.currency} onChange={(e) => setEditForm((p) => ({ ...p, currency: e.target.value }))} />
@@ -221,28 +222,28 @@ export default function BranchManager() {
             </div>
 
             <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assign Staff To Branch</p>
+              <p className="text-xs font-medium text-slate-500">Assign staff to branch</p>
               <div className="grid grid-cols-3 gap-2">
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs" placeholder="Email" value={assignForm.email} onChange={(e) => setAssignForm((p) => ({ ...p, email: e.target.value }))} />
                 <input className="rounded-lg border border-slate-200 px-3 py-2 text-xs" placeholder="Password (new users only)" value={assignForm.password} onChange={(e) => setAssignForm((p) => ({ ...p, password: e.target.value }))} />
-                <select className="rounded-lg border border-slate-200 px-3 py-2 text-xs" value={assignForm.role} onChange={(e) => setAssignForm((p) => ({ ...p, role: e.target.value }))}>
+                <Select className="rounded-lg border border-slate-200 px-3 py-2 text-xs" value={assignForm.role} onChange={(e) => setAssignForm((p) => ({ ...p, role: e.target.value }))}>
                   <option value="manager">Manager</option>
                   <option value="kitchen">Chef</option>
                   <option value="waiter">Waiter</option>
                   <option value="cashier">Cashier</option>
-                </select>
+                </Select>
               </div>
               <button disabled={isBusy} onClick={assignStaff} className="inline-flex items-center gap-1 rounded-lg bg-[#fe5c13] px-3 py-2 text-xs font-bold text-gray-900 disabled:opacity-50">
                 <UserPlus className="w-3 h-3" /> Assign
               </button>
 
               <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-2">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Branch Staff</p>
+                <p className="mb-2 text-xs font-medium text-slate-500">Branch staff</p>
                 <div className="space-y-1">
                   {branchStaff.map((s) => (
                     <div key={s.ID} className="flex items-center justify-between rounded-md bg-white px-2 py-1.5 text-xs">
                       <span className="font-medium text-slate-700">{s.Email}</span>
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">{s.Role}</span>
+                      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{s.Role}</span>
                     </div>
                   ))}
                   {branchStaff.length === 0 && <p className="text-xs text-slate-400">No staff assigned.</p>}

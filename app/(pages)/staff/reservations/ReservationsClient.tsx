@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDown,
   ArrowUpRight,
   Calendar,
   CalendarCheck,
@@ -21,6 +20,7 @@ import {
   Settings,
   AlertTriangle,
   QrCode,
+  Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -49,12 +49,12 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "" }:
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all flex items-center justify-between hover:bg-slate-100/50 ${isOpen ? "border-[#fe5c13] bg-white ring-4 ring-[#fe5c13]/10" : ""}`}
+        className={`flex h-10 w-full items-center justify-between rounded-xl border bg-white pl-3.5 pr-10 text-[13px] font-medium text-[#0F1117] outline-none transition-colors ${isOpen ? "border-[#fe5c13]" : "border-[#E8E8E3] hover:border-[#D6D6CF]"}`}
       >
-        <span className="truncate text-slate-700">{selectedOption ? selectedOption.label : placeholder}</span>
+        <span className={`truncate ${selectedOption ? "text-[#0F1117]" : "text-[#9CA3AF]"}`}>{selectedOption ? selectedOption.label : placeholder}</span>
       </button>
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-        <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#fe5c13]" : "group-hover:text-slate-600"}`} />
+      <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]">
+        <ChevronDown className={`h-4 w-4 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`} />
       </div>
 
       <AnimatePresence>
@@ -64,7 +64,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "" }:
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden py-1.5 ring-1 ring-slate-900/5"
+            className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-[#E8E8E3] bg-white p-1.5 shadow-[0_18px_40px_-16px_rgba(15,17,23,0.3)]"
           >
             <div className="max-h-60 overflow-y-auto custom-scrollbar">
               {options.map((opt: any) => (
@@ -77,15 +77,16 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "" }:
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between ${
-                    opt.disabled 
-                      ? "opacity-50 cursor-not-allowed bg-slate-50/50 text-slate-400" 
-                      : value === opt.value 
-                        ? "text-[#fe5c13] font-bold bg-orange-50/50 hover:bg-orange-50" 
-                        : "text-slate-600 font-medium hover:bg-slate-50"
+                  className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
+                    opt.disabled
+                      ? "cursor-not-allowed text-[#C4C4BE]"
+                      : value === opt.value
+                        ? "bg-[#FAFAF7] font-semibold text-[#0F1117]"
+                        : "text-[#374151] hover:bg-[#FAFAF7]"
                   }`}
                 >
                   <span className="truncate">{opt.label}</span>
+                  {value === opt.value && !opt.disabled && <Check className="h-4 w-4 shrink-0 text-[#fe5c13]" strokeWidth={2.5} />}
                 </button>
               ))}
             </div>
@@ -541,470 +542,442 @@ export default function ReservationsClient({ initialData }: { initialData?: any 
   };
 
   return (
-    <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-20 sticky top-0">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              Reservations & Waitlist
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-[#E8E8E3] bg-white px-8 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">
+              Reservations and waitlist
             </h1>
-            <p className="text-[13px] text-slate-500 mt-0.5">
-              Reserve tables and keep a live queue for walk-ins.
-            </p>
+            <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-[#6B7280]">
+              {activeReservations.length} booked
+            </span>
+            <span
+              className={`rounded-full px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums ${activeWaitlist.length > 0 ? "bg-[#FFF4EC] text-[#C2410C]" : "bg-[#F3F3EF] text-[#6B7280]"}`}
+            >
+              {activeWaitlist.length} waiting
+            </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={openQRModal}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
             >
-              <QrCode className="h-4 w-4" /> Waitlist QR
+              <QrCode className="h-4 w-4 text-[#6B7280]" /> Waitlist QR
             </button>
             <button
               onClick={() => setShowResModal(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
             >
-              <CalendarCheck className="h-4 w-4" /> Book Reservation
+              <CalendarCheck className="h-4 w-4 text-[#6B7280]" /> Book reservation
             </button>
             <button
               onClick={() => setShowWaitlistModal(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#fe5c13] px-4 py-2 text-xs font-bold text-gray-900 hover:brightness-95 transition-colors cursor-pointer shadow-sm shadow-[#fe5c13]/30"
+              className="ml-1 inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
             >
-              <Users className="h-4 w-4" /> Add Walk-in
+              <Plus className="h-4 w-4" strokeWidth={2.5} /> Add walk-in
             </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 h-full">
-            
-            {/* ── COLUMN 1: TABLE RESERVATIONS ──────────────────────────────────── */}
-            <section className="flex flex-col h-full overflow-hidden">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <CalendarCheck className="h-5 w-5 text-indigo-500" />
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900">Upcoming Reservations</h2>
-                    <p className="text-[11px] text-slate-500">Bookings scheduled for today.</p>
-                  </div>
-                </div>
-              </div>
-          
-          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-            {isLoading ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">Loading reservations...</div>
-            ) : activeReservations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 rounded-3xl bg-slate-50/50 border border-slate-100 p-6 text-center transition-all">
-                  <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 border border-slate-100">
-                    <CalendarCheck className="w-8 h-8 text-slate-300" />
-                  </div>
-                  <p className="text-[14px] font-bold text-slate-700">
-                    No reservations yet
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1 max-w-[200px] leading-relaxed">
-                    Get started by adding your first booking for today.
-                  </p>
-                  <button
-                    onClick={() => setShowResModal(true)}
-                    className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 transition-all shadow-sm cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" /> Add Reservation
-                  </button>
-                </div>
-            ) : (
-              activeReservations.map((entry) => {
-                let isResAvailable = false;
-                let resAvailableTables: Table[] = [];
-                if (entry.status === "booked") {
-                  if (entry.table_id) {
-                    const targetTable = tables.find(t => t.id === entry.table_id);
-                    if (targetTable) {
-                      const hasSession = sessions.some(s => s.table_id === targetTable.id);
-                      const otherBlockingRes = reservations.some(res => {
-                        if (res.id === entry.id || res.status !== "booked" || res.table_id !== targetTable.id) return false;
-                        const resTime = new Date(res.reserved_at);
-                        const thisTime = new Date(entry.reserved_at);
-                        const diffMs = Math.abs(resTime.getTime() - thisTime.getTime());
-                        return diffMs < 120 * 60 * 1000;
-                      });
-                      isResAvailable = targetTable.is_enabled && !hasSession && !otherBlockingRes;
-                      if (isResAvailable) {
-                        resAvailableTables = [targetTable];
-                      }
-                    }
-                  } else {
-                    resAvailableTables = getAvailableTablesForParty(entry.party_size);
-                    isResAvailable = resAvailableTables.length > 0;
-                  }
-                }
-
-                return (
-                  <div key={entry.id} className="group relative rounded-2xl border border-slate-200/60 bg-white p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
-                    <div className="flex items-start gap-4">
-                      {/* Left Side: Time */}
-                      <div className="flex flex-col items-center justify-center min-w-[70px] rounded-xl bg-slate-50 border border-slate-100 p-2 text-center">
-                        <span className="text-sm font-black text-[#fe5c13]">
-                          {new Date(entry.reserved_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '')}
-                        </span>
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">
-                          {new Date(entry.reserved_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-
-                      {/* Right Side: Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-sm font-bold text-slate-900 truncate">
-                              {entry.guest_name}
-                            </h4>
-                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                              <span className="flex items-center gap-1 font-semibold text-slate-600"><Users className="w-3.5 h-3.5 text-slate-400" /> {entry.party_size} guests</span>
-                              <span className="text-slate-300">•</span>
-                              <span className="font-medium text-slate-600">{entry.table_number ? `Table ${entry.table_number}` : "Any table"}</span>
-                            </p>
-                          </div>
-                          
-                          {/* Deposit Badge */}
-                          {Number(entry.deposit_amount) > 0 ? (
-                            <span className={`flex-shrink-0 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-wider border ${
-                              entry.deposit_status === "paid" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
-                              entry.deposit_status === "refunded" ? "bg-slate-100 border-slate-200 text-slate-600" :
-                              entry.deposit_status === "forfeited" ? "bg-rose-50 border-rose-200 text-rose-700" :
-                              "bg-amber-50 border-amber-200 text-amber-700"
-                            }`}>
-                              {entry.deposit_status === "paid" && "Paid"}
-                              {entry.deposit_status === "refunded" && "Refunded"}
-                              {entry.deposit_status === "forfeited" && "Forfeited"}
-                              {entry.deposit_status === "unpaid" && "Unpaid"}
-                              {" "}({storeInfo?.currency || "Rs."}{entry.deposit_amount})
-                            </span>
-                          ) : null}
-                        </div>
-
-                    {isResAvailable && (
-                      <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 border border-emerald-100 text-xs font-bold text-emerald-700">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span>
-                          {entry.table_id ? (
-                            <>Table T{entry.table_number} is available now</>
-                          ) : (
-                            <>Table ready: <span className="font-black">{resAvailableTables.map(t => `T${t.table_number}`).join(", ")}</span></>
-                          )}
-                        </span>
-                      </div>
-                    )}
-
-                    {(entry.phone || entry.notes) && (
-                      <div className="mt-3 flex flex-col gap-1 rounded-xl bg-slate-50 border border-slate-100 p-2.5">
-                        {entry.phone && (
-                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
-                            <Phone className="w-3.5 h-3.5 text-slate-400" /> {entry.phone}
-                          </div>
-                        )}
-                        {entry.notes && (
-                          <div className="flex items-start gap-1.5 text-[11px] font-medium text-slate-600">
-                            <ListPlus className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" /> <span>{entry.notes}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="mt-3.5 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100/70">
-                      <button
-                        type="button"
-                        onClick={() => updateReservationStatus(entry.id, "seated")}
-                        className="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer"
-                      >
-                        <CheckCircle2 className="h-4 w-4" /> Seat Guest
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateReservationStatus(entry.id, "no_show")}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-50 border border-amber-200/50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer"
-                      >
-                        No-show
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCancelReservation(entry)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
-                      >
-                        <XCircle className="h-4 w-4" /> Cancel
-                      </button>
-
-                      {entry.deposit_amount && entry.deposit_amount > 0 && entry.deposit_status === "unpaid" && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await api(`/api/admin/reservations/${entry.id}/pay-deposit`, {
-                                method: "POST",
-                                body: JSON.stringify({ payment_intent_id: `mock_pi_${Date.now()}` }),
-                              });
-                              toast.success("Deposit marked as paid");
-                              await loadData();
-                            } catch {
-                              toast.error("Failed to update deposit");
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg bg-yellow-50 border border-yellow-200/60 px-3 py-1.5 text-xs font-bold text-yellow-700 hover:bg-yellow-100 transition-colors cursor-pointer"
-                        >
-                          Record Pay
-                        </button>
-                      )}
-
-                      {entry.deposit_amount && entry.deposit_amount > 0 && entry.deposit_status === "paid" && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (!confirm("Are you sure you want to refund this deposit?")) return;
-                            const send = (pin?: string) =>
-                              api(`/api/admin/reservations/${entry.id}/refund-deposit`, {
-                                method: "POST",
-                                headers: pin ? { "X-Manager-Pin": pin } : {},
-                              });
-                            try {
-                              try {
-                                await send();
-                              } catch (err) {
-                                // Staff other than owners/managers need a manager PIN.
-                                if (!((err as Error)?.message || "").includes("MANAGER_PIN_REQUIRED")) throw err;
-                                const pin = await requestManagerPin();
-                                if (!pin) {
-                                  toast.error("Manager PIN is required to refund a deposit");
-                                  return;
-                                }
-                                await send(pin);
-                              }
-                              toast.success("Deposit refunded successfully");
-                              await loadData();
-                            } catch (err) {
-                              toast.error((err as Error)?.message || "Failed to refund deposit");
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg bg-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-                        >
-                          Refund Dep
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  </div>
-                  </div>
-                );
-              })
-            )}
-            </div>
-          </section>
-
-          {/* ── COLUMN 2: LIVE WAITLIST QUEUE ──────────────────────────────────── */}
-          <section className="flex flex-col h-full overflow-hidden">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-emerald-500" />
+        <main className="flex-1 overflow-hidden px-8 py-6">
+          <div className="grid h-full grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* ── Reservations ── */}
+            <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+              <div className="flex items-baseline justify-between gap-3 border-b border-[#F0F0EB] px-5 py-4">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Live Waitlist Queue</h2>
-                  <p className="text-[11px] text-slate-500">Live guest wait times and best-fit availability.</p>
+                  <h2 className="text-[15px] font-semibold text-[#0F1117]">Upcoming reservations</h2>
+                  <p className="mt-0.5 text-[12px] text-[#6B7280]">Bookings that haven&apos;t arrived yet.</p>
                 </div>
+                <span className="text-[13px] font-medium tabular-nums text-[#6B7280]">{activeReservations.length}</span>
               </div>
-            </div>
-          
-          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-            {isLoading ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">Loading waitlist...</div>
-            ) : activeWaitlist.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 rounded-3xl bg-slate-50/50 border border-slate-100 p-6 text-center transition-all">
-                  <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 border border-slate-100">
-                    <Users className="w-8 h-8 text-slate-300" />
+
+              <div className="custom-scrollbar flex-1 overflow-y-auto">
+                {isLoading ? (
+                  <p className="px-5 py-10 text-center text-[13px] text-[#6B7280]">Loading reservations…</p>
+                ) : activeReservations.length === 0 ? (
+                  <div className="flex flex-col items-center px-6 py-16 text-center">
+                    <CalendarCheck className="h-6 w-6 text-[#C4C4BE]" />
+                    <p className="mt-3 text-[14px] font-semibold text-[#0F1117]">No upcoming reservations</p>
+                    <p className="mt-1 max-w-[240px] text-[13px] leading-relaxed text-[#6B7280]">
+                      Book a table for a guest and it will show up here.
+                    </p>
+                    <button
+                      onClick={() => setShowResModal(true)}
+                      className="mt-5 inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
+                    >
+                      <Plus className="h-4 w-4 text-[#6B7280]" /> Book reservation
+                    </button>
                   </div>
-                  <p className="text-[14px] font-bold text-slate-700">
-                    Waitlist is empty
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1 max-w-[200px] leading-relaxed">
-                    All guests are seated. Add walk-ins to the queue here.
-                  </p>
-                  <button
-                    onClick={() => setShowWaitlistModal(true)}
-                    className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 transition-all shadow-sm cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" /> Add to Waitlist
-                  </button>
-                </div>
-            ) : (
-              activeWaitlist.map((entry) => {
-                const isAutoSession = autoSession[entry.id] !== false;
-                const availableTables = getAvailableTablesForParty(entry.party_size);
-                const isAvailable = availableTables.length > 0;
-                
-                const timer = getWaitTimerInfo(entry.created_at, entry.quoted_minutes);
-                const isExpanded = expandedWaitlistId === entry.id;
+                ) : (
+                  <ul className="divide-y divide-[#F0F0EB]">
+                    {activeReservations.map((entry) => {
+                      let isResAvailable = false;
+                      let resAvailableTables: Table[] = [];
+                      if (entry.status === "booked") {
+                        if (entry.table_id) {
+                          const targetTable = tables.find((t) => t.id === entry.table_id);
+                          if (targetTable) {
+                            const hasSession = sessions.some((s) => s.table_id === targetTable.id);
+                            const otherBlockingRes = reservations.some((res) => {
+                              if (res.id === entry.id || res.status !== "booked" || res.table_id !== targetTable.id) return false;
+                              const resTime = new Date(res.reserved_at);
+                              const thisTime = new Date(entry.reserved_at);
+                              const diffMs = Math.abs(resTime.getTime() - thisTime.getTime());
+                              return diffMs < 120 * 60 * 1000;
+                            });
+                            isResAvailable = targetTable.is_enabled && !hasSession && !otherBlockingRes;
+                            if (isResAvailable) resAvailableTables = [targetTable];
+                          }
+                        } else {
+                          resAvailableTables = getAvailableTablesForParty(entry.party_size);
+                          isResAvailable = resAvailableTables.length > 0;
+                        }
+                      }
 
-                return (
-                  <div key={entry.id} className="group relative rounded-2xl border border-slate-200/60 bg-white p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all">
-                    <div className="flex items-start gap-4">
-                      {/* Left Side: Timer Box */}
-                      <div className={`flex flex-col items-center justify-center min-w-[70px] rounded-xl border p-2 text-center ${timer.colorClass.replace('bg-', 'bg-').replace('text-', 'text-')}`}>
-                        <span className="text-xl font-black leading-none">
-                          {timer.elapsedMins}
-                        </span>
-                        <span className="text-[9px] font-bold uppercase tracking-wider mt-1 opacity-80">
-                          Mins Wait
-                        </span>
-                      </div>
+                      const when = new Date(entry.reserved_at);
+                      const today = new Date();
+                      const tomorrow = new Date();
+                      tomorrow.setDate(today.getDate() + 1);
+                      const dayLabel =
+                        when.toDateString() === today.toDateString()
+                          ? "Today"
+                          : when.toDateString() === tomorrow.toDateString()
+                            ? "Tomorrow"
+                            : when.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                      const deposit = Number(entry.deposit_amount) || 0;
+                      const currency = storeInfo?.currency || "₹";
+                      const depositTone =
+                        entry.deposit_status === "paid"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : entry.deposit_status === "forfeited"
+                            ? "bg-rose-50 text-rose-700"
+                            : entry.deposit_status === "refunded"
+                              ? "bg-[#F3F3EF] text-[#6B7280]"
+                              : "bg-amber-50 text-amber-800";
+                      const depositWord =
+                        entry.deposit_status === "paid"
+                          ? "paid"
+                          : entry.deposit_status === "refunded"
+                            ? "refunded"
+                            : entry.deposit_status === "forfeited"
+                              ? "forfeited"
+                              : "due";
 
-                      {/* Right Side: Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
+                      return (
+                        <li key={entry.id} className="flex gap-4 px-5 py-4">
+                          <div className="w-[68px] shrink-0 pt-0.5">
+                            <p className="text-[15px] font-semibold leading-none tabular-nums text-[#0F1117]">
+                              {when.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
+                            </p>
+                            <p className="mt-1.5 text-[12px] font-medium text-[#6B7280]">{dayLabel}</p>
+                          </div>
+
                           <div className="min-w-0 flex-1">
-                            <h4 className="text-sm font-bold text-slate-900 truncate flex items-center gap-2">
-                              {entry.guest_name}
-                              {entry.priority !== null && entry.priority !== undefined && (
-                                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md border border-slate-200/60">
-                                  #{entry.priority}
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-semibold text-[#0F1117]">{entry.guest_name}</p>
+                                <p className="mt-0.5 text-[13px] text-[#6B7280]">
+                                  {entry.party_size} {entry.party_size === 1 ? "guest" : "guests"},{" "}
+                                  {entry.table_number ? `table ${entry.table_number}` : "any table"}
+                                </p>
+                              </div>
+                              {deposit > 0 && (
+                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums ${depositTone}`}>
+                                  {currency}
+                                  {deposit.toLocaleString("en-IN")} deposit {depositWord}
                                 </span>
                               )}
-                            </h4>
-                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                              <span className="flex items-center gap-1 font-semibold text-slate-600"><Users className="w-3.5 h-3.5 text-slate-400" /> {entry.party_size} guests</span>
-                              <span className="text-slate-300">•</span>
-                              <span className="font-medium text-slate-600">Quoted {entry.quoted_minutes}m</span>
-                            </p>
-                          </div>
-                        </div>
+                            </div>
 
-                    {/* Table availability alert */}
-                    {isAvailable && (
-                      <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 border border-emerald-100 text-xs font-bold text-emerald-700">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span>
-                          Table ready:{" "}
-                          <span className="font-black">
-                            {availableTables.map((t) => `T${t.table_number}`).join(", ")}
-                          </span>
-                        </span>
-                      </div>
-                    )}
+                            {isResAvailable && (
+                              <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                {entry.table_id
+                                  ? `Table ${entry.table_number} is free now`
+                                  : `Free now: ${resAvailableTables.map((t) => `T${t.table_number}`).join(", ")}`}
+                              </p>
+                            )}
 
-                    {/* Primary Actions Row */}
-                    <div className="mt-3.5 flex items-center gap-2 pt-3 border-t border-slate-100/70">
-                      <button
-                        type="button"
-                        onClick={() => seatWaitlistEntry(entry)}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer"
-                      >
-                        <CheckCircle2 className="h-4 w-4" /> Seat Guest
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setExpandedWaitlistId(isExpanded ? null : entry.id)}
-                        className={`inline-flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
-                          isExpanded
-                            ? "bg-slate-900 border-slate-900 text-white"
-                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                        }`}
-                        title="Advanced Seating Options"
-                      >
-                        <Settings className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    {/* Advanced Controls Dropdown Drawer */}
-                    {isExpanded && (
-                      <div className="mt-4 pt-4 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200 flex flex-col gap-4">
-                        {/* Table selector with best-fit badges */}
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pl-1">
-                            Assign Table
-                          </label>
-                          <CustomSelect
-                            value={seatTable[entry.id] || "auto"}
-                            onChange={(val: string) => setSeatTable((p) => ({ ...p, [entry.id]: val }))}
-                            buttonClassName="!bg-slate-50 !border-slate-200 hover:!bg-slate-100 !h-11 !rounded-xl"
-                            options={[
-                              { value: "auto", label: "Auto-assign (best fit)" },
-                              ...tableOptions.map((table) => {
-                                const best = isBestFit(table, entry.party_size);
-                                const cap = table.capacity ?? 4;
-                                const tooSmall = cap < entry.party_size;
-                                const label = `${best ? "★ " : tooSmall ? "✗ " : ""}Table ${table.table_number} (${cap} seats)${table.floor_name ? ` • ${table.floor_name}` : ""}${best ? " — Best fit" : tooSmall ? " — Too small" : ""}`;
-                                return {
-                                  value: table.id,
-                                  label,
-                                  disabled: tooSmall,
-                                };
-                              })
-                            ]}
-                          />
-                        </div>
-
-                        {/* Extra controls */}
-                        <div className="grid grid-cols-2 gap-2.5">
-                          {/* Auto-session toggle */}
-                          <label className="col-span-2 flex cursor-pointer items-center justify-between rounded-xl border border-slate-200/60 bg-white p-2.5 hover:bg-slate-50 transition-colors shadow-sm">
-                            <div className="flex items-center gap-2.5">
-                              <div className={`p-1.5 rounded-md ${isAutoSession ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-500"}`}>
-                                <Zap className="h-3.5 w-3.5" />
+                            {(entry.phone || entry.notes) && (
+                              <div className="mt-2 space-y-1 text-[12px] text-[#6B7280]">
+                                {entry.phone && (
+                                  <p className="flex items-center gap-1.5">
+                                    <Phone className="h-3.5 w-3.5 text-[#9CA3AF]" /> {entry.phone}
+                                  </p>
+                                )}
+                                {entry.notes && (
+                                  <p className="flex items-start gap-1.5">
+                                    <ListPlus className="mt-px h-3.5 w-3.5 shrink-0 text-[#9CA3AF]" /> <span>{entry.notes}</span>
+                                  </p>
+                                )}
                               </div>
-                              <span className="text-xs font-bold text-slate-700">
-                                Auto-start session
-                              </span>
-                            </div>
-                            <div
-                              className={`relative h-5 w-9 rounded-full transition-colors ${
-                                isAutoSession ? "bg-emerald-500" : "bg-slate-300"
-                              }`}
-                              onClick={() => setAutoSession((p) => ({ ...p, [entry.id]: !isAutoSession }))}
-                            >
-                              <span
-                                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                                  isAutoSession ? "translate-x-4" : "translate-x-0.5"
-                                }`}
-                              />
-                            </div>
-                          </label>
+                            )}
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              bumpWaitlistEntry(entry.id);
-                              setExpandedWaitlistId(null);
-                            }}
-                            className="col-span-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
-                          >
-                            <ArrowUpRight className="h-4 w-4" /> Bump
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              removeWaitlistEntry(entry.id);
-                              setExpandedWaitlistId(null);
-                            }}
-                            className="col-span-1 flex items-center justify-center gap-1.5 rounded-xl bg-rose-50 border border-rose-100 px-3 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition-all shadow-sm"
-                          >
-                            <XCircle className="h-4 w-4" /> Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateReservationStatus(entry.id, "seated")}
+                                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-[#0F1117] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-black"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Seat guest
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateReservationStatus(entry.id, "no_show")}
+                                className="inline-flex h-8 cursor-pointer items-center rounded-lg border border-[#E8E8E3] bg-white px-3 text-[12px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                              >
+                                No-show
+                              </button>
+                              {deposit > 0 && entry.deposit_status === "unpaid" && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await api(`/api/admin/reservations/${entry.id}/pay-deposit`, {
+                                        method: "POST",
+                                        body: JSON.stringify({ payment_intent_id: `mock_pi_${Date.now()}` }),
+                                      });
+                                      toast.success("Deposit marked as paid");
+                                      await loadData();
+                                    } catch {
+                                      toast.error("Failed to update deposit");
+                                    }
+                                  }}
+                                  className="inline-flex h-8 cursor-pointer items-center rounded-lg border border-[#E8E8E3] bg-white px-3 text-[12px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                                >
+                                  Record deposit
+                                </button>
+                              )}
+                              {deposit > 0 && entry.deposit_status === "paid" && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!confirm("Are you sure you want to refund this deposit?")) return;
+                                    const send = (pin?: string) =>
+                                      api(`/api/admin/reservations/${entry.id}/refund-deposit`, {
+                                        method: "POST",
+                                        headers: pin ? { "X-Manager-Pin": pin } : {},
+                                      });
+                                    try {
+                                      try {
+                                        await send();
+                                      } catch (err) {
+                                        // Staff other than owners/managers need a manager PIN.
+                                        if (!((err as Error)?.message || "").includes("MANAGER_PIN_REQUIRED")) throw err;
+                                        const pin = await requestManagerPin();
+                                        if (!pin) {
+                                          toast.error("Manager PIN is required to refund a deposit");
+                                          return;
+                                        }
+                                        await send(pin);
+                                      }
+                                      toast.success("Deposit refunded successfully");
+                                      await loadData();
+                                    } catch (err) {
+                                      toast.error((err as Error)?.message || "Failed to refund deposit");
+                                    }
+                                  }}
+                                  className="inline-flex h-8 cursor-pointer items-center rounded-lg border border-[#E8E8E3] bg-white px-3 text-[12px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                                >
+                                  Refund deposit
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleCancelReservation(entry)}
+                                className="ml-auto inline-flex h-8 cursor-pointer items-center rounded-lg px-2.5 text-[12px] font-semibold text-[#6B7280] transition-colors hover:bg-rose-50 hover:text-rose-700"
+                              >
+                                Cancel booking
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </section>
+
+            {/* ── Waitlist ── */}
+            <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+              <div className="flex items-baseline justify-between gap-3 border-b border-[#F0F0EB] px-5 py-4">
+                <div>
+                  <h2 className="text-[15px] font-semibold text-[#0F1117]">Waitlist</h2>
+                  <p className="mt-0.5 text-[12px] text-[#6B7280]">Walk-ins in the order they&apos;ll be seated.</p>
+                </div>
+                <span className="text-[13px] font-medium tabular-nums text-[#6B7280]">{activeWaitlist.length}</span>
+              </div>
+
+              <div className="custom-scrollbar flex-1 overflow-y-auto">
+                {isLoading ? (
+                  <p className="px-5 py-10 text-center text-[13px] text-[#6B7280]">Loading waitlist…</p>
+                ) : activeWaitlist.length === 0 ? (
+                  <div className="flex flex-col items-center px-6 py-16 text-center">
+                    <Users className="h-6 w-6 text-[#C4C4BE]" />
+                    <p className="mt-3 text-[14px] font-semibold text-[#0F1117]">Nobody is waiting</p>
+                    <p className="mt-1 max-w-[240px] text-[13px] leading-relaxed text-[#6B7280]">
+                      Add walk-ins here when every table is taken.
+                    </p>
+                    <button
+                      onClick={() => setShowWaitlistModal(true)}
+                      className="mt-5 inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
+                    >
+                      <Plus className="h-4 w-4 text-[#6B7280]" /> Add walk-in
+                    </button>
                   </div>
-                  </div>
-                );
-              })
-            )}
+                ) : (
+                  <ol className="divide-y divide-[#F0F0EB]">
+                    {activeWaitlist.map((entry, index) => {
+                      const isAutoSession = autoSession[entry.id] !== false;
+                      const availableTables = getAvailableTablesForParty(entry.party_size);
+                      const isAvailable = availableTables.length > 0;
+                      const timer = getWaitTimerInfo(entry.created_at, entry.quoted_minutes);
+                      const isExpanded = expandedWaitlistId === entry.id;
+                      const quoted = Math.max(1, entry.quoted_minutes || 0);
+                      const ratio = Math.min(1, timer.elapsedMins / quoted);
+                      const late = timer.isOverdue;
+                      const warm = !late && timer.elapsedMins >= quoted * 0.5;
+                      const barTone = late ? "bg-rose-500" : warm ? "bg-amber-500" : "bg-emerald-500";
+
+                      return (
+                        <li key={entry.id} className={`px-5 py-4 ${isExpanded ? "bg-[#FAFAF7]" : ""}`}>
+                          <div className="flex gap-4">
+                            <span
+                              className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F3F3EF] text-[12px] font-semibold tabular-nums text-[#4B5563]"
+                              aria-label={`Position ${index + 1}`}
+                            >
+                              {index + 1}
+                            </span>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-[14px] font-semibold text-[#0F1117]">{entry.guest_name}</p>
+                                  <p className="mt-0.5 text-[13px] text-[#6B7280]">
+                                    {entry.party_size} {entry.party_size === 1 ? "guest" : "guests"}
+                                    {entry.phone ? `, ${entry.phone}` : ""}
+                                  </p>
+                                </div>
+                                <div className="w-32 shrink-0 text-right">
+                                  <p className={`text-[15px] font-semibold leading-none tabular-nums ${late ? "text-rose-700" : "text-[#0F1117]"}`}>
+                                    {timer.elapsedMins} min
+                                  </p>
+                                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#F3F3EF]" aria-hidden>
+                                    <div className={`h-full rounded-full ${barTone}`} style={{ width: `${Math.round(ratio * 100)}%` }} />
+                                  </div>
+                                  <p className={`mt-1.5 text-[12px] tabular-nums ${late ? "font-medium text-rose-700" : "text-[#6B7280]"}`}>
+                                    {late ? `Overdue by ${timer.elapsedMins - entry.quoted_minutes} min` : `Quoted ${entry.quoted_minutes} min`}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {isAvailable && (
+                                <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                  Free now: {availableTables.map((t) => `T${t.table_number}`).join(", ")}
+                                </p>
+                              )}
+
+                              <div className="mt-3 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => seatWaitlistEntry(entry)}
+                                  className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-[#0F1117] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-black"
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Seat guest
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedWaitlistId(isExpanded ? null : entry.id)}
+                                  aria-expanded={isExpanded}
+                                  className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[12px] font-semibold transition-colors ${isExpanded
+                                    ? "border-[#D6D6CF] bg-white text-[#0F1117]"
+                                    : "border-[#E8E8E3] bg-white text-[#374151] hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                                    }`}
+                                >
+                                  Options
+                                  <ChevronDown className={`h-3.5 w-3.5 text-[#9CA3AF] transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                </button>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="mt-4 space-y-3 rounded-xl border border-[#E8E8E3] bg-white p-4">
+                                  <div>
+                                    <span className="mb-1.5 block text-[12px] font-medium text-[#6B7280]">Seat at</span>
+                                    <CustomSelect
+                                      value={seatTable[entry.id] || "auto"}
+                                      onChange={(val: string) => setSeatTable((p) => ({ ...p, [entry.id]: val }))}
+                                      options={[
+                                        { value: "auto", label: "Best available table" },
+                                        ...tableOptions.map((table) => {
+                                          const best = isBestFit(table, entry.party_size);
+                                          const cap = table.capacity ?? 4;
+                                          const tooSmall = cap < entry.party_size;
+                                          const label = `Table ${table.table_number}, ${cap} seats${table.floor_name ? `, ${table.floor_name}` : ""}${best ? " (best fit)" : tooSmall ? " (too small)" : ""}`;
+                                          return { value: table.id, label, disabled: tooSmall };
+                                        }),
+                                      ]}
+                                    />
+                                  </div>
+
+                                  <label className="flex cursor-pointer items-center justify-between gap-3 py-1">
+                                    <span>
+                                      <span className="block text-[13px] font-medium text-[#0F1117]">Start a table session</span>
+                                      <span className="block text-[12px] text-[#6B7280]">Opens ordering for the table as soon as they sit.</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={isAutoSession}
+                                      onClick={() => setAutoSession((p) => ({ ...p, [entry.id]: !isAutoSession }))}
+                                      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${isAutoSession ? "bg-emerald-500" : "bg-[#D6D6CF]"}`}
+                                    >
+                                      <span
+                                        className={`absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${isAutoSession ? "translate-x-[18px]" : "translate-x-0.5"}`}
+                                      />
+                                    </button>
+                                  </label>
+
+                                  <div className="flex gap-2 border-t border-[#F0F0EB] pt-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        bumpWaitlistEntry(entry.id);
+                                        setExpandedWaitlistId(null);
+                                      }}
+                                      className="inline-flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#E8E8E3] bg-white text-[12px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                                    >
+                                      <ArrowUpRight className="h-3.5 w-3.5 text-[#9CA3AF]" /> Move to front
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        removeWaitlistEntry(entry.id);
+                                        setExpandedWaitlistId(null);
+                                      }}
+                                      className="inline-flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#E8E8E3] bg-white text-[12px] font-semibold text-rose-700 transition-colors hover:border-rose-200 hover:bg-rose-50"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" /> Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </div>
+            </section>
           </div>
-        </section>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
 
 
       {/* ── MODALS (Forms grouped off screen to save massive space) ──────────────────── */}

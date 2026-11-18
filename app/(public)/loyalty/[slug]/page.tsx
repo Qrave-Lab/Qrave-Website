@@ -6,6 +6,7 @@ import { Gift, Loader2, Mail, LogOut, Store, Star, Share2, Cake } from "lucide-r
 import { getBackendBase } from "@/app/lib/api";
 
 
+import { Select } from "@/app/components/ui/Select";
 async function call<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const res = await fetch(`${getBackendBase()}${path}`, {
     ...init,
@@ -304,7 +305,7 @@ export default function LoyaltyCardPage() {
                 <div>
                   <p className="text-xs opacity-80">
                     {card.name || "Member"}
-                    {card.tier && <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">{card.tier}</span>}
+                    {card.tier && <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">{card.tier}</span>}
                   </p>
                   <p className="text-[11px] opacity-70">Phone ending {card.phone_last4}</p>
                 </div>
@@ -425,22 +426,22 @@ export default function LoyaltyCardPage() {
                 {card.birthday && ` Saved: ${Number(card.birthday.slice(3))} ${MONTHS[Number(card.birthday.slice(0, 2)) - 1]}.`}
               </p>
               <div className="flex gap-2">
-                <select value={bMonth} onChange={(e) => setBMonth(e.target.value)} aria-label="Birthday month" className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                <Select value={bMonth} onChange={(e) => setBMonth(e.target.value)} aria-label="Birthday month" className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
                   <option value="">Month</option>
                   {MONTHS.map((m, i) => (
                     <option key={m} value={String(i + 1).padStart(2, "0")}>
                       {m}
                     </option>
                   ))}
-                </select>
-                <select value={bDay} onChange={(e) => setBDay(e.target.value)} aria-label="Birthday day" className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                </Select>
+                <Select value={bDay} onChange={(e) => setBDay(e.target.value)} aria-label="Birthday day" className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
                   <option value="">Day</option>
                   {Array.from({ length: 31 }).map((_, i) => (
                     <option key={i} value={String(i + 1).padStart(2, "0")}>
                       {i + 1}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <label className="flex items-start gap-2 text-xs text-slate-700">
                 <input

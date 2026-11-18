@@ -339,11 +339,11 @@ export default function KitchenDisplayPage() {
             <ChefHat className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+            <h1 className="font-display text-xl font-normal tracking-[-0.01em] text-white flex items-center gap-2">
               KDS Screen
               <span className="rounded-full bg-[#1A1C29] px-2 py-0.5 text-[10px] font-bold text-orange-500 border border-orange-500/20">LIVE</span>
             </h1>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#7C8194]">
+            <p className="text-xs font-medium text-[#7C8194]">
               {restaurantName} Kitchen Display System
             </p>
           </div>
@@ -352,14 +352,14 @@ export default function KitchenDisplayPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => fetchOrders().catch(() => undefined)}
-            className="flex h-9 items-center gap-2 rounded-lg border border-[#2B2F44] bg-[#161824] px-4 text-xs font-bold uppercase tracking-wider text-[#A0A5B9] transition-all hover:bg-[#1F2235] hover:text-white"
+            className="flex h-9 items-center gap-2 rounded-lg border border-[#2B2F44] bg-[#161824] px-4 text-xs font-semibold text-[#A0A5B9] transition-all hover:bg-[#1F2235] hover:text-white"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin text-orange-500" : ""}`} />
             Refresh
           </button>
           <button
             onClick={signOut}
-            className="flex h-9 items-center gap-2 rounded-lg border border-rose-950/40 bg-[#1F1219] px-4 text-xs font-bold uppercase tracking-wider text-rose-400 transition-all hover:bg-rose-900/20 hover:text-rose-300"
+            className="flex h-9 items-center gap-2 rounded-lg border border-rose-950/40 bg-[#1F1219] px-4 text-xs font-semibold text-rose-400 transition-all hover:bg-rose-900/20 hover:text-rose-300"
           >
             <LogOut className="h-4 w-4" />
             Logout
@@ -377,7 +377,7 @@ export default function KitchenDisplayPage() {
               className="h-10 w-auto object-contain animate-pulse"
             />
             <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-            <p className="text-xs font-bold uppercase tracking-wider text-[#7C8194]">Loading kitchen deck...</p>
+            <p className="text-xs font-medium text-[#7C8194]">Loading kitchen deck...</p>
           </div>
         </div>
       ) : (
@@ -398,11 +398,11 @@ export default function KitchenDisplayPage() {
                     <Play className="h-4.5 w-4.5 text-orange-500" />
                   </div>
                   <div>
-                    <h2 className="text-base font-extrabold text-white">Queue Lane</h2>
-                    <p className="text-[10px] font-bold text-[#7C8194] uppercase tracking-wider">Accepted orders, pending preparation</p>
+                    <h2 className="text-base font-bold text-white">Queue Lane</h2>
+                    <p className="text-xs font-medium text-[#7C8194]">Accepted orders, pending preparation</p>
                   </div>
                 </div>
-                <span className="rounded-full bg-orange-500/10 border border-orange-500/20 px-3 py-1 text-xs font-black text-orange-500">
+                <span className="rounded-full bg-orange-500/10 border border-orange-500/20 px-3 py-1 text-xs font-bold text-orange-500">
                   {queueOrders.length} ORDERS
                 </span>
               </div>
@@ -426,10 +426,10 @@ export default function KitchenDisplayPage() {
                         {/* Card Header */}
                         <div className="flex items-start justify-between border-b border-[#2B2F44]/40 pb-3 mb-3">
                           <div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                            <span className="text-xs font-semibold text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
                               Table T{order.table_number}
                             </span>
-                            <h3 className="mt-2 text-sm font-black text-white">
+                            <h3 className="mt-2 text-sm font-bold text-white">
                               {order.daily_order_number ? (
                                 <>Order <span className="text-orange-500">#{order.daily_order_number}</span></>
                               ) : (
@@ -458,7 +458,7 @@ export default function KitchenDisplayPage() {
                             <div key={`${id}-${idx}`} className="rounded-lg bg-[#090A0F]/60 border border-[#1F222F]/50 px-3 py-2">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black text-[#E4E6EB] leading-tight">
+                                  <p className="text-xs font-bold text-[#E4E6EB] leading-tight">
                                     {item.menu_item_name}
                                     {item.variant_label && (
                                       <span className="text-[10px] text-orange-400 font-medium"> ({item.variant_label})</span>
@@ -475,7 +475,7 @@ export default function KitchenDisplayPage() {
                                     </div>
                                   )}
                                 </div>
-                                <span className="rounded bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 text-[10px] font-black text-orange-400">
+                                <span className="rounded bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 text-[10px] font-bold text-orange-400">
                                   x{item.quantity}
                                 </span>
                               </div>
@@ -488,7 +488,7 @@ export default function KitchenDisplayPage() {
                           <button
                             onClick={() => updateStatus(id, "preparing")}
                             disabled={updatingId === id}
-                            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-orange-500 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-orange-950/20 transition-all hover:bg-orange-600 disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-orange-500 py-2.5 text-xs font-semibold text-white shadow-md shadow-orange-950/20 transition-all hover:bg-orange-600 disabled:opacity-50"
                           >
                             <Flame className="h-3.5 w-3.5" />
                             {updatingId === id ? "Starting..." : "Accept & Fire"}
@@ -509,11 +509,11 @@ export default function KitchenDisplayPage() {
                     <Flame className="h-4.5 w-4.5 text-rose-500 animate-pulse" />
                   </div>
                   <div>
-                    <h2 className="text-base font-extrabold text-white">On Grill Lane</h2>
-                    <p className="text-[10px] font-bold text-[#7C8194] uppercase tracking-wider">Orders active, currently on the grill</p>
+                    <h2 className="text-base font-bold text-white">On Grill Lane</h2>
+                    <p className="text-xs font-medium text-[#7C8194]">Orders active, currently on the grill</p>
                   </div>
                 </div>
-                <span className="rounded-full bg-rose-500/10 border border-rose-500/20 px-3 py-1 text-xs font-black text-rose-500">
+                <span className="rounded-full bg-rose-500/10 border border-rose-500/20 px-3 py-1 text-xs font-bold text-rose-500">
                   {grillOrders.length} ORDERS
                 </span>
               </div>
@@ -537,10 +537,10 @@ export default function KitchenDisplayPage() {
                         {/* Card Header */}
                         <div className="flex items-start justify-between border-b border-[#2B2F44]/40 pb-3 mb-3">
                           <div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                            <span className="text-xs font-semibold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
                               Table T{order.table_number}
                             </span>
-                            <h3 className="mt-2 text-sm font-black text-white">
+                            <h3 className="mt-2 text-sm font-bold text-white">
                               {order.daily_order_number ? (
                                 <>Order <span className="text-rose-500">#{order.daily_order_number}</span></>
                               ) : (
@@ -569,7 +569,7 @@ export default function KitchenDisplayPage() {
                             <div key={`${id}-${idx}`} className="rounded-lg bg-[#090A0F]/60 border border-[#1F222F]/50 px-3 py-2">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-xs font-black text-[#E4E6EB] leading-tight">
+                                  <p className="text-xs font-bold text-[#E4E6EB] leading-tight">
                                     {item.menu_item_name}
                                     {item.variant_label && (
                                       <span className="text-[10px] text-rose-400 font-medium"> ({item.variant_label})</span>
@@ -586,7 +586,7 @@ export default function KitchenDisplayPage() {
                                     </div>
                                   )}
                                 </div>
-                                <span className="rounded bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 text-[10px] font-black text-rose-400">
+                                <span className="rounded bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-400">
                                   x{item.quantity}
                                 </span>
                               </div>
@@ -599,7 +599,7 @@ export default function KitchenDisplayPage() {
                           <button
                             onClick={() => updateStatus(id, "served")}
                             disabled={updatingId === id}
-                            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-rose-600 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-rose-950/20 transition-all hover:bg-rose-700 disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-rose-600 py-2.5 text-xs font-semibold text-white shadow-md shadow-rose-950/20 transition-all hover:bg-rose-700 disabled:opacity-50"
                           >
                             <ChevronRight className="h-4 w-4 animate-bounce" />
                             {updatingId === id ? "Bumping..." : "Bump to Served"}

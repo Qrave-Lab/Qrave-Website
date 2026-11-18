@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { Select } from "@/app/components/ui/Select";
 export interface CustomDateTimePickerProps {
   value: string; // Format: "YYYY-MM-DDTHH:mm" or ""
   onChange: (value: string) => void;
@@ -323,7 +324,7 @@ export function CustomDateTimePicker({
                   {formattedDisplay.date}
                 </span>
                 <span className="text-slate-300 text-xs">•</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-50 text-[#fe5c13] text-[11px] font-black tracking-wide">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-50 text-[#fe5c13] text-[11px] font-bold tracking-wide">
                   <Clock className="w-3 h-3" />
                   {formattedDisplay.time}
                 </span>
@@ -370,7 +371,7 @@ export function CustomDateTimePicker({
               {/* Month / Year Navigation */}
               <div className="flex items-center justify-between pb-1.5 px-0.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-black text-slate-900 tracking-tight">
+                  <span className="text-xs font-bold text-slate-900 tracking-tight">
                     {MONTH_NAMES[viewMonth]} {viewYear}
                   </span>
                   {(viewMonth !== now.getMonth() ||
@@ -412,7 +413,7 @@ export function CustomDateTimePicker({
                 {WEEKDAYS.map((w, idx) => (
                   <div
                     key={idx}
-                    className="text-[9px] font-black uppercase text-slate-400 py-0.5"
+                    className="text-[11px] font-medium text-slate-500 py-0.5"
                   >
                     {w}
                   </div>
@@ -431,7 +432,7 @@ export function CustomDateTimePicker({
                       }
                       className={`h-7 w-7 rounded-lg text-[11px] font-semibold flex items-center justify-center transition-all relative mx-auto cursor-pointer ${
                         item.isSelected
-                          ? "bg-[#fe5c13] text-gray-900 font-black shadow-xs scale-105 z-10"
+                          ? "bg-[#fe5c13] text-gray-900 font-bold shadow-xs scale-105 z-10"
                           : item.isCurrentMonth
                           ? "text-slate-700 hover:bg-orange-50 hover:text-[#fe5c13]"
                           : "text-slate-300 hover:bg-slate-50 hover:text-slate-500"
@@ -457,8 +458,8 @@ export function CustomDateTimePicker({
               <div>
                 <div className="flex items-center gap-1 mb-1.5">
                   <Sparkles className="w-3 h-3 text-[#fe5c13]" />
-                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Quick Presets
+                  <span className="text-[11px] font-medium text-slate-500">
+                    Quick presets
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-1 mb-3">
@@ -496,7 +497,7 @@ export function CustomDateTimePicker({
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3 text-slate-400" />
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <span className="text-[11px] font-medium text-slate-500">
                       Time
                     </span>
                   </div>
@@ -508,7 +509,7 @@ export function CustomDateTimePicker({
                       onClick={() =>
                         handleTimeChange(currentHour12, currentMinute, "AM")
                       }
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-black transition-all cursor-pointer ${
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
                         currentPeriod === "AM"
                           ? "bg-white text-slate-900 shadow-2xs"
                           : "text-slate-400 hover:text-slate-600"
@@ -521,7 +522,7 @@ export function CustomDateTimePicker({
                       onClick={() =>
                         handleTimeChange(currentHour12, currentMinute, "PM")
                       }
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-black transition-all cursor-pointer ${
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
                         currentPeriod === "PM"
                           ? "bg-white text-slate-900 shadow-2xs"
                           : "text-slate-400 hover:text-slate-600"
@@ -535,7 +536,7 @@ export function CustomDateTimePicker({
                 {/* Hour : Minute Selectors */}
                 <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-100 mb-2">
                   <div className="flex-1">
-                    <select
+                    <Select
                       value={currentHour12}
                       onChange={(e) =>
                         handleTimeChange(
@@ -544,20 +545,20 @@ export function CustomDateTimePicker({
                           currentPeriod
                         )
                       }
-                      className="w-full text-center py-1 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-800 focus:outline-none focus:border-[#fe5c13] cursor-pointer"
+                      className="w-full text-center py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-[#fe5c13] cursor-pointer"
                     >
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
                         <option key={h} value={h}>
                           {String(h).padStart(2, "0")}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
-                  <span className="text-slate-400 font-black text-xs">:</span>
+                  <span className="text-slate-400 font-bold text-xs">:</span>
 
                   <div className="flex-1">
-                    <select
+                    <Select
                       value={Math.floor(currentMinute / 5) * 5}
                       onChange={(e) =>
                         handleTimeChange(
@@ -566,14 +567,14 @@ export function CustomDateTimePicker({
                           currentPeriod
                         )
                       }
-                      className="w-full text-center py-1 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-800 focus:outline-none focus:border-[#fe5c13] cursor-pointer"
+                      className="w-full text-center py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-[#fe5c13] cursor-pointer"
                     >
                       {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
                         <option key={m} value={m}>
                           {String(m).padStart(2, "0")}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
@@ -616,7 +617,7 @@ export function CustomDateTimePicker({
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="px-3 py-1 rounded-lg text-xs font-black bg-[#fe5c13] text-gray-900 hover:brightness-95 transition-all shadow-2xs flex items-center gap-1 ml-auto cursor-pointer"
+                  className="px-3 py-1 rounded-lg text-xs font-bold bg-[#fe5c13] text-gray-900 hover:brightness-95 transition-all shadow-2xs flex items-center gap-1 ml-auto cursor-pointer"
                 >
                   <Check className="w-3 h-3" /> Done
                 </button>

@@ -5,19 +5,11 @@ import { api } from "@/app/lib/api";
 import { getRootDomain, slugifyRestaurantName } from "@/app/lib/tenant";
 import {
   Check,
-  ChevronDown,
   Download,
-  Triangle,
-  ChevronRight,
-  Grid,
   Image as ImageIcon,
-  Layers,
-  Layout,
   Printer,
   RefreshCw,
   Smartphone,
-  Trash2,
-  Type,
   Upload,
   Wifi,
 } from "lucide-react";
@@ -25,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
+import ConfirmModal from "@/app/components/ui/ConfirmModal";
 
 type Table = {
   id: string;
@@ -151,6 +144,16 @@ const brandColors = [
   "#1E3A8A",
 ];
 
+const Section = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
+  <section className="border-b border-[#F0F0EB] px-5 py-5 last:border-b-0">
+    <div className="mb-3.5">
+      <h2 className="text-[14px] font-semibold text-[#0F1117]">{title}</h2>
+      {hint && <p className="mt-0.5 text-[12px] text-[#6B7280]">{hint}</p>}
+    </div>
+    <div className="space-y-4">{children}</div>
+  </section>
+);
+
 export default function QrFlyerGenerator() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -206,6 +209,7 @@ export default function QrFlyerGenerator() {
   const [wifiPass, setWifiPass] = useState("");
 
   const [rotating, setRotating] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
 
   const handleRotateToken = async () => {
     if (!selectedTable) return;
@@ -225,9 +229,10 @@ export default function QrFlyerGenerator() {
           t.id === selectedTable.id ? { ...t, qr_token: updatedToken } : t,
         ),
       );
+      toast.success("New QR code ready. Print it to replace the old card.");
     } catch (e) {
       console.error("Failed to regenerate QR token", e);
-      alert("Failed to regenerate QR token");
+      toast.error("Couldn't make a new QR code. Try again.");
     } finally {
       setRotating(false);
     }
@@ -387,9 +392,12 @@ export default function QrFlyerGenerator() {
 
   if (!selectedTable) {
     return (
-      <div className="flex h-screen items-center justify-center text-gray-500 font-semibold bg-slate-50">
-        Loading tables…
-      </div>
+      <SettingsPageLayout title="Table QR codes" description="Design and print the QR cards guests scan at their table" maxWidth="max-w-[1400px]">
+        <div className="grid animate-pulse grid-cols-1 gap-6 lg:grid-cols-[400px_minmax(0,1fr)]">
+          <div className="h-[640px] rounded-2xl border border-[#E8E8E3] bg-white" />
+          <div className="h-[760px] rounded-2xl border border-[#E8E8E3] bg-white" />
+        </div>
+      </SettingsPageLayout>
     );
   }
 
@@ -429,7 +437,7 @@ export default function QrFlyerGenerator() {
             <img src={logoSrc} className="h-full object-contain" alt="Logo" />
           ) : (
             <h1
-              className={`${isHalf ? "text-base" : "text-2xl"} font-black tracking-widest uppercase`}
+              className={`${isHalf ? "text-base" : "text-2xl"} font-bold tracking-widest uppercase`}
               style={{ color: template === "gold" ? "#D4AF37" : "inherit" }}
             >
               {restaurantName}
@@ -469,7 +477,7 @@ export default function QrFlyerGenerator() {
         <div className={`max-w-[90%] space-y-1.5 ${isHalf ? "mb-1" : "mb-4"}`}>
           {table.id !== "waitlist" && showArBadge && (
             <div
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${isHalf ? "text-[7px]" : "text-[9px] mb-1.5"} ${
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${isHalf ? "text-[7px]" : "text-[9px] mb-1.5"} ${
                 isDark
                   ? "bg-[#fe5c13]/15 text-[#fe5c13] border border-[#fe5c13]/20"
                   : "bg-[#fe5c13]/10 text-amber-800 border border-[#fe5c13]/20"
@@ -481,7 +489,7 @@ export default function QrFlyerGenerator() {
           
           {table.id === "waitlist" && showArBadge && (
             <div
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${isHalf ? "text-[7px]" : "text-[9px] mb-1.5"} ${
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${isHalf ? "text-[7px]" : "text-[9px] mb-1.5"} ${
                 isDark
                   ? "bg-blue-500/15 text-blue-400 border border-blue-500/20"
                   : "bg-blue-500/10 text-blue-800 border border-blue-500/20"
@@ -492,7 +500,7 @@ export default function QrFlyerGenerator() {
           )}
 
           <h2
-            className={`${isHalf ? "text-sm" : "text-xl"} font-black leading-tight`}
+            className={`${isHalf ? "text-sm" : "text-xl"} font-bold leading-tight`}
             style={{ color: isDark ? "#ffffff" : "#000000" }}
           >
             {table.id === "waitlist" && headline === "Scan to Order" ? "Join the Waitlist" : headline}
@@ -512,7 +520,7 @@ export default function QrFlyerGenerator() {
                   className={`flex items-center gap-1 rounded-full border border-current/20 font-bold ${isHalf ? "px-1.5 py-0.5 text-[6px]" : "px-2.5 py-1 text-[9px]"}`}
                 >
                   <span
-                    className="flex items-center justify-center rounded-full text-white font-black"
+                    className="flex items-center justify-center rounded-full text-white font-bold"
                     style={{
                       backgroundColor: brandColor,
                       width: isHalf ? 8 : 14,
@@ -553,11 +561,11 @@ export default function QrFlyerGenerator() {
           {table.id === "waitlist" ? null : (
             <>
               <div className="text-left">
-                <div className="text-[8px] uppercase tracking-widest opacity-60">
+                <div className="text-[11px] opacity-60">
                   Table
                 </div>
                 <div
-                  className={`${isHalf ? "text-lg" : "text-3xl"} font-black leading-none mt-0.5`}
+                  className={`${isHalf ? "text-lg" : "text-3xl"} font-bold leading-none mt-0.5`}
                 >
                   {getTableLabel(table)}
                 </div>
@@ -565,11 +573,11 @@ export default function QrFlyerGenerator() {
               <div className="text-right">
                 {table.floor_name && (
                   <>
-                    <div className="text-[8px] uppercase tracking-widest opacity-60">
+                    <div className="text-[11px] opacity-60">
                       Floor
                     </div>
                     <div
-                      className={`${isHalf ? "text-[10px]" : "text-xs"} font-black leading-none mt-1`}
+                      className={`${isHalf ? "text-[10px]" : "text-xs"} font-bold leading-none mt-1`}
                     >
                       {table.floor_name}
                     </div>
@@ -584,7 +592,7 @@ export default function QrFlyerGenerator() {
         {/* Custom Promo Banner */}
         {promoText && (
           <div className="absolute top-0 inset-x-0 overflow-hidden">
-            <div className="bg-emerald-500 text-white text-[7px] font-black uppercase tracking-widest text-center py-0.5 shadow-sm">
+            <div className="bg-emerald-500 text-white text-[7px] font-bold uppercase tracking-widest text-center py-0.5 shadow-sm">
               {promoText}
             </div>
           </div>
@@ -605,7 +613,7 @@ export default function QrFlyerGenerator() {
         {/* Fold Line Guide */}
         <div className="relative w-full flex items-center justify-center my-1.5 select-none">
           <div className="absolute inset-x-0 h-px border-t border-dashed border-slate-300" />
-          <span className="relative px-3 py-0.5 rounded-full bg-slate-100 text-[7px] font-extrabold text-slate-400 uppercase tracking-widest border border-slate-200">
+          <span className="relative px-3 py-0.5 rounded-full bg-slate-100 text-[7px] font-bold text-slate-400 uppercase tracking-widest border border-slate-200">
             Fold Line
           </span>
         </div>
@@ -759,7 +767,7 @@ export default function QrFlyerGenerator() {
 
     return (
       <div className="relative h-full w-full bg-white" style={{ color: "#111827" }}>
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-[10mm] pt-[5mm] text-[9px] font-bold uppercase tracking-widest text-slate-400">
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-[10mm] pt-[5mm] text-[11px] font-medium text-slate-500">
           <span>{restaurantName} · {tableLabel} · {n}-sided pyramid stand</span>
           {showGuides && <span>Cut outer edge · fold dashed lines · glue the grey tab inside</span>}
         </div>
@@ -827,40 +835,54 @@ export default function QrFlyerGenerator() {
     );
   };
 
+  const OPT_ON = "border-[#fe5c13] bg-[#FFF4EC] text-[#0F1117]";
+  const OPT_OFF = "border-[#E8E8E3] bg-white text-[#4B5563] hover:border-[#D6D6CF] hover:text-[#0F1117]";
+  const SEG_ON = "whitespace-nowrap bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]";
+  const SEG_OFF = "whitespace-nowrap font-medium text-[#6B7280] hover:text-[#0F1117]";
+  const INPUT =
+    "h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[14px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]";
+  const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4B5563]";
+  const CHECK_ROW = "flex cursor-pointer items-center gap-2.5 text-[13px] text-[#374151]";
+  const isWaitlist = selectedTable.id === "waitlist";
+  const formatName = tentStyle === "pyramid" ? "Pyramid stand, A4 landscape" : tentStyle === "standing" ? "Folding tent, A5" : "Flat card, A5";
+  const PREVIEW_SCALE = 0.82;
+
+  const pickTable = (t: Table, floor: string) => {
+    setSelectedTable(t);
+    if (t.id === "waitlist") {
+      setHeadline("Scan to Join Waitlist");
+      setSubheadline("Secure your spot in line directly from your phone.");
+    } else {
+      setHeadline("Scan to Order");
+      setSubheadline("View menu, order & pay from your phone.");
+    }
+    setActiveFloor(floor);
+  };
+
   return (
     <SettingsPageLayout
-      title="Table Tent Card & Flyer Builder"
-      description="Design, customize, and print high-fidelity tabletop QR flyers or folding standing tent cards."
-      maxWidth="max-w-full"
+      title="Table QR codes"
+      description="Design and print the QR cards guests scan at their table"
+      maxWidth="max-w-[1400px]"
       action={
-        <div className="flex gap-2">
-          {selectedTable && (
-            <button
-              onClick={handleRotateToken}
-              disabled={rotating}
-              className="no-print flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${rotating ? "animate-spin" : ""}`}
-              />
-              Regenerate QR Token
-            </button>
-          )}
+        <>
           <button
             onClick={() => void handleDownload()}
             disabled={downloading}
-            className="no-print flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+            className="no-print inline-flex h-10 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117] disabled:opacity-50"
           >
-            <Download className="w-4 h-4" />
-            {downloading ? "Preparing…" : "Download PNG"}
+            <Download className="h-4 w-4 text-[#6B7280]" />
+            {downloading ? "Preparing" : "Download PNG"}
           </button>
           <button
             onClick={handlePrint}
-            className="no-print flex items-center gap-2 bg-[#fe5c13] hover:bg-[#fe5c13]/95 text-gray-900 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-[#fe5c13]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            disabled={printMode === "bulk" && selectedTableIds.size === 0}
+            className="no-print inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
           >
-            <Printer className="w-4 h-4" /> Print Setup
+            <Printer className="h-4 w-4" />
+            {printMode === "bulk" ? `Print ${selectedTableIds.size} ${selectedTableIds.size === 1 ? "card" : "cards"}` : "Print"}
           </button>
-        </div>
+        </>
       }
     >
       {/* Print styles: targets A5 portrait or bulk page sequences */}
@@ -923,714 +945,414 @@ export default function QrFlyerGenerator() {
       </div>
 
       {/* Two-panel layout */}
-      <div className="no-print flex gap-6 min-h-[720px]">
-        {/* LEFT: Controls Accordion */}
-        <div className="w-96 shrink-0 bg-white border border-slate-200 rounded-3xl flex flex-col overflow-hidden shadow-sm">
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {/* 1. Print Mode & Layout Options */}
-            <div className="border-b border-gray-100">
-              <button
-                onClick={() => toggleSection("layout")}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 font-semibold text-sm text-gray-700">
-                  <div className="w-6 h-6 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <Grid className="w-3.5 h-3.5" />
-                  </div>
-                  Format & Layout Mode
-                </div>
-                {activeSection === "layout" ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                )}
-              </button>
-              {activeSection === "layout" && (
-                <div className="px-6 pb-6 space-y-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                      Print Mode
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setPrintMode("single")}
-                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                          printMode === "single"
-                            ? "bg-slate-900 border-slate-900 text-white"
-                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        Single Table
-                      </button>
-                      <button
-                        onClick={() => setPrintMode("bulk")}
-                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                          printMode === "bulk"
-                            ? "bg-slate-900 border-slate-900 text-white"
-                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        Bulk Print All
-                      </button>
-                    </div>
-                  </div>
+      <div className="no-print grid grid-cols-1 items-start gap-6 lg:grid-cols-[400px_minmax(0,1fr)]">
+        {/* Controls */}
+        <div className="overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+          <Section title="Format" hint="How the card stands on the table.">
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Format">
+              {(
+                [
+                  ["flat", "Flat card", "A5"],
+                  ["standing", "Folding tent", "A5, folded"],
+                  ["pyramid", "Pyramid", "A4 cut-out"],
+                ] as const
+              ).map(([id, name, sub]) => (
+                <button
+                  key={id}
+                  role="radio"
+                  aria-checked={tentStyle === id}
+                  onClick={() => setTentStyle(id)}
+                  className={`flex flex-col items-start rounded-xl border px-3 py-2.5 text-left transition-colors ${tentStyle === id ? OPT_ON : OPT_OFF}`}
+                >
+                  <span className="text-[13px] font-semibold">{name}</span>
+                  <span className="text-[12px] text-[#6B7280]">{sub}</span>
+                </button>
+              ))}
+            </div>
 
+            {tentStyle === "pyramid" && (
+              <div className="space-y-4 rounded-xl border border-[#F0F0EB] bg-[#FAFAF7] p-4">
+                <div>
+                  <p className={LABEL}>Faces</p>
+                  <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1">
+                    {([3, 4] as const).map((n) => (
+                      <button key={n} onClick={() => setPyramidSides(n)} className={`flex h-7 items-center rounded-lg px-3 text-[12px] transition-colors ${pyramidSides === n ? SEG_ON : SEG_OFF}`}>
+                        {n === 3 ? "3, triangle" : "4, square"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                      Tent Folding Style
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(
-                        [
-                          ["flat", "Flat Poster", "A5"],
-                          ["standing", "Folding Tent", "A5 fold"],
-                          ["pyramid", "Pyramid Stand", "A4 net"],
-                        ] as const
-                      ).map(([id, name, sub]) => (
-                        <button
-                          key={id}
-                          onClick={() => setTentStyle(id)}
-                          className={`flex flex-col items-center gap-0.5 py-2.5 rounded-xl text-[11px] font-bold border transition-all ${
-                            tentStyle === id
-                              ? "bg-slate-900 border-slate-900 text-white"
-                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                          }`}
-                        >
-                          {id === "pyramid" && <Triangle className="w-3.5 h-3.5" />}
+                    <p className={LABEL}>Size</p>
+                    <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1">
+                      {([[70, "7 cm"], [90, "9 cm"], [110, "11 cm"]] as const).map(([mm, name]) => (
+                        <button key={mm} onClick={() => setPyramidBase(mm)} className={`flex h-7 items-center rounded-lg px-2.5 text-[12px] tabular-nums transition-colors ${pyramidBase === mm ? SEG_ON : SEG_OFF}`}>
                           {name}
-                          <span className="text-[9px] font-medium opacity-60">{sub}</span>
                         </button>
                       ))}
                     </div>
-
-                    {tentStyle === "pyramid" && (
-                      <div className="mt-4 space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                            Faces
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {([3, 4] as const).map((n) => (
-                              <button
-                                key={n}
-                                onClick={() => setPyramidSides(n)}
-                                className={`py-2 rounded-xl text-xs font-bold border transition-all ${pyramidSides === n ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-                              >
-                                {n === 3 ? "3 faces (triangle)" : "4 faces (square)"}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                            Size (face base)
-                          </label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {[
-                              [70, "Mini 7cm"],
-                              [90, "Standard 9cm"],
-                              [110, "Large 11cm"],
-                            ].map(([mm, name]) => (
-                              <button
-                                key={mm}
-                                onClick={() => setPyramidBase(mm as number)}
-                                className={`py-2 rounded-xl text-[11px] font-bold border transition-all ${pyramidBase === mm ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-                              >
-                                {name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                            Shape
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {[
-                              [false, "Classic"],
-                              [true, "Tall & slim"],
-                            ].map(([tall, name]) => (
-                              <button
-                                key={String(name)}
-                                onClick={() => setPyramidTall(tall as boolean)}
-                                className={`py-2 rounded-xl text-xs font-bold border transition-all ${pyramidTall === tall ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-                              >
-                                {name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                            Face content
-                          </label>
-                          <div className="grid grid-cols-1 gap-2">
-                            {[
-                              ["all", "QR on every face"],
-                              ["alternate", "QR + brand faces (alternating)"],
-                              ["one", "One QR face, rest branded"],
-                            ].map(([id, name]) => (
-                              <button
-                                key={id}
-                                onClick={() => setPyramidMode(id as "all" | "alternate" | "one")}
-                                className={`py-2 rounded-xl text-xs font-bold border transition-all ${pyramidMode === id ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-                              >
-                                {name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={showGuides}
-                            onChange={(e) => setShowGuides(e.target.checked)}
-                            className="w-4 h-4 accent-slate-950 rounded"
-                          />
-                          <span className="text-xs font-bold text-slate-600">
-                            Show cut, fold &amp; glue-tab guides
-                          </span>
-                        </label>
-                        <p className="text-[11px] leading-relaxed text-slate-400">
-                          Prints on A4 landscape. Use 200gsm+ card, cut around the outer edge, fold on the dashed lines and glue the grey tab inside.
-                        </p>
-                      </div>
-                    )}
                   </div>
-
-                  <div className="pt-3 border-t border-slate-100 space-y-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showArBadge}
-                        onChange={(e) => setShowArBadge(e.target.checked)}
-                        className="w-4 h-4 accent-slate-950 rounded border-slate-350"
-                      />
-                      <span className="text-xs font-bold text-slate-600">
-                        {selectedTable.id === "waitlist"
-                          ? 'Include "Skip the Line" badge'
-                          : 'Include "3D AR Enabled" badge'}
-                      </span>
-                    </label>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">
-                        Promo Ribbon Text (Optional)
-                      </label>
-                      <input
-                        value={promoText}
-                        onChange={(e) => setPromoText(e.target.value)}
-                        placeholder="e.g. 10% OFF ON UPI PAYMENTS"
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-slate-900 outline-none"
-                      />
+                  <div>
+                    <p className={LABEL}>Shape</p>
+                    <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1">
+                      {([[false, "Classic"], [true, "Tall"]] as const).map(([tall, name]) => (
+                        <button key={name} onClick={() => setPyramidTall(tall)} className={`flex h-7 items-center rounded-lg px-3 text-[12px] transition-colors ${pyramidTall === tall ? SEG_ON : SEG_OFF}`}>
+                          {name}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
-              )}
+                <div>
+                  <p className={LABEL}>What goes on each face</p>
+                  <div className="space-y-1.5" role="radiogroup" aria-label="Face content">
+                    {(
+                      [
+                        ["all", "QR code on every face"],
+                        ["alternate", "QR and brand faces, alternating"],
+                        ["one", "One QR face, the rest branded"],
+                      ] as const
+                    ).map(([id, name]) => (
+                      <button
+                        key={id}
+                        role="radio"
+                        aria-checked={pyramidMode === id}
+                        onClick={() => setPyramidMode(id)}
+                        className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-[13px] transition-colors ${pyramidMode === id ? OPT_ON : OPT_OFF}`}
+                      >
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${pyramidMode === id ? "border-[#fe5c13]" : "border-[#C4C4BE]"}`}>
+                          {pyramidMode === id && <span className="h-2 w-2 rounded-full bg-[#fe5c13]" />}
+                        </span>
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className={CHECK_ROW}>
+                  <input type="checkbox" checked={showGuides} onChange={(e) => setShowGuides(e.target.checked)} className="h-4 w-4 rounded" />
+                  Show cut, fold and glue guides
+                </label>
+                <p className="text-[12px] leading-relaxed text-[#6B7280]">
+                  Print on 200 gsm card or thicker. Cut around the outer edge, fold on the dashed lines and glue the grey tab inside.
+                </p>
+              </div>
+            )}
+          </Section>
+
+          <Section
+            title={printMode === "single" ? "Table" : "Tables to print"}
+            hint={printMode === "single" ? "Each table has its own QR code." : `${selectedTableIds.size} of ${tables.length} selected. Each prints on its own page.`}
+          >
+            <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="radiogroup" aria-label="Print mode">
+              {(
+                [
+                  ["single", "One table"],
+                  ["bulk", "Several tables"],
+                ] as const
+              ).map(([id, name]) => (
+                <button key={id} role="radio" aria-checked={printMode === id} onClick={() => setPrintMode(id)} className={`flex h-7 items-center rounded-lg px-3 text-[12px] transition-colors ${printMode === id ? SEG_ON : SEG_OFF}`}>
+                  {name}
+                </button>
+              ))}
             </div>
 
-            {/* 2. Target Tables selection */}
-            <div className="border-b border-gray-100">
-              <button
-                onClick={() => toggleSection("target")}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 font-semibold text-sm text-gray-700">
-                  <div className="w-6 h-6 rounded bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <Check className="w-3 h-3" />
+            {printMode === "single" ? (
+              <>
+                {floorGroups.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {floorGroups.map(({ floor, tables: ft }) => (
+                      <button
+                        key={floor}
+                        onClick={() => {
+                          setActiveFloor(floor);
+                          if (ft[0]) pickTable(ft[0], floor);
+                        }}
+                        className={`h-7 rounded-lg border px-2.5 text-[12px] font-medium transition-colors ${activeFloor === floor ? OPT_ON : OPT_OFF}`}
+                      >
+                        {floor}
+                      </button>
+                    ))}
                   </div>
-                  {printMode === "single"
-                    ? "Target Table"
-                    : "Select Tables for Bulk Print"}
-                </div>
-                {activeSection === "target" ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
                 )}
-              </button>
-              {activeSection === "target" && (
-                <div className="px-6 pb-6">
-                  {printMode === "single" ? (
-                    <>
-                      <p className="text-xs text-gray-500 mb-3">
-                        Select which table flyer is being designed.
-                      </p>
-                      {/* Floor tabs */}
-                      {floorGroups.length > 1 && (
-                        <div className="flex flex-wrap gap-1.5 mb-4">
-                          {floorGroups.map(({ floor }) => (
-                            <button
-                              key={floor}
-                              onClick={() => {
-                                setActiveFloor(floor);
-                                const first = floorGroups.find(
-                                  (g) => g.floor === floor,
-                                )?.tables[0];
-                                if (first) setSelectedTable(first);
-                              }}
-                              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                                activeFloor === floor
-                                  ? "bg-slate-900 text-white border-slate-900"
-                                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                              }`}
-                            >
-                              <Layers className="w-3 h-3" />
-                              {floor}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Tables grid for active floor */}
-                      {floorGroups
-                        .filter(
-                          ({ floor }) =>
-                            floorGroups.length === 1 || floor === activeFloor,
-                        )
-                        .map(({ floor, tables: floorTables }) => (
-                          <div key={floor}>
-                            {floorGroups.length === 1 && (
-                              <div className="flex items-center gap-1.5 mb-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                <Layers className="w-3 h-3" />
-                                {floor}
-                              </div>
+                {floorGroups
+                  .filter(({ floor }) => floorGroups.length === 1 || floor === activeFloor)
+                  .map(({ floor, tables: floorTables }) => (
+                    <div key={floor} className="grid grid-cols-4 gap-2">
+                      {floorTables.map((t) => {
+                        const on = selectedTable.id === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => pickTable(t, floor)}
+                            aria-pressed={on}
+                            className={`flex h-12 flex-col items-center justify-center rounded-xl border px-1 transition-colors ${on ? OPT_ON : OPT_OFF}`}
+                          >
+                            <span className={`tabular-nums ${t.id === "waitlist" ? "text-[12px] font-semibold" : "text-[14px] font-semibold"}`}>
+                              {t.id === "waitlist" ? "Waitlist" : `T${getTableLabel(t)}`}
+                            </span>
+                            {t.counter_name && <span className="w-full truncate text-center text-[11px] text-[#9CA3AF]">{t.counter_name}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                {!isWaitlist && (
+                  <button
+                    onClick={() => setConfirmRotate(true)}
+                    disabled={rotating}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#6B7280] underline decoration-[#D6D6CF] underline-offset-2 transition-colors hover:text-[#0F1117] disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${rotating ? "animate-spin" : ""}`} />
+                    {rotating ? "Making a new QR code" : `Make a new QR code for table ${getTableLabel(selectedTable)}`}
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <button onClick={selectAllTables} className="h-8 rounded-lg border border-[#E8E8E3] bg-white px-2.5 text-[12px] font-semibold text-[#374151] hover:border-[#D6D6CF]">
+                    Select all
+                  </button>
+                  <button onClick={deselectAllTables} className="h-8 rounded-lg px-2.5 text-[12px] font-medium text-[#6B7280] hover:bg-[#F3F3EF] hover:text-[#0F1117]">
+                    Clear
+                  </button>
+                </div>
+                {floorGroups.map(({ floor, tables: floorTables }) => (
+                  <div key={floor}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[12px] font-medium text-[#6B7280]">{floor}</span>
+                      <button onClick={() => selectFloorTables(floor)} className="text-[12px] font-medium text-[#6B7280] underline decoration-[#D6D6CF] underline-offset-2 hover:text-[#0F1117]">
+                        Select floor
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {floorTables.map((t) => {
+                        const on = selectedTableIds.has(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => toggleTableSelection(t.id)}
+                            aria-pressed={on}
+                            className={`relative flex h-10 items-center justify-center rounded-xl border text-[13px] font-semibold tabular-nums transition-colors ${on ? OPT_ON : OPT_OFF}`}
+                          >
+                            {t.id === "waitlist" ? "Waitlist" : `T${getTableLabel(t)}`}
+                            {on && (
+                              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#fe5c13] text-white">
+                                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                              </span>
                             )}
-                            <div className="grid grid-cols-4 gap-2">
-                              {floorTables.map((t) => (
-                                <button
-                                  key={t.id}
-                                  onClick={() => {
-                                    setSelectedTable(t);
-                        if (t.id === "waitlist") {
-                          setHeadline("Scan to Join Waitlist");
-                          setSubheadline("Secure your spot in line directly from your phone.");
-                        } else {
-                          setHeadline("Scan to Order");
-                          setSubheadline("View menu, order & pay from your phone.");
-                        }
-                                    setActiveFloor(floor);
-                                  }}
-                                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-sm font-bold transition-all ${
-                                    selectedTable.id === t.id
-                                      ? "border-slate-900 bg-slate-900 text-white shadow-md scale-105"
-                                      : "border-slate-200 hover:border-slate-350 text-slate-600 bg-white"
-                                  }`}
-                                >
-                                  <span>{getTableLabel(t)}</span>
-                                  {t.counter_name && (
-                                    <span className="text-[9px] font-normal opacity-70 truncate w-full text-center">
-                                      {t.counter_name}
-                                    </span>
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                    </>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Design">
+            <div>
+              <p className={LABEL}>Style</p>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Style">
+                {templates.map((t) => {
+                  const on = template === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setTemplate(t.id)}
+                      className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${on ? OPT_ON : OPT_OFF}`}
+                    >
+                      <span className="h-6 w-6 shrink-0 rounded-md border border-black/10" style={{ background: FACE_BG[t.id]?.bg || "#fff" }} />
+                      <span className="truncate">{t.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className={LABEL}>Font</p>
+                <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="radiogroup" aria-label="Font">
+                  {fonts.map((f) => (
+                    <button key={f.id} role="radio" aria-checked={activeFont === f.id} title={f.name} onClick={() => setActiveFont(f.id)} className={`flex h-7 items-center rounded-lg px-3 text-[13px] transition-colors ${f.class} ${activeFont === f.id ? SEG_ON : SEG_OFF}`}>
+                      Aa
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className={LABEL}>Accent colour</p>
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Accent colour">
+                  {brandColors.map((c) => (
+                    <button
+                      key={c}
+                      role="radio"
+                      aria-checked={brandColor === c}
+                      aria-label={c}
+                      onClick={() => setBrandColor(c)}
+                      className={`h-6 w-6 rounded-full transition-shadow ${brandColor === c ? "ring-2 ring-[#fe5c13] ring-offset-2" : "ring-1 ring-black/10"}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className={LABEL}>Logo</p>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#E8E8E3] bg-[#FAFAF7]">
+                    {logoImage ? <img src={logoImage} className="h-full w-full object-contain p-0.5" alt="Logo" /> : <Upload className="h-4 w-4 text-[#9CA3AF]" />}
+                  </span>
+                  {logoImage ? (
+                    <button onClick={() => setLogoImage(null)} className="text-[12px] font-medium text-[#6B7280] hover:text-rose-600">Remove</button>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                        <span className="text-xs font-bold text-slate-500">
-                          {selectedTableIds.size} / {tables.length} selected
-                        </span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={selectAllTables}
-                            className="text-[10px] bg-slate-900 text-white px-2.5 py-1 rounded-lg font-bold"
-                          >
-                            Select All
-                          </button>
-                          <button
-                            onClick={deselectAllTables}
-                            className="text-[10px] bg-white text-slate-600 border border-slate-200 px-2.5 py-1 rounded-lg font-bold hover:bg-slate-50"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                      </div>
-
-                      {floorGroups.map(({ floor, tables: floorTables }) => (
-                        <div
-                          key={floor}
-                          className="space-y-2 border-t border-slate-100 pt-3"
-                        >
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-600">
-                              {floor}
-                            </span>
-                            <button
-                              onClick={() => selectFloorTables(floor)}
-                              className="text-[9px] text-[#fe5c13] font-black uppercase tracking-wider hover:underline"
-                            >
-                              Select Floor
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-4 gap-2">
-                            {floorTables.map((t) => (
-                              <button
-                                key={t.id}
-                                onClick={() => toggleTableSelection(t.id)}
-                                className={`flex flex-col items-center justify-center p-2 rounded-lg border text-sm font-bold transition-all ${
-                                  selectedTableIds.has(t.id)
-                                    ? "border-[#fe5c13] bg-[#fe5c13]/10 text-slate-900"
-                                    : "border-slate-200 hover:border-slate-355 text-slate-600 bg-white"
-                                }`}
-                              >
-                                <span>{getTableLabel(t)}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <button onClick={() => logoInputRef.current?.click()} className="h-9 rounded-xl border border-[#E8E8E3] bg-white px-3 text-[12px] font-semibold text-[#374151] hover:border-[#D6D6CF]">Upload</button>
                   )}
+                  <input ref={logoInputRef} type="file" accept="image/*" hidden onChange={(e) => handleImageUpload(e, setLogoImage)} />
                 </div>
-              )}
-            </div>
-
-            {/* 3. Visual Design templates */}
-            <div className="border-b border-gray-100">
-              <button
-                onClick={() => toggleSection("design")}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 font-semibold text-sm text-gray-700">
-                  <div className="w-6 h-6 rounded bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <Layout className="w-3 h-3" />
-                  </div>
-                  Visual Design
-                </div>
-                {activeSection === "design" ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                )}
-              </button>
-              {activeSection === "design" && (
-                <div className="px-6 pb-6 space-y-5">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                      Layout Style
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {templates.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => setTemplate(t.id)}
-                          className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all ${
-                            template === t.id
-                              ? "border-purple-600 bg-purple-50 text-purple-700 scale-[1.02] shadow-sm"
-                              : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          {t.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                      Typography
-                    </label>
-                    <div className="flex rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                      {fonts.map((f) => (
-                        <button
-                          key={f.id}
-                          onClick={() => setActiveFont(f.id)}
-                          className={`flex-1 py-2 text-xs font-bold transition-colors ${f.class} ${
-                            activeFont === f.id
-                              ? "bg-slate-900 text-white"
-                              : "bg-white text-slate-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          Aa
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                      Accent Color
-                    </label>
-                    <div className="flex flex-wrap gap-2.5">
-                      {brandColors.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => setBrandColor(c)}
-                          className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-105 ${
-                            brandColor === c
-                              ? "ring-2 ring-offset-2 ring-slate-400"
-                              : ""
-                          }`}
-                          style={{
-                            backgroundColor: c,
-                            borderColor:
-                              brandColor === c ? "white" : "transparent",
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        Background Image
-                      </label>
-                      {bgImage && (
-                        <button
-                          onClick={() => setBgImage(null)}
-                          className="text-[10px] text-red-500 font-medium hover:underline flex items-center gap-1"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    {!bgImage ? (
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full border-2 border-dashed border-gray-350 rounded-2xl p-5 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors gap-2"
-                      >
-                        <ImageIcon className="w-5 h-5 text-gray-400" />
-                        <span className="text-xs font-semibold">
-                          Click to upload image
-                        </span>
-                      </button>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="relative h-24 w-full rounded-2xl overflow-hidden border border-gray-250">
-                          <img
-                            src={bgImage}
-                            className="w-full h-full object-cover"
-                            alt="bg upload"
-                          />
-                          <div className="absolute inset-0 bg-black/10" />
-                        </div>
-                        <div>
-                          <div className="flex justify-between text-xs mb-1.5">
-                            <span className="text-gray-500 font-medium">
-                              Overlay Strength
-                            </span>
-                            <span className="font-bold">{overlayOpacity}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="90"
-                            value={overlayOpacity}
-                            onChange={(e) =>
-                              setOverlayOpacity(Number(e.target.value))
-                            }
-                            className="w-full accent-slate-900 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) => handleImageUpload(e, setBgImage)}
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        Brand Logo (Center Logo)
-                      </label>
-                      {logoImage && (
-                        <button
-                          onClick={() => setLogoImage(null)}
-                          className="text-[10px] text-red-500 font-medium hover:underline"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {logoImage ? (
-                        <div className="w-12 h-12 border rounded-xl p-1 bg-white flex items-center justify-center">
-                          <img
-                            src={logoImage}
-                            className="w-full h-full object-contain"
-                            alt="logo upload"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 border border-slate-200">
-                          <Upload className="w-4 h-4" />
-                        </div>
-                      )}
-                      <button
-                        onClick={() => logoInputRef.current?.click()}
-                        className="text-xs bg-white border border-gray-300 px-3.5 py-2 rounded-xl font-bold hover:bg-gray-50 transition-colors"
-                      >
-                        Choose File...
-                      </button>
-                      <input
-                        ref={logoInputRef}
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        onChange={(e) => handleImageUpload(e, setLogoImage)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 4. Text & Content headings */}
-            <div className="border-b border-gray-100">
-              <button
-                onClick={() => toggleSection("content")}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 font-semibold text-sm text-gray-700">
-                  <div className="w-6 h-6 rounded bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <Type className="w-3.5 h-3.5" />
-                  </div>
-                  Text & Content
-                </div>
-                {activeSection === "content" ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                )}
-              </button>
-              {activeSection === "content" && (
-                <div className="px-6 pb-6 space-y-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
-                      Main Headline
-                    </label>
-                    <input
-                      value={headline}
-                      onChange={(e) => setHeadline(e.target.value)}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">
-                      Sub-Headline
-                    </label>
-                    <textarea
-                      value={subheadline}
-                      onChange={(e) => setSubheadline(e.target.value)}
-                      rows={2}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none resize-none"
-                    />
-                  </div>
-                  {selectedTable.id === "waitlist" && (
-                    <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                        Waitlist headline ideas
-                      </label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {WAITLIST_HEADLINES.map((h) => (
-                          <button
-                            key={h}
-                            onClick={() => setHeadline(h)}
-                            className={`rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all ${headline === h ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
-                          >
-                            {h}
-                          </button>
-                        ))}
-                      </div>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={showSteps}
-                          onChange={(e) => setShowSteps(e.target.checked)}
-                          className="w-4 h-4 accent-slate-950 rounded"
-                        />
-                        <span className="text-xs font-bold text-slate-600">
-                          Show &ldquo;Scan → Enter details → Get SMS&rdquo; steps
-                        </span>
-                      </label>
-                    </div>
+              </div>
+              <div>
+                <p className={LABEL}>Background photo</p>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#E8E8E3] bg-[#FAFAF7]">
+                    {bgImage ? <img src={bgImage} className="h-full w-full object-cover" alt="Background" /> : <ImageIcon className="h-4 w-4 text-[#9CA3AF]" />}
+                  </span>
+                  {bgImage ? (
+                    <button onClick={() => setBgImage(null)} className="text-[12px] font-medium text-[#6B7280] hover:text-rose-600">Remove</button>
+                  ) : (
+                    <button onClick={() => fileInputRef.current?.click()} className="h-9 rounded-xl border border-[#E8E8E3] bg-white px-3 text-[12px] font-semibold text-[#374151] hover:border-[#D6D6CF]">Upload</button>
                   )}
-                  <div className="pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Wifi className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                        Wi-Fi Details (Optional)
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        placeholder="Network Name"
-                        value={wifiSsid}
-                        onChange={(e) => setWifiSsid(e.target.value)}
-                        className="w-full border rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-slate-900 outline-none"
-                      />
-                      <input
-                        placeholder="Password"
-                        value={wifiPass}
-                        onChange={(e) => setWifiPass(e.target.value)}
-                        className="w-full border rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-slate-900 outline-none"
-                      />
-                    </div>
-                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={(e) => handleImageUpload(e, setBgImage)} />
+                </div>
+              </div>
+            </div>
+            {bgImage && (
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label htmlFor="qr-overlay" className="text-[13px] font-medium text-[#4B5563]">Darken photo</label>
+                  <span className="text-[12px] tabular-nums text-[#6B7280]">{overlayOpacity}%</span>
+                </div>
+                <input id="qr-overlay" type="range" min="0" max="90" value={overlayOpacity} onChange={(e) => setOverlayOpacity(Number(e.target.value))} className="w-full accent-[#fe5c13]" />
+              </div>
+            )}
+          </Section>
+
+          <Section title="Text">
+            <div>
+              <label htmlFor="qr-head" className={LABEL}>Headline</label>
+              <input id="qr-head" value={headline} onChange={(e) => setHeadline(e.target.value)} className={INPUT} />
+              {isWaitlist && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {WAITLIST_HEADLINES.map((h) => (
+                    <button key={h} onClick={() => setHeadline(h)} className={`h-7 rounded-lg border px-2.5 text-[12px] font-medium transition-colors ${headline === h ? OPT_ON : OPT_OFF}`}>
+                      {h}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
-          </div>
+            <div>
+              <label htmlFor="qr-sub" className={LABEL}>Line under the headline</label>
+              <textarea id="qr-sub" value={subheadline} onChange={(e) => setSubheadline(e.target.value)} rows={2} className="w-full resize-none rounded-xl border border-[#E8E8E3] bg-white px-3.5 py-2.5 text-[14px] text-[#0F1117] outline-none transition-colors hover:border-[#D6D6CF] focus:border-[#fe5c13]" />
+            </div>
+            <div>
+              <label htmlFor="qr-promo" className={LABEL}>
+                Offer banner <span className="font-normal text-[#9CA3AF]">Optional</span>
+              </label>
+              <input id="qr-promo" value={promoText} onChange={(e) => setPromoText(e.target.value)} placeholder="10% off on UPI payments" className={INPUT} />
+            </div>
+            <div>
+              <p className={LABEL}>
+                Wi-Fi <span className="font-normal text-[#9CA3AF]">Optional</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <input placeholder="Network name" aria-label="Wi-Fi network name" value={wifiSsid} onChange={(e) => setWifiSsid(e.target.value)} className={INPUT} />
+                <input placeholder="Password" aria-label="Wi-Fi password" value={wifiPass} onChange={(e) => setWifiPass(e.target.value)} className={INPUT} />
+              </div>
+            </div>
+            <div className="space-y-2.5 pt-1">
+              <label className={CHECK_ROW}>
+                <input type="checkbox" checked={showArBadge} onChange={(e) => setShowArBadge(e.target.checked)} className="h-4 w-4 rounded" />
+                {isWaitlist ? "Show the “Skip the line” badge" : "Show the “3D AR” badge"}
+              </label>
+              {isWaitlist && (
+                <label className={CHECK_ROW}>
+                  <input type="checkbox" checked={showSteps} onChange={(e) => setShowSteps(e.target.checked)} className="h-4 w-4 rounded" />
+                  Show the three steps: scan, enter details, get an SMS
+                </label>
+              )}
+            </div>
+          </Section>
         </div>
 
-        {/* RIGHT: Flyer Live Preview */}
-        <div className="flex-1 bg-slate-100 border border-slate-200 rounded-3xl relative flex flex-col items-center justify-center p-10 overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle, #000 1px, transparent 1px)",
-              backgroundSize: "20px 20px",
-            }}
-          />
-
-          <div className="no-print absolute top-5 right-5 bg-white px-4 py-1.5 rounded-full shadow-sm border border-slate-200/50 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <RefreshCw
-              className="w-3 h-3 animate-spin"
-              style={{ animationDuration: "4s" }}
-            />
-            Live Preview
+        {/* Preview */}
+        <div className="overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white lg:sticky lg:top-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F0F0EB] px-5 py-3.5">
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#0F1117]">
+                Preview, {isWaitlist ? "waitlist" : `table ${getTableLabel(selectedTable)}`}
+              </h2>
+              <p className="mt-0.5 text-[12px] text-[#6B7280]">{formatName}</p>
+            </div>
+            {printMode === "bulk" && (
+              <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-[#6B7280]">
+                Printing {selectedTableIds.size} {selectedTableIds.size === 1 ? "card" : "cards"}
+              </span>
+            )}
           </div>
-
-          <div
-            className="shadow-2xl shadow-slate-400/30 select-none"
-            style={
-              tentStyle === "pyramid"
-                ? { width: "calc(297mm * 0.62)", height: "calc(210mm * 0.62)" }
-                : undefined
-            }
-          >
+          <div className="flex justify-center overflow-auto bg-[#F3F3EF] px-6 py-8">
             <div
-              ref={flyerRef}
-              className="bg-white"
-              style={{
-                width: tentStyle === "pyramid" ? "297mm" : "148mm",
-                height: "210mm",
-                ...(tentStyle === "pyramid"
-                  ? { transform: "scale(0.62)", transformOrigin: "top left" }
-                  : {}),
-              }}
+              style={
+                tentStyle === "pyramid"
+                  ? undefined
+                  : { width: `calc(148mm * ${PREVIEW_SCALE})`, height: `calc(210mm * ${PREVIEW_SCALE})` }
+              }
             >
-              <FlyerCard table={selectedTable} />
+              <div
+                className="select-none shadow-[0_18px_40px_-16px_rgba(15,17,23,0.35)]"
+                style={
+                  tentStyle === "pyramid"
+                    ? { width: "calc(297mm * 0.62)", height: "calc(210mm * 0.62)" }
+                    : { transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left", width: "148mm", height: "210mm" }
+                }
+              >
+                <div
+                  ref={flyerRef}
+                  className="bg-white"
+                  style={{
+                    width: tentStyle === "pyramid" ? "297mm" : "148mm",
+                    height: "210mm",
+                    ...(tentStyle === "pyramid"
+                      ? { transform: "scale(0.62)", transformOrigin: "top left" }
+                      : {}),
+                  }}
+                >
+                  <FlyerCard table={selectedTable} />
+                </div>
+              </div>
             </div>
           </div>
-
-          {printMode === "bulk" && (
-            <div className="no-print mt-4 text-[10px] font-bold text-slate-400 tracking-wider uppercase bg-slate-200/50 border border-slate-350/20 px-4 py-1.5 rounded-full">
-              Bulk Print Active: loop printing {selectedTableIds.size} selected
-              tables
-            </div>
-          )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmRotate}
+        title={`Make a new QR code for table ${getTableLabel(selectedTable)}?`}
+        message="Cards already printed for this table will stop working. You'll need to print and replace them."
+        confirmText="Make new code"
+        cancelText="Keep current code"
+        destructive
+        onClose={() => setConfirmRotate(false)}
+        onConfirm={() => {
+          setConfirmRotate(false);
+          void handleRotateToken();
+        }}
+      />
     </SettingsPageLayout>
   );
 }

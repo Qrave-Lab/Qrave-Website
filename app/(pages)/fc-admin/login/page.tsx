@@ -35,7 +35,7 @@ function LoginForm() {
             <Store size={20} />
           </div>
           <div>
-            <h1 className="text-lg font-extrabold leading-tight">Food court sign in</h1>
+            <h1 className="text-lg font-bold leading-tight">Food court sign in</h1>
             <p className="text-sm text-slate-500">For food court management</p>
           </div>
         </div>

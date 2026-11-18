@@ -108,14 +108,14 @@ export default function DeleteAccountPage() {
         <div className="flex flex-col flex-1 min-h-0 bg-[#f8fafc]">
           <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Account Control</p>
-              <h2 className="text-sm font-black text-slate-900 mt-0.5">Access Restricted</h2>
+              <p className="text-xs font-medium text-slate-500">Account control</p>
+              <h2 className="text-sm font-bold text-slate-900 mt-0.5">Access Restricted</h2>
             </div>
           </div>
           <div className="flex-1 bg-white p-8 flex items-center justify-center">
             <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-8 text-center max-w-md w-full shadow-sm">
               <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto mb-3" />
-              <h2 className="text-sm font-black text-slate-900">Owner Access Required</h2>
+              <h2 className="text-sm font-bold text-slate-900">Owner Access Required</h2>
               <p className="mt-2 text-xs font-semibold text-slate-550 leading-relaxed">
                 Only the restaurant owner can delete the account and permanently remove restaurant data.
               </p>
@@ -136,8 +136,8 @@ export default function DeleteAccountPage() {
         {/* Sticky top sub-header */}
         <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Danger Zone</p>
-            <h2 className="text-sm font-black text-slate-900 mt-0.5">Permanently Remove Account</h2>
+            <p className="text-xs font-medium text-slate-500">Danger zone</p>
+            <h2 className="text-sm font-bold text-slate-900 mt-0.5">Permanently Remove Account</h2>
           </div>
         </div>
 
@@ -149,7 +149,7 @@ export default function DeleteAccountPage() {
             <div className="flex items-start gap-3.5 rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
               <AlertTriangle className="h-5.5 w-5.5 text-rose-600 shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-black text-rose-800">Critical Action Required</h3>
+                <h3 className="text-sm font-bold text-rose-800">Critical Action Required</h3>
                 <p className="mt-1 text-xs text-rose-700 leading-relaxed font-semibold">
                   This action is permanent and cannot be undone. It will immediately remove your restaurant profile, staff permissions, menu data, table QR configurations, and historical transaction sales.
                 </p>
@@ -167,28 +167,28 @@ export default function DeleteAccountPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 pl-1">
-                    One-Time Passcode (OTP)
+                  <label className="block text-[13px] font-medium text-slate-500 mb-1.5 pl-1">
+                    One-time passcode (OTP)
                   </label>
                   <input
                     type="text"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
                     placeholder="Enter OTP code"
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-bold text-slate-700 outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-slate-400"
+                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-medium text-slate-700 outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 pl-1">
-                    Confirmation Phrase
+                  <label className="block text-[13px] font-medium text-slate-500 mb-1.5 pl-1">
+                    Confirmation phrase
                   </label>
                   <input
                     type="text"
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
                     placeholder="Type DELETE"
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-bold text-slate-700 outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-slate-400"
+                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs font-medium text-slate-700 outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -207,7 +207,7 @@ export default function DeleteAccountPage() {
                   type="button"
                   onClick={deleteAccount}
                   disabled={deleting}
-                  className="flex-1 h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-100 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
+                  className="flex-1 h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-100 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
                 >
                   {deleting ? "Deleting..." : "Delete Account & Data"}
                 </button>

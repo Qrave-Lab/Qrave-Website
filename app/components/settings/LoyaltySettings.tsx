@@ -11,6 +11,7 @@ import LoyaltyOutreach from "@/app/components/settings/LoyaltyOutreach";
 import LoyaltyMembers from "@/app/components/settings/LoyaltyMembers";
 import LoyaltyBranches from "@/app/components/settings/LoyaltyBranches";
 
+import { Select } from "@/app/components/ui/Select";
 type Reward = {
   id: string;
   name: string;
@@ -388,11 +389,11 @@ export default function LoyaltySettings({ onSaved }: { onSaved?: () => void }) {
               </label>
               <label className="block text-xs text-slate-600">
                 Type
-                <select value={draft.reward_kind} onChange={(e) => setDraft({ ...draft, reward_kind: e.target.value })} className={field}>
+                <Select value={draft.reward_kind} onChange={(e) => setDraft({ ...draft, reward_kind: e.target.value })} className={field}>
                   <option value="fixed">Amount off (₹)</option>
                   <option value="percent">Percent off (%)</option>
                   <option value="free_item">Free item (up to ₹)</option>
-                </select>
+                </Select>
               </label>
               <label className="block text-xs text-slate-600">
                 {draft.reward_kind === "percent" ? "Percent" : "Value (₹)"}

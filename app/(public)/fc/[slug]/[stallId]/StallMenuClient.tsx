@@ -51,7 +51,7 @@ export default function StallMenuClient({ slug, stallId }: { slug: string; stall
     return (
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#F8FAFC] px-6 text-center">
         <Store size={36} className="text-slate-300" />
-        <h1 className="mt-3 text-lg font-extrabold">This stall&apos;s menu isn&apos;t available</h1>
+        <h1 className="mt-3 text-lg font-bold">This stall&apos;s menu isn&apos;t available</h1>
         <Link
           href={`/fc/${slug}`}
           className="mt-4 inline-flex items-center gap-1 rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-white"

@@ -38,6 +38,7 @@ import ConfirmModal from "@/app/components/ui/ConfirmModal";
 import ManagerPinInput from "@/app/components/ui/ManagerPinInput";
 import { printBillTicket } from "@/app/lib/posPrinter";
 
+import { Select } from "@/app/components/ui/Select";
 type OrderStatus =
   | "cart"
   | "pending"
@@ -114,6 +115,15 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "split">(null);
   const [splitAmounts, setSplitAmounts] = useState({ cash: "", card: "", upi: "" });
   const [cashCount, setCashCount] = useState<CashCount>({ received: 0, difference: 0, isShort: false });
+  useEffect(() => {
+    if (!isCheckoutOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isProcessing) setIsCheckoutOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCheckoutOpen]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [taxPercent, setTaxPercent] = useState<number>(5);
@@ -1065,7 +1075,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
             <BellRing className="w-4 h-4 text-amber-600 animate-pulse" />
             <span>Service Request:</span>
-            <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-black">
+            <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">
               {serviceCalls.length}
             </span>
           </div>
@@ -1090,7 +1100,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
         {/* LEFT COLUMN: THERMAL RECEIPT AREA (With fly-up animation) */}
         <div className="w-full lg:w-[380px] shrink-0 flex flex-col h-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative print:w-full print:border-none print:shadow-none print:rounded-none print:h-auto print:overflow-visible">
           <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 text-slate-700 flex items-center justify-between shrink-0 print:hidden">
-            <span className="text-xs font-bold uppercase tracking-wider">Bill Preview</span>
+            <span className="text-xs font-medium">Bill preview</span>
             <button
               onClick={handlePrint}
               disabled={isPrinting}
@@ -1121,11 +1131,11 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
               >
                 {/* Paper Body */}
                 <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                  <h2 className="text-base font-black tracking-tight uppercase text-black">
+                  <h2 className="text-base font-bold tracking-tight uppercase text-black">
                     {bill?.restaurantName || "Restaurant"}
                   </h2>
                   {bill?.restaurantAddress && (
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1 leading-relaxed">
+                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                       {bill.restaurantAddress}
                     </p>
                   )}
@@ -1134,7 +1144,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   </div>
                 </div>
 
-                <div className="py-2 text-[10px] font-bold flex justify-between uppercase tracking-wider text-slate-800">
+                <div className="py-2 text-xs font-medium flex justify-between text-slate-800">
                   <div className="space-y-0.5">
                     <p>BILL: {bill?.billNumber || "BILL-"}</p>
                     <p>TABLE: {bill?.tableCode || "T-"}</p>
@@ -1150,7 +1160,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   </div>
                 </div>
 
-                <div className="border-b border-dashed border-slate-300 pb-1 flex text-[10px] font-black uppercase tracking-widest text-slate-700">
+                <div className="border-b border-dashed border-slate-300 pb-1 flex text-xs font-medium text-slate-700">
                   <div className="w-7/12">Item</div>
                   <div className="w-2/12 text-center">Qty</div>
                   <div className="w-3/12 text-right">Amt</div>
@@ -1174,7 +1184,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   })}
                 </div>
 
-                <div className="border-t border-dashed border-slate-300 pt-3 space-y-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                <div className="border-t border-dashed border-slate-300 pt-3 space-y-1.5 text-xs font-medium text-slate-600">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
                     <span className="text-slate-900 font-bold">₹{subtotal.toFixed(2)}</span>
@@ -1199,17 +1209,17 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   )}
                 </div>
 
-                <div className="border-t-2 border-black pt-3 flex justify-between items-center text-sm font-black uppercase tracking-wider text-black">
+                <div className="border-t-2 border-black pt-3 flex justify-between items-center text-sm font-bold uppercase tracking-wider text-black">
                   <span>TOTAL DUE</span>
                   <span className="text-base">₹{total.toFixed(2)}</span>
                 </div>
 
                 {isPaid ? (
-                  <div className="mt-3 text-center border-2 border-slate-700 bg-slate-50 text-slate-800 py-1.5 rounded text-xs font-black uppercase tracking-widest">
-                    PAID IN FULL
+                  <div className="mt-3 text-center border-2 border-slate-700 bg-slate-50 text-slate-800 py-1.5 rounded text-xs font-semibold">
+                    Paid in full
                   </div>
                 ) : (
-                  <div className="mt-3 text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                  <div className="mt-3 text-center text-[11px] text-slate-500 font-medium">
                     * THANK YOU, VISIT AGAIN *
                   </div>
                 )}
@@ -1252,8 +1262,8 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
           {/* Section Header */}
           <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 shrink-0">
             <div>
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Order Management
+              <h3 className="text-xs font-medium text-slate-900">
+                Order management
               </h3>
               <p className="text-[11px] text-slate-500 font-medium">
                 {items.length} Total Items • {pendingCookingCount} Unserved
@@ -1338,7 +1348,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                             Qty: {item.quantity}
                           </span>
                           <span className="font-semibold text-slate-600">₹{item.rate.toFixed(2)} each</span>
-                          <span className="font-black text-slate-900">
+                          <span className="font-bold text-slate-900">
                             ₹{(item.quantity * item.rate).toFixed(2)}
                           </span>
                         </div>
@@ -1346,7 +1356,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 border-slate-100 pt-3.5 sm:pt-0">
-                      <span className={`inline-flex items-center gap-1 rounded border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${config.className}`}>
+                      <span className={`inline-flex items-center gap-1 rounded border px-2.5 py-0.5 text-xs font-medium ${config.className}`}>
                         {config.icon}
                         {config.label}
                       </span>
@@ -1406,188 +1416,193 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
         </div>
       </div>
 
-      {/* === CHECKOUT DIALOG (No Gradients) === */}
+      {/* === CHECKOUT DIALOG === */}
       <AnimatePresence>
-        {isCheckoutOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+        {isCheckoutOpen && (() => {
+          const due = Number((billBreakdown?.total ?? total) || 0);
+          const inr = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const splitTotal =
+            (parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0);
+          const splitLeft = Math.round((due - splitTotal) * 100) / 100;
+          const splitOk = splitTotal > 0 && Math.abs(splitLeft) <= 0.01;
+          const blocker = !paymentMethod
+            ? "Choose how the guest paid."
+            : paymentMethod === "cash" && cashCount.isShort
+              ? `The cash counted is ${inr(Math.abs(cashCount.difference))} short.`
+              : paymentMethod === "split" && !splitOk
+                ? splitLeft > 0
+                  ? `${inr(splitLeft)} still to be split.`
+                  : `The split is ${inr(Math.abs(splitLeft))} more than the bill.`
+                : null;
+          const closeCheckout = () => {
+            if (!isProcessing) setIsCheckoutOpen(false);
+          };
+          const methods = [
+            { id: "cash", label: "Cash", Icon: Banknote },
+            { id: "card", label: "Card", Icon: CreditCard },
+            { id: "upi", label: "UPI", Icon: Smartphone },
+            { id: "split", label: "Split", Icon: Layers },
+          ] as const;
+          return (
             <motion.div
-              initial={{ opacity: 0, scale: 0.98, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: 10 }}
-              className="bg-white w-full max-w-sm rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
+              key="checkout"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1117]/40 p-4 backdrop-blur-sm"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) closeCheckout();
+              }}
             >
-              <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Select Payment Method</h3>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Table {bill?.tableCode} • Due:{" "}
-                    <span className="font-bold text-slate-900">₹{total.toFixed(2)}</span>
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsCheckoutOpen(false)}
-                  className="w-7 h-7 rounded-full bg-slate-200/60 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="p-5 space-y-2.5 max-h-[75vh] overflow-y-auto">
-                <LoyaltyPanel
-                  sessionId={isTakeaway ? undefined : sessionid}
-                  takeawayOrderId={isTakeaway ? sessionid : undefined}
-                  onBillChanged={refreshOrders}
-                />
-                <button
-                  onClick={() => setPaymentMethod("cash")}
-                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                    paymentMethod === "cash"
-                      ? "border-slate-900 bg-slate-50 ring-1 ring-slate-900"
-                      : "border-slate-200 hover:border-slate-350"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded bg-slate-100 text-slate-800 flex items-center justify-center">
-                      <Banknote className="w-4 h-4" />
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="checkout-title"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.16 }}
+                className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white shadow-[0_24px_60px_-20px_rgba(15,17,23,0.35)]"
+              >
+                {/* Header */}
+                <div className="shrink-0 border-b border-[#F0F0EB] px-6 pb-5 pt-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 id="checkout-title" className="text-[17px] font-bold text-[#0F1117]">
+                        Take payment
+                      </h3>
+                      <p className="mt-0.5 text-[13px] text-[#6B7280]">
+                        {isTakeaway ? "Takeaway order" : `Table ${bill?.tableCode ?? ""}`}
+                      </p>
                     </div>
-                    <div className="text-left">
-                      <span className="font-bold text-slate-900 text-xs block">Cash</span>
-                    </div>
+                    <button
+                      onClick={closeCheckout}
+                      aria-label="Close"
+                      className="-mr-2 -mt-1 flex h-9 w-9 items-center justify-center rounded-xl text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  {paymentMethod === "cash" && <div className="w-3.5 h-3.5 rounded-full bg-slate-900" />}
-                </button>
-
-                <button
-                  onClick={() => setPaymentMethod("card")}
-                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                    paymentMethod === "card"
-                      ? "border-slate-900 bg-slate-50 ring-1 ring-slate-900"
-                      : "border-slate-200 hover:border-slate-350"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded bg-slate-100 text-slate-800 flex items-center justify-center">
-                      <CreditCard className="w-4 h-4" />
-                    </div>
-                    <div className="text-left">
-                      <span className="font-bold text-slate-900 text-xs block">Credit / Debit Card</span>
-                    </div>
-                  </div>
-                  {paymentMethod === "card" && <div className="w-3.5 h-3.5 rounded-full bg-slate-900" />}
-                </button>
-
-                <button
-                  onClick={() => setPaymentMethod("upi")}
-                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                    paymentMethod === "upi"
-                      ? "border-slate-900 bg-slate-50 ring-1 ring-slate-900"
-                      : "border-slate-200 hover:border-slate-350"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded bg-slate-100 text-slate-800 flex items-center justify-center">
-                      <Smartphone className="w-4 h-4" />
-                    </div>
-                    <div className="text-left">
-                      <span className="font-bold text-slate-900 text-xs block">UPI / QR Scan</span>
-                    </div>
-                  </div>
-                  {paymentMethod === "upi" && <div className="w-3.5 h-3.5 rounded-full bg-slate-900" />}
-                </button>
-
-                <button
-                  onClick={() => setPaymentMethod("split")}
-                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all ${
-                    paymentMethod === "split"
-                      ? "border-slate-900 bg-slate-50 ring-1 ring-slate-900"
-                      : "border-slate-200 hover:border-slate-350"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded bg-slate-100 text-slate-800 flex items-center justify-center">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <div className="text-left">
-                      <span className="font-bold text-slate-900 text-xs block">Split Tender</span>
-                    </div>
-                  </div>
-                  {paymentMethod === "split" && <div className="w-3.5 h-3.5 rounded-full bg-slate-900" />}
-                </button>
-              </div>
-
-              {paymentMethod === "cash" && (
-                <div className="px-5 pb-5">
-                  <CashCounter amountDue={billBreakdown?.total ?? total} onChange={setCashCount} />
-                </div>
-              )}
-
-              {paymentMethod === "split" && (
-                <div className="px-5 pb-5">
-                  <div className="space-y-3 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-20 text-xs font-bold text-slate-600 flex items-center gap-1">Cash</div>
-                      <input
-                        type="number"
-                        value={splitAmounts.cash}
-                        onChange={(e) => setSplitAmounts({ ...splitAmounts, cash: e.target.value })}
-                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-20 text-xs font-bold text-slate-600 flex items-center gap-1">Card</div>
-                      <input
-                        type="number"
-                        value={splitAmounts.card}
-                        onChange={(e) => setSplitAmounts({ ...splitAmounts, card: e.target.value })}
-                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-20 text-xs font-bold text-slate-600 flex items-center gap-1">UPI</div>
-                      <input
-                        type="number"
-                        value={splitAmounts.upi}
-                        onChange={(e) => setSplitAmounts({ ...splitAmounts, upi: e.target.value })}
-                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-xs font-bold mt-2 pt-2 border-t border-slate-200">
-                      <span className="text-slate-500">
-                        Split Total: ₹{((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0)).toFixed(2)}
-                      </span>
-                      <span className={Math.abs(((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0)))) < 0.01 ? "text-emerald-600" : "text-rose-600"}>
-                        Remaining: ₹{((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0))).toFixed(2)}
-                      </span>
-                    </div>
+                  <div className="mt-4 flex items-baseline justify-between rounded-xl bg-[#FAFAF7] px-4 py-3">
+                    <span className="text-[13px] font-medium text-[#6B7280]">Amount due</span>
+                    <span className="text-[24px] font-bold tabular-nums tracking-[-0.02em] text-[#0F1117]">{inr(due)}</span>
                   </div>
                 </div>
-              )}
 
-              <div className="p-5 pt-0">
-                <button
-                  disabled={!paymentMethod || isProcessing || (paymentMethod === "cash" && cashCount.isShort) || (paymentMethod === "split" && Math.abs((billBreakdown?.total ?? total) - ((parseFloat(splitAmounts.cash) || 0) + (parseFloat(splitAmounts.card) || 0) + (parseFloat(splitAmounts.upi) || 0))) > 0.01)}
-                  onClick={handleCheckout}
-                  className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      Mark as Paid & Close
-                    </>
+                {/* Body: scrolls */}
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
+                  <div>
+                    <p className="mb-2 text-[13px] font-medium text-[#4B5563]">Paid by</p>
+                    <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Payment method">
+                      {methods.map(({ id, label, Icon }) => {
+                        const on = paymentMethod === id;
+                        return (
+                          <button
+                            key={id}
+                            role="radio"
+                            aria-checked={on}
+                            onClick={() => setPaymentMethod(id)}
+                            className={`flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl border text-[13px] font-semibold transition-colors ${
+                              on
+                                ? "border-[#fe5c13] bg-[#FFF4EC] text-[#0F1117]"
+                                : "border-[#E8E8E3] bg-white text-[#4B5563] hover:border-[#D6D6CF] hover:text-[#0F1117]"
+                            }`}
+                          >
+                            <Icon className={`h-[18px] w-[18px] ${on ? "text-[#fe5c13]" : "text-[#9CA3AF]"}`} />
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {paymentMethod === "cash" && <CashCounter amountDue={due} onChange={setCashCount} />}
+
+                  {paymentMethod === "split" && (
+                    <div className="rounded-xl border border-[#E8E8E3]">
+                      <div className="space-y-2.5 p-4">
+                        {(
+                          [
+                            ["cash", "Cash"],
+                            ["card", "Card"],
+                            ["upi", "UPI"],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <div key={key} className="flex items-center gap-3">
+                            <label htmlFor={`split-${key}`} className="w-12 text-[13px] font-medium text-[#4B5563]">
+                              {label}
+                            </label>
+                            <div className="relative flex-1">
+                              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-[#9CA3AF]">₹</span>
+                              <input
+                                id={`split-${key}`}
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                value={splitAmounts[key]}
+                                onChange={(e) => setSplitAmounts({ ...splitAmounts, [key]: e.target.value })}
+                                placeholder="0"
+                                className="h-10 w-full rounded-xl border border-[#E8E8E3] bg-white pl-8 pr-3.5 text-[14px] tabular-nums text-[#0F1117] outline-none transition-colors placeholder:text-[#C4C4BE] hover:border-[#D6D6CF] focus:border-[#fe5c13] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              disabled={splitLeft <= 0}
+                              onClick={() =>
+                                setSplitAmounts({
+                                  ...splitAmounts,
+                                  [key]: String(Math.round(((parseFloat(splitAmounts[key]) || 0) + splitLeft) * 100) / 100),
+                                })
+                              }
+                              className="h-10 shrink-0 rounded-xl px-2.5 text-[12px] font-medium text-[#6B7280] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117] disabled:pointer-events-none disabled:opacity-30"
+                            >
+                              Add rest
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between border-t border-[#F0F0EB] px-4 py-3 text-[13px]">
+                        <span className="text-[#6B7280]">
+                          Split so far <span className="font-semibold tabular-nums text-[#0F1117]">{inr(splitTotal)}</span>
+                        </span>
+                        <span
+                          className={`font-semibold tabular-nums ${splitOk ? "text-emerald-700" : splitLeft < 0 ? "text-rose-600" : "text-[#C2410C]"}`}
+                        >
+                          {splitOk ? "Matches the bill" : splitLeft > 0 ? `${inr(splitLeft)} left` : `${inr(Math.abs(splitLeft))} over`}
+                        </span>
+                      </div>
+                    </div>
                   )}
-                </button>
-                
-              </div>
+
+                  <LoyaltyPanel
+                    sessionId={isTakeaway ? undefined : sessionid}
+                    takeawayOrderId={isTakeaway ? sessionid : undefined}
+                    onBillChanged={refreshOrders}
+                  />
+                </div>
+
+                {/* Footer: always visible */}
+                <div className="shrink-0 border-t border-[#F0F0EB] bg-white px-6 py-4">
+                  {blocker && <p className="mb-2.5 text-[12px] text-[#6B7280]">{blocker}</p>}
+                  <button
+                    disabled={Boolean(blocker) || isProcessing}
+                    onClick={handleCheckout}
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#fe5c13] text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" /> Closing the bill
+                      </>
+                    ) : (
+                      <>Mark {inr(due)} paid and close</>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </div>
-        )}
+          );
+        })()}
       </AnimatePresence>
 
       {/* === RELOCATE TABLE === */}
@@ -1615,10 +1630,10 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
               <div className="p-5 space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Target Table
+                  <label className="text-[13px] font-medium text-slate-500">
+                    Target table
                   </label>
-                  <select
+                  <Select
                     value={targetTableId}
                     onChange={(e) => setTargetTableId(e.target.value)}
                     className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-4 focus:ring-slate-150"
@@ -1632,7 +1647,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                           T{t.table_number}
                         </option>
                       ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <button
@@ -1714,10 +1729,10 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
               <div className="p-5 space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Merge With
+                  <label className="text-[13px] font-medium text-slate-500">
+                    Merge with
                   </label>
-                  <select
+                  <Select
                     value={targetSessionId}
                     onChange={(e) => setTargetSessionId(e.target.value)}
                     className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-4 focus:ring-slate-150"
@@ -1728,7 +1743,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                         T{s.table_number}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   {activeSessions.length === 0 && (
                     <p className="text-xs text-slate-400 mt-2">No other active tables found.</p>
                   )}
@@ -1792,8 +1807,8 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
               <div className="p-5 space-y-4">
                 {discountTab === "flat" ? (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Discount Amount (₹)
+                    <label className="text-[13px] font-medium text-slate-500">
+                      Discount amount (₹)
                     </label>
                     <input
                       type="number"
@@ -1805,15 +1820,15 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Coupon Code
+                    <label className="text-[13px] font-medium text-slate-500">
+                      Coupon code
                     </label>
                     <input
                       type="text"
                       value={promoCouponCode}
                       onChange={(e) => setPromoCouponCode(e.target.value)}
                       placeholder="e.g. SAVE20"
-                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none uppercase focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
                     />
                   </div>
                 )}
@@ -1864,8 +1879,8 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
               <div className="p-5 overflow-y-auto space-y-5 flex-1">
                 {/* Current Items Section */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Current Bill Items
+                  <label className="text-[13px] font-medium text-slate-500">
+                    Current bill items
                   </label>
                   <div className="max-h-44 overflow-y-auto space-y-2 pr-1 border border-slate-100 rounded-lg p-2 bg-slate-50/50">
                     {items.map((item) => (
@@ -1892,8 +1907,8 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                 <div className="border-t border-slate-100 pt-4 space-y-4">
                   {/* Add New Item section */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Add New Item
+                    <label className="text-[13px] font-medium text-slate-500">
+                      Add new item
                     </label>
                     
                     <div className="space-y-3 relative">
@@ -1964,10 +1979,10 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
                   {selectedMenuItem?.variants && selectedMenuItem.variants.length > 0 && (
                     <div className="space-y-1 animate-fadeIn">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        Choose Variant
+                      <label className="text-[13px] font-medium text-slate-500">
+                        Choose variant
                       </label>
-                      <select
+                      <Select
                         value={selectedVariantId}
                         onChange={(e) => setSelectedVariantId(e.target.value)}
                         className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-100"
@@ -1978,7 +1993,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                             {v.label} - ₹{v.price}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   )}
 
@@ -2043,7 +2058,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
 
               <div className="p-5 space-y-4">
                 <div className="space-y-2 flex flex-col items-center">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider self-start">
+                  <label className="text-[13px] font-medium text-slate-500 self-start">
                     Manager PIN
                   </label>
                   <ManagerPinInput
@@ -2059,7 +2074,7 @@ export default function TableBillPage({ params }: { params: Promise<{ sessionid:
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-[13px] font-medium text-slate-500">
                     Reason for waiving
                   </label>
                   <textarea

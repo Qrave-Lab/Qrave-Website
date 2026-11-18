@@ -5,6 +5,7 @@ import { Gift, Loader2 } from "lucide-react";
 import { api } from "@/app/lib/api";
 import { rewardLabel } from "@/app/components/billing/LoyaltyPanel";
 
+import { Select } from "@/app/components/ui/Select";
 export type TakeawayReward = {
   id: string;
   name: string;
@@ -110,7 +111,7 @@ export default function TakeawayRewardPicker({
         {data.card?.full_name || "Member"} has <span className="font-bold">{data.balance}</span> {unit}.
       </p>
       {usable.length > 0 ? (
-        <select
+        <Select
           value={value?.id || ""}
           onChange={(e) => onChange(usable.find((r) => r.id === e.target.value) || null)}
           aria-label="Use a reward"
@@ -122,7 +123,7 @@ export default function TakeawayRewardPicker({
               {r.name}: {rewardLabel(r)} ({r.cost} {unit})
             </option>
           ))}
-        </select>
+        </Select>
       ) : (
         <p className="text-[11px] text-slate-400">No rewards ready yet.</p>
       )}

@@ -430,7 +430,7 @@ export default function AnalyticsPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-40 sticky top-0">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <h1 className="font-display text-xl font-normal tracking-[-0.01em] text-slate-900 flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-slate-500" /> Analytics
             </h1>
             <p className="text-xs text-slate-500 mt-1">Sales, transactions, and top items.</p>
@@ -459,7 +459,7 @@ export default function AnalyticsPage() {
                 <button
                   key={b}
                   onClick={() => setBucket(b)}
-                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${bucket === b ? "bg-[#fe5c13] text-gray-900 font-bold" : "text-slate-500 hover:text-slate-900"
+                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${bucket === b ? "bg-[#fe5c13] text-gray-900 font-bold" : "text-slate-500 hover:text-slate-900"
                     }`}
                 >
                   {b}
@@ -473,14 +473,14 @@ export default function AnalyticsPage() {
                 type="date"
                 value={range.start}
                 onChange={(e) => setRange((p) => ({ ...p, start: e.target.value }))}
-                className="text-xs font-bold text-slate-600 outline-none"
+                className="text-xs font-medium text-slate-600 outline-none"
               />
               <span className="text-xs text-slate-300">—</span>
               <input
                 type="date"
                 value={range.end}
                 onChange={(e) => setRange((p) => ({ ...p, end: e.target.value }))}
-                className="text-xs font-bold text-slate-600 outline-none"
+                className="text-xs font-medium text-slate-600 outline-none"
               />
               <button
                 onClick={load}
@@ -542,7 +542,7 @@ export default function AnalyticsPage() {
             <ShieldAlert className="w-4 h-4" />
             Audit &amp; Security
             {fraudFlags.length > 0 && (
-              <span className="ml-1 bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
+              <span className="ml-1 bg-rose-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {fraudFlags.length}
               </span>
             )}
@@ -607,7 +607,7 @@ export default function AnalyticsPage() {
           ) : error ? (
             <div className="max-w-4xl mx-auto">
               <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5">
-                <div className="text-sm font-black text-rose-900">Analytics unavailable</div>
+                <div className="text-sm font-bold text-rose-900">Analytics unavailable</div>
                 <div className="text-sm text-rose-700 mt-1">{error}</div>
                 <button
                   onClick={load}
@@ -624,7 +624,7 @@ export default function AnalyticsPage() {
                   <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-amber-700 mt-0.5" />
                     <div>
-                      <div className="text-sm font-black text-amber-900">Sales anomaly detected</div>
+                      <div className="text-sm font-bold text-amber-900">Sales anomaly detected</div>
                       <div className="text-xs text-amber-700 mt-1">
                         Latest: {fmtINR(insights.anomalies[insights.anomalies.length - 1].sales)} on{" "}
                         {String(insights.anomalies[insights.anomalies.length - 1].t).slice(0, 10)}
@@ -638,15 +638,15 @@ export default function AnalyticsPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-lg">📦</span>
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-[#fe5c13]">Today Takeout</div>
-                        <div className="text-xl font-black text-indigo-900">{takeawaySummary.takeout_count} orders · {fmtINR(takeawaySummary.takeout_revenue)}</div>
+                        <div className="text-xs font-medium text-[#fe5c13]">Today takeout</div>
+                        <div className="text-xl font-bold text-indigo-900">{takeawaySummary.takeout_count} orders · {fmtINR(takeawaySummary.takeout_revenue)}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🛵</span>
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-[#fe5c13]">Today Delivery</div>
-                        <div className="text-xl font-black text-indigo-900">{takeawaySummary.delivery_count} orders · {fmtINR(takeawaySummary.delivery_revenue)}</div>
+                        <div className="text-xs font-medium text-[#fe5c13]">Today delivery</div>
+                        <div className="text-xl font-bold text-indigo-900">{takeawaySummary.delivery_count} orders · {fmtINR(takeawaySummary.delivery_revenue)}</div>
                         {takeawaySummary.delivery_fee_total > 0 && (
                           <div className="text-[10px] text-[#fe5c13]">incl. {fmtINR(takeawaySummary.delivery_fee_total)} delivery fees</div>
                         )}
@@ -658,24 +658,24 @@ export default function AnalyticsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">Total Sales</div>
+                      <div className="text-xs font-medium text-slate-500">Total sales</div>
                       <TrendingUp className="w-4 h-4 text-emerald-600" />
                     </div>
-                    <div className="text-3xl font-black mt-2">{fmtINR(totals.totalSales)}</div>
+                    <div className="text-3xl font-bold mt-2">{fmtINR(totals.totalSales)}</div>
                     <div className="text-xs text-slate-500 mt-1">Across {sales.length} buckets</div>
                   </div>
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">Average</div>
+                      <div className="text-xs font-medium text-slate-500">Average</div>
                       <CreditCard className="w-4 h-4 text-slate-600" />
                     </div>
-                    <div className="text-3xl font-black mt-2">{fmtINR(totals.avg)}</div>
+                    <div className="text-3xl font-bold mt-2">{fmtINR(totals.avg)}</div>
                     <div className="text-xs text-slate-500 mt-1">Per bucket</div>
                   </div>
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="text-xs font-black uppercase tracking-widest text-slate-400">Payment Mix</div>
+                    <div className="text-xs font-medium text-slate-500">Payment mix</div>
                     <div className="mt-4 space-y-2">
                       {mix.slice(0, 3).map((m) => (
                         <div key={m.mode} className="flex items-center justify-between text-sm">
@@ -692,18 +692,18 @@ export default function AnalyticsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="text-xs font-black uppercase tracking-widest text-slate-400">Transactions</div>
-                    <div className="text-3xl font-black mt-2">{totals.transactions}</div>
+                    <div className="text-xs font-medium text-slate-500">Transactions</div>
+                    <div className="text-3xl font-bold mt-2">{totals.transactions}</div>
                     <div className="text-xs text-slate-500 mt-1">In selected range</div>
                   </div>
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="text-xs font-black uppercase tracking-widest text-slate-400">Average Ticket</div>
-                    <div className="text-3xl font-black mt-2">{fmtINR(totals.avgTicket)}</div>
+                    <div className="text-xs font-medium text-slate-500">Average ticket</div>
+                    <div className="text-3xl font-bold mt-2">{fmtINR(totals.avgTicket)}</div>
                     <div className="text-xs text-slate-500 mt-1">Per transaction</div>
                   </div>
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="text-xs font-black uppercase tracking-widest text-slate-400">Peak Hour</div>
-                    <div className="text-3xl font-black mt-2">{totals.peakHour}</div>
+                    <div className="text-xs font-medium text-slate-500">Peak hour</div>
+                    <div className="text-3xl font-bold mt-2">{totals.peakHour}</div>
                     <div className="text-xs text-slate-500 mt-1">
                       {totals.topBranch ? `Top branch: ${totals.topBranch.name}` : "No branch data"}
                     </div>
@@ -712,7 +712,7 @@ export default function AnalyticsPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="text-sm font-black text-slate-900 mb-3">Sales Trend</div>
+                    <div className="text-sm font-bold text-slate-900 mb-3">Sales Trend</div>
                     <SimpleBars points={sales} />
                     {insights?.forecast?.length ? (
                       <div className="mt-4 text-xs text-slate-500">
@@ -723,7 +723,7 @@ export default function AnalyticsPage() {
                   </div>
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="text-sm font-black text-slate-900 mb-3">Top Selling Items</div>
+                    <div className="text-sm font-bold text-slate-900 mb-3">Top Selling Items</div>
                     <div className="space-y-3">
                       {topItems.slice(0, 8).map((it) => (
                         <div key={it.name} className="flex items-center justify-between">
@@ -733,7 +733,7 @@ export default function AnalyticsPage() {
                               {it.quantity} sold
                             </div>
                           </div>
-                          <div className="text-sm font-black text-slate-900">{fmtINR(it.revenue)}</div>
+                          <div className="text-sm font-bold text-slate-900">{fmtINR(it.revenue)}</div>
                         </div>
                       ))}
                       {!topItems.length && <div className="text-xs text-slate-500">No sales in range.</div>}
@@ -742,7 +742,7 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="text-sm font-black text-slate-900 mb-3">Branch-wise Sales</div>
+                  <div className="text-sm font-bold text-slate-900 mb-3">Branch-wise Sales</div>
                   <div className="space-y-3">
                     {branchSales
                       .sort((a, b) => b.total - a.total)
@@ -752,8 +752,8 @@ export default function AnalyticsPage() {
                         return (
                           <div key={b.restaurant_id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md">
                             <div className="mb-2.5 flex items-center justify-between">
-                              <div className="text-sm font-extrabold text-slate-800 tracking-tight">{b.name}</div>
-                              <div className="text-xs font-black text-slate-900 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-0.5 shadow-sm tabular-nums">{fmtINR(b.total || 0)}</div>
+                              <div className="text-sm font-bold text-slate-800 tracking-tight">{b.name}</div>
+                              <div className="text-xs font-bold text-slate-900 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-0.5 shadow-sm tabular-nums">{fmtINR(b.total || 0)}</div>
                             </div>
                             <div className="h-3 rounded-full bg-slate-100/80 border border-slate-200/50 shadow-inner relative overflow-hidden">
                               <div className="h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" style={{ width: `${width}%` }} />
@@ -766,11 +766,11 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="text-sm font-black text-slate-900 mb-3">Recent Transactions</div>
+                  <div className="text-sm font-bold text-slate-900 mb-3">Recent Transactions</div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-[11px] uppercase tracking-widest text-slate-400">
+                        <tr className="text-xs text-slate-500">
                           <th className="text-left py-2 px-2">Time</th>
                           <th className="text-left py-2 px-2">Table</th>
                           <th className="text-right py-2 px-2 w-20">Items</th>
@@ -784,8 +784,8 @@ export default function AnalyticsPage() {
                             <td className="py-2 px-2">{String(t.captured_at || "").replace("T", " ").slice(0, 16)}</td>
                             <td className="py-2 px-2 font-bold">T{t.table_number}</td>
                             <td className="py-2 px-2 text-right">{t.items_count}</td>
-                            <td className="py-2 px-2 text-right font-black tabular-nums">{fmtINR(t.amount)}</td>
-                            <td className="py-2 px-2 uppercase text-xs font-bold text-slate-500">{t.mode}</td>
+                            <td className="py-2 px-2 text-right font-bold tabular-nums">{fmtINR(t.amount)}</td>
+                            <td className="py-2 px-2 text-xs font-medium text-slate-500">{t.mode}</td>
                           </tr>
                         ))}
                         {!tx.length && (
@@ -807,30 +807,30 @@ export default function AnalyticsPage() {
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-500/5 rounded-full -mr-8 -mt-8" />
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">Avg Spend Per Cover</div>
+                      <div className="text-xs font-medium text-slate-500">Avg spend per cover</div>
                       <span className="text-xs text-indigo-600 font-bold">👤 Per Head</span>
                     </div>
-                    <div className="text-3xl font-black mt-2 text-indigo-700">{fmtINR(profitMetrics.spendPerHead)}</div>
+                    <div className="text-3xl font-bold mt-2 text-indigo-700">{fmtINR(profitMetrics.spendPerHead)}</div>
                     <div className="text-xs text-slate-500 mt-1">Average ticket amount divided by standard cover (2.4)</div>
                   </div>
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 h-24 w-24 bg-emerald-500/5 rounded-full -mr-8 -mt-8" />
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">Gross profit Margin</div>
+                      <div className="text-xs font-medium text-slate-500">Gross profit margin</div>
                       <span className="text-xs text-emerald-600 font-bold">💰 72% Margin</span>
                     </div>
-                    <div className="text-3xl font-black mt-2 text-emerald-700">{fmtINR(profitMetrics.grossProfit)}</div>
+                    <div className="text-3xl font-bold mt-2 text-emerald-700">{fmtINR(profitMetrics.grossProfit)}</div>
                     <div className="text-xs text-slate-500 mt-1">Total revenue minus estimated 28% food/drink cost</div>
                   </div>
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 h-24 w-24 bg-amber-500/5 rounded-full -mr-8 -mt-8" />
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">Avg Table Turn Time</div>
+                      <div className="text-xs font-medium text-slate-500">Avg table turn time</div>
                       <span className="text-xs text-amber-600 font-bold">⏱ Seating</span>
                     </div>
-                    <div className="text-3xl font-black mt-2 text-amber-700">{profitMetrics.avgTurnTime}m</div>
+                    <div className="text-3xl font-bold mt-2 text-amber-700">{profitMetrics.avgTurnTime}m</div>
                     <div className="text-xs text-slate-500 mt-1">Average dining session duration for seated guests</div>
                   </div>
                 </div>
@@ -838,7 +838,7 @@ export default function AnalyticsPage() {
                 {/* Daypart Peak Heatmap */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="mb-4">
-                    <h3 className="text-sm font-black text-slate-900">Hourly &amp; Daypart Performance</h3>
+                    <h3 className="text-sm font-bold text-slate-900">Hourly &amp; Daypart Performance</h3>
                     <p className="text-xs text-slate-500 mt-0.5">Tracking which dining shifts generate peak sales and customer traffic.</p>
                   </div>
                   
@@ -855,12 +855,12 @@ export default function AnalyticsPage() {
                         }`}>
                           <div className="flex items-center justify-between mb-2.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-extrabold text-slate-800 tracking-tight">{dp.name}</span>
+                              <span className="text-xs font-bold text-slate-800 tracking-tight">{dp.name}</span>
                               {isPeak && (
-                                <span className="text-[9px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-0.5 rounded-full font-black tracking-widest uppercase shadow-sm animate-pulse">Peak Shift</span>
+                                <span className="text-[11px] bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-0.5 rounded-full font-semibold shadow-sm animate-pulse">Peak shift</span>
                               )}
                             </div>
-                            <span className="text-xs font-black text-slate-900 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-0.5 shadow-sm tabular-nums">
+                            <span className="text-xs font-bold text-slate-900 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-0.5 shadow-sm tabular-nums">
                               {fmtINR(dp.amount)} <span className="text-slate-400 font-bold text-[10px] ml-0.5">({percentVal}%)</span>
                             </span>
                           </div>
@@ -882,41 +882,41 @@ export default function AnalyticsPage() {
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 h-24 w-24 bg-emerald-500/5 rounded-full -mr-8 -mt-8" />
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">Upsell Revenue</div>
+                      <div className="text-xs font-medium text-slate-500">Upsell revenue</div>
                       <TrendingUp className="w-4 h-4 text-emerald-600" />
                     </div>
-                    <div className="text-3xl font-black mt-2 text-emerald-700">{fmtINR(upsellMetrics.upsellRevenue)}</div>
+                    <div className="text-3xl font-bold mt-2 text-emerald-700">{fmtINR(upsellMetrics.upsellRevenue)}</div>
                     <div className="text-xs text-slate-500 mt-1">Extra revenue from recommended items</div>
                   </div>
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-500/5 rounded-full -mr-8 -mt-8" />
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">Upsell Conversion</div>
+                      <div className="text-xs font-medium text-slate-500">Upsell conversion</div>
                       <div className="text-indigo-600 text-xs font-bold">🎯 Target: 30%</div>
                     </div>
-                    <div className="text-3xl font-black mt-2 text-indigo-700">{upsellMetrics.conversionRate.toFixed(1)}%</div>
+                    <div className="text-3xl font-bold mt-2 text-indigo-700">{upsellMetrics.conversionRate.toFixed(1)}%</div>
                     <div className="text-xs text-slate-500 mt-1">Of all orders contain an upsell item</div>
                   </div>
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 h-24 w-24 bg-amber-500/5 rounded-full -mr-8 -mt-8" />
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-400">AOV Lift</div>
+                      <div className="text-xs font-medium text-slate-500">AOV lift</div>
                       <span className="text-xs text-amber-600 font-bold">🚀 Increase</span>
                     </div>
-                    <div className="text-3xl font-black mt-2 text-amber-700">+{fmtINR(upsellMetrics.aovLift)}</div>
+                    <div className="text-3xl font-bold mt-2 text-amber-700">+{fmtINR(upsellMetrics.aovLift)}</div>
                     <div className="text-xs text-slate-500 mt-1">Average increase in ticket size</div>
                   </div>
                 </div>
 
                 {/* Upselling Insights & Actions */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="text-sm font-black text-slate-900 mb-3">Top Upsold Menu Items</div>
+                  <div className="text-sm font-bold text-slate-900 mb-3">Top Upsold Menu Items</div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-[11px] uppercase tracking-widest text-slate-400">
+                        <tr className="text-xs text-slate-500">
                           <th className="text-left py-2 px-2">Item Name</th>
                           <th className="text-left py-2 px-2">Type</th>
                           <th className="text-right py-2 px-2 w-24">Sales Qty</th>
@@ -932,14 +932,14 @@ export default function AnalyticsPage() {
                             <tr key={it.name} className="text-slate-700 hover:bg-slate-50/50 transition-colors">
                               <td className="py-3 px-2 font-bold text-slate-900">{it.name}</td>
                               <td className="py-3 px-2">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                   idx % 2 === 0 ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
                                 }`}>
                                   {idx % 2 === 0 ? "High-Margin" : "Cross-Sell"}
                                 </span>
                               </td>
                               <td className="py-3 px-2 text-right font-semibold">{it.quantity}</td>
-                              <td className="py-3 px-2 text-right font-black text-slate-900 tabular-nums">{fmtINR(it.revenue)}</td>
+                              <td className="py-3 px-2 text-right font-bold text-slate-900 tabular-nums">{fmtINR(it.revenue)}</td>
                               <td className="py-3 px-2 text-right text-emerald-600 font-bold">{margin}</td>
                             </tr>
                           );
@@ -981,7 +981,7 @@ export default function AnalyticsPage() {
                           <ShieldAlert className="w-6 h-6 text-rose-600 animate-pulse" />
                         )}
                         <div>
-                          <div className={`text-sm font-black ${
+                          <div className={`text-sm font-bold ${
                             fraudFlags.length === 0 ? "text-emerald-900" : "text-rose-900"
                           }`}>
                             {fraudFlags.length === 0
@@ -1021,7 +1021,7 @@ export default function AnalyticsPage() {
                           >
                             {/* Severity Badge */}
                             <div className="absolute top-4 right-4">
-                              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                                 flag.severity === "high"
                                   ? "bg-rose-600 text-white"
                                   : "bg-amber-500 text-white"
@@ -1039,29 +1039,29 @@ export default function AnalyticsPage() {
                                 }`} />
                               </div>
                               <div className="min-w-0">
-                                <div className="text-sm font-black text-slate-900 truncate">{flag.user_name}</div>
-                                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{flag.user_role}</div>
+                                <div className="text-sm font-bold text-slate-900 truncate">{flag.user_name}</div>
+                                <div className="text-xs font-medium text-slate-500 mt-0.5">{flag.user_role}</div>
                               </div>
                             </div>
 
                             <div className={`mt-4 p-3 rounded-xl ${
                               flag.severity === "high" ? "bg-rose-100/60" : "bg-amber-100/60"
                             }`}>
-                              <div className={`text-xs font-black uppercase tracking-widest ${
+                              <div className={`text-xs font-medium ${
                                 flag.severity === "high" ? "text-rose-700" : "text-amber-700"
                               }`}>
                                 {ACTION_LABELS[flag.action] ?? flag.action}
                               </div>
                               <div className="flex items-center gap-4 mt-2">
                                 <div>
-                                  <span className={`text-2xl font-black ${
+                                  <span className={`text-2xl font-bold ${
                                     flag.severity === "high" ? "text-rose-700" : "text-amber-700"
                                   }`}>{flag.count_24h}</span>
                                   <span className="text-[10px] font-bold text-slate-500 ml-1">in 24h</span>
                                 </div>
                                 <div className="text-slate-300">|</div>
                                 <div>
-                                  <span className="text-base font-black text-slate-600">{flag.count_7d}</span>
+                                  <span className="text-base font-bold text-slate-600">{flag.count_7d}</span>
                                   <span className="text-[10px] font-bold text-slate-500 ml-1">in 7d</span>
                                 </div>
                               </div>
@@ -1080,23 +1080,23 @@ export default function AnalyticsPage() {
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-black text-slate-900">Full Audit Ledger</div>
+                          <div className="text-sm font-bold text-slate-900">Full Audit Ledger</div>
                           <div className="text-[11px] text-slate-500 mt-0.5">Last 50 staff events · All sensitive actions are recorded here</div>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1">
+                        <span className="text-xs font-semibold text-slate-400 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1">
                           {auditLogs.length} events
                         </span>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead className="bg-slate-50">
-                            <tr className="text-[10px] uppercase tracking-widest text-slate-400">
-                              <th className="text-left py-3 px-4 font-black">Timestamp</th>
-                              <th className="text-left py-3 px-4 font-black">Staff Member</th>
-                              <th className="text-left py-3 px-4 font-black">Role</th>
-                              <th className="text-left py-3 px-4 font-black">Action</th>
-                              <th className="text-left py-3 px-4 font-black">Entity</th>
-                              <th className="text-left py-3 px-4 font-black">Details</th>
+                            <tr className="text-xs text-slate-500">
+                              <th className="text-left py-3 px-4 font-bold">Timestamp</th>
+                              <th className="text-left py-3 px-4 font-bold">Staff Member</th>
+                              <th className="text-left py-3 px-4 font-bold">Role</th>
+                              <th className="text-left py-3 px-4 font-bold">Action</th>
+                              <th className="text-left py-3 px-4 font-bold">Entity</th>
+                              <th className="text-left py-3 px-4 font-bold">Details</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-50">
@@ -1119,19 +1119,19 @@ export default function AnalyticsPage() {
                                   </td>
                                   <td className="py-3 px-4">
                                     <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600">
+                                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
                                         {(log.user_name || "?")[0].toUpperCase()}
                                       </div>
                                       <span className="text-xs font-bold text-slate-800">{log.user_name || "System"}</span>
                                     </div>
                                   </td>
                                   <td className="py-3 px-4">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                    <span className="text-xs font-medium text-slate-500">
                                       {log.user_role || "—"}
                                     </span>
                                   </td>
                                   <td className="py-3 px-4">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${
                                       isRisky
                                         ? "bg-rose-100 text-rose-700"
                                         : "bg-slate-100 text-slate-600"
@@ -1249,7 +1249,7 @@ export default function AnalyticsPage() {
                       <Receipt className="w-6 h-6" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-black text-slate-950">Daily Closing &amp; EOD</h2>
+                      <h2 className="text-lg font-bold text-slate-950">Daily Closing &amp; EOD</h2>
                       <p className="text-xs text-slate-500 font-medium">Reconcile payments, GST tax collections, and void history</p>
                     </div>
                   </div>
@@ -1270,7 +1270,7 @@ export default function AnalyticsPage() {
                         type="date"
                         value={eodDate}
                         onChange={(e) => setEodDate(e.target.value)}
-                        className="bg-transparent border-0 text-sm font-bold text-slate-800 px-3 focus:ring-0 cursor-pointer"
+                        className="bg-transparent border-0 text-sm font-medium text-slate-800 px-3 focus:ring-0 cursor-pointer"
                       />
                       <button
                         onClick={() => {
@@ -1294,7 +1294,7 @@ export default function AnalyticsPage() {
                         });
                       }}
                       disabled={!eodReport}
-                      className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-white text-xs font-black flex items-center gap-2 shadow-sm transition disabled:opacity-50 cursor-pointer"
+                      className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition disabled:opacity-50 cursor-pointer"
                     >
                       <Printer className="w-4 h-4" /> Print EOD Report
                     </button>
@@ -1319,8 +1319,8 @@ export default function AnalyticsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 h-20 w-20 bg-emerald-500/5 rounded-full -mr-6 -mt-6" />
-                        <div className="text-xs font-black uppercase tracking-widest text-slate-400">Gross Sales</div>
-                        <div className="text-2xl font-black mt-2 text-slate-900">{fmtINR(eodReport.gross_sales)}</div>
+                        <div className="text-xs font-medium text-slate-500">Gross sales</div>
+                        <div className="text-2xl font-bold mt-2 text-slate-900">{fmtINR(eodReport.gross_sales)}</div>
                         <div className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
                           {eodReport.completed_orders_count} completed orders
@@ -1329,15 +1329,15 @@ export default function AnalyticsPage() {
 
                       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 h-20 w-20 bg-indigo-500/5 rounded-full -mr-6 -mt-6" />
-                        <div className="text-xs font-black uppercase tracking-widest text-slate-400">GST Collected</div>
-                        <div className="text-2xl font-black mt-2 text-indigo-700">{fmtINR(eodReport.tax_collected)}</div>
+                        <div className="text-xs font-medium text-slate-500">GST collected</div>
+                        <div className="text-2xl font-bold mt-2 text-indigo-700">{fmtINR(eodReport.tax_collected)}</div>
                         <div className="text-[10px] text-slate-500 font-semibold mt-1">Inclusive/exclusive auto-slabs</div>
                       </div>
 
                       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 h-20 w-20 bg-rose-500/5 rounded-full -mr-6 -mt-6" />
-                        <div className="text-xs font-black uppercase tracking-widest text-slate-400">Discounts Given</div>
-                        <div className="text-2xl font-black mt-2 text-rose-600">-{fmtINR(eodReport.discounts_given)}</div>
+                        <div className="text-xs font-medium text-slate-500">Discounts given</div>
+                        <div className="text-2xl font-bold mt-2 text-rose-600">-{fmtINR(eodReport.discounts_given)}</div>
                         <div className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
                           Order-level &amp; coupon deductions
@@ -1346,8 +1346,8 @@ export default function AnalyticsPage() {
 
                       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 h-20 w-20 bg-amber-500/5 rounded-full -mr-6 -mt-6" />
-                        <div className="text-xs font-black uppercase tracking-widest text-slate-400">Net Subtotal</div>
-                        <div className="text-2xl font-black mt-2 text-amber-700">{fmtINR(eodReport.net_subtotal)}</div>
+                        <div className="text-xs font-medium text-slate-500">Net subtotal</div>
+                        <div className="text-2xl font-bold mt-2 text-amber-700">{fmtINR(eodReport.net_subtotal)}</div>
                         <div className="text-[10px] text-slate-500 font-semibold mt-1">Excludes service charges &amp; tax</div>
                       </div>
                     </div>
@@ -1356,7 +1356,7 @@ export default function AnalyticsPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Left: Payment Modes */}
                       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                        <h3 className="text-sm font-black text-slate-900 mb-4 uppercase tracking-wider">Payment Breakdown</h3>
+                        <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Payment Breakdown</h3>
                         {Object.keys(eodReport.payments_breakdown).length === 0 ? (
                           <div className="py-10 text-center text-slate-400 text-xs">No payment events logged today</div>
                         ) : (
@@ -1383,7 +1383,7 @@ export default function AnalyticsPage() {
 
                       {/* Right: HSN Summary */}
                       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                        <h3 className="text-sm font-black text-slate-900 mb-4 uppercase tracking-wider">HSN Code GST Summary</h3>
+                        <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">HSN Code GST Summary</h3>
                         {!eodReport.hsn_summary || eodReport.hsn_summary.length === 0 ? (
                           <div className="py-10 text-center text-slate-400 text-xs">No item HSN records processed today</div>
                         ) : (
@@ -1416,23 +1416,23 @@ export default function AnalyticsPage() {
                     {/* Voids & Cancellations Audit */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Voids &amp; Discrepancies Audit</h3>
-                        <span className="text-[10px] px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-black uppercase tracking-wider">Risk Audit</span>
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Voids &amp; Discrepancies Audit</h3>
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold">Risk audit</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-semibold">
                           <div className="text-xs text-slate-400 font-bold">Void Items Count</div>
-                          <div className="text-xl font-black text-rose-600 mt-1">{eodReport.void_items_count}</div>
+                          <div className="text-xl font-bold text-rose-600 mt-1">{eodReport.void_items_count}</div>
                           <p className="text-[10px] text-slate-500 mt-1">High-frequency voids flag internal fraud</p>
                         </div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-semibold">
                           <div className="text-xs text-slate-400 font-bold">Cancelled Orders</div>
-                          <div className="text-xl font-black text-rose-600 mt-1">{eodReport.cancelled_orders_count}</div>
+                          <div className="text-xl font-bold text-rose-600 mt-1">{eodReport.cancelled_orders_count}</div>
                           <p className="text-[10px] text-slate-500 mt-1">Completed orders that were cancelled</p>
                         </div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-semibold">
                           <div className="text-xs text-slate-400 font-bold">Cancelled Value</div>
-                          <div className="text-xl font-black text-slate-800 mt-1">{fmtINR(eodReport.cancelled_orders_value)}</div>
+                          <div className="text-xl font-bold text-slate-800 mt-1">{fmtINR(eodReport.cancelled_orders_value)}</div>
                           <p className="text-[10px] text-slate-500 mt-1">Total revenue loss due to cancellation</p>
                         </div>
                       </div>
@@ -1444,7 +1444,7 @@ export default function AnalyticsPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">General Ledger &amp; P&amp;L</h2>
+                    <h2 className="font-display text-2xl font-normal text-slate-900 tracking-[-0.01em]">General Ledger &amp; P&amp;L</h2>
                     <p className="text-sm font-semibold text-slate-500 mt-1">Real-time profit and loss tracking with expense matching</p>
                   </div>
                 </div>
@@ -1458,7 +1458,7 @@ export default function AnalyticsPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Tally ERP Export</h2>
+                    <h2 className="font-display text-2xl font-normal text-slate-900 tracking-[-0.01em]">Tally ERP Export</h2>
                     <p className="text-sm font-semibold text-slate-500 mt-1">Export GST-compliant Sales Vouchers for Tally Import</p>
                   </div>
                   <a

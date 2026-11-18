@@ -4,6 +4,7 @@ import { api, requestManagerPin } from "@/app/lib/api";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
+import { Select } from "@/app/components/ui/Select";
 type RefundableOrder = {
   order_id: string;
   order_number: number;
@@ -104,7 +105,7 @@ export default function RefundDialog({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
       <div className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-6 shadow-2xl">
-        <h3 className="text-base font-black uppercase tracking-wider text-slate-900">Refund payment</h3>
+        <h3 className="text-base font-bold uppercase tracking-wider text-slate-900">Refund payment</h3>
         {orders === null ? (
           <p className="text-xs text-slate-400">Loading orders…</p>
         ) : orders.length === 0 ? (
@@ -113,7 +114,7 @@ export default function RefundDialog({
           <>
             <div>
               <label className={label}>Order</label>
-              <select
+              <Select
                 value={orderId}
                 onChange={(e) => {
                   setOrderId(e.target.value);
@@ -128,7 +129,7 @@ export default function RefundDialog({
                     {kind === "takeaway" ? "Takeaway order" : `#${o.order_number || o.order_id.slice(0, 6)}`} · refundable {inr(o.refundable)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -137,11 +138,11 @@ export default function RefundDialog({
               </div>
               <div>
                 <label className={label}>Refund via</label>
-                <select value={mode} onChange={(e) => setMode(e.target.value as "cash" | "upi" | "card")} className={field}>
+                <Select value={mode} onChange={(e) => setMode(e.target.value as "cash" | "upi" | "card")} className={field}>
                   <option value="cash">Cash</option>
                   <option value="upi">UPI</option>
                   <option value="card">Card</option>
-                </select>
+                </Select>
               </div>
             </div>
             {selected && !isNaN(amt) && amt > selected.refundable && (

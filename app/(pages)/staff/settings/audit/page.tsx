@@ -172,7 +172,7 @@ export default function AuditPage() {
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
                   <th className="px-4 py-3 text-left">Time</th>
                   <th className="px-4 py-3 text-left">Action</th>

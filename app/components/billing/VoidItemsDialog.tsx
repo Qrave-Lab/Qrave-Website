@@ -4,6 +4,7 @@ import { api, requestManagerPin } from "@/app/lib/api";
 import React, { useState } from "react";
 import { toast } from "react-hot-toast";
 
+import { Select } from "@/app/components/ui/Select";
 export type VoidableItem = {
   orderId: string;
   menuItemId: string;
@@ -89,7 +90,7 @@ export default function VoidItemsDialog({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
       <div className="flex max-h-[90vh] w-full max-w-md flex-col gap-4 rounded-3xl bg-white p-6 shadow-2xl">
-        <h3 className="text-base font-black uppercase tracking-wider text-slate-900">Void served items</h3>
+        <h3 className="text-base font-bold uppercase tracking-wider text-slate-900">Void served items</h3>
         <div className="flex-1 space-y-2 overflow-y-auto">
           {items.length === 0 ? (
             <p className="text-xs text-slate-500">No served items on this bill. Cancel unserved items from Order Management instead.</p>
@@ -99,7 +100,7 @@ export default function VoidItemsDialog({
                 <span className="text-sm font-semibold text-slate-800">
                   {it.name} <span className="text-xs font-medium text-slate-400">×{it.quantity}</span>
                 </span>
-                <select
+                <Select
                   value={qty[i] || 0}
                   onChange={(e) => setQty({ ...qty, [i]: Number(e.target.value) })}
                   className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
@@ -107,7 +108,7 @@ export default function VoidItemsDialog({
                   {Array.from({ length: it.quantity + 1 }, (_, n) => (
                     <option key={n} value={n}>{n === 0 ? "Keep" : `Void ${n}`}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             ))
           )}

@@ -106,20 +106,20 @@ export default function PrivacyDataPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-[#fe5c13]" />
-              <h2 className="text-sm font-black text-slate-900">Customer data request</h2>
+              <h2 className="text-sm font-bold text-slate-900">Customer data request</h2>
             </div>
             <p className="mt-1 text-xs font-medium leading-relaxed text-slate-500">
               When a guest asks for a copy of their data, or asks to be forgotten, enter the phone number they used. Matching covers profile,
               loyalty, takeaway orders, reservations, waitlist and advances. Every request is recorded in the audit log (last 4 digits only).
             </p>
 
-            <label className="mt-5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer phone number</label>
+            <label className="mt-5 block text-[13px] font-medium text-slate-500">Customer phone number</label>
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+91 98765 43210"
-              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/30 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-[#fe5c13] focus:ring-2 focus:ring-yellow-500/20"
+              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/30 px-4 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-[#fe5c13] focus:ring-2 focus:ring-[#fe5c13]/15"
             />
 
             <button
@@ -135,7 +135,7 @@ export default function PrivacyDataPage() {
           <section className="rounded-2xl border border-rose-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-rose-500" />
-              <h2 className="text-sm font-black text-slate-900">Erase customer data</h2>
+              <h2 className="text-sm font-bold text-slate-900">Erase customer data</h2>
             </div>
             <p className="mt-1 text-xs font-medium leading-relaxed text-slate-500">
               Deletes the profile, saved addresses and loyalty history, and removes names, phone numbers and addresses from past orders,
@@ -144,7 +144,7 @@ export default function PrivacyDataPage() {
             </p>
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Type ERASE to confirm</label>
+                <label className="block text-[13px] font-medium text-slate-500">Type erase to confirm</label>
                 <input
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
@@ -185,14 +185,14 @@ export default function PrivacyDataPage() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-black text-slate-900">How long data is kept</h2>
+            <h2 className="text-sm font-bold text-slate-900">How long data is kept</h2>
             <p className="mt-1 text-xs font-medium text-slate-500">
               Qrave applies this schedule automatically every day{schedule && !schedule.enabled ? " (currently switched off on this server)" : ""}.
               It matches section 12 of our Privacy Policy.
             </p>
             <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <thead className="bg-slate-50 text-xs font-semibold text-slate-400">
                   <tr>
                     <th className="px-4 py-2">Data</th>
                     <th className="px-4 py-2">After</th>

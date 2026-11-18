@@ -4,24 +4,28 @@ import React, { useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   Bike,
-  ClipboardList,
   ChefHat,
+  ChevronRight,
+  ClipboardList,
   CreditCard,
-  Globe,
+  KeyRound,
+  LayoutGrid,
+  ListChecks,
+  Lock,
   MessageSquare,
-  TicketPercent,
   Palette,
   PlusCircle,
-  Printer,
   QrCode,
   Receipt,
   RefreshCw,
+  Search,
   ShieldCheck,
   Sliders,
   Store,
+  TicketPercent,
   Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -49,38 +53,65 @@ type BranchMeta = {
   address?: string | null;
 };
 
+type GroupId = "restaurant" | "payments" | "team" | "system" | "account";
+
 type NavCard = {
   title: string;
   subtitle: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  group: GroupId;
   show?: boolean;
   disabled?: boolean;
   disabledHint?: string;
+  danger?: boolean;
 };
 
-function SettingsNavCard({ title, subtitle, href, icon: Icon, disabled, disabledHint }: NavCard) {
+const GROUPS: { id: GroupId; title: string; description: string }[] = [
+  { id: "restaurant", title: "Restaurant", description: "How your place looks, runs and serves guests" },
+  { id: "payments", title: "Payments and billing", description: "How you get paid, what bills look like, and discounts" },
+  { id: "team", title: "Team and security", description: "Who can sign in, what they can do, and what they did" },
+  { id: "system", title: "Devices and system", description: "Printers, QR codes, offline sync and setup" },
+  { id: "account", title: "Account", description: "Your plan, branches and help" },
+];
+
+function SettingsNavCard({ title, subtitle, href, icon: Icon, disabled, disabledHint, danger }: NavCard) {
   const content = (
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex items-start gap-4">
-        <div className="mt-0.5 rounded-2xl bg-slate-100 p-3 text-slate-700">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-base font-bold text-slate-900">{title}</p>
-          <p className="mt-1 text-sm text-slate-500 leading-relaxed">{subtitle}</p>
-          {disabled && disabledHint ? (
-            <p className="mt-1.5 text-xs font-semibold text-amber-700">{disabledHint}</p>
-          ) : null}
-        </div>
-      </div>
-      <ArrowRight className="h-5 w-5 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-700" />
-    </div>
+    <>
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+          danger
+            ? "bg-rose-50 text-rose-600"
+            : disabled
+              ? "bg-[#F3F3EF] text-[#9CA3AF]"
+              : "bg-[#F3F3EF] text-[#4B5563] group-hover:bg-[#FFF4EC] group-hover:text-[#fe5c13]"
+        }`}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-[15px] font-semibold tracking-[-0.01em] ${danger ? "text-rose-700" : disabled ? "text-[#6B7280]" : "text-[#0F1117]"}`}>
+          {title}
+        </span>
+        <span className="mt-0.5 block text-[13px] leading-relaxed text-[#6B7280]">{subtitle}</span>
+        {disabled && disabledHint ? (
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-200/70 bg-amber-50 px-2 py-0.5 text-[12px] font-medium text-amber-800">
+            <Lock className="h-3 w-3" /> {disabledHint}
+          </span>
+        ) : null}
+      </span>
+      {!disabled && (
+        <ChevronRight className="mt-2.5 h-4 w-4 shrink-0 text-[#C4C4BE] transition-colors group-hover:text-[#0F1117]" />
+      )}
+    </>
   );
 
   if (disabled) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm opacity-75 cursor-not-allowed">
+      <div
+        aria-disabled="true"
+        className="flex cursor-not-allowed items-start gap-4 rounded-2xl border border-dashed border-[#E8E8E3] bg-[#FAFAF7] p-5"
+      >
         {content}
       </div>
     );
@@ -89,7 +120,9 @@ function SettingsNavCard({ title, subtitle, href, icon: Icon, disabled, disabled
   return (
     <Link
       href={href}
-      className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg"
+      className={`group flex items-start gap-4 rounded-2xl border bg-white p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2 ${
+        danger ? "border-[#E8E8E3] hover:border-rose-200" : "border-[#E8E8E3] hover:border-[#D6D6CF]"
+      }`}
     >
       {content}
     </Link>
@@ -98,24 +131,24 @@ function SettingsNavCard({ title, subtitle, href, icon: Icon, disabled, disabled
 
 function SettingsHubSkeleton() {
   return (
-    <section className="animate-pulse">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 9 }).map((_, idx) => (
-          <div key={idx} className="rounded-3xl border border-slate-200 bg-white p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="h-11 w-11 rounded-2xl bg-slate-100" />
-                <div className="space-y-2">
-                  <div className="h-4 w-36 rounded bg-slate-200" />
-                  <div className="h-3 w-48 rounded bg-slate-100" />
+    <div className="animate-pulse space-y-10">
+      {[6, 3].map((n, g) => (
+        <section key={g}>
+          <div className="mb-4 h-4 w-32 rounded bg-[#E8E8E3]" />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: n }).map((_, idx) => (
+              <div key={idx} className="flex items-start gap-4 rounded-2xl border border-[#E8E8E3] bg-white p-5">
+                <div className="h-10 w-10 rounded-xl bg-[#F3F3EF]" />
+                <div className="flex-1 space-y-2 pt-1">
+                  <div className="h-3.5 w-36 rounded bg-[#E8E8E3]" />
+                  <div className="h-3 w-52 rounded bg-[#F3F3EF]" />
                 </div>
               </div>
-              <div className="h-5 w-5 rounded bg-slate-100" />
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </section>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -131,6 +164,7 @@ export default function SettingsPage() {
   const [isSwitchingLocation, setIsSwitchingLocation] = useState(false);
   const [planCode, setPlanCode] = useState<string>("monthly_499");
   const [branchCount, setBranchCount] = useState(1);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -210,36 +244,41 @@ export default function SettingsPage() {
   };
 
   const cards: NavCard[] = [
-    { title: "Restaurant Profile", subtitle: "Brand details, logo, hours, phone, taxes", href: "/staff/settings/profile", icon: Store, show: canAccess("profile", isOwnerOrManager) },
-    { title: "Menu Health", subtitle: "Quality, diagnostic gaps, and item trends", href: "/staff/menu/health", icon: Activity, show: canAccess("insights", isOwnerOrManager) },
-    { title: "Floor Plan", subtitle: "Manage tables, floors, and counters", href: "/staff/settings/floor-plan", icon: Receipt, show: canAccess("floor_plan", isOwnerOrManager) },
-    { title: "Team Members", subtitle: "Add, edit, and remove staff access", href: "/staff/settings/team", icon: Users, show: canAccess("team", isOwnerOrManager) },
-    { title: "Devices & QR", subtitle: "POS printers and table QR tools", href: "/staff/settings/devices", icon: QrCode, show: canAccess("devices", isOwnerOrManager) },
-    { title: "Receipts & Billing", subtitle: "Bill templates & print formatting", href: "/staff/settings/receipt", icon: Receipt, show: canAccess("receipts", isOwnerOrManager) },
-    { title: "Payments & Billing Controls", subtitle: "UPI ID or Razorpay, discount limits, bill lock, shift cash", href: "/staff/settings/billing", icon: CreditCard, show: isOwnerOrManager },
-    { title: "Theme Studio", subtitle: "Customize customer menu visuals", href: "/staff/settings/theme", icon: Palette, show: canAccess("theme", isOwnerOrManager) },
-    { title: "Offers & Coupons", subtitle: "Create deals, promo codes, and item discounts", href: "/staff/settings/offers", icon: TicketPercent, show: canAccess("offers", isOwnerOrManager) },
-    { title: "Delivery Zones", subtitle: "Configure delivery areas and fees by distance", href: "/staff/settings/delivery-zones", icon: Bike, show: canAccess("delivery", isOwnerOrManager) },
-    { title: "Kitchen Capacity", subtitle: "Auto-throttle, ETA, and category load limits", href: "/staff/settings/kitchen", icon: ChefHat, show: canAccess("kitchen_capacity", isOwnerOrManager) },
-    { title: "Audit Logs", subtitle: "Track critical actions across staff and system", href: "/staff/settings/audit", icon: ClipboardList, show: canAccess("audit", isOwnerOrManager) },
-    { title: "Operations Control", subtitle: "Feature flags and rollout governance", href: "/staff/operations", icon: Sliders, show: role === "owner" },
+    { group: "restaurant", title: "Restaurant profile", subtitle: "Name, logo, opening hours, phone and tax details", href: "/staff/settings/profile", icon: Store, show: canAccess("profile", isOwnerOrManager) },
+    { group: "restaurant", title: "Floor plan", subtitle: "Tables, floors and counters", href: "/staff/settings/floor-plan", icon: LayoutGrid, show: canAccess("floor_plan", isOwnerOrManager) },
+    { group: "restaurant", title: "Theme studio", subtitle: "How your menu looks to guests", href: "/staff/settings/theme", icon: Palette, show: canAccess("theme", isOwnerOrManager) },
+    { group: "restaurant", title: "Menu health", subtitle: "Missing details, weak dishes and item trends", href: "/staff/menu/health", icon: Activity, show: canAccess("insights", isOwnerOrManager) },
+    { group: "restaurant", title: "Kitchen capacity", subtitle: "Order limits, wait times and load by category", href: "/staff/settings/kitchen", icon: ChefHat, show: canAccess("kitchen_capacity", isOwnerOrManager) },
+    { group: "restaurant", title: "Delivery zones", subtitle: "Where you deliver and what it costs by distance", href: "/staff/settings/delivery-zones", icon: Bike, show: canAccess("delivery", isOwnerOrManager) },
+
+    { group: "payments", title: "Payments and billing controls", subtitle: "UPI or Razorpay, discount limits, bill lock and shift cash", href: "/staff/settings/billing", icon: CreditCard, show: isOwnerOrManager },
+    { group: "payments", title: "Receipts", subtitle: "Bill templates and print layout", href: "/staff/settings/receipt", icon: Receipt, show: canAccess("receipts", isOwnerOrManager) },
+    { group: "payments", title: "Offers and coupons", subtitle: "Deals, promo codes and item discounts", href: "/staff/settings/offers", icon: TicketPercent, show: canAccess("offers", isOwnerOrManager) },
+
+    { group: "team", title: "Team members", subtitle: "Add, edit and remove staff", href: "/staff/settings/team", icon: Users, show: canAccess("team", isOwnerOrManager) },
+    { group: "team", title: "Role access", subtitle: "Choose what each staff role can open", href: "/staff/settings/access-control", icon: KeyRound, show: role === "owner" },
+    { group: "team", title: "Security", subtitle: "Two-factor sign-in for your account", href: "/staff/settings/security", icon: ShieldCheck, show: role === "owner" || role === "manager" || role === "cashier" },
+    { group: "team", title: "Audit log", subtitle: "Important actions by staff and the system", href: "/staff/settings/audit", icon: ClipboardList, show: canAccess("audit", isOwnerOrManager) },
+    { group: "team", title: "Privacy and data", subtitle: "Export or erase a customer's data, and retention rules", href: "/staff/settings/privacy", icon: Lock, show: role === "owner" || role === "manager" },
+
+    { group: "system", title: "Devices and QR codes", subtitle: "Receipt printers and table QR codes", href: "/staff/settings/devices", icon: QrCode, show: canAccess("devices", isOwnerOrManager) },
+    { group: "system", title: "Sync queue", subtitle: "Orders waiting to sync after going offline", href: "/staff/settings/sync-queue", icon: RefreshCw, show: true },
+    { group: "system", title: "Operations control", subtitle: "Turn features on or off and roll them out", href: "/staff/operations", icon: Sliders, show: role === "owner" },
+    { group: "system", title: "Setup guide", subtitle: "Menu, tables, QR codes, payments and GST in five steps", href: "/staff/setup", icon: ListChecks, show: role === "owner" || role === "manager" },
+
+    { group: "account", title: "Subscription", subtitle: "Your plan and payment status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
     {
-      title: "Add New Branch",
-      subtitle: "Create another branch/location",
+      group: "account",
+      title: "Add a branch",
+      subtitle: "Set up another location",
       href: "/staff/settings/branches/add",
       icon: PlusCircle,
       show: role === "owner",
       disabled: addBranchLocked,
-      disabledHint: addBranchLocked ? "To add more branches, upgrade plan" : undefined,
+      disabledHint: addBranchLocked ? "Upgrade your plan to add branches" : undefined,
     },
-    { title: "Role Access Control", subtitle: "Set feature access per staff role", href: "/staff/settings/access-control", icon: Users, show: role === "owner" },
-    { title: "Subscription", subtitle: "Manage plan and billing status", href: "/staff/settings/subscription", icon: CreditCard, show: role === "owner" },
-    { title: "Setup guide", subtitle: "Menu, tables, QR codes, payments and GST in five steps", href: "/staff/setup", icon: Sliders, show: role === "owner" || role === "manager" },
-    { title: "Security", subtitle: "Two-factor authentication for your account", href: "/staff/settings/security", icon: ShieldCheck, show: role === "owner" || role === "manager" || role === "cashier" },
-    { title: "Privacy & Data", subtitle: "Export or erase a customer's data, and see retention rules", href: "/staff/settings/privacy", icon: ShieldCheck, show: role === "owner" || role === "manager" },
-    { title: "Delete Account", subtitle: "Permanent account deletion", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner" },
-    { title: "Feedback & Issues", subtitle: "Report bugs, request features, or share thoughts about Qrave", href: "/staff/settings/feedback", icon: MessageSquare, show: canAccess("feedback", true) },
-    { title: "Sync Queue Monitor", subtitle: "View offline queues and sync statuses", href: "/staff/settings/sync-queue", icon: RefreshCw, show: true },
+    { group: "account", title: "Feedback and issues", subtitle: "Report a bug, request a feature or tell us what you think", href: "/staff/settings/feedback", icon: MessageSquare, show: canAccess("feedback", true) },
+    { group: "account", title: "Delete account", subtitle: "Permanently delete your account and data", href: "/staff/settings/delete-account", icon: AlertTriangle, show: role === "owner", danger: true },
   ];
 
   // Food court stalls and AR Menu plans only manage their digital menu.
@@ -249,51 +288,101 @@ export default function SettingsPage() {
     ? cards.filter((c) => isArMenuPath(c.href))
     : cards;
 
+  const q = query.trim().toLowerCase();
+  const shown = visibleCards.filter(
+    (c) =>
+      c.show !== false &&
+      (!q || c.title.toLowerCase().includes(q) || c.subtitle.toLowerCase().includes(q)),
+  );
+  const activeLocation = locations.find((l) => l.restaurant_id === activeRestaurantId);
+
   return (
-    <div className="flex h-screen w-full bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
+    <div className="flex h-screen w-full overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between shrink-0 z-10">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Settings Hub</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <Globe className="w-3 h-3 text-slate-400" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                Branch Configuration • {isLoading ? "..." : currency}
-              </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="shrink-0 border-b border-[#E8E8E3] bg-white px-8 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">Settings</h1>
+              {!isLoading && activeLocation && locations.length <= 1 && (
+                <span className="truncate rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none text-[#6B7280]">
+                  {activeLocation.restaurant}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-64">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search settings"
+                  aria-label="Search settings"
+                  className="h-10 w-full rounded-xl border border-[#E8E8E3] bg-white pl-9 pr-8 text-[13px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[#9CA3AF] hover:bg-[#F3F3EF] hover:text-[#0F1117]"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {!isLoading && locations.length > 1 && (
+                <CustomSelect
+                  value={activeRestaurantId}
+                  onChange={(val: string) => switchLocationFromSettings(val)}
+                  options={locations.map((loc) => ({
+                    value: loc.restaurant_id,
+                    label: locationLabels[loc.restaurant_id]
+                      ? `${loc.restaurant}, ${locationLabels[loc.restaurant_id]}`
+                      : loc.restaurant,
+                  }))}
+                  placeholder="Choose a branch"
+                  theme="orange"
+                  className={`!w-64 transition-opacity ${isSwitchingLocation ? "pointer-events-none opacity-60" : ""}`}
+                  buttonClassName="!h-10 !min-h-10 !py-0 !px-3.5 !text-[13px] !bg-white !border-[#E8E8E3] hover:!border-[#D6D6CF]"
+                />
+              )}
             </div>
           </div>
-          {!isLoading && locations.length > 1 && (
-            <CustomSelect
-              value={activeRestaurantId}
-              onChange={(val: string) => switchLocationFromSettings(val)}
-              options={locations.map((loc) => ({
-                value: loc.restaurant_id,
-                label: locationLabels[loc.restaurant_id]
-                  ? `${loc.restaurant} - ${locationLabels[loc.restaurant_id]}`
-                  : loc.restaurant,
-              }))}
-              placeholder="Select Branch"
-              className={`min-w-[320px] transition-opacity ${isSwitchingLocation ? 'opacity-60 pointer-events-none' : ''}`}
-              buttonClassName="h-[42px] text-xs shadow-sm bg-gradient-to-b from-white to-slate-50 !rounded-xl"
-            />
-          )}
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          <div className="mx-auto max-w-[1400px] pb-10">
+        <main className="flex-1 overflow-y-auto">
+          <div className="px-8 py-6 pb-12">
             {isLoading ? (
               <SettingsHubSkeleton />
+            ) : shown.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
+                <Search className="h-6 w-6 text-[#C4C4BE]" />
+                <p className="mt-3 text-[15px] font-semibold text-[#0F1117]">No settings match &ldquo;{query.trim()}&rdquo;</p>
+                <p className="mt-1 text-[13px] text-[#6B7280]">Try a word like printer, tax, staff or QR.</p>
+              </div>
             ) : (
-              <section>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {visibleCards
-                    .filter((card) => card.show !== false)
-                    .map((card) => (
-                      <SettingsNavCard key={card.title} {...card} />
-                    ))}
-                </div>
-              </section>
+              <div className="space-y-10">
+                {GROUPS.map((g) => {
+                  const list = shown.filter((c) => c.group === g.id);
+                  if (list.length === 0) return null;
+                  return (
+                    <section key={g.id} aria-labelledby={`settings-${g.id}`}>
+                      <div className="mb-4">
+                        <h2 id={`settings-${g.id}`} className="text-[17px] font-semibold tracking-[-0.01em] text-[#0F1117]">
+                          {g.title}
+                        </h2>
+                        <p className="mt-0.5 text-[13px] text-[#6B7280]">{g.description}</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {list.map((card) => (
+                          <SettingsNavCard key={card.title} {...card} />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
             )}
           </div>
         </main>

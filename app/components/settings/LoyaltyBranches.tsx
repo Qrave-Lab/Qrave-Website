@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Store } from "lucide-react";
 import { api } from "@/app/lib/api";
 
+import { Select } from "@/app/components/ui/Select";
 type Branch = { restaurant_id: string; name: string };
 type Share = { card_restaurant?: Branch; used_by: Branch[]; options: Branch[]; own_members: number; can_change: boolean };
 type Preview = { members: number; matching: number; moving: number; unit_differs: boolean };
@@ -119,14 +120,14 @@ export default function LoyaltyBranches({ onChanged }: { onChanged?: () => void 
         <div className="flex flex-wrap items-end gap-2">
           <label className="block text-xs text-slate-600">
             Use the card of
-            <select value={pick} onChange={(e) => choose(e.target.value)} className="mt-1 block w-60 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <Select value={pick} onChange={(e) => choose(e.target.value)} className="mt-1 block w-60 rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <option value="">Choose a branch</option>
               {data.options.map((b) => (
                 <option key={b.restaurant_id} value={b.restaurant_id}>
                   {b.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           {!data.own_members && (
             <button

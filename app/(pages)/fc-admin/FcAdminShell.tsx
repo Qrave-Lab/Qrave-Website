@@ -41,7 +41,7 @@ export default function FcAdminShell({ children }: { children: React.ReactNode }
   if (isLogin) return <>{children}</>;
   if (!me) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-400">
+      <div className="qr-ui flex min-h-screen items-center justify-center bg-slate-50 text-slate-400">
         <Loader2 className="animate-spin" />
       </div>
     );
@@ -54,12 +54,12 @@ export default function FcAdminShell({ children }: { children: React.ReactNode }
 
   return (
     <MeContext.Provider value={me}>
-      <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="qr-ui min-h-screen bg-slate-50 text-slate-900">
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-orange-600">Food court</p>
-              <h1 className="truncate text-lg font-extrabold leading-tight">{me.court.name}</h1>
+              <p className="text-xs font-medium text-orange-600">Food court</p>
+              <h1 className="truncate text-lg font-bold leading-tight">{me.court.name}</h1>
             </div>
             <a
               href={`/fc/${me.court.slug}`}
@@ -101,7 +101,7 @@ export function Card({ title, children, right }: { title?: string; children: Rea
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       {(title || right) && (
         <div className="mb-3 flex items-center justify-between gap-2">
-          {title && <h2 className="text-[15px] font-extrabold">{title}</h2>}
+          {title && <h2 className="text-[15px] font-bold">{title}</h2>}
           {right}
         </div>
       )}

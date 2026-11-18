@@ -4,6 +4,7 @@ import { toProxiedMediaUrl } from "@/app/lib/modelUrl";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
   Search,
   Plus,
   X,
@@ -12,6 +13,7 @@ import {
   Trash2,
   Archive,
   ArchiveRestore,
+  Check,
   CheckSquare,
   Square,
   UtensilsCrossed,
@@ -30,6 +32,8 @@ import {
   Sparkles,
   Scale,
   Copy,
+  RefreshCw,
+  Tags,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import StaffSidebar from "@/app/components/StaffSidebar";
@@ -39,7 +43,9 @@ import ConfirmModal from "@/app/components/ui/ConfirmModal";
 import ArSizeStudio, { type ArSizePatch } from "@/app/components/menu/ArSizeStudio";
 import { useModelViewerEvents } from "@/app/lib/useModelViewerEvents";
 import { CustomDateTimePicker } from "@/app/components/ui/CustomDateTimePicker";
+import { ProductSelect, SegmentedControl, CheckRow, DishMultiPicker } from "@/app/components/menu/ProductFormControls";
 
+import { Select } from "@/app/components/ui/Select";
 const generateUUID = (): string => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -257,12 +263,12 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "", b
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-12 pl-4 pr-10 text-sm font-semibold bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all flex items-center justify-between hover:bg-slate-100/50 ${buttonClassName} ${isOpen ? "border-[#fe5c13] bg-white ring-4 ring-[#fe5c13]/10" : ""}`}
+        className={`w-full h-12 pl-4 pr-10 text-[15px] bg-[#F8F9FA] border border-[#DEE2E6] rounded-xl outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 transition-all flex items-center justify-between hover:bg-slate-100/50 ${buttonClassName} ${isOpen ? "border-[#fe5c13] bg-white ring-4 ring-[#fe5c13]/10" : ""}`}
       >
-        <span className="truncate text-slate-700">{selectedOption ? selectedOption.label : placeholder}</span>
+        <span className={`truncate ${selectedOption ? "text-slate-900" : "text-slate-400"}`}>{selectedOption ? selectedOption.label : placeholder}</span>
       </button>
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-        <ArrowDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#fe5c13]" : "group-hover:text-slate-600"}`} />
+        <ChevronDown className={`w-4 h-4 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`} />
       </div>
 
       <AnimatePresence>
@@ -272,7 +278,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "", b
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-[70] w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden py-1.5 ring-1 ring-slate-900/5"
+            className="absolute z-[70] w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-[0_18px_40px_-16px_rgba(15,17,23,0.35)] overflow-hidden p-1.5"
           >
             <div className="max-h-60 overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar">
               {options.map((opt: any) => (
@@ -283,7 +289,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, className = "", b
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-slate-50 flex items-center justify-between ${optionClassName} ${value === opt.value ? "text-[#fe5c13] font-bold bg-orange-50/50" : "text-slate-600 font-medium"}`}
+                  className={`w-full text-left px-3 py-2.5 text-[14px] rounded-lg transition-colors hover:bg-slate-50 flex items-center justify-between ${optionClassName} ${value === opt.value ? "text-slate-900 font-semibold" : "text-slate-700"}`}
                 >
                   <span className="truncate">{opt.label}</span>
                 </button>
@@ -1410,70 +1416,77 @@ export default function MenuPage() {
   }, []);
 
   return (
-    <div className="flex h-screen bg-[#F8F9FB] text-slate-900 overflow-hidden font-sans">
+    <div className="flex h-screen overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-40 sticky top-0">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              Menu Engineering
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                <Box className="w-3 h-3" /> {items.length} Products
-              </span>
-            </div>
-          </div>
+        <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-[#E8E8E3] bg-white px-8 py-4">
           <div className="flex items-center gap-3">
+            <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">
+              Menu engineering
+            </h1>
+            <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-[#6B7280]">
+              {items.length} {items.length === 1 ? "product" : "products"}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {canImportMenu && (
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2">
-                <div className="w-56">
-                  <CustomSelect
-                    value={sourceBranchId}
-                    onChange={(val: any) => setSourceBranchId(val)}
-                    options={branchOptionsForImport.map((branch) => ({
-                      value: branch.restaurant_id,
-                      label: branch.name,
-                    }))}
-                    placeholder="Copy menu from branch..."
-                    buttonClassName="!h-8 !rounded-lg !text-xs !bg-slate-50 !border-slate-200"
-                    optionClassName="!py-2 !text-xs"
-                  />
-                </div>
-                {sourceBranchId && (
+              <>
+                <div className="flex h-10 items-center rounded-xl border border-[#E8E8E3] bg-white pl-1">
+                  <div className="w-52">
+                    <CustomSelect
+                      value={sourceBranchId}
+                      onChange={(val: any) => setSourceBranchId(val)}
+                      options={branchOptionsForImport.map((branch) => ({
+                        value: branch.restaurant_id,
+                        label: branch.name,
+                      }))}
+                      placeholder="Copy menu from branch"
+                      buttonClassName="!h-8 !min-h-8 !py-0 !px-3 !rounded-lg !border-0 !bg-transparent !text-[13px] !font-medium !text-[#0F1117] hover:!bg-[#FAFAF7]"
+                      optionClassName="!py-2 !text-[13px]"
+                    />
+                  </div>
+                  {sourceBranchId && (
+                    <button
+                      type="button"
+                      onClick={() => setSourceBranchId("")}
+                      disabled={isImportingMenu}
+                      aria-label="Clear branch"
+                      title="Clear branch"
+                      className="mr-1 flex h-7 w-7 items-center justify-center rounded-lg text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117] disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <span className="h-5 w-px bg-[#E8E8E3]" aria-hidden />
                   <button
                     type="button"
-                    onClick={() => setSourceBranchId("")}
-                    disabled={isImportingMenu}
-                    className="h-8 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    onClick={handleImportMenu}
+                    disabled={!sourceBranchId || isImportingMenu}
+                    title={sourceBranchId ? "Copy this branch's menu here" : "Choose a branch first"}
+                    className="flex h-full items-center gap-1.5 rounded-r-xl px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:bg-[#FAFAF7] disabled:cursor-not-allowed disabled:text-[#C4C4BE] disabled:hover:bg-transparent"
                   >
-                    Cancel
+                    {isImportingMenu ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                    {isImportingMenu ? "Copying" : "Copy menu"}
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleImportMenu}
-                  disabled={!sourceBranchId || isImportingMenu}
-                  className="h-8 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50"
-                >
-                  {isImportingMenu ? "Copying..." : "Copy Menu"}
-                </button>
+                </div>
                 <button
                   type="button"
                   onClick={openSyncModal}
-                  className="h-8 rounded-lg bg-[#fe5c13] px-3 text-xs font-bold text-gray-900 hover:brightness-95"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
                 >
-                  Sync Menu
+                  <RefreshCw className="h-4 w-4 text-[#6B7280]" />
+                  Sync menu
                 </button>
-              </div>
+                <span className="mx-1 hidden h-6 w-px bg-[#E8E8E3] sm:block" aria-hidden />
+              </>
             )}
             {canManageCategories && (
               <button
                 onClick={() => setShowSubcategoryManager(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border bg-white border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
               >
-                <Sparkles className="w-4 h-4 text-[#fe5c13]" />
+                <Tags className="h-4 w-4 text-[#6B7280]" />
                 Categories
               </button>
             )}
@@ -1482,17 +1495,18 @@ export default function MenuPage() {
                 setShowArchived(!showArchived);
                 setSelectedItems(new Set());
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showArchived
-                ? "bg-amber-50 border-amber-200 text-amber-700"
-                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              aria-pressed={showArchived}
+              className={`inline-flex h-10 items-center gap-2 rounded-xl border px-3.5 text-[13px] font-semibold transition-colors ${showArchived
+                ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100/70"
+                : "border-[#E8E8E3] bg-white text-[#0F1117] hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
                 }`}
             >
               {showArchived ? (
-                <ArchiveRestore className="w-4 h-4" />
+                <ArchiveRestore className="h-4 w-4" />
               ) : (
-                <Archive className="w-4 h-4" />
+                <Archive className="h-4 w-4 text-[#6B7280]" />
               )}
-              {showArchived ? "Exit Archive" : "Archive"}
+              {showArchived ? "Exit archive" : "Archive"}
             </button>
             <button
               onClick={() => {
@@ -1546,14 +1560,14 @@ export default function MenuPage() {
                 setModalMode("add");
                 setActiveModalTab("general");
               }}
-              className="bg-[#fe5c13] text-gray-900 px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm shadow-[#fe5c13]/30 hover:brightness-95 transition-all"
+              className="ml-1 inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
             >
-              <Plus className="w-4 h-4" /> New Product
+              <Plus className="h-4 w-4" strokeWidth={2.5} /> New product
             </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-[#F8F9FB]">
+        <main className="flex-1 overflow-y-auto bg-[#FAFAF7]">
           <div className="flex flex-col">
             <div className="bg-white border-b border-slate-200 shadow-sm flex flex-col sticky top-0 z-30">
               <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 p-4 md:px-6 bg-white">
@@ -1587,7 +1601,7 @@ export default function MenuPage() {
                               new Set(filteredItems.map((i) => i.id)),
                             );
                         }}
-                        className="text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-900 flex items-center gap-2 transition-colors shrink-0"
+                        className="text-xs font-medium text-slate-500 hover:text-slate-900 flex items-center gap-2 transition-colors shrink-0"
                       >
                         {selectedItems.size === filteredItems.length ? (
                           <CheckSquare className="w-4 h-4 text-[#fe5c13]" />
@@ -1707,8 +1721,8 @@ export default function MenuPage() {
                     <div className="p-5 space-y-4">
                       {/* Parent Section Selector */}
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
-                          Parent Category Section
+                        <label className="block text-[13px] font-medium text-slate-500 mb-1.5 ml-1">
+                          Parent category section
                         </label>
                         <CustomSelect
                           value={newSubcategoryParentId || parentCategories[0]?.id || ""}
@@ -1732,8 +1746,8 @@ export default function MenuPage() {
 
                       {/* Existing Sub-Categories List */}
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 ml-1">
-                          Existing Sub-Categories
+                        <label className="block text-[13px] font-medium text-slate-500 mb-2.5 ml-1">
+                          Existing sub-categories
                         </label>
                         <div className="max-h-[260px] overflow-y-auto space-y-2.5 pr-1 py-1 custom-scrollbar">
                         <motion.div className="space-y-2.5">
@@ -1768,7 +1782,7 @@ export default function MenuPage() {
                                       if (e.key === "Escape") cancelRenameSubcategory();
                                     }}
                                   />
-                                  <select
+                                  <Select
                                     value={editingSubcategoryGstRate}
                                     onChange={(e) => setEditingSubcategoryGstRate(parseFloat(e.target.value))}
                                     className="w-28 h-9 px-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#fe5c13] transition-all cursor-pointer"
@@ -1778,7 +1792,7 @@ export default function MenuPage() {
                                     <option value={12}>12% GST</option>
                                     <option value={18}>18% GST</option>
                                     <option value={28}>28% GST</option>
-                                  </select>
+                                  </Select>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <button
@@ -1916,8 +1930,8 @@ export default function MenuPage() {
                     {/* Body */}
                     <div className="p-6 space-y-5">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                          Sub-Category Name
+                        <label className="block text-[13px] font-medium text-slate-500 mb-2 ml-1">
+                          Sub-category name
                         </label>
                         <input
                           value={newSubcategoryName}
@@ -1936,8 +1950,8 @@ export default function MenuPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                          GST Slab
+                        <label className="block text-[13px] font-medium text-slate-500 mb-2 ml-1">
+                          GST slab
                         </label>
                         <CustomSelect
                           value={newSubcategoryGstRate}
@@ -2185,34 +2199,34 @@ export default function MenuPage() {
                         <h3 className="font-bold text-slate-900 truncate pr-2">
                           {item.name}
                         </h3>
-                        <span className="text-sm font-black whitespace-nowrap text-slate-900">
+                        <span className="text-sm font-bold whitespace-nowrap text-slate-900">
                           ₹{item.price}
                         </span>
                       </div>
                       {(item.isTodaysSpecial || item.isChefSpecial || item.isBestSeller || item.isNew || (item.spiceLevel && item.spiceLevel !== "none")) && (
                         <div className="mb-3 flex flex-wrap gap-1.5">
                           {item.isTodaysSpecial && (
-                            <span className="rounded-lg bg-amber-50 border border-amber-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-600">
+                            <span className="rounded-lg bg-amber-50 border border-amber-200/50 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
                               Specials
                             </span>
                           )}
                           {item.isChefSpecial && (
-                            <span className="rounded-lg bg-indigo-50 border border-indigo-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-600">
+                            <span className="rounded-lg bg-indigo-50 border border-indigo-200/50 px-2 py-0.5 text-[11px] font-semibold text-indigo-600">
                               Signature
                             </span>
                           )}
                           {item.isBestSeller && (
-                            <span className="rounded-lg bg-[#fe5c13]/10 border border-[#fe5c13]/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-gray-800">
+                            <span className="rounded-lg bg-[#fe5c13]/10 border border-[#fe5c13]/20 px-2 py-0.5 text-[11px] font-semibold text-gray-800">
                               Bestseller
                             </span>
                           )}
                           {item.isNew && (
-                            <span className="rounded-lg bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                            <span className="rounded-lg bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
                               New
                             </span>
                           )}
                           {item.spiceLevel && item.spiceLevel !== "none" && (
-                            <span className="rounded-lg bg-rose-50 border border-rose-200/50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-600 flex items-center gap-1">
+                            <span className="rounded-lg bg-rose-50 border border-rose-200/50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 flex items-center gap-1">
                               <Flame className="w-2.5 h-2.5" /> {item.spiceLevel}
                             </span>
                           )}
@@ -2223,7 +2237,7 @@ export default function MenuPage() {
                       </p>
                       <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
                         <div className="flex flex-col">
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-slate-300">
+                          <span className="text-[11px] font-medium text-slate-300">
                             Category
                           </span>
                           <span className="text-[11px] font-bold text-slate-500 truncate max-w-[100px]">
@@ -2233,12 +2247,15 @@ export default function MenuPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateOutOfStock(item, !item.isOutOfStock)}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${item.isOutOfStock
-                              ? "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 active:scale-95"
-                              : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 active:scale-95"
+                            aria-pressed={!item.isOutOfStock}
+                            title={item.isOutOfStock ? "Out of stock. Click to mark it available" : "Available. Click to mark it out of stock"}
+                            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${item.isOutOfStock
+                              ? "border-rose-200/70 bg-rose-50 text-rose-700 hover:border-rose-300 focus-visible:ring-rose-300"
+                              : "border-emerald-200/70 bg-emerald-50 text-emerald-700 hover:border-emerald-300 focus-visible:ring-emerald-300"
                               }`}
                           >
-                            {item.isOutOfStock ? "Out of Stock" : "Active"}
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.isOutOfStock ? "bg-rose-500" : "bg-emerald-500"}`} aria-hidden />
+                            {item.isOutOfStock ? "Out of stock" : "Active"}
                           </button>
                           {item.estimatedPrepMinutes ? (
                             <span className="text-[10px] font-bold text-slate-500">
@@ -2275,38 +2292,38 @@ export default function MenuPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-[#0F1117]/50 backdrop-blur-sm"
               onClick={() => setModalMode(null)}
             />
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden"
+                            className="relative bg-white rounded-[28px] shadow-[0_40px_100px_-30px_rgba(15,17,23,0.5)] w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden"
             >
-              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="px-10 pt-8 pb-7 flex items-end justify-between">
                 <div className="flex items-center gap-4">
                   <div>
-                    <h2 className="text-xl font-black text-slate-900">
-                      {modalMode === "add" ? "Create Product" : "Edit Product"}
+                    <h2 className="font-display text-[30px] leading-none tracking-[-0.01em] text-[#0F1117] font-normal">
+                      {modalMode === "add" ? "Create product" : "Edit product"}
                     </h2>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="mt-2 text-[14px] text-[#6B7280]">
                       Configure details, pricing, and assets.
                     </p>
                   </div>
                   {modalMode === "edit" &&
                     editingItem &&
                     (healthItems.find((h) => h.id === editingItem.id)?.order_count ?? 0) > 0 && (
-                      <div className="ml-4 px-3 py-1.5 bg-orange-50 border border-orange-100 rounded-lg flex items-center gap-1.5">
-                        <span className="text-[13px] font-bold text-orange-600">
+                      <div className="ml-4 px-3 py-1 bg-[#FFF4EC] rounded-full flex items-center gap-1.5">
+                        <span className="text-[13px] font-medium text-[#D97706]">
                           🔥 {healthItems.find((h) => h.id === editingItem.id)?.order_count} sold
                         </span>
                       </div>
                     )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <span className="text-[11px] font-bold text-slate-500">Veg</span>
+                  <div className="flex items-center gap-3 rounded-full border border-[#DEE2E6] bg-white px-4 py-2">
+                    <span className="text-[13px] font-medium text-[#4B5563]">Veg</span>
                     <button
                       type="button"
                       role="switch"
@@ -2318,42 +2335,42 @@ export default function MenuPage() {
                           dietaryManualOverride: true,
                         })
                       }
-                      className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all ${editingItem.isVeg ? "bg-emerald-500" : "bg-rose-500"
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${editingItem.isVeg ? "bg-emerald-500" : "bg-rose-500"
                         }`}
                     >
                       <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${editingItem.isVeg ? "translate-x-0.5" : "translate-x-6"
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${editingItem.isVeg ? "translate-x-0.5" : "translate-x-6"
                           }`}
                       />
                     </button>
-                    <span className="text-[11px] font-bold text-slate-500">Non-Veg</span>
+                    <span className="text-[13px] font-medium text-[#4B5563]">Non-veg</span>
                   </div>
                   <button
                     onClick={() => setModalMode(null)}
-                    className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                    className="p-2 -mr-2 rounded-full transition-colors text-[#6B7280] hover:bg-[#E9ECEF] hover:text-[#0F1117]"
                   >
                     <X />
                   </button>
                 </div>
               </div>
 
-              <div className="flex bg-slate-50/50 px-8 border-b border-slate-100">
+              <div className="flex gap-7 px-10 border-b border-[#E9ECEF] overflow-x-auto">
                 {[
-                  { id: "general", label: "General Info" },
-                  { id: "variants", label: "Variants & Price" },
-                  { id: "modifiers", label: "Modifiers & Combos" },
+                  { id: "general", label: "General info" },
+                  { id: "variants", label: "Variants & price" },
+                  { id: "modifiers", label: "Modifiers & combos" },
                   { id: "assets", label: "Media & 3D" },
                   { id: "ingredients", label: "Ingredients" },
                   { id: "nutrition", label: "Nutrition" },
                   { id: "availability", label: "Availability" },
-                  { id: "history", label: "Version History" },
+                  { id: "history", label: "Version history" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveModalTab(tab.id as any)}
-                    className={`px-6 py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-all ${activeModalTab === tab.id
-                      ? "border-[#fe5c13] text-[#fe5c13]"
-                      : "border-transparent text-slate-400 hover:text-slate-600"
+                    className={`-mb-px whitespace-nowrap border-b-2 py-4 text-[14px] transition-colors ${activeModalTab === tab.id
+                      ? "border-[#fe5c13] font-semibold text-[#0F1117]"
+                      : "border-transparent font-medium text-[#6B7280] hover:text-[#0F1117]"
                       }`}
                   >
                     {tab.label}
@@ -2361,435 +2378,313 @@ export default function MenuPage() {
                 ))}
               </div>
 
-              <div className="flex-1 overflow-y-auto p-10 bg-white">
+              <div className="flex-1 overflow-y-auto px-10 pb-10 pt-8 bg-white">
                 {activeModalTab === "general" && (
-                  <div className="grid grid-cols-12 gap-10">
-                    <div className="col-span-8 space-y-8">
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                          Product Name
-                        </label>
+                  <div className="grid grid-cols-12 gap-x-12">
+                    <div className="col-span-8">
+                      {/* Dish */}
+                      <section className="pb-9">
+                        <label htmlFor="pf-name" className="sr-only">Product name</label>
                         <input
+                          id="pf-name"
                           value={editingItem.name}
-                          onChange={(e) =>
-                            setEditingItem({
-                              ...editingItem,
-                              name: e.target.value,
-                            })
-                          }
-                          className="w-full text-lg font-bold border-b-2 border-slate-100 focus:border-[#fe5c13] outline-none pb-2 transition-all"
-                          placeholder="e.g. Signature Truffle Burger"
+                          onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                          className="font-display w-full bg-transparent pb-2.5 text-[24px] leading-snug tracking-[-0.01em] text-[#0F1117] placeholder:text-[#9CA3AF] border-b border-[#DEE2E6] focus:border-[#0F1117] outline-none transition-colors"
+                          
+                          placeholder="Name this dish"
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <div>
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Description
-                          </label>
-                        </div>
+                        <label htmlFor="pf-desc" className="mt-6 mb-2 block text-[13px] font-medium text-[#4B5563]">
+                          Description
+                        </label>
                         <textarea
+                          id="pf-desc"
                           value={editingItem.description}
-                          onChange={(e) =>
-                            setEditingItem({
-                              ...editingItem,
-                              description: e.target.value,
-                            })
-                          }
-                          className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm min-h-[120px] outline-none focus:ring-4 focus:ring-yellow-50 transition-all"
-                          placeholder="Describe taste, texture, and presentation..."
+                          onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                          className="w-full min-h-[112px] resize-y rounded-xl border border-[#DEE2E6] bg-[#F8F9FA] p-4 text-[15px] leading-relaxed text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#CED4DA] focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/12 transition-all"
+                          placeholder="What guests taste, the texture, how it arrives at the table"
                         />
-                      </div>
-                      <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Base Price (₹)
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min={0}
-                              step="any"
-                              value={editingItem.price || ""}
-                              onFocus={(e) => e.target.select()}
-                              onChange={(e) => {
-                                const value = e.target.value === "" ? 0 : Number(e.target.value);
-                                if (Number.isFinite(value) && value >= 0) {
-                                  setEditingItem({ ...editingItem, price: value });
-                                }
-                              }}
-                              className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all pl-8"
-                            />
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
-                              ₹
-                            </span>
+                      </section>
+
+                      {/* Pricing & kitchen */}
+                      <section className="border-t border-[#E9ECEF] py-9">
+                        <h3 className="font-display mb-6 text-[19px] text-[#0F1117]">
+                          Pricing and kitchen
+                        </h3>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-6">
+                          <div>
+                            <label htmlFor="pf-price" className="mb-2 block text-[13px] font-medium text-[#4B5563]">Base price</label>
+                            <div className="relative">
+                              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-[#6B7280]">₹</span>
+                              <input
+                                id="pf-price"
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step="any"
+                                value={editingItem.price || ""}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const value = e.target.value === "" ? 0 : Number(e.target.value);
+                                  if (Number.isFinite(value) && value >= 0) setEditingItem({ ...editingItem, price: value });
+                                }}
+                                placeholder="0"
+                                className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none w-full h-12 pl-9 pr-4 rounded-xl border border-[#DEE2E6] bg-[#F8F9FA] text-[15px] tabular-nums text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#CED4DA] focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/12 transition-all"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mb-2 flex items-baseline justify-between">
+                              <label htmlFor="pf-cost" className="block text-[13px] font-medium text-[#4B5563]">Food cost</label>
+                              {editingItem.price > 0 && editingItem.foodCost > 0 && (() => {
+                                const margin = Math.round(((editingItem.price - editingItem.foodCost) / editingItem.price) * 100);
+                                return (
+                                  <span className={`text-[12px] tabular-nums ${margin < 0 ? "text-[#B42318]" : margin < 60 ? "text-[#B45309]" : "text-[#6B7280]"}`}>
+                                    {margin}% margin
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <div className="relative">
+                              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-[#6B7280]">₹</span>
+                              <input
+                                id="pf-cost"
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step="any"
+                                value={editingItem.foodCost || ""}
+                                onChange={(e) => {
+                                  const value = e.target.value === "" ? 0 : Number(e.target.value);
+                                  if (Number.isFinite(value) && value >= 0) setEditingItem({ ...editingItem, foodCost: value });
+                                }}
+                                placeholder="0"
+                                className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none w-full h-12 pl-9 pr-4 rounded-xl border border-[#DEE2E6] bg-[#F8F9FA] text-[15px] tabular-nums text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#CED4DA] focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/12 transition-all"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label htmlFor="pf-prep" className="mb-2 block text-[13px] font-medium text-[#4B5563]">Prep time</label>
+                            <div className="relative">
+                              <input
+                                id="pf-prep"
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                value={editingItem.estimatedPrepMinutes ?? ""}
+                                onChange={(e) => {
+                                  const value = e.target.value === "" ? null : Number(e.target.value);
+                                  if (value === null || (Number.isInteger(value) && value >= 0)) setEditingItem({ ...editingItem, estimatedPrepMinutes: value });
+                                }}
+                                placeholder="15"
+                                className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none w-full h-12 pl-4 pr-14 rounded-xl border border-[#DEE2E6] bg-[#F8F9FA] text-[15px] tabular-nums text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#CED4DA] focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/12 transition-all"
+                              />
+                              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[14px] text-[#6B7280]">min</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label htmlFor="pf-kcal" className="mb-2 block text-[13px] font-medium text-[#4B5563]">Calories</label>
+                            <div className="relative">
+                              <input
+                                id="pf-kcal"
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step={1}
+                                value={editingItem.calories ?? ""}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const value = e.target.value === "" ? null : Number(e.target.value);
+                                  if (value === null || (Number.isInteger(value) && value >= 0)) setEditingItem({ ...editingItem, calories: value });
+                                }}
+                                placeholder="320"
+                                className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none w-full h-12 pl-4 pr-14 rounded-xl border border-[#DEE2E6] bg-[#F8F9FA] text-[15px] tabular-nums text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#CED4DA] focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/12 transition-all"
+                              />
+                              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[14px] text-[#6B7280]">kcal</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Calories (kcal)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={editingItem.calories ?? ""}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const value = e.target.value === "" ? null : Number(e.target.value);
-                              if (value === null || (Number.isInteger(value) && value >= 0)) {
-                                setEditingItem({ ...editingItem, calories: value });
-                              }
-                            }}
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
-                            placeholder="e.g. 320"
-                          />
-                        </div>
+                      </section>
 
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Food Cost (₹)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={editingItem.foodCost || ""}
-                            onChange={(e) => {
-                              const value = e.target.value === "" ? 0 : Number(e.target.value);
-                              if (Number.isFinite(value) && value >= 0) {
-                                setEditingItem({ ...editingItem, foodCost: value });
-                              }
-                            }}
-                            placeholder="0"
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Prep Time (mins)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={editingItem.estimatedPrepMinutes ?? ""}
-                            onChange={(e) => {
-                              const value = e.target.value === "" ? null : Number(e.target.value);
-                              if (value === null || (Number.isInteger(value) && value >= 0)) {
-                                setEditingItem({ ...editingItem, estimatedPrepMinutes: value });
-                              }
-                            }}
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
-                            placeholder="e.g. 15"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Category Group
-                          </label>
-                          <div className="relative">
-                            <select
+                      {/* Placement & tax */}
+                      <section className="border-t border-[#E9ECEF] py-9">
+                        <h3 className="font-display mb-6 text-[19px] text-[#0F1117]">
+                          Menu placement and tax
+                        </h3>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-6">
+                          <div>
+                            <span className="mb-2 block text-[13px] font-medium text-[#4B5563]">Category</span>
+                            <ProductSelect
+                              ariaLabel="Category"
                               value={selectedParentId}
-                              onChange={(e) => {
-                                const nextParentId = e.target.value;
+                              options={parentCategories.map((cat) => ({ value: cat.id, label: cat.name }))}
+                              placeholder="Choose a category"
+                              onChange={(nextParentId) => {
                                 const subs = getSubcategories(nextParentId);
                                 const nextCategoryId = subs[0]?.id || nextParentId;
                                 setEditingParentId(nextParentId);
-                                setEditingItem({
-                                  ...editingItem,
-                                  categoryId: nextCategoryId,
-                                });
+                                setEditingItem({ ...editingItem, categoryId: nextCategoryId });
                               }}
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
-                            >
-                              {parentCategories.map((cat) => (
-                                <option key={cat.id} value={cat.id}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="m6 9 6 6 6-6" />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            Subcategory
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={editingItem.categoryId || ""}
-                              onChange={(e) =>
-                                setEditingItem({
-                                  ...editingItem,
-                                  categoryId: e.target.value,
-                                })
-                              }
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
-                            >
-                              {subcategoryOptions.length > 0 ? (
-                                subcategoryOptions.map((cat) => (
-                                  <option key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                  </option>
-                                ))
-                              ) : (
-                                <option value={selectedParentId}>
-                                  {parentCategories.find((c) => c.id === selectedParentId)?.name ||
-                                    "General"}
-                                </option>
-                              )}
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="m6 9 6 6 6-6" />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            HSN Code
-                          </label>
-                          <input
-                            type="text"
-                            value={editingItem.hsn_code || ""}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, "");
-                              setEditingItem({
-                                ...editingItem,
-                                hsn_code: val,
-                              });
-                            }}
-                            className="w-full h-[48px] p-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all"
-                            placeholder="e.g. 21069099"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                            GST Slab Override
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={editingItem.gst_rate === undefined || editingItem.gst_rate === null ? "" : editingItem.gst_rate}
-                              onChange={(e) =>
-                                setEditingItem({
-                                  ...editingItem,
-                                  gst_rate: e.target.value === "" ? undefined : parseFloat(e.target.value),
-                                })
-                              }
-                              className="w-full h-[48px] px-3.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50 transition-all appearance-none cursor-pointer"
-                            >
-                              <option value="">Use Category Default</option>
-                              <option value={0}>0% GST</option>
-                              <option value={5}>5% GST</option>
-                              <option value={12}>12% GST</option>
-                              <option value={18}>18% GST</option>
-                              <option value={28}>28% GST</option>
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="m6 9 6 6 6-6" />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 mb-3">
-                          Specials
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800">
-                            <input
-                              type="checkbox"
-                              checked={editingItem.isTodaysSpecial}
-                              onChange={(e) =>
-                                setEditingItem({
-                                  ...editingItem,
-                                  isTodaysSpecial: e.target.checked,
-                                })
-                              }
                             />
-                            Today's Special
-                          </label>
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-800">
-                            <input
-                              type="checkbox"
-                              checked={editingItem.isChefSpecial}
-                              onChange={(e) =>
-                                setEditingItem({
-                                  ...editingItem,
-                                  isChefSpecial: e.target.checked,
-                                })
-                              }
-                            />
-                            Chef's Special
-                          </label>
-                        </div>
-                        <div className="mt-3">
-                          <input
-                            value={editingItem.specialNote || ""}
-                            onChange={(e) =>
-                              setEditingItem({
-                                ...editingItem,
-                                specialNote: e.target.value,
-                              })
-                            }
-                            className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
-                            placeholder="Special note (e.g., Only today, limited quantity)"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-gray-900 mb-3">
-                          Merchandising
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#fe5c13] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
-                            <input
-                              type="checkbox"
-                              checked={editingItem.isBestSeller}
-                              onChange={(e) => setEditingItem({ ...editingItem, isBestSeller: e.target.checked })}
-                            />
-                            Best Seller
-                          </label>
-                          <label className="inline-flex items-center gap-2 rounded-xl border border-[#fe5c13] bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
-                            <input
-                              type="checkbox"
-                              checked={editingItem.isNew}
-                              onChange={(e) => setEditingItem({ ...editingItem, isNew: e.target.checked })}
-                            />
-                            New Item
-                          </label>
-                        </div>
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
-                              Spice Level
-                            </label>
-                            <select
-                              value={editingItem.spiceLevel}
-                              onChange={(e) => setEditingItem({ ...editingItem, spiceLevel: e.target.value as SpiceLevel })}
-                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold"
-                            >
-                              <option value="none">None</option>
-                              <option value="mild">Mild</option>
-                              <option value="medium">Medium</option>
-                              <option value="hot">Hot</option>
-                            </select>
                           </div>
                           <div>
-                            <label className="mb-1 block text-[11px] font-black uppercase tracking-widest text-slate-400">
-                              Pair With
-                            </label>
-                            <select
-                              multiple
-                              value={editingItem.pairWithItemIds}
-                              onChange={(e) =>
-                                setEditingItem({
-                                  ...editingItem,
-                                  pairWithItemIds: Array.from(e.target.selectedOptions).map((option) => option.value),
-                                })
+                            <span className="mb-2 block text-[13px] font-medium text-[#4B5563]">Subcategory</span>
+                            <ProductSelect
+                              ariaLabel="Subcategory"
+                              value={editingItem.categoryId || selectedParentId}
+                              options={
+                                subcategoryOptions.length > 0
+                                  ? subcategoryOptions.map((cat) => ({ value: cat.id, label: cat.name }))
+                                  : [{ value: selectedParentId, label: parentCategories.find((c) => c.id === selectedParentId)?.name || "General" }]
                               }
-                              className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                            >
-                              {items.filter((item) => item.id !== editingItem.id).map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  {item.name}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(categoryId) => setEditingItem({ ...editingItem, categoryId })}
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="pf-hsn" className="mb-2 block text-[13px] font-medium text-[#4B5563]">HSN code</label>
+                            <input
+                              id="pf-hsn"
+                              type="text"
+                              inputMode="numeric"
+                              value={editingItem.hsn_code || ""}
+                              onChange={(e) => setEditingItem({ ...editingItem, hsn_code: e.target.value.replace(/\D/g, "") })}
+                              placeholder="21069099"
+                              className="w-full h-12 px-4 rounded-xl border border-[#DEE2E6] bg-[#F8F9FA] text-[15px] tabular-nums tracking-wide text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#CED4DA] focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/12 transition-all"
+                            />
+                          </div>
+                          <div>
+                            <span className="mb-2 block text-[13px] font-medium text-[#4B5563]">GST rate</span>
+                            <ProductSelect
+                              ariaLabel="GST rate"
+                              value={editingItem.gst_rate === undefined || editingItem.gst_rate === null ? "" : String(editingItem.gst_rate)}
+                              options={[
+                                { value: "", label: "Category default" },
+                                { value: "0", label: "0%" },
+                                { value: "5", label: "5%" },
+                                { value: "12", label: "12%" },
+                                { value: "18", label: "18%" },
+                                { value: "28", label: "28%" },
+                              ]}
+                              onChange={(v) => setEditingItem({ ...editingItem, gst_rate: v === "" ? undefined : parseFloat(v) })}
+                            />
                           </div>
                         </div>
-                      </div>
+                      </section>
+
+                      {/* On the menu */}
+                      <section className="border-t border-[#E9ECEF] pt-9">
+                        <h3 className="font-display text-[19px] text-[#0F1117]">
+                          How it appears on the menu
+                        </h3>
+                        <p className="mt-1 mb-6 text-[14px] text-[#6B7280]">Badges guests see next to the dish.</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <CheckRow
+                            label="Today's special"
+                            description="Pinned to the top for today"
+                            checked={!!editingItem.isTodaysSpecial}
+                            onChange={(v) => setEditingItem({ ...editingItem, isTodaysSpecial: v })}
+                          />
+                          <CheckRow
+                            label="Chef's special"
+                            description="Marked as a house recommendation"
+                            checked={!!editingItem.isChefSpecial}
+                            onChange={(v) => setEditingItem({ ...editingItem, isChefSpecial: v })}
+                          />
+                          <CheckRow
+                            label="Best seller"
+                            checked={!!editingItem.isBestSeller}
+                            onChange={(v) => setEditingItem({ ...editingItem, isBestSeller: v })}
+                          />
+                          <CheckRow
+                            label="New"
+                            checked={!!editingItem.isNew}
+                            onChange={(v) => setEditingItem({ ...editingItem, isNew: v })}
+                          />
+                        </div>
+                        {(editingItem.isTodaysSpecial || editingItem.isChefSpecial || !!editingItem.specialNote) && (
+                          <div className="mt-4">
+                            <label htmlFor="pf-note" className="mb-2 block text-[13px] font-medium text-[#4B5563]">Special note</label>
+                            <input
+                              id="pf-note"
+                              value={editingItem.specialNote || ""}
+                              onChange={(e) => setEditingItem({ ...editingItem, specialNote: e.target.value })}
+                              placeholder="Only 20 plates tonight"
+                              className="w-full h-12 px-4 rounded-xl border border-[#DEE2E6] bg-[#F8F9FA] text-[15px] text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#CED4DA] focus:bg-white focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/12 transition-all"
+                            />
+                          </div>
+                        )}
+                        <div className="mt-6">
+                          <span className="mb-2 block text-[13px] font-medium text-[#4B5563]">Spice level</span>
+                          <SegmentedControl<SpiceLevel>
+                            ariaLabel="Spice level"
+                            value={editingItem.spiceLevel || "none"}
+                            onChange={(spiceLevel) => setEditingItem({ ...editingItem, spiceLevel })}
+                            options={[
+                              { value: "none", label: "None" },
+                              { value: "mild", label: "Mild" },
+                              { value: "medium", label: "Medium" },
+                              { value: "hot", label: "Hot" },
+                            ]}
+                          />
+                        </div>
+                        <div className="mt-6">
+                          <span className="mb-2 block text-[13px] font-medium text-[#4B5563]">Pairs well with</span>
+                          <DishMultiPicker
+                            value={editingItem.pairWithItemIds || []}
+                            onChange={(pairWithItemIds) => setEditingItem({ ...editingItem, pairWithItemIds })}
+                            options={items
+                              .filter((item) => item.id !== editingItem.id)
+                              .map((item) => ({ value: String(item.id), label: item.name }))}
+                          />
+                        </div>
+                      </section>
                     </div>
-                    <div className="col-span-4">
-                      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                          <Info className="w-3.5 h-3.5" /> Allergen Matrix
+
+                    <aside className="col-span-4">
+                      <div className="sticky top-0 rounded-2xl border border-[#E9ECEF] bg-[#F8F9FA] p-6">
+                        <h4 className="font-display text-[19px] text-[#0F1117]">
+                          Allergens
                         </h4>
-                        <div className="grid grid-cols-2 gap-2">
+                        <p className="mt-1 text-[13px] leading-relaxed text-[#6B7280]">
+                          Tick everything this dish contains. Guests can filter by these.
+                        </p>
+                        <ul className="mt-5 divide-y divide-[#E9ECEF]">
                           {ALLERGEN_LIST.map((alg) => {
-                            const active = editingItem.allergens.some(
-                              (a) => a.type === alg
-                            );
+                            const active = editingItem.allergens.some((a) => a.type === alg);
                             return (
-                              <button
-                                key={alg}
-                                onClick={() => {
-                                  const next = active
-                                    ? editingItem.allergens.filter(
-                                      (a) => a.type !== alg
-                                    )
-                                    : [
-                                      ...editingItem.allergens,
-                                      {
-                                        type: alg,
-                                        confidence: "contains" as const,
-                                      },
-                                    ];
-                                  setEditingItem({
-                                    ...editingItem,
-                                    allergens: next,
-                                  });
-                                }}
-                                className={`flex items-center gap-2 p-2 rounded-lg border text-[10px] font-bold transition-all ${active
-                                  ? "bg-[#fe5c13] border-[#fe5c13] text-gray-900"
-                                  : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
-                                  }`}
-                              >
-                                <div
-                                  className={`w-1.5 h-1.5 rounded-full ${active ? "bg-white" : "bg-slate-200"
-                                    }`}
-                                />
-                                {alg}
-                              </button>
+                              <li key={alg}>
+                                <button
+                                  type="button"
+                                  role="checkbox"
+                                  aria-checked={active}
+                                  onClick={() => {
+                                    const next = active
+                                      ? editingItem.allergens.filter((a) => a.type !== alg)
+                                      : [...editingItem.allergens, { type: alg, confidence: "contains" as const }];
+                                    setEditingItem({ ...editingItem, allergens: next });
+                                  }}
+                                  className="group flex w-full items-center gap-3 rounded-md py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40"
+                                >
+                                  <span
+                                    className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors ${active ? "border-[#fe5c13] bg-[#fe5c13]" : "border-[#CED4DA] bg-white group-hover:border-[#6B7280]"}`}
+                                  >
+                                    {active && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                                  </span>
+                                  <span className={`text-[14px] ${active ? "font-medium text-[#0F1117]" : "text-[#4B5563] group-hover:text-[#0F1117]"}`}>
+                                    {alg}
+                                  </span>
+                                </button>
+                              </li>
                             );
                           })}
-                        </div>
+                        </ul>
+                        <p className="mt-4 border-t border-[#E9ECEF] pt-4 text-[13px] text-[#6B7280]">
+                          {editingItem.allergens.length === 0
+                            ? "No allergens marked"
+                            : `Contains ${editingItem.allergens.map((a) => a.type).join(", ")}`}
+                        </p>
                       </div>
-                    </div>
+                    </aside>
                   </div>
                 )}
 
@@ -2800,7 +2695,7 @@ export default function MenuPage() {
                       {/* Left: 2D Image */}
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          <label className="block mb-2 text-[13px] font-medium text-[#4B5563]">
                             Display Image (2D)
                           </label>
                         </div>
@@ -2823,7 +2718,7 @@ export default function MenuPage() {
                                   e.stopPropagation();
                                   removeMediaAsset("image");
                                 }}
-                                className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
+                                className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700 shadow-sm"
                               >
                                 Remove
                               </button>
@@ -2856,7 +2751,7 @@ export default function MenuPage() {
                       {/* Right: 3D Asset */}
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          <label className="block mb-2 text-[13px] font-medium text-[#4B5563]">
                             AR Asset (3D)
                           </label>
                         </div>
@@ -2887,7 +2782,7 @@ export default function MenuPage() {
                                   e.stopPropagation();
                                   modelInputRef.current?.click();
                                 }}
-                                className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-900 shadow-sm"
+                                className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-gray-900 shadow-sm"
                               >
                                 Replace
                               </button>
@@ -2897,7 +2792,7 @@ export default function MenuPage() {
                                   e.stopPropagation();
                                   removeMediaAsset("model");
                                 }}
-                                className="absolute top-3 right-[86px] z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-rose-700 shadow-sm"
+                                className="absolute top-3 right-[86px] z-20 rounded-lg bg-white/95 border border-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700 shadow-sm"
                               >
                                 Remove
                               </button>
@@ -2905,9 +2800,9 @@ export default function MenuPage() {
                                 href={normalizeAssetUrl(editingItem.modelGlb || editingItem.modelUsdz || "#")}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="absolute top-3 left-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700 shadow-sm"
+                                className="absolute top-3 left-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm"
                               >
-                                Open File
+                                Open file
                               </a>
 
                               {/* Steam rendering temporarily disabled
@@ -3000,7 +2895,7 @@ export default function MenuPage() {
                       <div className="pt-6 border-t border-slate-100 space-y-6">
                         <div className="flex items-center gap-2">
                           <Box className="w-4 h-4 text-indigo-500" />
-                          <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">
+                          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-800">
                             3D Studio Configurations
                           </h3>
                         </div>
@@ -3010,7 +2905,7 @@ export default function MenuPage() {
                           {/* 
                           <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-800">
+                              <h4 className="text-xs font-medium text-slate-800">
                                 Steam
                               </h4>
                               <label className="relative inline-flex items-center cursor-pointer">
@@ -3032,7 +2927,7 @@ export default function MenuPage() {
                             {editingItem.hasSteam && (
                               <div className="space-y-4 pt-4 border-t border-slate-200">
                                 <div>
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Intensity</label>
+                                  <label className="text-[13px] font-medium text-slate-500 block mb-2">Intensity</label>
                                   <div className="flex bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
                                     {["none", "gentle", "medium", "heavy"].map((level) => (
                                       <button
@@ -3046,7 +2941,7 @@ export default function MenuPage() {
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Color</label>
+                                  <label className="text-[13px] font-medium text-slate-500 block mb-2">Color</label>
                                   <div className="flex gap-2">
                                     {[
                                       { id: "white", label: "White", bg: "bg-slate-200" },
@@ -3142,11 +3037,11 @@ export default function MenuPage() {
                           >
                             <div className="flex-1 grid grid-cols-12 gap-4">
                               <div className="col-span-6 space-y-1">
-                                <span className="text-[10px] font-black uppercase text-slate-400">
-                                  Ingredient Name
+                                <span className="text-xs font-medium text-slate-500">
+                                  Ingredient name
                                 </span>
                                 <input
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
+                                  className="w-full bg-transparent font-medium text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
                                   value={ing.name}
                                   onChange={(e) => {
                                     const list = [
@@ -3162,12 +3057,12 @@ export default function MenuPage() {
                                 />
                               </div>
                               <div className="col-span-3 space-y-1">
-                                <span className="text-[10px] font-black uppercase text-slate-400">
+                                <span className="text-xs font-medium text-slate-500">
                                   Qty
                                 </span>
                                 <input
                                   type="number"
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
+                                  className="w-full bg-transparent font-medium text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
                                   value={ing.quantity || ""}
                                   onFocus={(e) => e.target.select()}
                                   onChange={(e) => {
@@ -3186,10 +3081,10 @@ export default function MenuPage() {
                                 />
                               </div>
                               <div className="col-span-3 space-y-1">
-                                <span className="text-[10px] font-black uppercase text-slate-400">
+                                <span className="text-xs font-medium text-slate-500">
                                   Unit
                                 </span>
-                                <select
+                                <Select
                                   value={ing.unit}
                                   onChange={(e) => {
                                     const list = [
@@ -3201,13 +3096,13 @@ export default function MenuPage() {
                                       ingredientsStructured: list,
                                     });
                                   }}
-                                  className="w-full bg-transparent font-bold text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
+                                  className="w-full bg-transparent font-medium text-sm outline-none border-b border-slate-100 focus:border-[#fe5c13] pb-1"
                                 >
                                   <option value="g">Grams (g)</option>
                                   <option value="ml">Milliliters (ml)</option>
                                   <option value="pcs">Pieces (pcs)</option>
                                   <option value="oz">Ounces (oz)</option>
-                                </select>
+                                </Select>
                               </div>
                             </div>
                             <button
@@ -3263,11 +3158,11 @@ export default function MenuPage() {
                         >
                           <div className="flex-1 grid grid-cols-12 gap-6">
                             <div className="col-span-5 space-y-1">
-                              <span className="text-[10px] font-black uppercase text-slate-400">
-                                Size / Variant Label
+                              <span className="text-xs font-medium text-slate-500">
+                                Size / variant label
                               </span>
                               <input
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#fe5c13] pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-medium text-sm outline-none focus:border-[#fe5c13] pb-1"
                                 value={v.label}
                                 onChange={(e) => {
                                   const newList = [...editingItem.variants];
@@ -3278,12 +3173,12 @@ export default function MenuPage() {
                               />
                             </div>
                             <div className="col-span-3 space-y-1">
-                              <span className="text-[10px] font-black uppercase text-slate-400">
+                              <span className="text-xs font-medium text-slate-500">
                                 Price (₹)
                               </span>
                               <input
                                 type="number"
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#fe5c13] pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-medium text-sm outline-none focus:border-[#fe5c13] pb-1"
                                 value={v.price || ""}
                                 onChange={(e) => {
                                   const newList = [...editingItem.variants];
@@ -3293,12 +3188,12 @@ export default function MenuPage() {
                               />
                             </div>
                             <div className="col-span-4 space-y-1">
-                              <span className="text-[10px] font-black uppercase text-slate-400">
-                                Stock (Optional)
+                              <span className="text-xs font-medium text-slate-500">
+                                Stock (optional)
                               </span>
                               <input
                                 type="number"
-                                className="w-full bg-transparent border-b border-slate-200 font-bold text-sm outline-none focus:border-[#fe5c13] pb-1"
+                                className="w-full bg-transparent border-b border-slate-200 font-medium text-sm outline-none focus:border-[#fe5c13] pb-1"
                                 value={v.stockCount ?? ""}
                                 placeholder="Unlimited"
                                 onChange={(e) => {
@@ -3536,7 +3431,7 @@ export default function MenuPage() {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Kcal</label>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Kcal</label>
                         <input
                           type="number"
                           step="0.01"
@@ -3547,7 +3442,7 @@ export default function MenuPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Protein (g)</label>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Protein (g)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -3558,7 +3453,7 @@ export default function MenuPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Carbs (g)</label>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Carbs (g)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -3569,7 +3464,7 @@ export default function MenuPage() {
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Fat (g)</label>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Fat (g)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -3587,7 +3482,7 @@ export default function MenuPage() {
                   <div className="space-y-8">
                     <div className="bg-slate-50/60 p-8 rounded-3xl border border-slate-200">
                       <div className="mb-6">
-                        <h4 className="text-sm font-black uppercase tracking-widest text-gray-900 flex items-center gap-2">
+                        <h4 className="text-sm font-bold uppercase tracking-widest text-gray-900 flex items-center gap-2">
                           <Clock3 className="w-4 h-4 text-[#fe5c13]" /> Scheduled Publishing & Pricing
                         </h4>
                         <p className="text-xs text-slate-500 font-medium mt-1">
@@ -3596,8 +3491,8 @@ export default function MenuPage() {
                       </div>
                       <div className="grid gap-6 md:grid-cols-2">
                         <div>
-                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
-                            Publish At
+                          <label className="mb-2 block text-[13px] font-medium text-slate-500">
+                            Publish at
                           </label>
                           <CustomDateTimePicker
                             value={editingItem.publishAt}
@@ -3606,8 +3501,8 @@ export default function MenuPage() {
                           />
                         </div>
                         <div>
-                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
-                            Unpublish At
+                          <label className="mb-2 block text-[13px] font-medium text-slate-500">
+                            Unpublish at
                           </label>
                           <CustomDateTimePicker
                             value={editingItem.unpublishAt}
@@ -3616,8 +3511,8 @@ export default function MenuPage() {
                           />
                         </div>
                         <div>
-                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
-                            Scheduled Price (₹)
+                          <label className="mb-2 block text-[13px] font-medium text-slate-500">
+                            Scheduled price (₹)
                           </label>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
@@ -3638,8 +3533,8 @@ export default function MenuPage() {
                           </div>
                         </div>
                         <div>
-                          <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-slate-500">
-                            Price Effective At
+                          <label className="mb-2 block text-[13px] font-medium text-slate-500">
+                            Price effective at
                           </label>
                           <CustomDateTimePicker
                             value={editingItem.scheduledPriceEffectiveAt}
@@ -3652,7 +3547,7 @@ export default function MenuPage() {
                       </div>
                     </div>
                     <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                      <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
                         <Box className="w-4 h-4" /> Stock Status
                       </h4>
                       <div className="flex items-center justify-between gap-6">
@@ -3681,7 +3576,7 @@ export default function MenuPage() {
                       </div>
                     </div>
                     <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
-                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                      <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
                         <Calendar className="w-4 h-4" /> Weekly Availability
                       </h4>
                       <div className="flex flex-wrap gap-3">
@@ -3699,7 +3594,7 @@ export default function MenuPage() {
                                   availableDays: next,
                                 });
                               }}
-                              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-black uppercase transition-all border-2 ${active
+                              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-medium transition-all border-2 ${active
                                 ? "bg-[#fe5c13] border-[#fe5c13] text-gray-900 shadow-lg"
                                 : "bg-white border-slate-100 text-slate-300 hover:border-slate-200"
                                 }`}
@@ -3717,7 +3612,7 @@ export default function MenuPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-sm font-black uppercase tracking-widest text-slate-400">
+                        <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400">
                           Saved Versions
                         </h4>
                         <p className="mt-1 text-sm text-slate-500">
@@ -3773,7 +3668,7 @@ export default function MenuPage() {
                 )}
               </div>
 
-              <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="px-10 py-5 border-t border-[#E9ECEF] flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() =>
@@ -3782,36 +3677,36 @@ export default function MenuPage() {
                         isArchived: !editingItem.isArchived,
                       })
                     }
-                    className="text-xs font-bold text-slate-400 hover:text-rose-500 flex items-center gap-2 transition-colors"
+                    className="text-[13px] font-medium text-[#6B7280] hover:text-[#0F1117] flex items-center gap-2 transition-colors"
                   >
                     {editingItem.isArchived ? (
                       <ArchiveRestore className="w-4 h-4" />
                     ) : (
-                      <Trash2 className="w-4 h-4" />
+                      <Archive className="w-4 h-4" />
                     )}
-                    {editingItem.isArchived ? "Restore to Menu" : "Archive Product"}
+                    {editingItem.isArchived ? "Restore to menu" : "Archive product"}
                   </button>
                   {!!editingItem.id && (
                     <button
                       onClick={handleDeleteItem}
-                      className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-2 transition-colors"
+                      className="text-[13px] font-medium text-rose-600 hover:text-rose-700 flex items-center gap-2 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Delete Product
+                      Delete product
                     </button>
                   )}
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setModalMode(null)}
-                    className="px-6 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-all"
+                    className="px-5 py-2.5 text-[14px] font-medium text-[#4B5563] hover:text-[#0F1117] rounded-xl transition-colors"
                   >
                     Discard
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="px-10 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-black shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                    className="h-11 px-8 bg-[#0F1117] text-white text-[14px] font-medium rounded-xl hover:bg-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
                   >
                     {isSaving ? (
                       <>
@@ -3819,7 +3714,7 @@ export default function MenuPage() {
                         Saving...
                       </>
                     ) : (
-                      "Save Changes"
+                      "Save changes"
                     )}
                   </button>
                 </div>
@@ -3859,17 +3754,17 @@ export default function MenuPage() {
                   This will overwrite menu categories, menu items, and prices in selected target branches.
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Source Branch
+                  <label className="mb-1.5 block text-[13px] font-medium text-slate-500">
+                    Source branch
                   </label>
-                  <select
+                  <Select
                     value={syncSourceBranchId}
                     onChange={(e) => {
                       const nextSource = e.target.value;
                       setSyncSourceBranchId(nextSource);
                       setSyncTargetBranchIds((prev) => prev.filter((id) => id !== nextSource));
                     }}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-yellow-50"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/15"
                   >
                     <option value="">Select source branch...</option>
                     {branches.map((branch) => (
@@ -3877,11 +3772,11 @@ export default function MenuPage() {
                         {branch.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Target Branches
+                  <label className="mb-1.5 block text-[13px] font-medium text-slate-500">
+                    Target branches
                   </label>
                   <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
                     {branchOptionsForSync.length === 0 && (
@@ -3945,7 +3840,7 @@ export default function MenuPage() {
                 <h2 className="text-lg font-bold text-slate-900">Bulk Edit Prices ({selectedItems.size} items)</h2>
                 <button
                   onClick={() => setShowBulkPriceEdit(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                  className="p-2 -mr-2 rounded-full transition-colors text-[#6B7280] hover:bg-[#E9ECEF] hover:text-[#0F1117]"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3953,7 +3848,7 @@ export default function MenuPage() {
               
               <div className="p-6 space-y-6">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Action</label>
+                  <label className="text-xs font-medium text-slate-500 mb-2 block">Action</label>
                   <div className="flex gap-2">
                     {["increase", "decrease", "set"].map((op) => (
                       <button
@@ -3973,7 +3868,7 @@ export default function MenuPage() {
 
                 {bulkPriceOp !== "set" && (
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Value Type</label>
+                    <label className="text-xs font-medium text-slate-500 mb-2 block">Value type</label>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setBulkPriceType("percentage")}
@@ -4000,7 +3895,7 @@ export default function MenuPage() {
                 )}
 
                 <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+                  <label className="text-xs font-medium text-slate-500 mb-2 block">
                     {bulkPriceOp === "set" ? "New Price (₹)" : bulkPriceType === "percentage" ? "Percentage (%)" : "Amount (₹)"}
                   </label>
                   <input

@@ -16,6 +16,7 @@ import {
   History,
   IndianRupee,
   KeyRound,
+  Loader2,
   LogIn,
   LogOut,
   Play,
@@ -55,7 +56,7 @@ type StaffShift = {
 type Period = "today" | "7d" | "30d" | "all";
 
 const fmtDuration = (mins?: number | null) => {
-  if (mins === undefined || mins === null) return "--";
+  if (mins === undefined || mins === null) return "—";
   if (mins < 60) return `${mins}m`;
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 };
@@ -88,29 +89,20 @@ const breakMins = (s: StaffShift) =>
     }, 0),
   );
 
-const ROLE_STYLES: Record<string, string> = {
-  owner: "bg-purple-50 text-purple-700 border-purple-100",
-  manager: "bg-blue-50 text-blue-700 border-blue-100",
-  admin: "bg-blue-50 text-blue-700 border-blue-100",
-  cashier: "bg-amber-50 text-amber-700 border-amber-100",
-  waiter: "bg-sky-50 text-sky-700 border-sky-100",
-  captain: "bg-teal-50 text-teal-700 border-teal-100",
-  kitchen: "bg-rose-50 text-rose-700 border-rose-100",
-};
+const roleLabel = (role: string) =>
+  role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : "Staff";
 
 const RoleBadge = ({ role }: { role: string }) => (
-  <span
-    className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${ROLE_STYLES[role.toLowerCase()] || "bg-slate-50 text-slate-600 border-slate-200/60"}`}
-  >
-    {role}
+  <span className="inline-flex items-center rounded-full bg-[#F3F3EF] px-2 py-0.5 text-[12px] font-medium text-[#4B5563]">
+    {roleLabel(role)}
   </span>
 );
 
 const PERIODS: { id: Period; label: string }[] = [
   { id: "today", label: "Today" },
-  { id: "7d", label: "7 days" },
-  { id: "30d", label: "30 days" },
-  { id: "all", label: "All" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "all", label: "All time" },
 ];
 
 export default function ShiftsPage() {
@@ -433,203 +425,161 @@ export default function ShiftsPage() {
     URL.revokeObjectURL(a.href);
   };
 
-  const inputCls =
-    "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-sm focus:border-[#fe5c13] focus:ring-4 focus:ring-[#fe5c13]/10 focus:outline-none transition-all";
-  const labelCls =
-    "text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1";
+  const INPUT =
+    "h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[14px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]";
+  const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4B5563]";
+  const BTN_SECONDARY =
+    "inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7] hover:text-[#0F1117] disabled:cursor-not-allowed disabled:opacity-50";
+  const BTN_PRIMARY =
+    "inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2";
+  const SEG_ON = "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]";
+  const SEG_OFF = "text-[#6B7280] hover:text-[#0F1117]";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900">
+    <div className="flex h-screen overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight text-gray-900">
-              <Clock className="h-5 w-5 text-[#fe5c13]" />
-              Shifts &amp; Attendance
-            </h2>
-            <p className="text-xs text-gray-500">
-              Clock in, take breaks, count the till and audit every shift.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {canSeeHistory && (
+        <header className="shrink-0 border-b border-[#E8E8E3] bg-white px-8 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <div className="flex items-center gap-3">
+              <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">
+                Shifts and attendance
+              </h1>
+              {!isLoading && (
+                activeShift ? (
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium leading-none ring-1 ring-inset ${openBreak ? "bg-amber-50 text-amber-800 ring-amber-200/70" : "bg-emerald-50 text-emerald-700 ring-emerald-200/70"}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${openBreak ? "bg-amber-500" : "bg-emerald-500"}`} />
+                    {openBreak ? "On break" : "On shift"}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none text-[#6B7280]">
+                    Clocked out
+                  </span>
+                )
+              )}
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={exportCsv}
-                disabled={filtered.length === 0}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+                onClick={() => void fetchAll()}
+                aria-label="Refresh shifts"
+                title="Refresh shifts"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E8E8E3] bg-white text-[#6B7280] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7] hover:text-[#0F1117]"
               >
-                <Download className="h-4 w-4 text-slate-500" /> CSV
+                <RefreshCw className="h-4 w-4" />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => void fetchAll()}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
-            >
-              <RefreshCw className="h-4 w-4 text-slate-500" /> Refresh
-            </button>
+              {canSeeHistory && (
+                <button type="button" onClick={exportCsv} disabled={filtered.length === 0} className={BTN_SECONDARY}>
+                  <Download className="h-4 w-4 text-[#6B7280]" /> Export CSV
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
         <div className="relative flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="flex min-h-[50vh] items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <Clock className="h-8 w-8 animate-spin text-[#fe5c13]" />
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Loading shifts…
-                </p>
-              </div>
+            <div className="flex min-h-[50vh] items-center justify-center gap-2 text-[14px] text-[#6B7280]">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading shifts
             </div>
           ) : (
-            <div className="mx-auto max-w-7xl space-y-6 p-6 md:p-8">
-              {/* ── Active shift hero ── */}
+            <div className="mx-auto max-w-7xl space-y-6 px-8 py-6">
+              {/* Your shift */}
               {!activeShift ? (
-                <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-                  <div className="absolute inset-y-0 left-0 w-1.5 bg-slate-300" />
-                  <div className="flex flex-col justify-between gap-6 pl-2 md:flex-row md:items-center">
-                    <div className="flex items-center gap-5">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-400">
-                        <LogOut className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-extrabold text-slate-900">
-                          You&apos;re clocked out
-                        </h3>
-                        <p className="mt-0.5 text-xs font-medium text-slate-500">
-                          Start your shift and enter the opening float to begin
-                          taking cash.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        resetModal();
-                        setModalType("clock_in");
-                      }}
-                      className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-950 px-7 py-3.5 text-xs font-black uppercase tracking-wider text-white shadow-md transition-all hover:bg-slate-800 active:scale-95"
-                    >
-                      <LogIn className="h-4 w-4" /> Clock in
-                    </button>
+                <section className="flex flex-col justify-between gap-5 rounded-2xl border border-[#E8E8E3] bg-white px-6 py-5 md:flex-row md:items-center">
+                  <div>
+                    <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-[#0F1117]">
+                      You&apos;re clocked out
+                    </h2>
+                    <p className="mt-1 text-[13px] text-[#6B7280]">
+                      Clock in to start your shift. If you&apos;re taking cash, you&apos;ll enter the opening float next.
+                    </p>
                   </div>
+                  <button
+                    onClick={() => {
+                      resetModal();
+                      setModalType("clock_in");
+                    }}
+                    className={BTN_PRIMARY}
+                  >
+                    <LogIn className="h-4 w-4" /> Clock in
+                  </button>
                 </section>
               ) : (
-                <section
-                  className={`relative overflow-hidden rounded-3xl border bg-white p-6 shadow-sm md:p-8 ${openBreak ? "border-amber-200" : "border-emerald-200"}`}
-                >
-                  <div
-                    className={`absolute inset-y-0 left-0 w-1.5 ${openBreak ? "bg-amber-400" : "bg-emerald-500"}`}
-                  />
-                  <div className="flex flex-col gap-6 pl-2 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-center gap-5">
-                      <div
-                        className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${openBreak ? "border-amber-100 bg-amber-50 text-amber-600" : "border-emerald-100 bg-emerald-50 text-emerald-600"}`}
-                      >
-                        {openBreak ? (
-                          <Coffee className="h-6 w-6" />
-                        ) : (
-                          <Timer className="h-6 w-6" />
+                <section className="rounded-2xl border border-[#E8E8E3] bg-white">
+                  <div className="flex flex-col gap-6 px-6 pb-5 pt-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-[#0F1117]">
+                          {activeShift.user_name}
+                        </h2>
+                        <RoleBadge role={activeShift.role} />
+                        {openBreak && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/70 bg-amber-50 px-2 py-0.5 text-[12px] font-medium text-amber-800">
+                            <Coffee className="h-3.5 w-3.5" /> On {openBreak.is_paid ? "a paid" : "an unpaid"} break
+                          </span>
                         )}
-                        <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5">
-                          <span
-                            className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${openBreak ? "bg-amber-400" : "bg-emerald-400"}`}
-                          />
-                          <span
-                            className={`relative inline-flex h-2.5 w-2.5 rounded-full ${openBreak ? "bg-amber-500" : "bg-emerald-500"}`}
-                          />
-                        </span>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2.5">
-                          <h3 className="text-lg font-extrabold text-slate-900">
-                            {activeShift.user_name}
-                          </h3>
-                          <RoleBadge role={activeShift.role} />
-                          {openBreak && (
-                            <span className="rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-800">
-                              On {openBreak.is_paid ? "paid" : "unpaid"} break
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs font-medium text-slate-500">
-                          Since {fmtTime(activeShift.clocked_in_at)} ·{" "}
-                          {fmtDate(activeShift.clocked_in_at)}
-                        </p>
-                      </div>
+                      <p className="mt-4 text-[12px] font-medium text-[#6B7280]">Time on shift</p>
+                      <p className="mt-1 text-[40px] font-bold leading-none tabular-nums tracking-[-0.03em] text-[#0F1117]">
+                        {fmtClock(elapsedSecs)}
+                      </p>
+                      <p className="mt-2 text-[13px] tabular-nums text-[#6B7280]">
+                        Clocked in at {fmtTime(activeShift.clocked_in_at)} on {fmtDate(activeShift.clocked_in_at)}
+                      </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[560px]">
+                    <dl className="grid grid-cols-3 divide-x divide-[#F0F0EB] rounded-xl border border-[#E8E8E3] lg:min-w-[480px]">
                       {[
-                        {
-                          label: "Time on shift",
-                          value: fmtClock(elapsedSecs),
-                          tone: "text-slate-900",
-                        },
                         {
                           label: "Break time",
                           value: fmtClock(breakSecsTotal),
-                          tone: "text-amber-600",
+                          tone: breakSecsTotal ? "text-amber-700" : "text-[#9CA3AF]",
                         },
                         {
                           label: "Opening float",
                           value: fmtINR(activeShift.opening_float),
-                          tone: "text-slate-900",
+                          tone: "text-[#0F1117]",
                         },
                         {
                           label: "Expected in till",
-                          value:
-                            expectedCash === null ? "--" : fmtINR(expectedCash),
-                          tone: "text-[#fe5c13]",
+                          value: expectedCash === null ? "—" : fmtINR(expectedCash),
+                          tone: expectedCash === null ? "text-[#9CA3AF]" : "text-[#0F1117]",
                         },
                       ].map((k) => (
-                        <div
-                          key={k.label}
-                          className="rounded-2xl border border-slate-100 bg-slate-50/70 px-3.5 py-3"
-                        >
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                            {k.label}
-                          </p>
-                          <p
-                            className={`mt-1 font-mono text-sm font-extrabold tabular-nums ${k.tone}`}
-                          >
-                            {k.value}
-                          </p>
+                        <div key={k.label} className="px-4 py-3">
+                          <dt className="text-[12px] font-medium text-[#6B7280]">{k.label}</dt>
+                          <dd className={`mt-1 text-[16px] font-semibold tabular-nums ${k.tone}`}>{k.value}</dd>
                         </div>
                       ))}
-                    </div>
+                    </dl>
                   </div>
 
-                  <div className="mt-6 flex flex-wrap items-center gap-2.5 border-t border-slate-100 pt-5 pl-2">
+                  <div className="flex flex-wrap items-center gap-2 border-t border-[#F0F0EB] px-6 py-4">
                     {openBreak ? (
                       <button
                         onClick={() => void handleBreak(true)}
                         disabled={isActionLoading}
-                        className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-amber-600 disabled:opacity-50"
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0F1117] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#1F2937] disabled:opacity-50"
                       >
                         <Play className="h-4 w-4" /> End break
                       </button>
                     ) : (
                       <>
-                        <button
-                          onClick={() => void handleBreak(true)}
-                          disabled={isActionLoading}
-                          className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition-all hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          <Coffee className="h-4 w-4 text-slate-500" /> Paid break
+                        <button onClick={() => void handleBreak(true)} disabled={isActionLoading} className={BTN_SECONDARY}>
+                          <Coffee className="h-4 w-4 text-[#6B7280]" /> Paid break
                         </button>
-                        <button
-                          onClick={() => void handleBreak(false)}
-                          disabled={isActionLoading}
-                          className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition-all hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          <Coffee className="h-4 w-4 text-slate-500" /> Unpaid
-                          break
+                        <button onClick={() => void handleBreak(false)} disabled={isActionLoading} className={BTN_SECONDARY}>
+                          <Coffee className="h-4 w-4 text-[#6B7280]" /> Unpaid break
                         </button>
                       </>
                     )}
                     <div className="flex-1" />
+                    {openBreak && (
+                      <span className="text-[12px] text-[#9CA3AF]">End your break to clock out</span>
+                    )}
                     <button
                       onClick={() => {
                         resetModal();
@@ -637,7 +587,7 @@ export default function ShiftsPage() {
                       }}
                       disabled={!!openBreak}
                       title={openBreak ? "End your break first" : undefined}
-                      className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-rose-700 transition-all hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      className={`${BTN_SECONDARY} text-rose-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700`}
                     >
                       <LogOut className="h-4 w-4" /> Clock out
                     </button>
@@ -645,264 +595,204 @@ export default function ShiftsPage() {
                 </section>
               )}
 
-              {/* ── History ── */}
+              {/* History */}
               {!canSeeHistory ? (
-                <section className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-                  <History className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-3 text-sm font-bold text-slate-700">
-                    Shift history is visible to owners and managers.
-                  </p>
+                <section className="rounded-2xl border border-[#E8E8E3] bg-white px-6 py-12 text-center">
+                  <History className="mx-auto h-6 w-6 text-[#C4C4BE]" />
+                  <p className="mt-3 text-[15px] font-semibold text-[#0F1117]">Shift history is for owners and managers</p>
+                  <p className="mt-1 text-[13px] text-[#6B7280]">Ask one of them if you need to check a past shift.</p>
                 </section>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-                    {[
-                      {
-                        icon: Users,
-                        label: "Staff on record",
-                        value: String(stats.people),
-                      },
-                      {
-                        icon: Clock,
-                        label: "Hours worked",
-                        value: `${(stats.mins / 60).toFixed(1)} h`,
-                      },
-                      {
-                        icon: Wallet,
-                        label: "Net cash variance",
-                        value: fmtINR(stats.netVar),
-                        tone:
-                          stats.netVar < 0
-                            ? "text-rose-600"
-                            : stats.netVar > 0
-                              ? "text-amber-600"
-                              : "text-emerald-600",
-                      },
-                      {
-                        icon: AlertTriangle,
-                        label: "Shifts short",
-                        value: String(stats.shortages),
-                        tone: stats.shortages ? "text-rose-600" : undefined,
-                      },
-                      {
-                        icon: IndianRupee,
-                        label: "Labour cost (est.)",
-                        value: stats.labour ? fmtINR(stats.labour) : "--",
-                      },
-                    ].map((k) => (
-                      <div
-                        key={k.label}
-                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                      >
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <k.icon className="h-3.5 w-3.5" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            {k.label}
-                          </span>
-                        </div>
-                        <p
-                          className={`mt-2 text-xl font-black tabular-nums ${k.tone || "text-slate-900"}`}
-                        >
-                          {k.value}
-                        </p>
+                  <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-[#0F1117]">Shift history</h2>
+                      <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-[#6B7280]">
+                        {filtered.length} {filtered.length === 1 ? "shift" : "shifts"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative w-56">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                        <input
+                          value={query}
+                          onChange={(e) => setQuery(e.target.value)}
+                          placeholder="Search staff or role"
+                          aria-label="Search staff or role"
+                          className="h-9 w-full rounded-xl border border-[#E8E8E3] bg-white pl-9 pr-3 text-[13px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
+                        />
                       </div>
-                    ))}
+                      <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Period">
+                        {PERIODS.map((p) => (
+                          <button
+                            key={p.id}
+                            role="tab"
+                            aria-selected={period === p.id}
+                            onClick={() => setPeriod(p.id)}
+                            className={`flex h-7 items-center whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-colors ${period === p.id ? SEG_ON : SEG_OFF}`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setVarianceOnly((v) => !v)}
+                        aria-pressed={varianceOnly}
+                        className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-[12px] font-medium transition-colors ${varianceOnly ? "border-[#0F1117] bg-[#0F1117] text-white" : "border-[#E8E8E3] bg-white text-[#4B5563] hover:border-[#D6D6CF] hover:text-[#0F1117]"}`}
+                      >
+                        <Wallet className="h-3.5 w-3.5" /> Cash differences only
+                      </button>
+                    </div>
                   </div>
 
-                  <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                    <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 px-6 py-4 md:flex-row md:items-center md:justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <History className="h-4 w-4 text-slate-400" />
-                        <h2 className="text-sm font-black uppercase tracking-wider text-slate-800">
-                          Shift history
-                        </h2>
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          {filtered.length}
-                        </span>
+                  <dl className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white lg:grid-cols-5">
+                    {[
+                      { label: "Staff", value: String(stats.people), tone: "text-[#0F1117]" },
+                      { label: "Hours worked", value: `${(stats.mins / 60).toFixed(1)} h`, tone: "text-[#0F1117]" },
+                      {
+                        label: "Net cash difference",
+                        value:
+                          stats.netVar === 0
+                            ? "Balanced"
+                            : `${stats.netVar > 0 ? "+" : "−"}${fmtINR(Math.abs(stats.netVar))}`,
+                        tone: stats.netVar < 0 ? "text-rose-600" : stats.netVar > 0 ? "text-amber-700" : "text-emerald-700",
+                      },
+                      {
+                        label: "Shifts short on cash",
+                        value: String(stats.shortages),
+                        tone: stats.shortages ? "text-rose-600" : "text-[#9CA3AF]",
+                      },
+                      {
+                        label: "Labour cost, estimated",
+                        value: stats.labour ? fmtINR(stats.labour) : "—",
+                        tone: stats.labour ? "text-[#0F1117]" : "text-[#9CA3AF]",
+                      },
+                    ].map((k, i) => (
+                      <div
+                        key={k.label}
+                        className={`px-6 py-4 ${i % 2 === 1 ? "border-l border-[#F0F0EB]" : ""} ${i > 1 ? "border-t border-[#F0F0EB] lg:border-t-0" : ""} ${i > 0 ? "lg:border-l lg:border-[#F0F0EB]" : ""}`}
+                      >
+                        <dt className="text-[12px] font-medium text-[#6B7280]">{k.label}</dt>
+                        <dd className={`mt-1 text-[20px] font-bold tabular-nums tracking-[-0.02em] ${k.tone}`}>{k.value}</dd>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
-                          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                          <input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search staff or role"
-                            className="w-52 rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs font-semibold text-slate-700 focus:border-[#fe5c13] focus:outline-none focus:ring-4 focus:ring-[#fe5c13]/10"
-                          />
-                        </div>
-                        <div className="flex rounded-xl bg-slate-100 p-0.5">
-                          {PERIODS.map((p) => (
-                            <button
-                              key={p.id}
-                              onClick={() => setPeriod(p.id)}
-                              className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all ${period === p.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-                        </div>
-                        <button
-                          onClick={() => setVarianceOnly((v) => !v)}
-                          className={`rounded-xl border px-3 py-2 text-[11px] font-bold transition-all ${varianceOnly ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
-                        >
-                          Variance only
-                        </button>
-                      </div>
-                    </div>
+                    ))}
+                  </dl>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-slate-100 bg-slate-50/80 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            <th className="w-10 px-4 py-3.5" />
-                            <th className="px-4 py-3.5">Date</th>
-                            <th className="px-4 py-3.5">Staff</th>
-                            <th className="px-4 py-3.5">In – Out</th>
-                            <th className="px-4 py-3.5">Hours</th>
-                            <th className="px-4 py-3.5 text-right">Expected</th>
-                            <th className="px-4 py-3.5 text-right">Counted</th>
-                            <th className="px-4 py-3.5 text-right">Variance</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-700">
-                          {filtered.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan={8}
-                                className="px-8 py-14 text-center font-bold uppercase tracking-wider text-slate-400"
-                              >
-                                No shifts match these filters.
-                              </td>
+                  <section className="overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+                    {filtered.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+                        <History className="h-6 w-6 text-[#C4C4BE]" />
+                        <p className="mt-3 text-[15px] font-semibold text-[#0F1117]">No shifts match these filters</p>
+                        <p className="mt-1 max-w-sm text-[13px] text-[#6B7280]">Try a longer period or clear the search.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[900px] border-collapse text-left">
+                          <thead>
+                            <tr className="border-b border-[#F0F0EB] text-[12px] text-[#6B7280]">
+                              <th className="w-10 py-3 pl-4" />
+                              <th className="px-4 py-3 font-medium">Staff</th>
+                              <th className="px-4 py-3 font-medium">Date</th>
+                              <th className="px-4 py-3 font-medium">In and out</th>
+                              <th className="px-4 py-3 text-right font-medium">Hours</th>
+                              <th className="px-4 py-3 text-right font-medium">Expected cash</th>
+                              <th className="px-4 py-3 text-right font-medium">Counted</th>
+                              <th className="px-4 py-3 text-right font-medium">Difference</th>
                             </tr>
-                          ) : (
-                            filtered.map((s) => {
+                          </thead>
+                          <tbody className="divide-y divide-[#F0F0EB] text-[13px] text-[#4B5563]">
+                            {filtered.map((s) => {
                               const open = !s.clocked_out_at;
                               const v = s.cash_discrepancy;
                               const isOpen = expanded === s.id;
                               return (
                                 <React.Fragment key={s.id}>
                                   <tr
-                                    onClick={() =>
-                                      setExpanded(isOpen ? null : s.id)
-                                    }
-                                    className="cursor-pointer transition-colors hover:bg-slate-50/60"
+                                    onClick={() => setExpanded(isOpen ? null : s.id)}
+                                    aria-expanded={isOpen}
+                                    className={`cursor-pointer transition-colors hover:bg-[#FAFAF7] ${isOpen ? "bg-[#FAFAF7]" : ""}`}
                                   >
-                                    <td className="px-4 py-3.5 text-slate-300">
-                                      {isOpen ? (
-                                        <ChevronDown className="h-4 w-4" />
-                                      ) : (
-                                        <ChevronRight className="h-4 w-4" />
-                                      )}
-                                    </td>
-                                    <td className="px-4 py-3.5 font-bold text-slate-500">
-                                      {fmtDate(s.clocked_in_at)}
+                                    <td className="py-3.5 pl-4 text-[#9CA3AF]">
+                                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                     </td>
                                     <td className="px-4 py-3.5">
                                       <div className="flex items-center gap-2.5">
-                                        <span className="font-bold text-slate-900">
-                                          {s.user_name}
-                                        </span>
+                                        <span className="text-[14px] font-semibold text-[#0F1117]">{s.user_name}</span>
                                         <RoleBadge role={s.role} />
                                       </div>
                                     </td>
-                                    <td className="px-4 py-3.5 font-semibold">
-                                      {fmtTime(s.clocked_in_at)} –{" "}
+                                    <td className="px-4 py-3.5 tabular-nums">{fmtDate(s.clocked_in_at)}</td>
+                                    <td className="px-4 py-3.5 tabular-nums text-[#0F1117]">
+                                      {fmtTime(s.clocked_in_at)} to{" "}
                                       {open ? (
-                                        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-700">
-                                          Live
+                                        <span className="ml-0.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/70 bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700">
+                                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> On shift
                                         </span>
                                       ) : (
                                         fmtTime(s.clocked_out_at as string)
                                       )}
                                     </td>
-                                    <td className="px-4 py-3.5 font-bold">
+                                    <td className="px-4 py-3.5 text-right font-semibold tabular-nums text-[#0F1117]">
                                       {fmtDuration(s.duration_mins)}
                                     </td>
-                                    <td className="px-4 py-3.5 text-right font-semibold tabular-nums text-slate-500">
-                                      {s.expected_cash != null
-                                        ? fmtINR(s.expected_cash)
-                                        : "--"}
+                                    <td className="px-4 py-3.5 text-right tabular-nums">
+                                      {s.expected_cash != null ? fmtINR(s.expected_cash) : <span className="text-[#C4C4BE]">—</span>}
                                     </td>
-                                    <td className="px-4 py-3.5 text-right font-bold tabular-nums">
-                                      {s.closing_float != null
-                                        ? fmtINR(s.closing_float)
-                                        : "--"}
+                                    <td className="px-4 py-3.5 text-right font-semibold tabular-nums text-[#0F1117]">
+                                      {s.closing_float != null ? fmtINR(s.closing_float) : <span className="font-normal text-[#C4C4BE]">—</span>}
                                     </td>
                                     <td className="px-4 py-3.5 text-right">
                                       {v == null ? (
-                                        <span className="text-slate-300">--</span>
+                                        <span className="text-[#C4C4BE]">—</span>
                                       ) : v === 0 ? (
-                                        <span className="rounded-md bg-emerald-50 px-2 py-1 font-black text-emerald-700">
-                                          Balanced
-                                        </span>
+                                        <span className="font-medium text-emerald-700">Balanced</span>
                                       ) : (
-                                        <span
-                                          className={`rounded-md px-2 py-1 font-black tabular-nums ${v < 0 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}
-                                        >
+                                        <span className={`font-semibold tabular-nums ${v < 0 ? "text-rose-600" : "text-amber-700"}`}>
                                           {v > 0 ? "+" : "−"}
                                           {fmtINR(Math.abs(v))}
+                                          <span className="ml-1 text-[12px] font-medium">{v < 0 ? "short" : "over"}</span>
                                         </span>
                                       )}
                                     </td>
                                   </tr>
                                   {isOpen && (
-                                    <tr className="bg-slate-50/60">
+                                    <tr className="bg-[#FAFAF7]">
                                       <td />
-                                      <td colSpan={7} className="px-4 py-4">
-                                        <div className="grid gap-4 text-xs md:grid-cols-3">
-                                          <div>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                              Float
-                                            </p>
-                                            <p className="mt-1 font-semibold">
-                                              Opened with{" "}
-                                              {fmtINR(s.opening_float)}
+                                      <td colSpan={7} className="px-4 pb-5 pt-1">
+                                        <div className="grid gap-px overflow-hidden rounded-xl border border-[#E8E8E3] bg-[#F0F0EB] text-[13px] md:grid-cols-3">
+                                          <div className="bg-white px-4 py-3">
+                                            <p className="text-[12px] font-medium text-[#6B7280]">Cash</p>
+                                            <p className="mt-1 text-[#0F1117]">
+                                              Opened with <span className="font-semibold tabular-nums">{fmtINR(s.opening_float)}</span>
                                             </p>
                                             {(s.payable_hours ?? 0) > 0 && (
-                                              <p className="mt-0.5 text-slate-500">
-                                                Payable{" "}
-                                                {(s.payable_hours || 0).toFixed(2)}{" "}
-                                                h
-                                                {s.hourly_rate
-                                                  ? ` × ${fmtINR(s.hourly_rate)}/h`
-                                                  : ""}
+                                              <p className="mt-0.5 tabular-nums text-[#6B7280]">
+                                                {(s.payable_hours || 0).toFixed(2)} payable hours
+                                                {s.hourly_rate ? ` at ${fmtINR(s.hourly_rate)} an hour` : ""}
                                               </p>
                                             )}
                                           </div>
-                                          <div>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                              Breaks ({breakMins(s)}m)
+                                          <div className="bg-white px-4 py-3">
+                                            <p className="text-[12px] font-medium text-[#6B7280]">
+                                              Breaks{breakMins(s) > 0 ? `, ${fmtDuration(breakMins(s))} in total` : ""}
                                             </p>
                                             {(s.breaks || []).length === 0 ? (
-                                              <p className="mt-1 text-slate-400">
-                                                None taken
-                                              </p>
+                                              <p className="mt-1 text-[#9CA3AF]">None taken</p>
                                             ) : (
-                                              <ul className="mt-1 space-y-0.5 font-semibold">
+                                              <ul className="mt-1 space-y-0.5">
                                                 {s.breaks!.map((b) => (
-                                                  <li key={b.id}>
-                                                    {fmtTime(b.start_time)} –{" "}
-                                                    {b.end_time
-                                                      ? fmtTime(b.end_time)
-                                                      : "ongoing"}{" "}
-                                                    <span className="font-medium text-slate-400">
-                                                      (
-                                                      {b.is_paid
-                                                        ? "paid"
-                                                        : "unpaid"}
-                                                      )
-                                                    </span>
+                                                  <li key={b.id} className="tabular-nums text-[#0F1117]">
+                                                    {fmtTime(b.start_time)} to {b.end_time ? fmtTime(b.end_time) : "now"}{" "}
+                                                    <span className="text-[#9CA3AF]">{b.is_paid ? "paid" : "unpaid"}</span>
                                                   </li>
                                                 ))}
                                               </ul>
                                             )}
                                           </div>
-                                          <div>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                              Remarks
-                                            </p>
-                                            <p className="mt-1 whitespace-pre-wrap font-medium text-slate-600">
-                                              {s.notes || "--"}
+                                          <div className="bg-white px-4 py-3">
+                                            <p className="text-[12px] font-medium text-[#6B7280]">Remarks</p>
+                                            <p className={`mt-1 whitespace-pre-wrap ${s.notes ? "text-[#0F1117]" : "text-[#9CA3AF]"}`}>
+                                              {s.notes || "None"}
                                             </p>
                                           </div>
                                         </div>
@@ -911,101 +801,103 @@ export default function ShiftsPage() {
                                   )}
                                 </React.Fragment>
                               );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </section>
                 </>
               )}
             </div>
           )}
 
-          {/* ── Modal ── */}
+          {/* Clock in / clock out */}
           {modalType && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-              <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
-                <h3 className="mb-4 border-b border-slate-100 pb-3.5 text-base font-black uppercase tracking-wider text-slate-900">
-                  {modalType === "clock_in"
-                    ? "Clock in & open till"
-                    : "Clock out & settle till"}
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1117]/40 p-4 backdrop-blur-sm"
+              role="dialog"
+              aria-modal="true"
+              aria-label={modalType === "clock_in" ? "Clock in" : "Clock out"}
+            >
+              <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[#E8E8E3] bg-white p-6 shadow-[0_24px_60px_-20px_rgba(15,17,23,0.35)]">
+                <h3 className="text-[17px] font-bold text-[#0F1117]">
+                  {modalType === "clock_in" ? "Clock in" : "Clock out and count the till"}
                 </h3>
+                <p className="mt-1 text-[13px] text-[#6B7280]">
+                  {modalType === "clock_in"
+                    ? "Enter the cash you're starting with. Leave it empty if you won't handle cash."
+                    : "Count the cash in the drawer so the shift can be settled."}
+                </p>
 
                 {modalType === "clock_in" ? (
-                  <form onSubmit={handleClockIn} className="space-y-4">
+                  <form onSubmit={handleClockIn} className="mt-5 space-y-4">
                     <div>
-                      <label className={labelCls}>Name on shift</label>
+                      <label className={LABEL} htmlFor="shift-name">Name on shift</label>
                       <input
+                        id="shift-name"
                         value={staffName}
                         onChange={(e) => setStaffName(e.target.value)}
                         placeholder="Staff name"
                         required
-                        className={inputCls}
+                        className={INPUT}
                       />
                     </div>
                     <div>
-                      <label className={labelCls}>Opening float (₹)</label>
+                      <label className={LABEL} htmlFor="shift-float">Opening float (₹)</label>
                       <input
+                        id="shift-float"
                         type="number"
                         step="0.01"
                         min={0}
                         autoFocus
                         value={floatVal}
                         onChange={(e) => setFloatVal(e.target.value)}
-                        placeholder="0.00 — leave empty if you don't handle cash"
-                        className={inputCls}
+                        placeholder="0.00"
+                        className={`${INPUT} tabular-nums`}
                       />
-                      <div className="mt-2 flex gap-1.5">
-                        {[500, 1000, 2000, 5000].map((q) => (
-                          <button
-                            key={q}
-                            type="button"
-                            onClick={() => setFloatVal(String(q))}
-                            className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100"
-                          >
-                            ₹{q.toLocaleString("en-IN")}
-                          </button>
-                        ))}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {[500, 1000, 2000, 5000].map((q) => {
+                          const on = floatVal === String(q);
+                          return (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => setFloatVal(String(q))}
+                              aria-pressed={on}
+                              className={`h-8 rounded-lg border px-3 text-[12px] font-medium tabular-nums transition-colors ${on ? "border-[#fe5c13] bg-[#FFF4EC] text-[#0F1117]" : "border-[#E8E8E3] bg-white text-[#4B5563] hover:border-[#D6D6CF] hover:text-[#0F1117]"}`}
+                            >
+                              ₹{q.toLocaleString("en-IN")}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
-                    <ModalActions
-                      onCancel={resetModal}
-                      loading={isActionLoading}
-                      label="Clock in"
-                    />
+                    <ModalActions onCancel={resetModal} loading={isActionLoading} label="Clock in" />
                   </form>
                 ) : (
-                  <form onSubmit={handleClockOut} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-3">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                          Opening float
-                        </p>
-                        <p className="mt-1 text-sm font-extrabold">
+                  <form onSubmit={handleClockOut} className="mt-5 space-y-4">
+                    <dl className="grid grid-cols-2 divide-x divide-[#F0F0EB] rounded-xl border border-[#E8E8E3]">
+                      <div className="px-4 py-3">
+                        <dt className="text-[12px] font-medium text-[#6B7280]">Opening float</dt>
+                        <dd className="mt-1 text-[16px] font-semibold tabular-nums text-[#0F1117]">
                           {fmtINR(activeShift?.opening_float ?? 0)}
-                        </p>
+                        </dd>
                       </div>
-                      <div className="rounded-xl border border-orange-100 bg-orange-50 px-3.5 py-3">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-orange-400">
-                          Expected in till
-                        </p>
-                        <p className="mt-1 text-sm font-extrabold text-[#fe5c13]">
-                          {expectedCash === null ? "--" : fmtINR(expectedCash)}
-                        </p>
+                      <div className="px-4 py-3">
+                        <dt className="text-[12px] font-medium text-[#6B7280]">Expected in till</dt>
+                        <dd className="mt-1 text-[16px] font-semibold tabular-nums text-[#0F1117]">
+                          {expectedCash === null ? "—" : fmtINR(expectedCash)}
+                        </dd>
                       </div>
-                    </div>
+                    </dl>
 
                     {skipCount ? (
-                      <p className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-xs font-medium text-slate-500">
-                        Skipping the cash count — this shift didn&apos;t handle
-                        the till.
+                      <p className="rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] px-4 py-3 text-[13px] text-[#4B5563]">
+                        Skipping the cash count because this shift didn&apos;t handle the till.
                       </p>
                     ) : (
-                      <CashCounter
-                        onChange={setCounted}
-                                                autoFocus
-                      />
+                      <CashCounter onChange={setCounted} autoFocus />
                     )}
                     {!handlesCash && (
                       <button
@@ -1014,43 +906,42 @@ export default function ShiftsPage() {
                           setSkipCount((v) => !v);
                           setCounted(null);
                         }}
-                        className="text-[11px] font-bold text-slate-500 underline underline-offset-2 hover:text-slate-800"
+                        className="text-[13px] font-medium text-[#6B7280] underline decoration-[#D6D6CF] underline-offset-2 transition-colors hover:text-[#0F1117] hover:decoration-[#0F1117]"
                       >
-                        {skipCount ? "Count the drawer instead" : "I didn't handle cash — skip count"}
+                        {skipCount ? "Count the drawer instead" : "I didn't handle cash, skip the count"}
                       </button>
                     )}
 
-                    {expectedCash !== null && (
-                      <VarianceBanner expected={expectedCash} counted={counted} />
-                    )}
+                    {expectedCash !== null && <VarianceBanner expected={expectedCash} counted={counted} />}
 
                     <div>
-                      <label className={labelCls}>
-                        End-of-shift remarks
-                        {variance ? " (required)" : ""}
+                      <label className={LABEL} htmlFor="shift-notes">
+                        Remarks{variance ? <span className="text-rose-600"> (needed to explain the difference)</span> : ""}
                       </label>
                       <textarea
+                        id="shift-notes"
                         value={notesVal}
                         onChange={(e) => setNotesVal(e.target.value)}
-                        placeholder="Reconciliation notes, shortages, drops, handover…"
-                        className={`${inputCls} h-20 resize-none font-medium`}
+                        placeholder="Shortages, cash drops, anything the next person should know"
+                        className="h-20 w-full resize-none rounded-xl border border-[#E8E8E3] bg-white px-3.5 py-2.5 text-[14px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
                       />
                     </div>
 
                     {needsPin && (
-                      <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5">
-                        <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-rose-700">
-                          <KeyRound className="h-3.5 w-3.5" /> Manager PIN
-                          required
+                      <div className="rounded-xl border border-rose-200/70 bg-rose-50 p-4">
+                        <label htmlFor="shift-pin" className="flex items-center gap-1.5 text-[13px] font-semibold text-rose-700">
+                          <KeyRound className="h-3.5 w-3.5" /> Manager PIN needed
                         </label>
+                        <p className="mt-0.5 text-[12px] text-rose-700/80">The cash difference is above the limit a manager has set.</p>
                         <input
+                          id="shift-pin"
                           type="password"
                           inputMode="numeric"
                           autoFocus
                           value={managerPin}
                           onChange={(e) => setManagerPin(e.target.value)}
                           placeholder="••••"
-                          className="mt-2 w-full rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold tracking-widest focus:border-rose-400 focus:outline-none focus:ring-4 focus:ring-rose-100"
+                          className="mt-3 h-10 w-full rounded-xl border border-rose-200 bg-white px-3.5 text-[14px] tracking-widest text-[#0F1117] outline-none focus:border-rose-400"
                         />
                       </div>
                     )}
@@ -1058,7 +949,7 @@ export default function ShiftsPage() {
                     <ModalActions
                       onCancel={resetModal}
                       loading={isActionLoading}
-                      label={needsPin ? "Approve & clock out" : "Clock out"}
+                      label={needsPin ? "Approve and clock out" : "Clock out"}
                     />
                   </form>
                 )}
@@ -1081,20 +972,20 @@ function ModalActions({
   label: string;
 }) {
   return (
-    <div className="flex gap-3 border-t border-slate-100 pt-4">
+    <div className="flex gap-2 pt-2">
       <button
         type="button"
         onClick={onCancel}
-        className="flex-1 cursor-pointer rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition-all hover:bg-slate-50"
+        className="h-10 flex-1 rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
       >
         Cancel
       </button>
       <button
         type="submit"
         disabled={loading}
-        className="flex-1 cursor-pointer rounded-xl bg-slate-950 py-3 text-xs font-black uppercase tracking-wider text-white shadow-md transition-all hover:bg-slate-800 disabled:opacity-50"
+        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fe5c13] text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:opacity-50"
       >
-        {loading ? "Saving…" : label}
+        {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving</> : label}
       </button>
     </div>
   );

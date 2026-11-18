@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/app/lib/api';
 import { motion, AnimatePresence } from "framer-motion";
-import { PackageOpen, Truck, FileText, CheckCircle, Plus, Search, MapPin, Store, Edit2, Trash2, X, AlertTriangle, ClipboardList, Trash } from 'lucide-react';
+import { PackageOpen, PackageCheck, Truck, FileText, Plus, Search, Store, Edit2, Trash2, X, AlertTriangle, ClipboardList, Trash, TrendingUp, ChefHat, Loader2 } from 'lucide-react';
 import StaffSidebar from '@/app/components/StaffSidebar';
 import { toast } from 'react-hot-toast';
 import StockAlertsBanner from '@/app/components/inventory/StockAlertsBanner';
@@ -13,6 +13,12 @@ import PriceHistoryPanel from '@/app/components/inventory/PriceHistoryPanel';
 import TransfersPanel from '@/app/components/inventory/TransfersPanel';
 import { CustomSelect } from '@/app/components/ui/CustomSelect';
 import { CustomDateTimePicker } from '@/app/components/ui/CustomDateTimePicker';
+
+import { Select } from "@/app/components/ui/Select";
+import {
+  INPUT, LABEL, BTN_PRIMARY, BTN_SECONDARY, BTN_SMALL, ICON_BTN, ICON_BTN_DANGER, OVERLAY, DIALOG, CARD,
+  THEAD_ROW, TH, TBODY, TR, TD, CUSTOM_SELECT_BTN, Pill, CountChip, SectionHeader, EmptyState, plural, fmtDay, type Tone,
+} from '@/app/components/inventory/ui';
 
 type Vendor = {
   id: string;
@@ -63,6 +69,13 @@ const poIsPartlyReceived = (po: PurchaseOrder) =>
   po.status !== 'received' &&
   po.status !== 'cancelled' &&
   (po.items || []).some((l) => Number(l.received_quantity || 0) > 0);
+
+const WASTE_REASON_LABELS: Record<string, string> = {
+  "Spoiled / Expired": "Spoiled or expired",
+  "Dropped / Spilled": "Dropped or spilled",
+  "Staff Meal": "Staff meal",
+  "Theft / Missing": "Theft or missing",
+};
 
 const fmtINR = (n: number) =>
   `₹${Number(n || 0).toLocaleString("en-IN", {
@@ -152,6 +165,7 @@ export default function InventoryDashboard() {
   const [showEditBatchModal, setShowEditBatchModal] = useState(false);
   const [deleteConfirmBatchId, setDeleteConfirmBatchId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [batchQuery, setBatchQuery] = useState('');
   const [deletingBatchIds, setDeletingBatchIds] = useState<Set<string>>(new Set());
 
   const handleEditBatch = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -587,795 +601,652 @@ export default function InventoryDashboard() {
     }
   };
 
+  const now = Date.now();
+  const SOON_MS = 3 * 24 * 60 * 60 * 1000;
+  const expiryState = (b: Batch): 'expired' | 'soon' | 'ok' | 'none' => {
+    if (!b.expires_at) return 'none';
+    const t = new Date(b.expires_at).getTime();
+    if (t < now) return 'expired';
+    if (t - now < SOON_MS) return 'soon';
+    return 'ok';
+  };
+  const q = batchQuery.trim().toLowerCase();
+  const visibleBatches = q
+    ? batches.filter(
+        (b) =>
+          (b.ingredient_name || '').toLowerCase().includes(q) ||
+          (b.supplier_name || '').toLowerCase().includes(q)
+      )
+    : batches;
+  const stockValue = batches.reduce((s, b) => s + Number(b.quantity || 0) * Number(b.cost_per_unit || 0), 0);
+  const expiredCount = batches.filter((b) => expiryState(b) === 'expired').length;
+  const soonCount = batches.filter((b) => expiryState(b) === 'soon').length;
+
+  const poStatus = (po: PurchaseOrder): { tone: Tone; label: string } => {
+    if (po.status === 'received') return { tone: 'emerald', label: 'Received' };
+    if (po.status === 'cancelled') return { tone: 'neutral', label: 'Cancelled' };
+    if (poIsPartlyReceived(po)) return { tone: 'sky', label: 'Partly received' };
+    if (po.status === 'placed') return { tone: 'amber', label: 'Awaiting delivery' };
+    const s = String(po.status || '');
+    return { tone: 'amber', label: s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Open' };
+  };
+
+  const TABS: [typeof activeTab, string, React.ElementType][] = [
+    ['stock', 'Stock batches', PackageOpen],
+    ['pos', 'Purchase orders', FileText],
+    ['vendors', 'Suppliers', Truck],
+    ['prices', 'Price history', TrendingUp],
+    ['recipes', 'Conversions & recipes', ChefHat],
+    ['stock-take', 'Stock take', ClipboardList],
+    ['waste', 'Wastage', Trash],
+    ['kitchen', 'Central kitchen', Store],
+  ];
+
   return (
-    <div className="flex h-screen bg-white font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header & Tab Bar */}
-        <header className="border-b border-slate-200 bg-white shrink-0">
-          <div className="px-8 pt-5 pb-3 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-xs shrink-0">
-                <PackageOpen size={22} className="stroke-[2.2]" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-slate-900">Inventory Hub</h1>
-                <p className="text-xs font-medium text-slate-500">Manage suppliers, purchase orders, recipes, and kitchen stock</p>
-              </div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="shrink-0 border-b border-[#E8E8E3] bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-8 pt-5">
+            <div className="flex items-center gap-3">
+              <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">Inventory hub</h1>
+              {purchaseSuggestions.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('stock')}
+                  className="rounded-full bg-amber-50 px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-amber-800 ring-1 ring-inset ring-amber-200/70 transition-colors hover:bg-amber-100"
+                >
+                  {purchaseSuggestions.length} running low
+                </button>
+              ) : (
+                ingredients.length > 0 && <CountChip>{plural(ingredients.length, 'ingredient')}</CountChip>
+              )}
             </div>
           </div>
-          
-          <nav className="flex items-center px-8 overflow-x-auto">
-              <button
-                onClick={() => setActiveTab('stock')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'stock'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <PackageOpen size={14} className="shrink-0" />
-                Stock Batches
-              </button>
-              <button
-                onClick={() => setActiveTab('pos')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'pos'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <FileText size={14} className="shrink-0" />
-                Purchase Orders
-              </button>
-              <button
-                onClick={() => setActiveTab('vendors')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'vendors'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Truck size={14} className="shrink-0" />
-                Suppliers
-              </button>
-              <button
-                onClick={() => setActiveTab('prices')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'prices'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <FileText size={14} className="shrink-0" />
-                Price History
-              </button>
-              <button
-                onClick={() => setActiveTab('recipes')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'recipes'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <MapPin size={14} className="shrink-0" />
-                Conversions &amp; Recipes
-              </button>
-              <button
-                onClick={() => setActiveTab('stock-take')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'stock-take'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <ClipboardList size={14} className="shrink-0" />
-                Stock Take
-              </button>
-              <button
-                onClick={() => setActiveTab('waste')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'waste'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Trash size={14} className="shrink-0" />
-                Wastage
-              </button>
-              <button
-                onClick={() => setActiveTab('kitchen')}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-                  activeTab === 'kitchen'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Store size={14} className="shrink-0" />
-                Central Kitchen
-              </button>
-            </nav>
+
+          <nav className="mt-3 flex items-center gap-1 overflow-x-auto px-6" aria-label="Inventory sections">
+            {TABS.map(([id, label, Icon]) => {
+              const on = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  aria-current={on ? 'page' : undefined}
+                  className={`-mb-px flex h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-[13px] transition-colors ${
+                    on
+                      ? 'border-[#fe5c13] font-semibold text-[#0F1117]'
+                      : 'border-transparent font-medium text-[#6B7280] hover:text-[#0F1117]'
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 shrink-0 ${on ? 'text-[#fe5c13]' : 'text-[#9CA3AF]'}`} />
+                  {label}
+                </button>
+              );
+            })}
+          </nav>
         </header>
 
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto bg-white flex flex-col">
-        {activeTab === 'stock' && (
-          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
-            <StockAlertsBanner refreshKey={alertsKey} />
-            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Stock Batches</h2>
-                  {!loading && (
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-100">
-                      {batches.length} {batches.length === 1 ? 'batch' : 'batches'}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Real-time inventory levels, batch arrivals, and expiry tracking.</p>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <main className="flex flex-1 flex-col overflow-y-auto">
+          {activeTab === 'stock' && (
+            <div className="px-8 py-6">
+              <SectionHeader
+                title="Stock batches"
+                count={loading ? undefined : plural(batches.length, 'batch', 'batches')}
+                description="Every delivery you've received, what it cost and when it expires."
+              >
+                <div className="relative w-60">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
                   <input
                     type="text"
-                    placeholder="Search batches..."
-                    className="pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 w-44 transition-colors"
+                    value={batchQuery}
+                    onChange={(e) => setBatchQuery(e.target.value)}
+                    placeholder="Search ingredient or supplier"
+                    aria-label="Search batches"
+                    className={`${INPUT} pl-9 text-[13px]`}
                   />
                 </div>
                 <button
                   onClick={() => { setSelectedVendor(''); setPoItems([]); setShowAddPO(true); }}
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow whitespace-nowrap"
+                  className={BTN_PRIMARY}
                 >
-                  <Plus size={14} />
-                  Receive stock
+                  <Plus className="h-4 w-4" strokeWidth={2.5} /> New purchase order
                 </button>
-              </div>
-            </div>
-            
-            {/* Low Stock Alerts */}
-            {purchaseSuggestions.length > 0 && (
-              <div className="mx-8 mt-5 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col gap-3 animate-in slide-in-from-top-4 duration-300">
-                <div className="flex items-center gap-2 text-amber-800 font-bold">
-                  <AlertTriangle size={18} />
-                  <h3>Low Stock Alerts ({purchaseSuggestions.length})</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {purchaseSuggestions.map((s, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-xl border border-amber-100 flex justify-between items-center shadow-sm">
-                      <div>
-                        <div className="font-semibold text-slate-900">{s.ingredient}</div>
-                        <div className="text-xs text-slate-500">Current: <span className="font-bold text-rose-600">{s.current_stock}</span> / Par: {s.reorder_threshold}</div>
-                      </div>
-                      <button onClick={() => {
-                        setSelectedVendor('');
-                        setPoIngredient(s.ingredient_id);
-                        setPoQuantity(s.suggested_order_qty);
-                        setShowAddPO(true);
-                      }} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold rounded-lg transition-colors">
-                        Order {s.suggested_order_qty}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              </SectionHeader>
 
+              <StockAlertsBanner refreshKey={alertsKey} />
 
-            {loading ? (
-              <div className="py-24 text-center text-sm text-slate-400">Loading stock batches...</div>
-            ) : batches.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
-                  <PackageOpen size={28} />
-                </div>
-                <h3 className="text-base font-semibold text-slate-900">No stock batches yet</h3>
-                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Receive a Purchase Order or adjust stock to see active batches here.</p>
-                <button
-                  onClick={() => setActiveTab('pos')}
-                  className="mt-4 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
-                >
-                  View purchase orders →
-                </button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full border-collapse text-left text-sm text-slate-600">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-                      <th className="px-8 py-3.5">Ingredient</th>
-                      <th className="px-8 py-3.5">Supplier</th>
-                      <th className="px-8 py-3.5">Quantity</th>
-                      <th className="px-8 py-3.5">Unit Cost</th>
-                      <th className="px-8 py-3.5">Total Value</th>
-                      <th className="px-8 py-3.5">Arrived At</th>
-                      <th className="px-8 py-3.5">Expiry Date</th>
-                      <th className="px-8 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {batches.map((b) => {
-                      const isExpired = b.expires_at ? new Date(b.expires_at) < new Date() : false;
-                      const isCloseToExpiry = b.expires_at 
-                        ? (new Date(b.expires_at).getTime() - new Date().getTime()) < 3 * 24 * 60 * 60 * 1000 
-                        : false;
-                      
-                      return (
-                        <tr key={b.id} className={`hover:bg-slate-50/50 transition-all duration-500 ease-in-out ${deletingBatchIds.has(b.id) ? 'opacity-0 -translate-x-4 bg-rose-50' : 'opacity-100 translate-x-0'}`}>
-                          <td className="px-8 py-4 font-semibold text-slate-950">{b.ingredient_name}</td>
-                          <td className="px-8 py-4 text-slate-500">{b.supplier_name}</td>
-                          <td className="px-8 py-4 font-mono font-bold text-slate-900">{b.quantity}</td>
-                          <td className="px-8 py-4 font-mono">{fmtINR(b.cost_per_unit)}</td>
-                          <td className="px-8 py-4 font-mono font-bold text-slate-950">{fmtINR(b.quantity * b.cost_per_unit)}</td>
-                          <td className="px-8 py-4 text-slate-500">
-                            {new Date(b.received_at).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </td>
-                          <td className="px-8 py-4">
-                            {b.expires_at ? (
-                              <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold tracking-wide ${
-                                isExpired 
-                                  ? 'bg-rose-50 text-rose-700 border border-rose-100' 
-                                  : isCloseToExpiry 
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-100' 
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                              }`}>
-                                {new Date(b.expires_at).toLocaleDateString("en-IN", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                                {isExpired && ' (Expired)'}
-                                {!isExpired && isCloseToExpiry && ' (Expiring Soon)'}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 font-medium">No Expiry</span>
-                            )}
-                          </td>
-                          <td className="px-8 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => { setEditingBatch(b); setShowEditBatchModal(true); }}
-                                className="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-                              >
-                                <Edit2 size={16} />
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirmBatchId(b.id)}
-                                className="text-slate-400 hover:text-red-600 transition-colors p-1"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </td>
+              <dl className="mb-5 grid grid-cols-2 overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white md:grid-cols-4">
+                {[
+                  { label: 'Batches in stock', value: String(batches.length), tone: 'text-[#0F1117]' },
+                  { label: 'Stock value', value: fmtINR(stockValue), tone: 'text-[#0F1117]' },
+                  { label: 'Expiring in 3 days', value: String(soonCount), tone: soonCount ? 'text-amber-700' : 'text-[#9CA3AF]' },
+                  { label: 'Expired', value: String(expiredCount), tone: expiredCount ? 'text-rose-600' : 'text-[#9CA3AF]' },
+                ].map((k, i) => (
+                  <div key={k.label} className={`px-6 py-4 ${i > 0 ? 'border-l border-[#F0F0EB]' : ''} ${i > 1 ? 'border-t border-[#F0F0EB] md:border-t-0' : ''}`}>
+                    <dt className="text-[12px] font-medium text-[#6B7280]">{k.label}</dt>
+                    <dd className={`mt-1 text-[20px] font-bold tabular-nums tracking-[-0.02em] ${k.tone}`}>{k.value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {purchaseSuggestions.length > 0 && (
+                <section className={`${CARD} mb-5`}>
+                  <div className="flex items-center gap-2 border-b border-[#F0F0EB] px-5 py-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <h3 className="text-[14px] font-semibold text-[#0F1117]">Reorder suggestions</h3>
+                    <CountChip>{purchaseSuggestions.length}</CountChip>
+                  </div>
+                  <ul className="grid gap-x-6 px-0 md:grid-cols-2 lg:grid-cols-3">
+                    {purchaseSuggestions.map((s, idx) => (
+                      <li key={idx} className="flex items-center justify-between gap-3 px-5 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-[#0F1117]">{s.ingredient}</p>
+                          <p className="mt-0.5 text-[12px] tabular-nums text-[#6B7280]">
+                            <span className="font-semibold text-rose-600">{s.current_stock}</span> in stock, reorder at {s.reorder_threshold}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedVendor('');
+                            setPoIngredient(s.ingredient_id);
+                            setPoQuantity(s.suggested_order_qty);
+                            setShowAddPO(true);
+                          }}
+                          className={BTN_SMALL}
+                        >
+                          Order {s.suggested_order_qty}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              <section className={CARD}>
+                {loading ? (
+                  <div className="flex h-56 items-center justify-center gap-2 text-[14px] text-[#6B7280]">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading stock batches
+                  </div>
+                ) : batches.length === 0 ? (
+                  <EmptyState
+                    icon={<PackageOpen className="h-6 w-6" />}
+                    title="No stock batches yet"
+                    body="Batches appear here when you receive a purchase order or adjust stock."
+                  >
+                    <button onClick={() => setActiveTab('pos')} className={BTN_SECONDARY}>
+                      Go to purchase orders
+                    </button>
+                  </EmptyState>
+                ) : visibleBatches.length === 0 ? (
+                  <EmptyState
+                    icon={<Search className="h-6 w-6" />}
+                    title="No batches match your search"
+                    body="Try an ingredient or supplier name."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] border-collapse text-left">
+                      <thead>
+                        <tr className={THEAD_ROW}>
+                          <th className={TH}>Ingredient</th>
+                          <th className={TH}>Supplier</th>
+                          <th className={`${TH} text-right`}>Quantity</th>
+                          <th className={`${TH} text-right`}>Unit cost</th>
+                          <th className={`${TH} text-right`}>Value</th>
+                          <th className={TH}>Received</th>
+                          <th className={TH}>Expiry</th>
+                          <th className={TH}><span className="sr-only">Actions</span></th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                      </thead>
+                      <tbody className={TBODY}>
+                        {visibleBatches.map((b) => {
+                          const st = expiryState(b);
+                          return (
+                            <tr
+                              key={b.id}
+                              className={`${TR} duration-500 ease-in-out ${deletingBatchIds.has(b.id) ? 'opacity-0 bg-rose-50' : 'opacity-100'}`}
+                            >
+                              <td className={`${TD} font-semibold text-[#0F1117]`}>{b.ingredient_name}</td>
+                              <td className={TD}>{b.supplier_name || <span className="text-[#9CA3AF]">No supplier</span>}</td>
+                              <td className={`${TD} text-right font-semibold tabular-nums text-[#0F1117]`}>{b.quantity}</td>
+                              <td className={`${TD} text-right tabular-nums`}>{fmtINR(b.cost_per_unit)}</td>
+                              <td className={`${TD} text-right font-semibold tabular-nums text-[#0F1117]`}>{fmtINR(b.quantity * b.cost_per_unit)}</td>
+                              <td className={`${TD} tabular-nums`}>{fmtDay(b.received_at)}</td>
+                              <td className={TD}>
+                                {st === 'none' ? (
+                                  <span className="text-[#9CA3AF]">No expiry</span>
+                                ) : (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`tabular-nums ${st === 'expired' ? 'text-[#9CA3AF] line-through decoration-[#C4C4BE]' : 'text-[#0F1117]'}`}>
+                                      {fmtDay(b.expires_at!)}
+                                    </span>
+                                    {st === 'expired' && <Pill tone="rose">Expired</Pill>}
+                                    {st === 'soon' && <Pill tone="amber">Expires soon</Pill>}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <div className="flex justify-end gap-0.5">
+                                  <button
+                                    onClick={() => { setEditingBatch(b); setShowEditBatchModal(true); }}
+                                    className={ICON_BTN}
+                                    aria-label={`Edit ${b.ingredient_name} batch`}
+                                    title="Edit batch"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteConfirmBatchId(b.id)}
+                                    className={ICON_BTN_DANGER}
+                                    aria-label={`Delete ${b.ingredient_name} batch`}
+                                    title="Delete batch"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
 
-        {activeTab === 'vendors' && (
-          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
-            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Suppliers</h2>
-                  {!loading && (
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                      {vendors.length} {vendors.length === 1 ? 'supplier' : 'suppliers'}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Manage your vendor directory and lead times.</p>
-              </div>
-              <button 
-                onClick={() => setShowAddVendor(true)}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto"
+          {activeTab === 'vendors' && (
+            <div className="px-8 py-6">
+              <SectionHeader
+                title="Suppliers"
+                count={loading ? undefined : plural(vendors.length, 'supplier')}
+                description="The vendors you buy from and how long they take to deliver."
               >
-                <Plus size={16} />
-                Add Supplier
-              </button>
+                <button onClick={() => setShowAddVendor(true)} className={BTN_PRIMARY}>
+                  <Plus className="h-4 w-4" strokeWidth={2.5} /> Add supplier
+                </button>
+              </SectionHeader>
+
+              <section className={CARD}>
+                {loading ? (
+                  <div className="flex h-56 items-center justify-center gap-2 text-[14px] text-[#6B7280]">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading suppliers
+                  </div>
+                ) : vendors.length === 0 ? (
+                  <EmptyState
+                    icon={<Truck className="h-6 w-6" />}
+                    title="No suppliers yet"
+                    body="Add the vendors you buy from so you can raise purchase orders against them."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px] border-collapse text-left">
+                      <thead>
+                        <tr className={THEAD_ROW}>
+                          <th className={TH}>Supplier</th>
+                          <th className={TH}>Status</th>
+                          <th className={TH}>Lead time</th>
+                          <th className={TH}><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className={TBODY}>
+                        {vendors.map((v) => (
+                          <tr key={v.id} className={TR}>
+                            <td className={TD}>
+                              <div className="flex items-center gap-3">
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F3F3EF] text-[#6B7280]">
+                                  <Truck className="h-4 w-4" />
+                                </span>
+                                <span className="text-[14px] font-semibold text-[#0F1117]">{v.name}</span>
+                              </div>
+                            </td>
+                            <td className={TD}>
+                              <Pill tone={v.is_active ? 'emerald' : 'neutral'}>{v.is_active ? 'Active' : 'Inactive'}</Pill>
+                            </td>
+                            <td className={`${TD} tabular-nums text-[#0F1117]`}>{plural(v.lead_time_days, 'day')}</td>
+                            <td className="px-3 py-2 text-right">
+                              <div className="flex justify-end gap-0.5">
+                                <button onClick={() => handleStartEdit(v)} className={ICON_BTN} aria-label={`Edit ${v.name}`} title="Edit supplier">
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => handleDeleteVendor(v.id)} className={ICON_BTN_DANGER} aria-label={`Delete ${v.name}`} title="Delete supplier">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
             </div>
+          )}
 
-            {loading ? (
-              <div className="py-24 text-center text-sm text-slate-400">Loading suppliers...</div>
-            ) : vendors.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
-                  <Truck size={28} />
-                </div>
-                <h3 className="text-base font-semibold text-slate-900">No suppliers found</h3>
-                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Add your first supplier to track inventory sources.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full border-collapse text-left text-sm text-slate-600">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-                      <th className="px-8 py-3.5">Supplier Name</th>
-                      <th className="px-8 py-3.5">Status</th>
-                      <th className="px-8 py-3.5">Lead Time</th>
-                      <th className="px-8 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {vendors.map((v) => (
-                      <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shrink-0">
-                              <Truck size={18} />
-                            </div>
-                            <span className="font-semibold text-slate-950">{v.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-4">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${v.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${v.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                            {v.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-8 py-4 font-semibold text-slate-900">
-                          {v.lead_time_days} Days
-                        </td>
-                        <td className="px-8 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleStartEdit(v)}
-                              className="text-slate-400 hover:text-emerald-600 transition-colors p-1"
-                              title="Edit Supplier"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteVendor(v.id)}
-                              className="text-slate-400 hover:text-rose-600 transition-colors p-1"
-                              title="Delete Supplier"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'pos' && (
-          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
-            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Purchase Orders</h2>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                    {poList.length} {poList.length === 1 ? 'order' : 'orders'}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Create POs and receive goods via GRN.</p>
-              </div>
-              <button 
-                onClick={() => setShowAddPO(true)} 
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto"
+          {activeTab === 'pos' && (
+            <div className="px-8 py-6">
+              <SectionHeader
+                title="Purchase orders"
+                count={plural(poList.length, 'order')}
+                description="Order stock from a supplier, then receive it here when it arrives."
               >
-                <Plus size={16} />
-                Create PO
-              </button>
-            </div>
-            
-            {poList.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
-                  <FileText size={28} />
-                </div>
-                <h3 className="text-base font-semibold text-slate-900">No Purchase Orders yet</h3>
-                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Create your first PO to start tracking incoming stock.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full border-collapse text-left text-sm text-slate-600">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-                      <th className="px-8 py-3.5">PO Number</th>
-                      <th className="px-8 py-3.5">Supplier</th>
-                      <th className="px-8 py-3.5">Created Date</th>
-                      <th className="px-8 py-3.5">Status</th>
-                      <th className="px-8 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {poList.map((po) => (
-                      <tr key={po.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-4 font-mono font-bold text-slate-900">
-                          PO #{po.id.slice(0,8).toUpperCase()}
-                        </td>
-                        <td className="px-8 py-4 text-slate-700 font-medium">
-                          {po.vendor_name || vendors.find((v) => v.id === po.vendor_id)?.name || '—'}
-                          {(po.items?.length ?? 0) > 0 && (
-                            <span className="block text-xs font-normal text-slate-400">
-                              {po.items!.length} {po.items!.length === 1 ? 'item' : 'items'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-8 py-4 text-slate-500">
-                          {new Date(po.created_at).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </td>
-                        <td className="px-8 py-4">
-                          <span
-                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
-                              po.status === 'received'
-                                ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
-                                : po.status === 'cancelled'
-                                  ? 'bg-slate-50 border-slate-200 text-slate-500'
-                                  : poIsPartlyReceived(po)
-                                    ? 'bg-sky-50 border-sky-100 text-sky-700'
-                                    : 'bg-amber-50 border-amber-100 text-amber-700'
-                            }`}
-                          >
-                            {poIsPartlyReceived(po) ? 'Partly received' : po.status}
-                          </span>
-                        </td>
-                        <td className="px-8 py-4 text-right">
-                          {po.status !== 'received' && po.status !== 'cancelled' && (
-                            <button 
-                              onClick={() => openReceivePO(po)}
-                              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
-                            >
-                              Receive GRN
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                <button onClick={() => setShowAddPO(true)} className={BTN_PRIMARY}>
+                  <Plus className="h-4 w-4" strokeWidth={2.5} /> New purchase order
+                </button>
+              </SectionHeader>
 
-        {activeTab === 'recipes' && (
-          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
-            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold tracking-tight text-slate-900">Recipes & Conversions</h2>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-                    {recipesList.length} {recipesList.length === 1 ? 'recipe' : 'recipes'}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Map your raw ingredients to intermediate manufactured goods.</p>
-              </div>
-              <button 
-                onClick={() => {
-                  setRecipeParent('');
-                  setRecipeItems([]);
-                  setShowAddRecipe(true);
-                }} 
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow self-start sm:self-auto"
+              <section className={CARD}>
+                {poList.length === 0 ? (
+                  <EmptyState
+                    icon={<FileText className="h-6 w-6" />}
+                    title="No purchase orders yet"
+                    body="Create one to start tracking stock that's on its way."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[680px] border-collapse text-left">
+                      <thead>
+                        <tr className={THEAD_ROW}>
+                          <th className={TH}>Order</th>
+                          <th className={TH}>Supplier</th>
+                          <th className={TH}>Status</th>
+                          <th className={TH}><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className={TBODY}>
+                        {poList.map((po) => {
+                          const st = poStatus(po);
+                          const open = po.status !== 'received' && po.status !== 'cancelled';
+                          return (
+                            <tr key={po.id} className={TR}>
+                              <td className={TD}>
+                                <p className="text-[14px] font-semibold tabular-nums text-[#0F1117]">PO #{po.id.slice(0, 8).toUpperCase()}</p>
+                                <p className="mt-0.5 text-[12px] tabular-nums text-[#9CA3AF]">{fmtDay(po.created_at)}</p>
+                              </td>
+                              <td className={TD}>
+                                <p className="font-medium text-[#0F1117]">
+                                  {po.vendor_name || vendors.find((v) => v.id === po.vendor_id)?.name || '—'}
+                                </p>
+                                {(po.items?.length ?? 0) > 0 && (
+                                  <p className="mt-0.5 text-[12px] text-[#9CA3AF]">{plural(po.items!.length, 'item')}</p>
+                                )}
+                              </td>
+                              <td className={TD}>
+                                <Pill tone={st.tone}>{st.label}</Pill>
+                              </td>
+                              <td className="px-5 py-2 text-right">
+                                {open && (
+                                  <button onClick={() => openReceivePO(po)} className={BTN_SMALL}>
+                                    <PackageCheck className="h-3.5 w-3.5" /> Receive stock
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'recipes' && (
+            <div className="px-8 py-6">
+              <SectionHeader
+                title="Conversions & recipes"
+                count={plural(recipesList.length, 'recipe')}
+                description="Link a dish or prep item to the raw ingredients it uses, so stock is deducted automatically."
               >
-                <Plus size={16} />
-                Create Recipe
-              </button>
+                <button
+                  onClick={() => {
+                    setRecipeParent('');
+                    setRecipeItems([]);
+                    setShowAddRecipe(true);
+                  }}
+                  className={BTN_PRIMARY}
+                >
+                  <Plus className="h-4 w-4" strokeWidth={2.5} /> New recipe
+                </button>
+              </SectionHeader>
+
+              <section className={CARD}>
+                {recipesList.length === 0 ? (
+                  <EmptyState
+                    icon={<ChefHat className="h-6 w-6" />}
+                    title="No recipes yet"
+                    body="Create a recipe so raw ingredients are deducted whenever the dish or prep item is used."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] border-collapse text-left">
+                      <thead>
+                        <tr className={THEAD_ROW}>
+                          <th className={TH}>Recipe</th>
+                          <th className={TH}>Made from</th>
+                          <th className={TH}><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className={TBODY}>
+                        {recipesList.map((r) => (
+                          <tr key={r.id} className={TR}>
+                            <td className={`${TD} text-[14px] font-semibold text-[#0F1117]`}>{r.name}</td>
+                            <td className={`${TD} tabular-nums`}>{plural(r.item_count, 'ingredient')}</td>
+                            <td className="px-3 py-2 text-right">
+                              <div className="flex justify-end gap-0.5">
+                                <button onClick={() => handleEditRecipe(r.id)} className={ICON_BTN} aria-label={`Edit ${r.name}`} title="Edit recipe">
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => handleDeleteRecipe(r.id)} className={ICON_BTN_DANGER} aria-label={`Delete ${r.name}`} title="Delete recipe">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
             </div>
-            
-            {recipesList.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-16 text-center my-auto">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/60">
-                  <MapPin size={28} />
-                </div>
-                <h3 className="text-base font-semibold text-slate-900">No Recipes defined</h3>
-                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Create a recipe to automatically deduct raw ingredients when intermediate goods are used.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full border-collapse text-left text-sm text-slate-600">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-                      <th className="px-8 py-3.5">Recipe Name</th>
-                      <th className="px-8 py-3.5">Composition</th>
-                      <th className="px-8 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {recipesList.map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-4 font-semibold text-slate-950">
-                          {r.name}
-                        </td>
-                        <td className="px-8 py-4 text-slate-500">
-                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                            Contains {r.item_count} ingredients
-                          </span>
-                        </td>
-                        <td className="px-8 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleEditRecipe(r.id)}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 px-2.5 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-                            >
-                              <Edit2 size={14} /> Edit
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteRecipe(r.id)}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+          )}
 
-        {activeTab === 'stock-take' && (
-          <StockTakePanel
-            stocks={overviewStocks}
-            canReview={['owner', 'manager'].includes(myRole)}
-            onEditPar={(item) => {
-              setEditingParLevel(item);
-              setParLevelValue(String(item.reorder_threshold));
-            }}
-            onChanged={() => {
-              fetchAdvancedData();
-              fetchBatches();
-              setAlertsKey((k) => k + 1);
-            }}
-          />
-        )}
+          {activeTab === 'stock-take' && (
+            <StockTakePanel
+              stocks={overviewStocks}
+              canReview={['owner', 'manager'].includes(myRole)}
+              onEditPar={(item) => {
+                setEditingParLevel(item);
+                setParLevelValue(String(item.reorder_threshold));
+              }}
+              onChanged={() => {
+                fetchAdvancedData();
+                fetchBatches();
+                setAlertsKey((k) => k + 1);
+              }}
+            />
+          )}
 
-        {activeTab === 'waste' && (
-          <div className="flex-1 flex flex-col animate-in fade-in duration-200">
-            <div className="border-b border-slate-100 bg-white px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold tracking-tight text-slate-900">Wastage Log</h2>
-                <p className="mt-1 text-xs text-slate-500">Track spoiled, dropped, or unaccounted inventory loss.</p>
-              </div>
-              <button 
-                onClick={() => setShowLogWaste(true)}
-                className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-rose-700"
+          {activeTab === 'waste' && (
+            <div className="px-8 py-6">
+              <SectionHeader
+                title="Wastage"
+                count={plural(wastageEvents.length, 'entry', 'entries')}
+                description="Record stock that was spoiled, spilled or lost so your counts stay accurate."
               >
-                <Plus size={16} />
-                Log Waste
-              </button>
-            </div>
-            
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full border-collapse text-left text-sm text-slate-600">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <th className="px-8 py-3.5">Date</th>
-                    <th className="px-8 py-3.5">Ingredient</th>
-                    <th className="px-8 py-3.5">Quantity Lost</th>
-                    <th className="px-8 py-3.5">Reason</th>
-                    <th className="px-8 py-3.5">Staff</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {wastageEvents.map((w, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-4 text-slate-500">{new Date(w.created_at).toLocaleString()}</td>
-                      <td className="px-8 py-4 font-semibold text-slate-950">{w.ingredient}</td>
-                      <td className="px-8 py-4 font-mono font-bold text-rose-600">-{w.quantity} {w.unit}</td>
-                      <td className="px-8 py-4 text-slate-700">{w.reason}</td>
-                      <td className="px-8 py-4 text-slate-500">{w.staff_name || 'System'}</td>
-                    </tr>
-                  ))}
-                  {wastageEvents.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-8 py-16 text-center text-slate-500">No wastage events recorded.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                <button onClick={() => setShowLogWaste(true)} className={BTN_PRIMARY}>
+                  <Plus className="h-4 w-4" strokeWidth={2.5} /> Log wastage
+                </button>
+              </SectionHeader>
 
-        {activeTab === 'prices' && <PriceHistoryPanel />}
-        {activeTab === 'kitchen' && <TransfersPanel ingredients={overviewStocks} />}
-      </main>
+              <section className={CARD}>
+                {wastageEvents.length === 0 ? (
+                  <EmptyState
+                    icon={<Trash className="h-6 w-6" />}
+                    title="No wastage recorded"
+                    body="When something is spoiled, dropped or goes missing, log it here."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px] border-collapse text-left">
+                      <thead>
+                        <tr className={THEAD_ROW}>
+                          <th className={TH}>When</th>
+                          <th className={TH}>Ingredient</th>
+                          <th className={`${TH} text-right`}>Quantity lost</th>
+                          <th className={TH}>Reason</th>
+                          <th className={TH}>Logged by</th>
+                        </tr>
+                      </thead>
+                      <tbody className={TBODY}>
+                        {wastageEvents.map((w, idx) => (
+                          <tr key={idx} className={TR}>
+                            <td className={`${TD} tabular-nums`}>
+                              {new Date(w.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                            </td>
+                            <td className={`${TD} font-semibold text-[#0F1117]`}>{w.ingredient}</td>
+                            <td className={`${TD} text-right font-semibold tabular-nums text-rose-600`}>−{w.quantity} {w.unit}</td>
+                            <td className={`${TD} text-[#0F1117]`}>{w.reason ? (WASTE_REASON_LABELS[w.reason] || w.reason) : <span className="text-[#9CA3AF]">No reason</span>}</td>
+                            <td className={TD}>{w.staff_name || 'System'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'prices' && <PriceHistoryPanel />}
+          {activeTab === 'kitchen' && <TransfersPanel ingredients={overviewStocks} />}
+        </main>
       </div>
 
-      {/* Add Vendor Modal */}
+      {/* Add supplier */}
       {showAddVendor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="mb-6 text-xl font-bold text-slate-900">Add New Supplier</h3>
-            <form onSubmit={handleAddVendor} className="space-y-5">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Add supplier">
+          <div className={`${DIALOG} max-w-md p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Add supplier</h3>
+            <p className="mt-1 text-[13px] text-[#6B7280]">You can raise purchase orders against this supplier once it's saved.</p>
+            <form onSubmit={handleAddVendor} className="mt-5 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Vendor Name</label>
-                <input 
-                  type="text" 
-                  value={vendorName}
-                  onChange={(e) => setVendorName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  placeholder="e.g. Sysco Foods"
-                  required
-                />
+                <label className={LABEL} htmlFor="vendor-name">Supplier name</label>
+                <input id="vendor-name" type="text" value={vendorName} onChange={(e) => setVendorName(e.target.value)} className={INPUT} placeholder="e.g. Metro Cash & Carry" required autoFocus />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Lead Time (Days)</label>
-                <input 
-                  type="number" 
-                  value={leadTime}
-                  onChange={(e) => setLeadTime(e.target.value)}
-                  min="0"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  required
-                />
+                <label className={LABEL} htmlFor="vendor-lead">Lead time in days</label>
+                <input id="vendor-lead" type="number" value={leadTime} onChange={(e) => setLeadTime(e.target.value)} min="0" className={`${INPUT} tabular-nums`} required />
+                <p className="mt-1.5 text-[12px] text-[#9CA3AF]">How long they usually take to deliver after you order.</p>
               </div>
-              <div className="mt-8 flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddVendor(false)}
-                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow"
-                >
-                  Save Supplier
-                </button>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowAddVendor(false)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+                <button type="submit" className={`${BTN_PRIMARY} flex-1`}>Save supplier</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Edit Vendor Modal */}
+      {/* Edit supplier */}
       {editingVendor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="mb-6 text-xl font-bold text-slate-900">Edit Supplier</h3>
-            <form onSubmit={handleUpdateVendor} className="space-y-5">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Edit supplier">
+          <div className={`${DIALOG} max-w-md p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Edit supplier</h3>
+            <form onSubmit={handleUpdateVendor} className="mt-5 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Vendor Name</label>
-                <input 
-                  type="text" 
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  placeholder="e.g. Sysco Foods"
-                  required
-                />
+                <label className={LABEL} htmlFor="edit-vendor-name">Supplier name</label>
+                <input id="edit-vendor-name" type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={INPUT} required />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Lead Time (Days)</label>
-                <input 
-                  type="number" 
-                  value={editLeadTime}
-                  onChange={(e) => setEditLeadTime(e.target.value)}
-                  min="0"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 transition-colors focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  required
-                />
+                <label className={LABEL} htmlFor="edit-vendor-lead">Lead time in days</label>
+                <input id="edit-vendor-lead" type="number" value={editLeadTime} onChange={(e) => setEditLeadTime(e.target.value)} min="0" className={`${INPUT} tabular-nums`} required />
               </div>
-              <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox"
-                  id="editActive"
-                  checked={editActive}
-                  onChange={(e) => setEditActive(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <label htmlFor="editActive" className="text-sm font-medium text-slate-700">Active</label>
-              </div>
-              <div className="mt-8 flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setEditingVendor(null)}
-                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow"
-                >
-                  Save Changes
-                </button>
+              <label htmlFor="editActive" className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E8E8E3] px-3.5 py-3 transition-colors hover:border-[#D6D6CF]">
+                <input type="checkbox" id="editActive" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} className="mt-0.5 h-4 w-4 rounded" />
+                <span>
+                  <span className="block text-[13px] font-semibold text-[#0F1117]">Active</span>
+                  <span className="block text-[12px] text-[#6B7280]">Inactive suppliers stay in your records but can't be ordered from.</span>
+                </span>
+              </label>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditingVendor(null)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+                <button type="submit" className={`${BTN_PRIMARY} flex-1`}>Save changes</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Edit Batch Modal */}
+      {/* Edit batch */}
       <AnimatePresence>
         {showEditBatchModal && editingBatch && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Edit batch">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.15 }}
+              className={`${DIALOG} max-w-md`}
             >
-              <div className="border-b border-slate-100 px-6 py-4 flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-slate-900">Edit Stock Batch</h3>
-                <button onClick={() => setShowEditBatchModal(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={20} />
+              <div className="flex items-start justify-between gap-4 px-6 pt-6">
+                <div>
+                  <h3 className="text-[17px] font-bold text-[#0F1117]">Edit batch</h3>
+                  <p className="mt-1 text-[13px] text-[#6B7280]">{editingBatch.ingredient_name}</p>
+                </div>
+                <button onClick={() => setShowEditBatchModal(false)} className={`${ICON_BTN} -mr-2 -mt-1`} aria-label="Close">
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-              <form onSubmit={handleEditBatch} className="p-6">
-                <div className="space-y-4">
+              <form onSubmit={handleEditBatch} className="px-6 pb-6">
+                <div className="mt-5 grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      required
-                      value={editingBatch.quantity}
-                      onChange={e => setEditingBatch({...editingBatch, quantity: Number(e.target.value)})}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
+                    <label className={LABEL} htmlFor="batch-qty">Quantity</label>
+                    <input id="batch-qty" type="number" step="0.001" required value={editingBatch.quantity} onChange={e => setEditingBatch({ ...editingBatch, quantity: Number(e.target.value) })} className={`${INPUT} tabular-nums`} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Cost Per Unit</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      value={editingBatch.cost_per_unit}
-                      onChange={e => setEditingBatch({...editingBatch, cost_per_unit: Number(e.target.value)})}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
+                    <label className={LABEL} htmlFor="batch-cost">Cost per unit (₹)</label>
+                    <input id="batch-cost" type="number" step="0.01" required value={editingBatch.cost_per_unit} onChange={e => setEditingBatch({ ...editingBatch, cost_per_unit: Number(e.target.value) })} className={`${INPUT} tabular-nums`} />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Received At</label>
+                  <div className="col-span-2">
+                    <label className={LABEL}>Received</label>
                     <CustomDateTimePicker
                       value={editingBatch.received_at ? new Date(new Date(editingBatch.received_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
                       onChange={val => setEditingBatch({ ...editingBatch, received_at: val ? new Date(val).toISOString() : new Date().toISOString() })}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Supplier</label>
-                    <select
+                  <div className="col-span-2">
+                    <label className={LABEL}>Supplier</label>
+                    <Select
                       value={editingBatch.vendor_id || ''}
-                      onChange={e => setEditingBatch({...editingBatch, vendor_id: e.target.value})}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                      onChange={e => setEditingBatch({ ...editingBatch, vendor_id: e.target.value })}
+                      className={INPUT}
                     >
-                      <option value="">Direct Input / No Supplier</option>
+                      <option value="">No supplier</option>
                       {vendors.map(v => (
                         <option key={v.id} value={v.id}>{v.name}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Expected Expiry Date</label>
+                  <div className="col-span-2">
+                    <label className={LABEL} htmlFor="batch-expiry">Expiry date</label>
                     <input
+                      id="batch-expiry"
                       type="date"
                       value={editingBatch.expires_at ? editingBatch.expires_at.split('T')[0] : ''}
-                      onChange={e => setEditingBatch({...editingBatch, expires_at: e.target.value ? new Date(e.target.value).toISOString() : undefined})}
-                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                      onChange={e => setEditingBatch({ ...editingBatch, expires_at: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
+                      className={INPUT}
                     />
                   </div>
                 </div>
-                <div className="mt-8 flex justify-end gap-3 border-t border-slate-100 pt-5">
-                  <button type="button" onClick={() => setShowEditBatchModal(false)} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
-                  <button type="submit" className="rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600 focus:ring-2 focus:ring-emerald-500/20">Save Changes</button>
+                <div className="mt-6 flex gap-2">
+                  <button type="button" onClick={() => setShowEditBatchModal(false)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+                  <button type="submit" className={`${BTN_PRIMARY} flex-1`}>Save changes</button>
                 </div>
               </form>
             </motion.div>
@@ -1383,26 +1254,19 @@ export default function InventoryDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Add PO Modal */}
+      {/* Receive stock against a purchase order */}
       {receivingPO && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Receive stock"
-        >
-          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl bg-white shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="px-8 pt-8 pb-4">
-              <h3 className="text-xl font-bold text-slate-900">
-                Receive stock · PO #{receivingPO.id.slice(0, 8).toUpperCase()}
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Enter what actually arrived. Anything left over stays open so you can receive it later.
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Receive stock">
+          <div className={`${DIALOG} flex max-h-[90vh] max-w-2xl flex-col`}>
+            <div className="px-6 pb-4 pt-6">
+              <h3 className="text-[17px] font-bold text-[#0F1117]">Receive stock</h3>
+              <p className="mt-1 text-[13px] text-[#6B7280]">
+                PO #{receivingPO.id.slice(0, 8).toUpperCase()}. Enter what actually arrived. Anything still to come stays open so you can receive it later.
               </p>
             </div>
-            <div className="flex-1 overflow-y-auto px-8 space-y-3">
+            <div className="flex-1 space-y-3 overflow-y-auto px-6">
               {receiveRows.length === 0 ? (
-                <p className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600">
+                <p className="rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] p-4 text-[13px] text-[#4B5563]">
                   Everything still outstanding on this order will be received in full.
                 </p>
               ) : (
@@ -1411,58 +1275,31 @@ export default function InventoryDashboard() {
                   const qty = Number(row.quantity) || 0;
                   const short = qty < left;
                   return (
-                    <div key={row.item_id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <div key={row.item_id} className="rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] p-4">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-sm font-bold text-slate-900">{row.name}</span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-[14px] font-semibold text-[#0F1117]">{row.name}</span>
+                        <span className="text-[12px] tabular-nums text-[#6B7280]">
                           Ordered {row.ordered} {row.unit}
-                          {row.received > 0 ? ` · ${row.received} already received` : ''}
+                          {row.received > 0 ? `, ${row.received} already received` : ''}
                         </span>
                       </div>
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <label className="block">
-                          <span className="mb-1 block text-xs font-semibold text-slate-600">Arrived ({row.unit})</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            inputMode="decimal"
-                            value={row.quantity}
-                            onChange={(e) => updateReceiveRow(row.item_id, { quantity: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                          />
+                          <span className={LABEL}>Arrived ({row.unit})</span>
+                          <input type="number" min="0" step="any" inputMode="decimal" value={row.quantity} onChange={(e) => updateReceiveRow(row.item_id, { quantity: e.target.value })} className={`${INPUT} tabular-nums`} />
                         </label>
                         <label className="block">
-                          <span className="mb-1 block text-xs font-semibold text-slate-600">Cost per {row.unit} (₹)</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            value={row.cost}
-                            onChange={(e) => updateReceiveRow(row.item_id, { cost: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                          />
+                          <span className={LABEL}>Cost per {row.unit} (₹)</span>
+                          <input type="number" min="0" step="any" inputMode="decimal" placeholder="0.00" value={row.cost} onChange={(e) => updateReceiveRow(row.item_id, { cost: e.target.value })} className={`${INPUT} tabular-nums`} />
                         </label>
                         <label className="block">
-                          <span className="mb-1 block text-xs font-semibold text-slate-600">Expiry date</span>
-                          <input
-                            type="date"
-                            value={row.expiry}
-                            onChange={(e) => updateReceiveRow(row.item_id, { expiry: e.target.value })}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                          />
+                          <span className={LABEL}>Expiry date</span>
+                          <input type="date" value={row.expiry} onChange={(e) => updateReceiveRow(row.item_id, { expiry: e.target.value })} className={INPUT} />
                         </label>
                       </div>
                       {short && (
-                        <label className="mt-3 flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={row.close}
-                            onChange={(e) => updateReceiveRow(row.item_id, { close: e.target.checked })}
-                            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-emerald-600"
-                          />
+                        <label className="mt-3 flex cursor-pointer items-start gap-2 text-[12px] text-[#4B5563]">
+                          <input type="checkbox" checked={row.close} onChange={(e) => updateReceiveRow(row.item_id, { close: e.target.checked })} className="mt-0.5 h-4 w-4 rounded" />
                           <span>
                             The remaining {Number((left - qty).toFixed(3))} {row.unit} won't arrive. Close this item.
                           </span>
@@ -1473,201 +1310,149 @@ export default function InventoryDashboard() {
                 })
               )}
             </div>
-            <div className="flex justify-end gap-3 px-8 py-6">
-              <button
-                type="button"
-                onClick={() => setReceivingPO(null)}
-                disabled={isReceiving}
-                className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleReceivePO}
-                disabled={isReceiving}
-                className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
-                {isReceiving ? 'Receiving…' : 'Receive stock'}
+            <div className="mt-4 flex justify-end gap-2 border-t border-[#F0F0EB] px-6 py-4">
+              <button type="button" onClick={() => setReceivingPO(null)} disabled={isReceiving} className={BTN_SECONDARY}>Cancel</button>
+              <button type="button" onClick={handleReceivePO} disabled={isReceiving} className={BTN_PRIMARY}>
+                {isReceiving ? <><Loader2 className="h-4 w-4 animate-spin" /> Receiving</> : 'Receive stock'}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* New purchase order */}
       {showAddPO && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-xl scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="mb-6 text-xl font-bold text-slate-900">Create Purchase Order</h3>
-            <div className="space-y-5">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="New purchase order">
+          <div className={`${DIALOG} flex max-h-[90vh] max-w-xl flex-col`}>
+            <div className="px-6 pt-6">
+              <h3 className="text-[17px] font-bold text-[#0F1117]">New purchase order</h3>
+              <p className="mt-1 text-[13px] text-[#6B7280]">Choose a supplier and add what you're ordering.</p>
+            </div>
+            <div className="flex-1 space-y-5 overflow-y-auto px-6 pb-2 pt-5">
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Select Vendor</label>
+                <label className={LABEL}>Supplier</label>
                 <CustomSelect
                   value={selectedVendor}
                   onChange={(val: string) => setSelectedVendor(val)}
                   options={vendors.map(v => ({ value: v.id, label: v.name }))}
-                  placeholder="Choose a supplier..."
-                  theme="emerald"
+                  placeholder="Choose a supplier"
+                  theme="orange"
+                  buttonClassName={CUSTOM_SELECT_BTN}
                 />
               </div>
-              <div className="border-t border-slate-100 pt-5 space-y-3">
-                <label className="block text-sm font-semibold text-slate-900">Add Items</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <div className="col-span-1 sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ingredient</label>
+
+              <div>
+                <p className="mb-2 text-[13px] font-semibold text-[#0F1117]">Items</p>
+                <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] p-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className={LABEL}>Ingredient</label>
                     <CustomSelect
                       value={poIngredient}
                       onChange={(val: string) => setPoIngredient(val)}
                       options={ingredients.map(ing => ({ value: ing.id, label: ing.name }))}
-                      placeholder="Choose Ingredient..."
-                      theme="emerald"
+                      placeholder="Choose an ingredient"
+                      theme="orange"
+                      buttonClassName={CUSTOM_SELECT_BTN}
                     />
                   </div>
-                  
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Quantity</label>
-                    <div className="flex rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
-                      <input 
-                        type="number" 
-                        placeholder="0.00" 
-                        value={poQuantity}
-                        onChange={(e) => setPoQuantity(e.target.value)}
-                        className="w-full bg-transparent px-3 py-2 text-sm text-slate-900 outline-none"
-                      />
-                      <select 
-                        value={poUnit}
-                        onChange={(e) => setPoUnit(e.target.value)}
-                        className="bg-slate-100 border-l border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none cursor-pointer"
-                      >
+                    <label className={LABEL} htmlFor="po-qty">Quantity</label>
+                    <div className="flex h-10 overflow-hidden rounded-xl border border-[#E8E8E3] bg-white transition-colors hover:border-[#D6D6CF] focus-within:border-[#fe5c13]">
+                      <input id="po-qty" type="number" placeholder="0" value={poQuantity} onChange={(e) => setPoQuantity(e.target.value)} className="w-full min-w-0 bg-transparent px-3.5 text-[14px] tabular-nums text-[#0F1117] outline-none placeholder:text-[#9CA3AF]" />
+                      <Select value={poUnit} onChange={(e) => setPoUnit(e.target.value)} className="h-full w-20 shrink-0 border-l border-[#E8E8E3] bg-[#F3F3EF] px-3 text-[13px] font-semibold text-[#374151]">
                         <option value="kg">kg</option>
                         <option value="L">L</option>
                         <option value="pcs">pcs</option>
                         <option value="box">box</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
-
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Expiry Date (Optional)</label>
-                    <input
-                      type="date"
-                      value={poExpiry}
-                      onChange={(e) => setPoExpiry(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    />
+                    <label className={LABEL} htmlFor="po-cost">Cost per unit (optional)</label>
+                    <input id="po-cost" type="number" step="0.01" placeholder="₹0.00" value={poCost} onChange={(e) => setPoCost(e.target.value)} className={`${INPUT} tabular-nums`} />
                   </div>
-                  
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Cost Per Unit (Optional)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={poCost}
-                      onChange={(e) => setPoCost(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    />
+                  <div className="sm:col-span-2">
+                    <label className={LABEL} htmlFor="po-expiry">Expiry date (optional)</label>
+                    <input id="po-expiry" type="date" value={poExpiry} onChange={(e) => setPoExpiry(e.target.value)} className={INPUT} />
                   </div>
-
-                  <div className="col-span-1 sm:col-span-2 pt-1">
-                    <button 
-                      onClick={handleAddPOItem} 
-                      className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-slate-950 py-2.5 text-sm font-semibold text-white transition-all shadow-sm flex items-center justify-center gap-1.5"
-                    >
-                      <Plus size={16} />
-                      Add to List
+                  <div className="sm:col-span-2">
+                    <button type="button" onClick={handleAddPOItem} disabled={!poIngredient || !poQuantity} className={`${BTN_SECONDARY} w-full`}>
+                      <Plus className="h-4 w-4" /> Add to order
                     </button>
                   </div>
                 </div>
+
                 {poItems.length > 0 && (
-                  <ul className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 border border-slate-100">
+                  <ul className="mt-3 divide-y divide-[#F0F0EB] rounded-xl border border-[#E8E8E3]">
                     {poItems.map((item, i) => (
-                      <li key={i} className="flex items-center justify-between text-sm font-medium text-slate-700">
-                        <div className="flex flex-col">
-                          <span>{item.name}</span>
+                      <li key={i} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-[#0F1117]">{item.name}</p>
                           {item.expected_expires_at && (
-                            <span className="text-xs text-slate-400 font-normal">Exp: {new Date(item.expected_expires_at).toLocaleDateString()}</span>
+                            <p className="text-[12px] text-[#9CA3AF]">Expires {fmtDay(item.expected_expires_at)}</p>
                           )}
                         </div>
-                        <span>
-                          {item.quantity} {item.unit}
-                          {item.expected_cost_per_unit ? ` @ ${fmtINR(item.expected_cost_per_unit)}/unit` : ''}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] tabular-nums text-[#4B5563]">
+                            {item.quantity} {item.unit}
+                            {item.expected_cost_per_unit ? ` at ${fmtINR(item.expected_cost_per_unit)}` : ''}
+                          </span>
+                          <button type="button" onClick={() => setPoItems(poItems.filter((_, j) => j !== i))} className={ICON_BTN_DANGER} aria-label={`Remove ${item.name}`}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
-              <div className="mt-8 flex gap-3">
-                <button 
-                  onClick={() => setShowAddPO(false)}
-                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleCreatePO}
-                  disabled={!selectedVendor || poItems.length === 0}
-                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow disabled:opacity-50"
-                >
-                  Create PO
-                </button>
-              </div>
+            </div>
+            <div className="flex gap-2 border-t border-[#F0F0EB] px-6 py-4">
+              <button onClick={() => setShowAddPO(false)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+              <button onClick={handleCreatePO} disabled={!selectedVendor || poItems.length === 0} className={`${BTN_PRIMARY} flex-1`}>
+                Place order{poItems.length > 0 ? ` (${plural(poItems.length, 'item')})` : ''}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Add Recipe Modal */}
+      {/* New / edit recipe */}
       {showAddRecipe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-xl scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="mb-6 text-xl font-bold text-slate-900">Create Recipe</h3>
-            <div className="space-y-5">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Recipe">
+          <div className={`${DIALOG} max-w-xl p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">{recipeItems.length > 0 && recipeParent ? 'Recipe' : 'New recipe'}</h3>
+            <p className="mt-1 text-[13px] text-[#6B7280]">Pick what's being made, then list the raw ingredients that go into one portion.</p>
+            <div className="mt-5 space-y-5">
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Parent Menu Item / Intermediate Good</label>
+                <label className={LABEL}>Dish or prep item</label>
                 <CustomSelect
                   value={recipeParent}
                   onChange={(val: string) => setRecipeParent(val)}
                   options={[
-                    ...menuItems.map(item => ({
-                      value: item.id,
-                      label: item.name,
-                      group: "Menu Items",
-                    })),
-                    ...ingredients.map(item => ({
-                      value: item.id,
-                      label: item.name,
-                      group: "Intermediate Goods",
-                    })),
+                    ...menuItems.map(item => ({ value: item.id, label: item.name, group: "Menu items" })),
+                    ...ingredients.map(item => ({ value: item.id, label: item.name, group: "Prep items" })),
                   ]}
-                  placeholder="Choose Parent Item or Intermediate Good..."
-                  theme="emerald"
+                  placeholder="Choose a dish or prep item"
+                  theme="orange"
+                  buttonClassName={CUSTOM_SELECT_BTN}
                 />
               </div>
-              <div className="border-t border-slate-100 pt-5">
-                <label className="mb-2 block text-sm font-semibold text-slate-900">Add Raw Ingredients</label>
+              <div>
+                <p className="mb-2 text-[13px] font-semibold text-[#0F1117]">Raw ingredients</p>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <CustomSelect
                       value={recipeIngredient}
                       onChange={(val: string) => setRecipeIngredient(val)}
-                      options={ingredients.map(ing => ({
-                        value: ing.id,
-                        label: ing.name,
-                      }))}
-                      placeholder="Choose Raw Ingredient..."
-                      theme="emerald"
+                      options={ingredients.map(ing => ({ value: ing.id, label: ing.name }))}
+                      placeholder="Ingredient"
+                      theme="orange"
+                      buttonClassName={CUSTOM_SELECT_BTN}
                     />
                   </div>
-                  <input 
-                    type="number" 
-                    placeholder="Qty" 
-                    value={recipeQuantity}
-                    onChange={(e) => setRecipeQuantity(e.target.value)}
-                    className="w-24 min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-semibold"
-                  />
-                  <div className="w-24">
+                  <input type="number" placeholder="Qty" aria-label="Quantity" value={recipeQuantity} onChange={(e) => setRecipeQuantity(e.target.value)} className={`${INPUT} w-20 shrink-0 tabular-nums`} />
+                  <div className="w-20 shrink-0">
                     <CustomSelect
                       value={recipeUnit}
                       onChange={(val: string) => setRecipeUnit(val)}
@@ -1677,66 +1462,50 @@ export default function InventoryDashboard() {
                         { value: "pcs", label: "pcs" },
                       ]}
                       placeholder="Unit"
-                      theme="emerald"
+                      theme="orange"
+                      buttonClassName={CUSTOM_SELECT_BTN}
                     />
                   </div>
-                  <button 
-                    type="button"
-                    onClick={handleAddRecipeItem} 
-                    className="min-h-[46px] rounded-xl bg-slate-900 hover:bg-black px-5 text-sm font-semibold text-white transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
-                  >
+                  <button type="button" onClick={handleAddRecipeItem} disabled={!recipeIngredient || !recipeQuantity} className={`${BTN_SECONDARY} shrink-0`}>
                     Add
                   </button>
                 </div>
                 {recipeItems.length > 0 && (
-                  <ul className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 border border-slate-100">
+                  <ul className="mt-3 divide-y divide-[#F0F0EB] rounded-xl border border-[#E8E8E3]">
                     {recipeItems.map((item, i) => (
-                      <li key={i} className="flex justify-between text-sm font-medium text-slate-700">
-                        <span>{item.name}</span>
-                        <span>{item.quantity} {item.unit}</span>
+                      <li key={i} className="flex items-center justify-between gap-3 px-4 py-2">
+                        <span className="truncate text-[13px] font-semibold text-[#0F1117]">{item.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] tabular-nums text-[#4B5563]">{item.quantity} {item.unit}</span>
+                          <button type="button" onClick={() => setRecipeItems(recipeItems.filter((_, j) => j !== i))} className={ICON_BTN_DANGER} aria-label={`Remove ${item.name}`}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
-              <div className="mt-8 flex gap-3">
-                <button 
-                  onClick={() => setShowAddRecipe(false)}
-                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleCreateRecipe}
-                  disabled={!recipeParent || recipeItems.length === 0}
-                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow disabled:opacity-50"
-                >
-                  Save Recipe
-                </button>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setShowAddRecipe(false)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+                <button onClick={handleCreateRecipe} disabled={!recipeParent || recipeItems.length === 0} className={`${BTN_PRIMARY} flex-1`}>Save recipe</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Batch Confirmation Modal */}
+      {/* Delete batch */}
       {deleteConfirmBatchId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-center w-12 h-12 bg-rose-100 rounded-full mb-4 mx-auto text-rose-600">
-              <Trash2 size={24} />
-            </div>
-            <h3 className="text-xl font-bold text-center text-slate-900 mb-2">Delete Batch?</h3>
-            <p className="text-center text-slate-500 text-sm mb-6">
-              This will deduct its quantity from your inventory stock and cannot be undone.
+        <div className={`${OVERLAY} z-[60]`} role="dialog" aria-modal="true" aria-label="Delete batch">
+          <div className={`${DIALOG} max-w-sm p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Delete this batch?</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#6B7280]">
+              Its quantity comes off your stock. This can't be undone.
             </p>
-            <div className="flex gap-3">
-              <button
-                disabled={isDeleting}
-                onClick={() => setDeleteConfirmBatchId(null)}
-                className="flex-1 py-2.5 rounded-xl text-slate-600 font-bold bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
-              >
-                Cancel
+            <div className="mt-6 flex gap-2">
+              <button disabled={isDeleting} onClick={() => setDeleteConfirmBatchId(null)} className={`${BTN_SECONDARY} flex-1`}>
+                Keep batch
               </button>
               <button
                 disabled={isDeleting}
@@ -1762,72 +1531,62 @@ export default function InventoryDashboard() {
                     setIsDeleting(false);
                   }
                 }}
-                className="flex-1 py-2.5 rounded-xl text-white font-bold bg-rose-600 hover:bg-rose-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 text-[13px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
               >
-                {isDeleting ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : "Delete"}
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete batch'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Edit Par Level Modal */}
+      {/* Reorder level */}
       {editingParLevel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="mb-2 text-xl font-bold text-slate-900">Set Par Level</h3>
-            <p className="text-sm text-slate-500 mb-6">Receive an alert when <strong>{editingParLevel.ingredient}</strong> stock drops below this number.</p>
-            <form onSubmit={(e) => { e.preventDefault(); handleUpdateParLevel(); }} className="space-y-5">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Reorder level">
+          <div className={`${DIALOG} max-w-sm p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Reorder level</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#6B7280]">
+              You'll be alerted when <span className="font-semibold text-[#0F1117]">{editingParLevel.ingredient}</span> drops below this amount.
+            </p>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateParLevel(); }} className="mt-5 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Reorder Threshold</label>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  value={parLevelValue}
-                  onChange={(e) => setParLevelValue(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  required
-                />
+                <label className={LABEL} htmlFor="par-level">Alert below</label>
+                <input id="par-level" type="number" step="0.01" value={parLevelValue} onChange={(e) => setParLevelValue(e.target.value)} className={`${INPUT} tabular-nums`} required autoFocus />
               </div>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setEditingParLevel(null)} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-                <button type="submit" className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-emerald-700 hover:shadow">Save</button>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setEditingParLevel(null)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+                <button type="submit" className={`${BTN_PRIMARY} flex-1`}>Save</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Log Waste Modal */}
+      {/* Log wastage */}
       {showLogWaste && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md scale-100 rounded-3xl bg-white p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="mb-6 text-xl font-bold text-slate-900">Log Wastage</h3>
-            <form onSubmit={handleLogWaste} className="space-y-5">
+        <div className={OVERLAY} role="dialog" aria-modal="true" aria-label="Log wastage">
+          <div className={`${DIALOG} max-w-md p-6`}>
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Log wastage</h3>
+            <p className="mt-1 text-[13px] text-[#6B7280]">The amount comes off stock straight away.</p>
+            <form onSubmit={handleLogWaste} className="mt-5 space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Ingredient</label>
+                <label className={LABEL}>Ingredient</label>
                 <CustomSelect
                   value={wasteIngredient}
                   onChange={(val: string) => setWasteIngredient(val)}
                   options={ingredients.map(ing => ({ value: ing.id, label: ing.name }))}
-                  placeholder="Choose Ingredient..."
-                  theme="slate"
+                  placeholder="Choose an ingredient"
+                  theme="orange"
+                  buttonClassName={CUSTOM_SELECT_BTN}
                 />
               </div>
-              <div className="flex gap-3 items-end">
+              <div className="flex items-end gap-3">
                 <div className="flex-1">
-                  <label className="mb-1.5 block text-sm font-semibold text-slate-800">Quantity Lost</label>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    value={wasteQuantity}
-                    onChange={(e) => setWasteQuantity(e.target.value)}
-                    className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:bg-white focus:ring-4 focus:ring-rose-500/10 font-semibold"
-                    required
-                  />
+                  <label className={LABEL} htmlFor="waste-qty">Quantity lost</label>
+                  <input id="waste-qty" type="number" step="0.01" value={wasteQuantity} onChange={(e) => setWasteQuantity(e.target.value)} className={`${INPUT} tabular-nums`} required />
                 </div>
                 <div className="w-28">
-                  <label className="mb-1.5 block text-sm font-semibold text-slate-800">Unit</label>
+                  <label className={LABEL}>Unit</label>
                   <CustomSelect
                     value={wasteUnit}
                     onChange={(val: string) => setWasteUnit(val)}
@@ -1837,29 +1596,31 @@ export default function InventoryDashboard() {
                       { value: "pcs", label: "pcs" },
                     ]}
                     placeholder="Unit"
-                    theme="slate"
+                    theme="orange"
+                    buttonClassName={CUSTOM_SELECT_BTN}
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-slate-800">Reason</label>
+                <label className={LABEL}>Reason</label>
                 <CustomSelect
                   value={wasteReason}
                   onChange={(val: string) => setWasteReason(val)}
                   options={[
-                    { value: "Spoiled / Expired", label: "Spoiled / Expired" },
-                    { value: "Dropped / Spilled", label: "Dropped / Spilled" },
-                    { value: "Staff Meal", label: "Staff Meal" },
-                    { value: "Theft / Missing", label: "Theft / Missing" },
+                    { value: "Spoiled / Expired", label: "Spoiled or expired" },
+                    { value: "Dropped / Spilled", label: "Dropped or spilled" },
+                    { value: "Staff Meal", label: "Staff meal" },
+                    { value: "Theft / Missing", label: "Theft or missing" },
                     { value: "Other", label: "Other" },
                   ]}
-                  placeholder="Select Reason..."
-                  theme="slate"
+                  placeholder="Choose a reason"
+                  theme="orange"
+                  buttonClassName={CUSTOM_SELECT_BTN}
                 />
               </div>
-              <div className="mt-8 flex gap-3">
-                <button type="button" onClick={() => setShowLogWaste(false)} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-                <button type="submit" className="flex-1 rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white shadow-sm hover:bg-rose-700 hover:shadow">Submit Waste</button>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowLogWaste(false)} className={`${BTN_SECONDARY} flex-1`}>Cancel</button>
+                <button type="submit" className={`${BTN_PRIMARY} flex-1`}>Log wastage</button>
               </div>
             </form>
           </div>

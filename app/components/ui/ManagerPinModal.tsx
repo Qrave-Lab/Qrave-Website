@@ -119,7 +119,7 @@ export default function ManagerPinModal({
             <ShieldCheck className="w-7 h-7" />
           </div>
 
-          <h3 className="text-lg font-black text-slate-900 tracking-tight">{title}</h3>
+          <h3 className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-[260px] leading-relaxed">
             {description}
           </p>

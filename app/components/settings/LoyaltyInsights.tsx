@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "@/app/lib/api";
 
+import { Select } from "@/app/components/ui/Select";
 type Analytics = {
   days: number;
   unit: "points" | "stamps";
@@ -128,7 +129,7 @@ export default function LoyaltyInsights() {
     <div className="space-y-5" data-testid="loyalty-insights">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-slate-800">How the card is doing</p>
-        <select
+        <Select
           value={days}
           onChange={(e) => {
             setData(null);
@@ -141,7 +142,7 @@ export default function LoyaltyInsights() {
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
           <option value={365}>Last year</option>
-        </select>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -204,7 +205,7 @@ export default function LoyaltyInsights() {
                   <tr key={i} className="border-t border-slate-100">
                     <td className="py-1.5">
                       {m.name || m.phone}
-                      {tierOrder.length > 0 && <span className="ml-1 text-[10px] uppercase text-slate-400">{m.tier}</span>}
+                      {tierOrder.length > 0 && <span className="ml-1 text-xs text-slate-500">{m.tier}</span>}
                     </td>
                     <td className="py-1.5 text-right">{m.visits}</td>
                     <td className="py-1.5 text-right">{money(m.spend)}</td>

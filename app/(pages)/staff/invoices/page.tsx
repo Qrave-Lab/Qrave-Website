@@ -6,13 +6,13 @@ import { api, requestManagerPin } from "@/app/lib/api";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  ChevronRight,
+  Phone,
+  Plus,
+  X,
   ArrowRight,
-  Calendar,
   CheckCircle2,
-  ChevronDown,
-  CreditCard,
   Download,
-  ExternalLink,
   FileText,
   Loader2,
   Printer,
@@ -26,6 +26,8 @@ import { toast } from "react-hot-toast";
 import { printBillTicket } from "@/app/lib/posPrinter";
 import { logReprint } from "@/app/lib/reprintAudit";
 
+import { Select } from "@/app/components/ui/Select";
+import { DateRangePicker } from "@/app/components/ui/DateRangePicker";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TaxInvoice = {
@@ -94,11 +96,20 @@ const nDaysAgo = (n: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-const STATUS_STYLES: Record<string, string> = {
-  active:
-    "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  void: "bg-slate-100 text-slate-500 border border-slate-200",
+const STATUS_STYLES: Record<string, { label: string; pill: string; dot: string }> = {
+  active: { label: "Active", pill: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  void: { label: "Void", pill: "bg-[#F3F3EF] text-[#6B7280]", dot: "bg-[#9CA3AF]" },
 };
+
+function StatusPill({ status }: { status: string }) {
+  const s = STATUS_STYLES[status] || { label: status, pill: "bg-[#F3F3EF] text-[#6B7280]", dot: "bg-[#9CA3AF]" };
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium leading-none ${s.pill}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+      {s.label}
+    </span>
+  );
+}
 
 // ─── Credit Note Modal ────────────────────────────────────────────────────────
 
@@ -145,81 +156,71 @@ function CreditNoteModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1117]/40 p-4 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 10 }}
-        className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.15 }}
+        className="w-full max-w-md rounded-2xl border border-[#E8E8E3] bg-white shadow-[0_24px_60px_-20px_rgba(15,17,23,0.35)]"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-rose-100 p-2">
-              <RotateCcw className="h-5 w-5 text-rose-600" />
-            </div>
-            <div>
-              <h2 className="text-base font-black text-slate-900">
-                Issue Credit Note
-              </h2>
-              <p className="text-xs text-slate-500">{invoice.invoice_number}</p>
-            </div>
+        <div className="flex items-start justify-between border-b border-[#F0F0EB] px-6 py-4">
+          <div>
+            <h2 className="text-[17px] font-bold text-[#0F1117]">Issue credit note</h2>
+            <p className="mt-1 text-[12px] tabular-nums text-[#9CA3AF]">{invoice.invoice_number}</p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-400"
+            aria-label="Close"
+            className="rounded-lg p-1.5 text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
           >
-            <XCircle className="h-5 w-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="space-y-4 px-6 py-5">
           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Reason
-            </label>
+            <label htmlFor="cn-reason" className="mb-2 block text-[13px] font-medium text-[#4B5563]">Reason</label>
             <textarea
+              id="cn-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              placeholder="Describe the reason for the credit note..."
-              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-rose-400 focus:outline-none resize-none"
+              placeholder="Why is this amount being refunded?"
+              className="w-full resize-none rounded-xl border border-[#E8E8E3] bg-white px-3.5 py-2.5 text-[13px] text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-rose-400"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Refund Amount (₹)
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              max={invoice.grand_total}
-              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 focus:border-rose-400 focus:outline-none"
-            />
-            <p className="text-xs text-slate-400 mt-1">
-              Max: {fmtINR(invoice.grand_total)}
-            </p>
+            <label htmlFor="cn-amount" className="mb-2 block text-[13px] font-medium text-[#4B5563]">Refund amount</label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-[#9CA3AF]">₹</span>
+              <input
+                id="cn-amount"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                max={invoice.grand_total}
+                className="h-11 w-full rounded-xl border border-[#E8E8E3] bg-white pl-8 pr-3.5 text-[15px] font-medium tabular-nums text-[#0F1117] outline-none hover:border-[#D6D6CF] focus:border-rose-400"
+              />
+            </div>
+            <p className="mt-1.5 text-[12px] tabular-nums text-[#9CA3AF]">Up to {fmtINR(invoice.grand_total)}</p>
           </div>
         </div>
 
-        <div className="px-6 pb-5 space-y-2">
+        <div className="flex gap-2 border-t border-[#F0F0EB] px-6 py-4">
+          <button
+            onClick={onClose}
+            className="h-10 flex-1 rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+          >
+            Cancel
+          </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 text-[13px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
           >
-            {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="h-4 w-4" />
-            )}
-            Issue Credit Note
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
-          >
-            Cancel
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+            Issue credit note
           </button>
         </div>
       </motion.div>
@@ -314,126 +315,104 @@ function InvoiceDetailDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-[#0F1117]/30 backdrop-blur-xs"
+        onClick={onClose}
+      />
       <motion.div
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="h-full w-full max-w-lg bg-white shadow-2xl flex flex-col overflow-y-auto"
+        className="relative z-10 flex h-full w-full max-w-lg flex-col border-l border-[#E8E8E3] bg-white shadow-[0_20px_60px_-15px_rgba(15,17,23,0.3)]"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
+        <div className="flex items-center justify-between gap-4 border-b border-[#E8E8E3] px-6 py-4">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 hover:bg-slate-200 text-slate-500 transition-colors"
+              aria-label="Back to invoices"
+              className="rounded-lg p-1.5 text-[#6B7280] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
-              <h2 className="text-base font-black text-slate-900">
-                {invoice.invoice_number}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {fmtDate(invoice.invoice_date)} • FY {invoice.financial_year}
+              <h2 className="text-[17px] font-bold tabular-nums text-[#0F1117]">{invoice.invoice_number}</h2>
+              <p className="mt-1 text-[12px] tabular-nums text-[#9CA3AF]">
+                {fmtDate(invoice.invoice_date)}, FY {invoice.financial_year}
               </p>
             </div>
           </div>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${STATUS_STYLES[invoice.status] || "bg-slate-100 text-slate-500"}`}
-          >
-            {invoice.status}
-          </span>
+          <StatusPill status={invoice.status} />
         </div>
 
-        {/* Content */}
-        <div className="flex-1 px-6 py-5 space-y-5">
-          {/* Customer */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wide mb-2">
-              Customer Details
-            </p>
-            <p className="text-sm font-bold text-slate-800">
-              {invoice.customer_name || "Walk-in Customer"}
-            </p>
+        <div className="flex-1 space-y-5 overflow-y-auto bg-[#FAFAF7] px-6 py-5">
+          <div className="rounded-xl border border-[#E8E8E3] bg-white p-4">
+            <p className="text-[12px] font-medium text-[#6B7280]">Customer</p>
+            <p className="mt-1.5 text-[14px] font-semibold text-[#0F1117]">{invoice.customer_name || "Walk-in customer"}</p>
             {invoice.customer_gstin && (
-              <p className="text-xs text-slate-500 mt-0.5">
-                GSTIN: {invoice.customer_gstin}
-              </p>
+              <p className="mt-1 text-[12px] tabular-nums tracking-wide text-[#6B7280]">GSTIN {invoice.customer_gstin}</p>
             )}
             {invoice.customer_phone && (
-              <p className="text-xs text-slate-500 mt-0.5">
-                📞 {invoice.customer_phone}
+              <p className="mt-1 flex items-center gap-1.5 text-[12px] tabular-nums text-[#6B7280]">
+                <Phone className="h-3.5 w-3.5 text-[#9CA3AF]" /> {invoice.customer_phone}
               </p>
             )}
           </div>
 
-          {/* Financial breakdown */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wide mb-3">
-              Financial Breakdown
-            </p>
-            <div className="space-y-2">
+          <div className="rounded-xl border border-[#E8E8E3] bg-white p-4">
+            <p className="mb-3 text-[12px] font-medium text-[#6B7280]">Amounts</p>
+            <div className="space-y-2 text-[13px]">
               {[
                 { label: "Subtotal", value: invoice.subtotal },
-                {
-                  label: "Discount",
-                  value: -invoice.discount,
-                  cls: "text-rose-600",
-                },
-                { label: "Service Charge", value: invoice.service_charge },
-                { label: "Taxable Value", value: invoice.taxable_value },
+                { label: "Discount", value: -invoice.discount, cls: "text-emerald-700", hide: !invoice.discount },
+                { label: "Service charge", value: invoice.service_charge, hide: !invoice.service_charge },
+                { label: "Taxable value", value: invoice.taxable_value },
                 { label: "CGST", value: invoice.cgst },
                 { label: "SGST", value: invoice.sgst },
-                { label: "Total Tax", value: invoice.total_tax },
-              ].map(({ label, value, cls }) => (
-                <div
-                  key={label}
-                  className="flex justify-between text-sm text-slate-600"
-                >
-                  <span>{label}</span>
-                  <span className={`font-semibold ${cls || ""}`}>
-                    {value < 0 ? `-${fmtINR(Math.abs(value))}` : fmtINR(value)}
-                  </span>
-                </div>
-              ))}
-              <div className="flex justify-between border-t pt-2 text-base font-black text-slate-900">
-                <span>Grand Total</span>
-                <span>{fmtINR(invoice.grand_total)}</span>
+              ]
+                .filter((r) => !r.hide)
+                .map(({ label, value, cls }) => (
+                  <div key={label} className="flex justify-between text-[#6B7280]">
+                    <span>{label}</span>
+                    <span className={`tabular-nums ${cls || "text-[#374151]"}`}>
+                      {value < 0 ? `−${fmtINR(Math.abs(value))}` : fmtINR(value)}
+                    </span>
+                  </div>
+                ))}
+              <div className="flex justify-between border-t border-dashed border-[#E8E8E3] pt-2 text-[#6B7280]">
+                <span>Total GST</span>
+                <span className="tabular-nums text-[#374151]">{fmtINR(invoice.total_tax)}</span>
+              </div>
+              <div className="flex items-baseline justify-between border-t border-[#E8E8E3] pt-3">
+                <span className="text-[14px] font-semibold text-[#0F1117]">Total</span>
+                <span className="text-[20px] font-bold tabular-nums tracking-[-0.02em] text-[#0F1117]">
+                  {fmtINR(invoice.grand_total)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Credit Notes */}
           <div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wide mb-2">
-              Credit Notes
-            </p>
+            <p className="mb-2 text-[12px] font-medium text-[#6B7280]">Credit notes</p>
             {loadingNotes ? (
-              <div className="flex h-10 items-center justify-center">
-                <Loader2 className="h-4 w-4 animate-spin text-slate-300" />
+              <div className="flex h-10 items-center gap-2 text-[13px] text-[#9CA3AF]">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading
               </div>
             ) : creditNotes.length === 0 ? (
-              <p className="text-sm text-slate-400 py-2">
-                No credit notes issued for this invoice.
-              </p>
+              <p className="text-[13px] text-[#9CA3AF]">None issued for this invoice.</p>
             ) : (
               <div className="space-y-2">
                 {creditNotes.map((cn) => (
-                  <div
-                    key={cn.id}
-                    className="rounded-xl border border-rose-100 bg-rose-50 p-3"
-                  >
+                  <div key={cn.id} className="rounded-xl border border-[#E8E8E3] bg-white p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-rose-700">
-                        -{fmtINR(cn.refund_amount)}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {fmtDate(cn.created_at)}
-                      </span>
+                      <span className="text-[13px] font-semibold tabular-nums text-rose-700">−{fmtINR(cn.refund_amount)}</span>
+                      <span className="text-[12px] tabular-nums text-[#9CA3AF]">{fmtDate(cn.created_at)}</span>
                     </div>
-                    <p className="text-xs text-slate-600 mt-1">{cn.reason}</p>
+                    <p className="mt-1 text-[13px] text-[#4B5563]">{cn.reason}</p>
                   </div>
                 ))}
               </div>
@@ -441,32 +420,31 @@ function InvoiceDetailDrawer({
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="border-t border-slate-200 px-6 py-4 space-y-2">
+        <div className="space-y-2 border-t border-[#E8E8E3] bg-white px-6 py-4">
           <button
             onClick={handlePrint}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#fe5c13] text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b]"
           >
             <Printer className="h-4 w-4" />
-            Print Invoice
+            Print duplicate
           </button>
           {invoice.status === "active" && (
-            <>
+            <div className="flex gap-2">
               <button
                 onClick={() => onCreditNote(invoice)}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 hover:bg-rose-100"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
               >
-                <RotateCcw className="h-4 w-4" />
-                Issue Credit Note
+                <RotateCcw className="h-4 w-4 text-[#6B7280]" />
+                Credit note
               </button>
               <button
                 onClick={() => onVoid(invoice.id)}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white text-[13px] font-semibold text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50"
               >
                 <XCircle className="h-4 w-4" />
-                Void Invoice
+                Void invoice
               </button>
-            </>
+            </div>
           )}
         </div>
       </motion.div>
@@ -529,82 +507,87 @@ function GenerateInvoiceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1117]/40 p-4 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.15 }}
+        className="w-full max-w-md rounded-2xl border border-[#E8E8E3] bg-white shadow-[0_24px_60px_-20px_rgba(15,17,23,0.35)]"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-blue-100 p-2">
-              <FileText className="h-5 w-5 text-blue-600" />
-            </div>
-            <h2 className="text-base font-black text-slate-900">
-              Generate Tax Invoice
-            </h2>
+        <div className="flex items-start justify-between border-b border-[#F0F0EB] px-6 py-4">
+          <div>
+            <h2 className="text-[17px] font-bold text-[#0F1117]">Generate tax invoice</h2>
+            <p className="mt-1 text-[12px] text-[#9CA3AF]">For a completed dine-in or takeaway order.</p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-slate-100 text-slate-400">
-            <XCircle className="h-5 w-5" />
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-lg p-1.5 text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">
+
+        <div className="space-y-4 px-6 py-5">
           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-              Completed Session / Order *
-            </label>
+            <span className="mb-2 block text-[13px] font-medium text-[#4B5563]">
+              Completed order <span className="text-[#fe5c13]">*</span>
+            </span>
             {loadingOrders ? (
-              <div className="mt-1.5 h-[42px] w-full animate-pulse rounded-xl bg-slate-100" />
+              <div className="h-10 w-full animate-pulse rounded-xl bg-[#F3F3EF]" />
             ) : (
-              <select
+              <Select
                 value={selectedOrderId}
                 onChange={(e) => setSelectedOrderId(e.target.value)}
-                className="mt-1.5 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none"
+                aria-label="Completed order"
+                placeholder="Choose a completed order"
+                className="h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-medium text-[#0F1117] outline-none hover:border-[#D6D6CF]"
               >
-                <option value="" disabled>
-                  Select a completed order...
+                <option value="" disabled hidden>
+                  Choose a completed order
                 </option>
                 {recentOrders.map((o) => (
                   <option key={o.id} value={o.id}>
-                    {o.name} - {fmtINR(o.amount)} ({(new Date(o.created_at)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
+                    {o.name}, {fmtINR(o.amount)} ({new Date(o.created_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })})
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
           {[
-            { key: "customer_name", label: "Customer Name", placeholder: "Optional" },
-            { key: "customer_gstin", label: "Customer GSTIN", placeholder: "15-char GSTIN (optional)" },
-            { key: "customer_phone", label: "Customer Phone", placeholder: "+91..." },
+            { key: "customer_name", label: "Customer name", placeholder: "Optional" },
+            { key: "customer_gstin", label: "Customer GSTIN", placeholder: "15 characters, optional" },
+            { key: "customer_phone", label: "Customer phone", placeholder: "Optional" },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                {label}
-              </label>
+              <label htmlFor={`gi-${key}`} className="mb-2 block text-[13px] font-medium text-[#4B5563]">{label}</label>
               <input
+                id={`gi-${key}`}
                 type="text"
                 value={(form as any)[key]}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, [key]: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                 placeholder={placeholder}
-                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-blue-400 focus:outline-none"
+                className="h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
               />
             </div>
           ))}
         </div>
-        <div className="px-6 pb-5 space-y-2">
+
+        <div className="flex gap-2 border-t border-[#F0F0EB] px-6 py-4">
+          <button
+            onClick={onClose}
+            className="h-10 flex-1 rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
+          >
+            Cancel
+          </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fe5c13] text-[13px] font-semibold text-white transition-colors hover:bg-[#e44e0b] disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Generate Invoice
-          </button>
-          <button onClick={onClose} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">
-            Cancel
+            Generate invoice
           </button>
         </div>
       </motion.div>
@@ -750,285 +733,262 @@ export default function InvoicesPage() {
     }
   };
 
+  const counts = {
+    all: invoices.length,
+    active: invoices.filter((i) => i.status === "active").length,
+    void: invoices.filter((i) => i.status === "void").length,
+  };
+  const activeValue = invoices
+    .filter((i) => i.status === "active")
+    .reduce((s, i) => s + (i.grand_total || 0), 0);
+  const activeTax = invoices
+    .filter((i) => i.status === "active")
+    .reduce((s, i) => s + (i.total_tax || 0), 0);
+  const quickRanges: [string, number][] = [
+    ["Last 7 days", 7],
+    ["Last 30 days", 30],
+    ["Last 90 days", 90],
+  ];
+
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
-      <main className="flex-1 flex flex-col bg-white overflow-y-auto">
-        <div className="flex-1 flex flex-col w-full h-full">
-            {hasAccess === false ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="mb-4 rounded-full bg-rose-100 p-4">
-                  <XCircle className="h-10 w-10 text-rose-600" />
-                </div>
-                <h2 className="text-xl font-black text-slate-900">Access Denied</h2>
-                <p className="mt-2 text-sm text-slate-600">Your role does not have permission to view Tax Invoices.</p>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col">
-                {/* ─── Header ─────────────────────────────────────────────── */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-8 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-black text-slate-900">
-                    Tax Invoices
-                  </h1>
-                  <p className="text-sm text-slate-500">
-                    GST invoices, credit notes &amp; export
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => load(page, false)}
-                  disabled={isRefreshing}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-                  Refresh
-                </button>
-                <button
-                  onClick={handleExportCSV}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => setShowGenerate(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-sm"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Generate Invoice
-                </button>
-              </div>
-            </div>
-
-            {/* ─── Filters ─────────────────────────────────────────────── */}
-            <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-slate-50 px-8 py-4">
-              {/* Search */}
-              <div className="relative flex-1 min-w-[220px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search invoice #, customer, GSTIN…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none"
-                />
-              </div>
-
-              {/* Date range */}
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none"
-                  />
-                </div>
-                <span className="text-xs text-slate-400 font-bold">to</span>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Status filter */}
-              <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={(e) =>
-                    setStatusFilter(e.target.value as typeof statusFilter)
-                  }
-                  className="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2.5 text-sm font-semibold text-slate-700 shadow-sm focus:border-blue-400 focus:outline-none"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="active">Active</option>
-                  <option value="void">Void</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* ─── Stats strip ─────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100 bg-white">
-              {[
-                {
-                  label: "Total Invoices",
-                  value: total,
-                  color: "text-slate-900",
-                },
-                {
-                  label: "Active",
-                  value: invoices.filter((i) => i.status === "active").length,
-                  color: "text-emerald-700",
-                },
-                {
-                  label: "Void",
-                  value: invoices.filter((i) => i.status === "void").length,
-                  color: "text-slate-500",
-                },
-                {
-                  label: "Revenue (page)",
-                  value: fmtINR(
-                    invoices
-                      .filter((i) => i.status === "active")
-                      .reduce((s, i) => s + (i.grand_total || 0), 0)
-                  ),
-                  color: "text-blue-700",
-                },
-              ].map(({ label, value, color }) => (
-                <div
-                  key={label}
-                  className="px-8 py-5"
-                >
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-                    {label}
-                  </p>
-                  <p className={`text-xl font-black mt-1 ${color}`}>{value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* ─── Table ───────────────────────────────────────────────── */}
-            <div className="flex-1 overflow-auto bg-white">
-              {isLoading ? (
-                <div className="flex h-64 items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="flex flex-col h-64 items-center justify-center gap-2 text-slate-400">
-                  <FileText className="h-10 w-10 opacity-30" />
-                  <p className="text-sm font-bold">No invoices found</p>
-                  <p className="text-xs">
-                    Try changing the date range or search query.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[700px]">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        {[
-                          "Invoice #",
-                          "Date",
-                          "Customer",
-                          "Grand Total",
-                          "CGST",
-                          "SGST",
-                          "Status",
-                          "",
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wider"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filtered.map((inv) => (
-                        <tr
-                          key={inv.id}
-                          className="hover:bg-slate-50 transition-colors group"
-                        >
-                          <td className="px-4 py-3">
-                            <span className="text-sm font-black text-slate-900 font-mono">
-                              {inv.invoice_number}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
-                            {fmtDate(inv.invoice_date)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-sm font-semibold text-slate-800">
-                              {inv.customer_name || "Walk-in"}
-                            </p>
-                            {inv.customer_gstin && (
-                              <p className="text-xs text-slate-400 font-mono">
-                                {inv.customer_gstin}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-black text-slate-900">
-                            {fmtINR(inv.grand_total)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-600">
-                            {fmtINR(inv.cgst)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-600">
-                            {fmtINR(inv.sgst)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-wider ${STATUS_STYLES[inv.status] || "bg-slate-100 text-slate-500"}`}
-                            >
-                              {inv.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => setSelectedInvoice(inv)}
-                              className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              View
-                              <ExternalLink className="h-3 w-3" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Pagination */}
-              {!isLoading && total > PAGE_SIZE && (
-                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
-                  <p className="text-xs text-slate-500">
-                    Showing {(page - 1) * PAGE_SIZE + 1}–
-                    {Math.min(page * PAGE_SIZE, total)} of {total} invoices
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => load(page - 1)}
-                      disabled={page === 1}
-                      className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                    </button>
-                    <span className="text-xs font-bold text-slate-600">
-                      Page {page} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => load(page + 1)}
-                      disabled={page >= totalPages}
-                      className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-              </div>
-            )}
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {hasAccess === false ? (
+          <div className="m-auto max-w-sm rounded-2xl border border-[#E8E8E3] bg-white px-8 py-10 text-center">
+            <XCircle className="mx-auto h-6 w-6 text-rose-500" />
+            <h2 className="mt-3 text-[17px] font-bold text-[#0F1117]">You can&apos;t view tax invoices</h2>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#6B7280]">
+              Only owners and managers can see invoices. Ask one of them to open this page.
+            </p>
           </div>
-        </main>
+        ) : (
+          <>
+            <header className="shrink-0 border-b border-[#E8E8E3] bg-white px-8 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">Tax invoices</h1>
+                  {!isLoading && (
+                    <span className="rounded-full bg-[#F3F3EF] px-2.5 py-1 text-[12px] font-medium leading-none tabular-nums text-[#6B7280]">
+                      {total} {total === 1 ? "invoice" : "invoices"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => load(page, false)}
+                    disabled={isRefreshing}
+                    aria-label="Refresh invoices"
+                    title="Refresh invoices"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E8E8E3] bg-white text-[#6B7280] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7] hover:text-[#0F1117] disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7]"
+                  >
+                    <Download className="h-4 w-4 text-[#6B7280]" /> Export CSV
+                  </button>
+                  <button
+                    onClick={() => setShowGenerate(true)}
+                    className="ml-1 inline-flex h-10 items-center gap-2 rounded-xl bg-[#fe5c13] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#e44e0b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fe5c13]/40 focus-visible:ring-offset-2"
+                  >
+                    <Plus className="h-4 w-4" strokeWidth={2.5} /> Generate invoice
+                  </button>
+                </div>
+              </div>
 
-      {/* Modals */}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="relative w-72">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                  <input
+                    type="text"
+                    placeholder="Search invoice, customer or GSTIN"
+                    aria-label="Search invoices"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-[#E8E8E3] bg-white pl-9 pr-3 text-[13px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-[#fe5c13]"
+                  />
+                </div>
+
+                <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Invoice status">
+                  {(
+                    [
+                      ["all", "All"],
+                      ["active", "Active"],
+                      ["void", "Void"],
+                    ] as const
+                  ).map(([id, label]) => {
+                    const on = statusFilter === id;
+                    return (
+                      <button
+                        key={id}
+                        role="tab"
+                        aria-selected={on}
+                        onClick={() => setStatusFilter(id)}
+                        className={`flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-colors ${on ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]" : "text-[#6B7280] hover:text-[#0F1117]"}`}
+                      >
+                        {label}
+                        <span className={`tabular-nums ${on ? "text-[#6B7280]" : "text-[#9CA3AF]"}`}>{counts[id]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <div className="inline-flex h-9 items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1" role="tablist" aria-label="Quick ranges">
+                    {quickRanges.map(([label, days]) => {
+                      const on = fromDate === nDaysAgo(days) && toDate === today();
+                      return (
+                        <button
+                          key={label}
+                          role="tab"
+                          aria-selected={on}
+                          onClick={() => {
+                            setFromDate(nDaysAgo(days));
+                            setToDate(today());
+                          }}
+                          className={`flex h-7 items-center whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-colors ${on ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]" : "text-[#6B7280] hover:text-[#0F1117]"}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <DateRangePicker
+                    from={fromDate}
+                    to={toDate}
+                    onChange={(f, t) => {
+                      setFromDate(f);
+                      setToDate(t);
+                    }}
+                  />
+                </div>
+              </div>
+            </header>
+
+            <div className="flex-1 overflow-y-auto px-8 py-6">
+              <dl className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white md:grid-cols-4">
+                {[
+                  { label: "Invoices in range", value: String(total), tone: "text-[#0F1117]" },
+                  { label: "Active", value: String(counts.active), tone: counts.active ? "text-emerald-700" : "text-[#9CA3AF]" },
+                  { label: "Void", value: String(counts.void), tone: counts.void ? "text-[#0F1117]" : "text-[#9CA3AF]" },
+                  { label: "Value of active invoices", value: fmtINR(activeValue), tone: "text-[#0F1117]", note: `${fmtINR(activeTax)} GST${totalPages > 1 ? ", this page" : ""}` },
+                ].map((k, i) => (
+                  <div key={k.label} className={`px-6 py-5 ${i > 0 ? "border-l border-[#F0F0EB]" : ""} ${i > 1 ? "border-t border-[#F0F0EB] md:border-t-0" : ""}`}>
+                    <dt className="text-[12px] font-medium text-[#6B7280]">{k.label}</dt>
+                    <dd className={`mt-1.5 text-[20px] font-bold tabular-nums tracking-[-0.02em] ${k.tone}`}>{k.value}</dd>
+                    {k.note && <p className="mt-1 text-[12px] tabular-nums text-[#9CA3AF]">{k.note}</p>}
+                  </div>
+                ))}
+              </dl>
+
+              <section className="mt-6 overflow-hidden rounded-2xl border border-[#E8E8E3] bg-white">
+                {isLoading ? (
+                  <div className="flex h-64 items-center justify-center gap-2 text-[14px] text-[#6B7280]">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading invoices
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+                    <FileText className="h-6 w-6 text-[#C4C4BE]" />
+                    <p className="mt-3 text-[15px] font-semibold text-[#0F1117]">
+                      {search ? "No invoices match your search" : "No invoices in this range"}
+                    </p>
+                    <p className="mt-1 max-w-sm text-[13px] text-[#6B7280]">
+                      {search ? "Try an invoice number, customer name or GSTIN." : "Pick a wider date range, or generate an invoice for a completed order."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-[#F0F0EB] text-[12px] text-[#6B7280]">
+                          <th className="px-6 py-3 font-medium">Invoice</th>
+                          <th className="px-6 py-3 font-medium">Customer</th>
+                          <th className="px-6 py-3 text-right font-medium">CGST</th>
+                          <th className="px-6 py-3 text-right font-medium">SGST</th>
+                          <th className="px-6 py-3 text-right font-medium">Total</th>
+                          <th className="px-6 py-3 font-medium">Status</th>
+                          <th className="px-6 py-3 font-medium"><span className="sr-only">Open</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0F0EB]">
+                        {filtered.map((inv) => {
+                          const isVoid = inv.status === "void";
+                          return (
+                            <tr
+                              key={inv.id}
+                              onClick={() => setSelectedInvoice(inv)}
+                              className="group cursor-pointer transition-colors hover:bg-[#FAFAF7]"
+                            >
+                              <td className="px-6 py-4">
+                                <p className={`text-[14px] font-semibold tabular-nums ${isVoid ? "text-[#9CA3AF] line-through decoration-[#C4C4BE]" : "text-[#0F1117]"}`}>
+                                  {inv.invoice_number}
+                                </p>
+                                <p className="mt-0.5 text-[12px] tabular-nums text-[#9CA3AF]">{fmtDate(inv.invoice_date)}</p>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="text-[13px] font-medium text-[#0F1117]">{inv.customer_name || "Walk-in customer"}</p>
+                                {inv.customer_gstin && (
+                                  <p className="mt-0.5 text-[12px] tabular-nums tracking-wide text-[#9CA3AF]">{inv.customer_gstin}</p>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right text-[13px] tabular-nums text-[#4B5563]">{fmtINR(inv.cgst)}</td>
+                              <td className="px-6 py-4 text-right text-[13px] tabular-nums text-[#4B5563]">{fmtINR(inv.sgst)}</td>
+                              <td className={`px-6 py-4 text-right text-[15px] font-semibold tabular-nums ${isVoid ? "text-[#9CA3AF]" : "text-[#0F1117]"}`}>
+                                {fmtINR(inv.grand_total)}
+                              </td>
+                              <td className="px-6 py-4">
+                                <StatusPill status={inv.status} />
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#6B7280] transition-colors group-hover:text-[#0F1117]">
+                                  View <ChevronRight className="h-3.5 w-3.5" />
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {!isLoading && total > PAGE_SIZE && (
+                  <div className="flex items-center justify-between border-t border-[#F0F0EB] px-6 py-3">
+                    <p className="text-[12px] tabular-nums text-[#6B7280]">
+                      {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} invoices
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => load(page - 1)}
+                        disabled={page === 1}
+                        aria-label="Previous page"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#E8E8E3] bg-white text-[#6B7280] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117] disabled:opacity-40"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                      <span className="text-[12px] font-medium tabular-nums text-[#4B5563]">
+                        Page {page} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => load(page + 1)}
+                        disabled={page >= totalPages}
+                        aria-label="Next page"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#E8E8E3] bg-white text-[#6B7280] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117] disabled:opacity-40"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
+          </>
+        )}
+      </main>
+
       <AnimatePresence>
         {selectedInvoice && (
           <InvoiceDetailDrawer
@@ -1065,31 +1025,35 @@ export default function InvoicesPage() {
         )}
       </AnimatePresence>
 
-      {/* Void Invoice Modal */}
       {voidInvoiceModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="mb-2 text-lg font-bold text-slate-900">Void Invoice</h3>
-            <p className="mb-4 text-sm text-slate-500">Please provide a reason. Manager PIN required.</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0F1117]/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-[#E8E8E3] bg-white p-6 shadow-[0_24px_60px_-20px_rgba(15,17,23,0.35)]">
+            <h3 className="text-[17px] font-bold text-[#0F1117]">Void this invoice?</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#6B7280]">
+              Voiding can&apos;t be undone. Add a reason; a manager PIN is needed next.
+            </p>
+            <label className="mb-2 mt-5 block text-[13px] font-medium text-[#4B5563]" htmlFor="void-reason">Reason</label>
             <input
+              id="void-reason"
               type="text"
-              placeholder="Reason for voiding..."
+              placeholder="Wrong customer details, duplicate bill…"
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-rose-500 mb-6"
+              autoFocus
+              className="h-10 w-full rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:border-rose-400"
             />
-            <div className="flex gap-3">
+            <div className="mt-6 flex gap-2">
               <button
                 onClick={() => setVoidInvoiceModal({ isOpen: false, invoiceId: null })}
-                className="flex-1 rounded-xl bg-slate-100 py-3 font-semibold text-slate-700 hover:bg-slate-200"
+                className="h-10 flex-1 rounded-xl border border-[#E8E8E3] bg-white text-[13px] font-semibold text-[#374151] transition-colors hover:border-[#D6D6CF] hover:text-[#0F1117]"
               >
-                Back
+                Keep invoice
               </button>
               <button
                 onClick={executeVoid}
-                className="flex-1 rounded-xl bg-rose-600 py-3 font-bold text-white shadow hover:bg-rose-700"
+                className="h-10 flex-1 rounded-xl bg-rose-600 text-[13px] font-semibold text-white transition-colors hover:bg-rose-700"
               >
-                Void Invoice
+                Void invoice
               </button>
             </div>
           </div>

@@ -38,6 +38,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* Brand core & scales */
   --color-qrave-saffron: #fe5c13;
@@ -222,6 +223,52 @@
   cursor: not-allowed !important;
 }
 
+
+/* ── Qrave UI type & form layer ──────────────────────────────────────
+   Applied to the staff dashboard, food-court admin and non-themed guest
+   pages. Plus Jakarta Sans, the font of the login page, for everything;
+   font-display is the same family at a heavier, tighter setting.
+   The restaurant-themed QR menu is deliberately outside this scope.
+   ── */
+.qr-ui {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.qr-ui .font-display,
+.font-display {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em;
+}
+.qr-ui input[type="number"]::-webkit-inner-spin-button,
+.qr-ui input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qr-ui input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.qr-ui input[type="checkbox"],
+.qr-ui input[type="radio"] { accent-color: #fe5c13; }
+
+.qr-ui input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.bg-transparent):focus-visible,
+.qr-ui textarea:focus-visible,
+.qr-ui .qr-select:focus-visible,
+.qr-ui .qr-select--open {
+  outline: none;
+  border-color: #fe5c13 !important;
+  box-shadow: 0 0 0 4px rgb(254 92 19 / 0.12) !important;
+}
+.qr-ui .font-sans { font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-14deg); }
+  40% { transform: rotate(12deg); }
+  60% { transform: rotate(-6deg); }
+  80% { transform: rotate(3deg); }
+}
+.qr-ui .qr-select { cursor: pointer; }
+.qr-ui .qr-select:disabled { cursor: not-allowed; opacity: 0.6; }
+.qr-ui ::placeholder { color: #9CA3AF; }
 
 body {
   background: var(--background);
@@ -550,7 +597,7 @@ select option {
   text-decoration: line-through;
 }
 .fc-price-main {
-  font-family: 'Libre Caslon Text', 'Georgia', serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 20px;
   font-weight: 700;
   color: #1A1A1A;
@@ -737,7 +784,7 @@ select option {
 }
 .fc-card-body { padding: 18px 20px 20px; display: flex; flex-direction: column; }
 .fc-card-name {
-  font-family: 'Libre Caslon Text', 'Georgia', serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: #1A1A1A;
@@ -785,7 +832,7 @@ select option {
   justify-content: flex-end;
 }
 .fc-magazine-name {
-  font-family: 'Libre Caslon Text', 'Georgia', serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 22px;
   font-weight: 700;
   color: #FFFFFF;
@@ -817,7 +864,7 @@ select option {
 }
 .fc-compact-body { flex: 1; min-width: 0; }
 .fc-compact-name {
-  font-family: 'Libre Caslon Text', 'Georgia', serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 13px;
   font-weight: 700;
   color: #1A1A1A;
@@ -877,7 +924,7 @@ select option {
 .fc-grid-badges { position: absolute; bottom: 8px; left: 8px; display: flex; gap: 4px; }
 .fc-grid-body { padding: 14px; display: flex; flex-direction: column; flex: 1; }
 .fc-grid-name {
-  font-family: 'Libre Caslon Text', 'Georgia', serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 13px;
   font-weight: 700;
   color: #1A1A1A;

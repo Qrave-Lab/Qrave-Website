@@ -4,25 +4,21 @@ import CashCounter, {
   fmtINR,
   VarianceBanner,
 } from "@/app/components/cash/CashCounter";
+import { DateRangePicker } from "@/app/components/ui/DateRangePicker";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import {
-  Banknote,
-  Calendar,
-  CircleDollarSign,
-  Clock,
   Download,
   FileText,
-  History,
-  Landmark,
+  Loader2,
   Lock,
-  MinusCircle,
-  PlusCircle,
+  Minus,
+  Plus,
   RefreshCw,
   Search,
   ShieldAlert,
   Unlock,
-  XCircle,
+  X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -82,27 +78,27 @@ const MODAL_META: Record<
 > = {
   open: {
     title: "Open cash drawer",
-    amountLabel: "Starting float (₹)",
+    amountLabel: "Starting float",
     cta: "Open drawer",
-    tone: "bg-emerald-600 hover:bg-emerald-700",
+    tone: "",
   },
   cash_in: {
     title: "Pay in to drawer",
-    amountLabel: "Amount added (₹)",
+    amountLabel: "Amount added",
     cta: "Record pay-in",
-    tone: "bg-emerald-600 hover:bg-emerald-700",
+    tone: "",
   },
   cash_out: {
     title: "Pay out from drawer",
-    amountLabel: "Amount taken out (₹)",
+    amountLabel: "Amount taken out",
     cta: "Record pay-out",
-    tone: "bg-amber-600 hover:bg-amber-700",
+    tone: "",
   },
   close: {
-    title: "Close & reconcile",
+    title: "Close and reconcile",
     amountLabel: "Counted cash",
     cta: "Close drawer",
-    tone: "bg-rose-600 hover:bg-rose-700",
+    tone: "",
   },
 };
 
@@ -115,13 +111,13 @@ const EVENT_LABEL: Record<string, string> = {
   no_sale: "No sale",
 };
 
-const EVENT_BADGE: Record<string, string> = {
-  open: "bg-indigo-50 text-indigo-700 border-indigo-100",
-  close: "bg-rose-50 text-rose-700 border-rose-100",
-  cash_in: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  cash_out: "bg-amber-50 text-amber-700 border-amber-100",
-  sale: "bg-sky-50 text-sky-700 border-sky-100",
-  no_sale: "bg-slate-100 text-slate-600 border-slate-200",
+const EVENT_DOT: Record<string, string> = {
+  open: "bg-[#0F1117]",
+  close: "bg-[#9CA3AF]",
+  cash_in: "bg-emerald-500",
+  cash_out: "bg-amber-500",
+  sale: "bg-emerald-500",
+  no_sale: "bg-[#D6D6CF]",
 };
 
 const DISCREPANCY_RE = /^\[Discrepancy: ([^\]]+)\]\s*/;
@@ -145,13 +141,10 @@ const dayEndIso = (s: string) => {
   return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
 };
 
-const fmtDateTime = (iso: string) =>
-  new Date(iso).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const fmtDateTime = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`;
+};
 
 const isOutflow = (t: string) => t === "cash_out";
 const isInflow = (t: string) => t === "cash_in" || t === "sale" || t === "open";
@@ -190,6 +183,8 @@ export default function CashDrawerPage() {
   const [userRole, setUserRole] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
 
   // modal form
   const [modal, setModal] = useState<ModalType | null>(null);
@@ -226,6 +221,7 @@ export default function CashDrawerPage() {
       if (sumRes) setSummary({ ...sumRes, events: sumRes.events || [] });
       setActiveShift(shiftRes?.is_clocked_in ? shiftRes.shift : null);
       if (meRes?.role) setUserRole(meRes.role);
+      setLastSynced(new Date());
     } catch {
       if (!silent) toast.error("Failed to load cash drawer");
     } finally {
@@ -455,256 +451,231 @@ td{padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:top}
 
   const renderNote = (raw: string) => {
     const m = (raw || "").match(DISCREPANCY_RE);
-    if (!m) return <span className="text-slate-500">{raw || "--"}</span>;
+    const rest = (raw || "").replace(DISCREPANCY_RE, "");
+    if (!m) {
+      if (!raw) return <span className="text-[#C4C4BE]">—</span>;
+      const cat = raw.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (!cat) return <span className="text-[#4B5563]">{raw}</span>;
+      return (
+        <div>
+          <span className="text-[#0F1117]">{cat[1]}</span>
+          {cat[2] && <p className="mt-0.5 text-[#6B7280]">{cat[2]}</p>}
+        </div>
+      );
+    }
     const short = m[1].toLowerCase().startsWith("short");
     return (
       <div>
-        <span
-          className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-black ${short ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}
-        >
-          {m[1]}
-        </span>
-        {raw.replace(DISCREPANCY_RE, "") && (
-          <p className="mt-1 text-slate-500">{raw.replace(DISCREPANCY_RE, "")}</p>
-        )}
+        <span className={`font-medium ${short ? "text-rose-700" : "text-amber-700"}`}>{m[1]}</span>
+        {rest && <p className="mt-0.5 text-[#6B7280]">{rest}</p>}
       </div>
     );
   };
 
-  const EventTable = ({ events }: { events: CashDrawerEvent[] }) => (
+  const EventTable = ({ events, emptyText }: { events: CashDrawerEvent[]; emptyText: string }) => (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-xs">
+      <table className="w-full border-collapse text-left text-[14px]">
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80 text-[10px] font-black uppercase tracking-wider text-slate-400">
-            <th className="px-6 py-3.5">Time</th>
-            <th className="px-6 py-3.5">User</th>
-            <th className="px-6 py-3.5">Type</th>
-            <th className="px-6 py-3.5 text-right">Amount</th>
-            <th className="px-6 py-3.5">Reason / context</th>
+          <tr className="border-b border-[#F0F0EB] text-[12px] font-medium text-[#6B7280]">
+            <th className="px-6 py-3 font-medium">Time</th>
+            <th className="px-6 py-3 font-medium">By</th>
+            <th className="px-6 py-3 font-medium">Entry</th>
+            <th className="px-6 py-3 text-right font-medium">Amount</th>
+            <th className="px-6 py-3 font-medium">Reason</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-[#F0F0EB]">
           {events.length === 0 ? (
             <tr>
-              <td
-                colSpan={5}
-                className="px-6 py-14 text-center text-xs font-bold uppercase tracking-wider text-slate-400"
-              >
-                No events to show
+              <td colSpan={5} className="px-6 py-16 text-center text-[14px] text-[#6B7280]">
+                {emptyText}
               </td>
             </tr>
           ) : (
-            events.map((ev) => (
-              <tr key={ev.id} className="hover:bg-slate-50/60">
-                <td className="whitespace-nowrap px-6 py-3.5 font-medium text-slate-500">
-                  {fmtDateTime(ev.created_at)}
-                </td>
-                <td className="px-6 py-3.5 font-bold text-slate-800">
-                  {ev.user_name}
-                </td>
-                <td className="px-6 py-3.5">
-                  <span
-                    className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${EVENT_BADGE[ev.event_type] || "bg-slate-50 text-slate-700 border-slate-200"}`}
+            events.map((ev) => {
+              const out = isOutflow(ev.event_type);
+              const inn = isInflow(ev.event_type);
+              return (
+                <tr key={ev.id} className="transition-colors hover:bg-[#FAFAF7]/70">
+                  <td className="whitespace-nowrap px-6 py-4 tabular-nums text-[#6B7280]">
+                    {fmtDateTime(ev.created_at)}
+                  </td>
+                  <td className="px-6 py-4 capitalize text-[#0F1117]">{ev.user_name}</td>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <span className="inline-flex items-center gap-2 text-[#374151]">
+                      <span className={`h-1.5 w-1.5 rounded-full ${EVENT_DOT[ev.event_type] || "bg-[#D6D6CF]"}`} />
+                      {EVENT_LABEL[ev.event_type] || ev.event_type}
+                    </span>
+                  </td>
+                  <td
+                    className={`whitespace-nowrap px-6 py-4 text-right font-medium tabular-nums ${out ? "text-amber-700" : inn ? "text-emerald-700" : "text-[#C4C4BE]"}`}
                   >
-                    {EVENT_LABEL[ev.event_type] || ev.event_type}
-                  </span>
-                </td>
-                <td
-                  className={`px-6 py-3.5 text-right font-mono text-[13px] font-bold tabular-nums ${isOutflow(ev.event_type) ? "text-amber-600" : isInflow(ev.event_type) ? "text-emerald-700" : "text-slate-700"}`}
-                >
-                  {ev.event_type === "no_sale"
-                    ? "--"
-                    : `${isOutflow(ev.event_type) ? "−" : isInflow(ev.event_type) ? "+" : ""}${fmtINR(ev.amount)}`}
-                </td>
-                <td className="max-w-xs px-6 py-3.5">{renderNote(ev.note)}</td>
-              </tr>
-            ))
+                    {ev.event_type === "no_sale"
+                      ? "—"
+                      : `${out ? "−" : inn ? "+" : ""}${fmtINR(ev.amount)}`}
+                  </td>
+                  <td className="max-w-xs px-6 py-4">{renderNote(ev.note)}</td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
     </div>
   );
 
-  const btn =
-    "inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all shadow-sm";
+  const btnSecondary =
+    "inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[13px] font-semibold text-[#0F1117] transition-colors hover:border-[#D6D6CF] hover:bg-[#FAFAF7] disabled:cursor-not-allowed disabled:opacity-50";
+  const btnPrimary =
+    "inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#0F1117] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50";
+  const segWrap = "inline-flex h-9 flex-wrap items-center gap-0.5 rounded-xl bg-[#F3F3EF] p-1";
+  const seg = (active: boolean) =>
+    `flex h-7 items-center whitespace-nowrap rounded-lg px-3 text-[12px] font-medium transition-colors ${active ? "bg-white font-semibold text-[#0F1117] shadow-[0_1px_2px_rgba(15,17,23,0.06)]" : "text-[#6B7280] hover:text-[#0F1117]"}`;
+  const field =
+    "h-10 rounded-xl border border-[#E8E8E3] bg-white px-3.5 text-[14px] text-[#0F1117] outline-none transition-colors placeholder:text-[#9CA3AF] hover:border-[#D6D6CF]";
+
+  const isOpen = !!summary?.is_open;
+  const breakdown = summary
+    ? [
+        { label: "Opening float", op: "", value: summary.opening_float },
+        { label: "Cash sales", op: "+", value: summary.total_sales },
+        { label: "Pay-ins", op: "+", value: summary.total_cash_in },
+        { label: "Pay-outs", op: "−", value: summary.total_cash_out },
+      ]
+    : [];
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
+    <div className="flex h-screen overflow-hidden bg-[#FAFAF7] text-[#0F1117]">
       <StaffSidebar />
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="shrink-0 border-b border-slate-200 bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-4 px-8 pb-3 pt-5">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600">
-                <CircleDollarSign size={22} className="stroke-[2.2]" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-xl font-bold tracking-tight">Cash drawer</h1>
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${summary?.is_open ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-500"}`}
-                  >
-                    {summary?.is_open ? (
-                      <Unlock className="h-3 w-3" />
-                    ) : (
-                      <Lock className="h-3 w-3" />
-                    )}
-                    {summary?.is_open ? "Open" : "Closed"}
-                  </span>
-                </div>
-                <p className="text-xs font-medium text-slate-500">
-                  {summary?.is_open && summary.opened_at
-                    ? `Open since ${fmtDateTime(summary.opened_at)}`
-                    : "Float, pay-ins, pay-outs and end-of-day count"}
-                  {activeShift ? ` · shift: ${activeShift.user_name}` : ""}
-                </p>
-              </div>
+        <header className="shrink-0 border-b border-[#E8E8E3] bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-8 py-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-[22px] font-bold leading-none tracking-[-0.02em] text-[#0F1117]">Cash drawer</h1>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium leading-none ${isOpen ? "bg-emerald-50 text-emerald-700" : "bg-[#F3F3EF] text-[#6B7280]"}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${isOpen ? "bg-emerald-500" : "bg-[#9CA3AF]"}`} />
+                {isOpen ? "Open" : "Closed"}
+              </span>
+              {isOpen && summary?.opened_at && (
+                <span className="text-[13px] text-[#6B7280]">since {fmtDateTime(summary.opened_at)}</span>
+              )}
+              {activeShift && (
+                <span className="border-l border-[#E8E8E3] pl-3 text-[13px] text-[#6B7280]">
+                  <span className="font-medium capitalize text-[#374151]">{activeShift.user_name}</span> on shift
+                </span>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {summary?.is_open ? (
+              {isOpen ? (
                 <>
-                  <button
-                    onClick={() => openModal("cash_in")}
-                    className={`${btn} border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
-                  >
-                    <PlusCircle className="h-4 w-4" /> Pay in
+                  <button onClick={() => openModal("cash_in")} className={btnSecondary}>
+                    <Plus className="h-4 w-4 text-[#9CA3AF]" /> Pay in
                   </button>
-                  <button
-                    onClick={() => openModal("cash_out")}
-                    className={`${btn} border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100`}
-                  >
-                    <MinusCircle className="h-4 w-4" /> Pay out
+                  <button onClick={() => openModal("cash_out")} className={btnSecondary}>
+                    <Minus className="h-4 w-4 text-[#9CA3AF]" /> Pay out
                   </button>
                   <button
                     onClick={() => void handleRecordEvent(undefined, "no_sale")}
                     disabled={isActionLoading}
-                    title="Log a drawer opening with no sale"
-                    className={`${btn} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50`}
+                    title="Log that the drawer was opened without a sale"
+                    className={btnSecondary}
                   >
-                    <XCircle className="h-4 w-4" /> No sale
+                    No sale
                   </button>
-                  <button
-                    onClick={() => openModal("close")}
-                    className={`${btn} bg-rose-600 text-white hover:bg-rose-700`}
-                  >
-                    <Lock className="h-3.5 w-3.5" /> Close drawer
+                  <button onClick={() => openModal("close")} className={`${btnPrimary} ml-2`}>
+                    <Lock className="h-4 w-4" /> Close drawer
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => openModal("open")}
-                  className={`${btn} bg-emerald-600 px-4 text-white hover:bg-emerald-700`}
-                >
+                <button onClick={() => openModal("open")} className={btnPrimary}>
                   <Unlock className="h-4 w-4" /> Open drawer
                 </button>
               )}
-              <div className="mx-0.5 h-5 w-px bg-slate-200" />
               <button
-                onClick={() => void fetchDrawerData()}
-                className={`${btn} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}
+                onClick={async () => {
+                  setIsRefreshing(true);
+                  await fetchDrawerData();
+                  setIsRefreshing(false);
+                }}
+                title={lastSynced ? `Synced ${lastSynced.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}. Refreshes every 30 seconds.` : "Refresh"}
+                aria-label="Refresh"
+                className="ml-1 inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
               >
-                <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               </button>
             </div>
           </div>
 
-          {summary?.is_open && (
-            <div className="px-8 pb-5">
-              <div className="grid grid-cols-2 divide-x divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-5">
-                {[
-                  {
-                    label: "Opening float",
-                    value: fmtINR(summary.opening_float),
-                    tone: "text-slate-900",
-                  },
-                  {
-                    label: "Cash sales",
-                    value: fmtINR(summary.total_sales),
-                    tone: "text-sky-600",
-                  },
-                  {
-                    label: "Pay-ins",
-                    value: `+${fmtINR(summary.total_cash_in)}`,
-                    tone: "text-emerald-600",
-                  },
-                  {
-                    label: "Pay-outs",
-                    value: `−${fmtINR(summary.total_cash_out)}`,
-                    tone: "text-amber-600",
-                  },
-                ].map((k) => (
-                  <div key={k.label} className="bg-slate-50/50 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      {k.label}
-                    </p>
-                    <p className={`mt-1 font-mono text-lg font-bold tabular-nums ${k.tone}`}>
-                      {k.value}
-                    </p>
-                  </div>
-                ))}
-                <div className="relative col-span-2 overflow-hidden bg-slate-950 p-4 text-white lg:col-span-1">
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent" />
-                  <p className="relative text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    Expected in drawer
-                  </p>
-                  <p className="relative mt-1 font-mono text-xl font-bold tabular-nums text-amber-400">
+          {isOpen && summary && (
+            <div className="px-8 pb-8">
+              <div className="grid gap-8 rounded-2xl border border-[#E8E8E3] bg-[#FAFAF7] px-8 py-7 lg:grid-cols-[minmax(240px,0.9fr)_2fr] lg:items-end">
+                <div>
+                  <p className="text-[13px] font-medium text-[#6B7280]">Expected in drawer</p>
+                  <p className="mt-2.5 text-[40px] font-bold leading-none tracking-[-0.03em] tabular-nums text-[#0F1117]">
                     {fmtINR(summary.expected_cash)}
                   </p>
                 </div>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-[#E8E8E3] pt-6 sm:grid-cols-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                  {breakdown.map((b) => (
+                    <div key={b.label}>
+                      <dt className="text-[13px] text-[#6B7280]">{b.label}</dt>
+                      <dd className={`mt-1.5 text-[18px] font-medium tabular-nums ${b.value ? "text-[#0F1117]" : "text-[#9CA3AF]"}`}>
+                        {b.op && <span className="mr-1 text-[#9CA3AF]">{b.op}</span>}
+                        {fmtINR(b.value)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             </div>
           )}
 
-          {!summary?.is_open &&
-            !!summary?.last_discrepancy &&
-            summary.last_discrepancy !== 0 && (
-              <div className="px-8 pb-5">
-                <div
-                  className={`flex items-center justify-between gap-4 rounded-2xl border p-4 ${summary.last_discrepancy < 0 ? "border-rose-200 bg-rose-50/60 text-rose-900" : "border-amber-200 bg-amber-50/60 text-amber-900"}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <ShieldAlert className="h-5 w-5 shrink-0" />
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider">
-                        Last close was out of balance
-                      </h4>
-                      <p className="mt-0.5 text-xs font-medium">
-                        {summary.last_discrepancy < 0 ? "Shortage" : "Overage"} of{" "}
-                        {fmtINR(Math.abs(summary.last_discrepancy))} — expected{" "}
-                        {fmtINR(summary.last_expected_amount || 0)}, counted{" "}
-                        {fmtINR(summary.last_closed_amount || 0)}
-                      </p>
-                    </div>
-                  </div>
-                  {summary.last_closed_at && (
-                    <p className="text-right text-[11px] text-slate-500">
-                      {summary.last_closed_by || "Unknown"} ·{" "}
-                      {fmtDateTime(summary.last_closed_at)}
+          {!isOpen && !!summary?.last_discrepancy && summary.last_discrepancy !== 0 && (
+            <div className="px-8 pb-8">
+              <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-[#E8E8E3] bg-white px-6 py-5">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className={`mt-0.5 h-5 w-5 shrink-0 ${summary.last_discrepancy < 0 ? "text-rose-600" : "text-amber-600"}`} />
+                  <div>
+                    <p className="text-[14px] font-medium text-[#0F1117]">
+                      Last close was {fmtINR(Math.abs(summary.last_discrepancy))}{" "}
+                      {summary.last_discrepancy < 0 ? "short" : "over"}
                     </p>
-                  )}
+                    <p className="mt-1 text-[13px] text-[#6B7280]">
+                      Expected {fmtINR(summary.last_expected_amount || 0)}, counted{" "}
+                      {fmtINR(summary.last_closed_amount || 0)}.
+                    </p>
+                  </div>
                 </div>
+                {summary.last_closed_at && (
+                  <p className="text-[13px] text-[#6B7280]">
+                    Closed by <span className="capitalize text-[#374151]">{summary.last_closed_by || "unknown"}</span>,{" "}
+                    {fmtDateTime(summary.last_closed_at)}
+                  </p>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
           {canAudit && (
-            <nav className="flex items-center overflow-x-auto border-t border-slate-100 px-8">
+            <nav className="flex gap-7 overflow-x-auto px-8">
               {(
                 [
-                  ["today", "Today's ledger", History],
-                  ["history", "Audit explorer", Calendar],
+                  ["today", "This session"],
+                  ["history", "Audit explorer"],
                 ] as const
-              ).map(([id, label, Icon]) => (
+              ).map(([id, label]) => (
                 <button
                   key={id}
                   onClick={() => {
                     setActiveTab(id);
-                    if (id === "history" && !hasQueriedRange)
-                      void queryRange(rangeStart, rangeEnd);
+                    if (id === "history" && !hasQueriedRange) void queryRange(rangeStart, rangeEnd);
                   }}
-                  className={`-mb-px flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-3.5 text-xs font-bold transition-colors ${activeTab === id ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+                  className={`-mb-px cursor-pointer whitespace-nowrap border-b-2 py-3.5 text-[14px] transition-colors ${activeTab === id ? "border-[#fe5c13] font-semibold text-[#0F1117]" : "border-transparent font-medium text-[#6B7280] hover:text-[#0F1117]"}`}
                 >
-                  <Icon className="h-3.5 w-3.5" /> {label}
+                  {label}
                 </button>
               ))}
             </nav>
@@ -713,188 +684,156 @@ td{padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:top}
 
         <main className="flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="flex min-h-[50vh] items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <Clock className="h-8 w-8 animate-spin text-emerald-600" />
-                <p className="text-xs font-semibold text-slate-400">Syncing drawer…</p>
-              </div>
+            <div className="flex min-h-[50vh] items-center justify-center gap-2 text-[14px] text-[#6B7280]">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading the drawer
             </div>
           ) : activeTab === "today" || !canAudit ? (
-            <div className="p-6 md:p-8">
-              {!summary?.is_open && (summary?.events.length ?? 0) === 0 ? (
-                <div className="mx-auto mt-10 max-w-md rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
-                  <Banknote className="mx-auto h-10 w-10 text-slate-300" />
-                  <h3 className="mt-4 text-base font-extrabold">Drawer is closed</h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Open the drawer with a starting float to start tracking cash
-                    sales and pay-outs for today.
+            <div className="px-8 py-8">
+              {!isOpen && (summary?.events.length ?? 0) === 0 ? (
+                <div className="mx-auto mt-8 max-w-md rounded-2xl border border-[#E8E8E3] bg-white px-8 py-12 text-center">
+                  <h3 className="text-[18px] font-bold tracking-[-0.01em] text-[#0F1117]">The drawer is closed</h3>
+                  <p className="mx-auto mt-2 max-w-sm text-[14px] leading-relaxed text-[#6B7280]">
+                    Count the starting float and open the drawer to track cash sales, pay-ins and pay-outs.
                   </p>
-                  <button
-                    onClick={() => openModal("open")}
-                    className={`${btn} mt-5 bg-emerald-600 px-5 py-2.5 text-white hover:bg-emerald-700`}
-                  >
+                  <button onClick={() => openModal("open")} className={`${btnPrimary} mt-6`}>
                     <Unlock className="h-4 w-4" /> Open drawer
                   </button>
                 </div>
               ) : (
-                <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex flex-col gap-3 border-b border-slate-100 px-6 py-4 md:flex-row md:items-center md:justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="text-sm font-black uppercase tracking-wider">
-                        Today&apos;s ledger
-                      </h2>
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">
-                        {filteredEvents.length}
-                      </span>
+                <section className="rounded-2xl border border-[#E8E8E3] bg-white">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F0EB] px-6 py-4">
+                    <div className={segWrap} role="tablist" aria-label="Filter entries">
+                      {["all", "sale", "cash_in", "cash_out", "no_sale", "open", "close"].map((t) => (
+                        <button key={t} role="tab" aria-selected={typeFilter === t} onClick={() => setTypeFilter(t)} className={seg(typeFilter === t)}>
+                          {t === "all" ? "All" : EVENT_LABEL[t]}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
                         <input
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search"
-                          className="w-44 rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-xs font-semibold focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
+                          placeholder="Search entries"
+                          aria-label="Search entries"
+                          className={`${field} w-56 pl-10`}
                         />
                       </div>
-                      <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-0.5">
-                        {["all", "sale", "cash_in", "cash_out", "no_sale", "open", "close"].map(
-                          (t) => (
-                            <button
-                              key={t}
-                              onClick={() => setTypeFilter(t)}
-                              className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all ${typeFilter === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                            >
-                              {t === "all" ? "All" : EVENT_LABEL[t]}
-                            </button>
-                          ),
-                        )}
-                      </div>
                       <button
-                        onClick={() =>
-                          exportCsv(filteredEvents, `cash-drawer-${localDay(new Date())}`)
-                        }
+                        onClick={() => exportCsv(filteredEvents, `cash-drawer-${localDay(new Date())}`)}
                         disabled={filteredEvents.length === 0}
-                        className={`${btn} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40`}
+                        className={btnSecondary}
                       >
-                        <Download className="h-3.5 w-3.5" /> CSV
+                        <Download className="h-4 w-4 text-[#9CA3AF]" /> Export CSV
                       </button>
                     </div>
                   </div>
-                  <EventTable events={filteredEvents} />
+                  <EventTable
+                    events={filteredEvents}
+                    emptyText={searchQuery || typeFilter !== "all" ? "No entries match these filters." : "Nothing recorded in this session yet."}
+                  />
+                  {filteredEvents.length > 0 && (
+                    <p className="border-t border-[#F0F0EB] px-6 py-3 text-[13px] text-[#6B7280]">
+                      {filteredEvents.length} {filteredEvents.length === 1 ? "entry" : "entries"}
+                    </p>
+                  )}
                 </section>
               )}
             </div>
           ) : (
-            <div className="space-y-5 p-6 md:p-8">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void queryRange(rangeStart, rangeEnd);
-                }}
-                className="flex flex-wrap items-end gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                {(
-                  [
-                    ["From", rangeStart, setRangeStart],
-                    ["To", rangeEnd, setRangeEnd],
-                  ] as const
-                ).map(([label, val, set]) => (
-                  <label key={label} className="min-w-[160px]">
-                    <span className="mb-1.5 block pl-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      {label}
-                    </span>
-                    <input
-                      type="date"
-                      value={val}
-                      max={localDay(new Date())}
-                      onChange={(e) => set(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-3.5 text-xs font-bold text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
-                    />
-                  </label>
-                ))}
-                <div className="flex gap-1 rounded-xl bg-slate-100 p-0.5">
-                  {[
-                    ["Today", () => applyPreset(0)],
-                    ["Yesterday", () => applyPreset(0, true)],
-                    ["7 days", () => applyPreset(6)],
-                    ["30 days", () => applyPreset(29)],
-                  ].map(([label, fn]) => (
-                    <button
-                      key={label as string}
-                      type="button"
-                      onClick={fn as () => void}
-                      className="rounded-lg px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-white hover:shadow-sm"
-                    >
-                      {label as string}
-                    </button>
-                  ))}
+            <div className="space-y-6 px-8 py-8">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#E8E8E3] bg-white px-5 py-4">
+                <div className={segWrap} role="tablist" aria-label="Quick ranges">
+                  {(
+                    [
+                      ["Today", 0, false],
+                      ["Yesterday", 0, true],
+                      ["Last 7 days", 6, false],
+                      ["Last 30 days", 29, false],
+                    ] as const
+                  ).map(([label, days, yest]) => {
+                    const end = new Date();
+                    if (yest) end.setDate(end.getDate() - 1);
+                    const start = new Date(end);
+                    start.setDate(start.getDate() - days);
+                    const active = localDay(start) === rangeStart && localDay(end) === rangeEnd;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => applyPreset(days, yest)}
+                        className={seg(active)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
-                <button
-                  type="submit"
-                  disabled={isRangeLoading}
-                  className={`${btn} h-11 bg-slate-900 px-5 text-white hover:bg-slate-800 disabled:opacity-50`}
-                >
-                  {isRangeLoading ? "Loading…" : "Run audit"}
-                </button>
+                <DateRangePicker
+                  from={rangeStart}
+                  to={rangeEnd}
+                  onChange={(f, t) => {
+                    setRangeStart(f);
+                    setRangeEnd(t);
+                    void queryRange(f, t);
+                  }}
+                />
+                {isRangeLoading && (
+                  <span className="inline-flex items-center gap-1.5 text-[12px] text-[#6B7280]">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading
+                  </span>
+                )}
                 <div className="flex-1" />
                 <button
                   type="button"
                   disabled={rangeEvents.length === 0}
                   onClick={() => exportCsv(rangeEvents, `cash-drawer-${rangeStart}_${rangeEnd}`)}
-                  className={`${btn} h-11 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40`}
+                  className={btnSecondary}
                 >
-                  <Download className="h-4 w-4" /> CSV
+                  <Download className="h-4 w-4 text-[#6B7280]" /> Export CSV
                 </button>
                 <button
                   type="button"
                   disabled={rangeEvents.length === 0}
                   onClick={() => printReport(rangeEvents, rangeStart, rangeEnd)}
-                  className={`${btn} h-11 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40`}
+                  className={btnSecondary}
                 >
-                  <FileText className="h-4 w-4" /> PDF report
+                  <FileText className="h-4 w-4 text-[#6B7280]" /> Print report
                 </button>
-              </form>
+              </div>
 
               {hasQueriedRange && (
                 <>
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                  <dl className="grid grid-cols-2 divide-[#F0F0EB] rounded-2xl border border-[#E8E8E3] bg-white sm:grid-cols-5 sm:divide-x">
                     {[
-                      { l: "Cash sales", v: fmtINR(rangeStats.sales), t: "text-sky-600" },
-                      { l: "Pay-ins", v: `+${fmtINR(rangeStats.cashIn)}`, t: "text-emerald-600" },
-                      { l: "Pay-outs", v: `−${fmtINR(rangeStats.cashOut)}`, t: "text-amber-600" },
-                      {
-                        l: "Shortages",
-                        v: fmtINR(rangeStats.shortages),
-                        t: rangeStats.shortages ? "text-rose-600" : "text-slate-900",
-                      },
-                      {
-                        l: "Overages",
-                        v: fmtINR(rangeStats.overages),
-                        t: rangeStats.overages ? "text-amber-600" : "text-slate-900",
-                      },
+                      { l: "Cash sales", v: rangeStats.sales, op: "" , tone: "" },
+                      { l: "Pay-ins", v: rangeStats.cashIn, op: "+", tone: "" },
+                      { l: "Pay-outs", v: rangeStats.cashOut, op: "−", tone: "" },
+                      { l: "Shortages", v: rangeStats.shortages, op: "", tone: rangeStats.shortages ? "text-rose-700" : "" },
+                      { l: "Overages", v: rangeStats.overages, op: "", tone: rangeStats.overages ? "text-amber-700" : "" },
                     ].map((k) => (
-                      <div key={k.l} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          {k.l}
-                        </p>
-                        <p className={`mt-1.5 font-mono text-lg font-bold tabular-nums ${k.t}`}>
-                          {k.v}
-                        </p>
+                      <div key={k.l} className="px-6 py-5">
+                        <dt className="text-[13px] text-[#6B7280]">{k.l}</dt>
+                        <dd className={`mt-1.5 text-[18px] font-medium tabular-nums ${k.tone || (k.v ? "text-[#0F1117]" : "text-[#9CA3AF]")}`}>
+                          {k.op && <span className="mr-1 text-[#9CA3AF]">{k.op}</span>}
+                          {fmtINR(k.v)}
+                        </dd>
                       </div>
                     ))}
-                  </div>
-                  <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                    <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-                      <h2 className="text-sm font-black uppercase tracking-wider">
-                        Audit log
-                      </h2>
-                      <span className="text-[11px] font-bold text-slate-400">
-                        {rangeEvents.length} events · {rangeStats.closings} closings
-                        {rangeStats.noSales ? ` · ${rangeStats.noSales} no-sales` : ""}
+                  </dl>
+                  <section className="rounded-2xl border border-[#E8E8E3] bg-white">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#F0F0EB] px-6 py-4">
+                      <h2 className="text-[15px] font-semibold text-[#0F1117]">Audit log</h2>
+                      <span className="text-[13px] text-[#6B7280]">
+                        {rangeEvents.length} {rangeEvents.length === 1 ? "entry" : "entries"}, {rangeStats.closings}{" "}
+                        {rangeStats.closings === 1 ? "closing" : "closings"}
+                        {rangeStats.noSales ? `, ${rangeStats.noSales} no-sale` : ""}
                       </span>
                     </div>
-                    <EventTable events={rangeEvents} />
+                    <EventTable events={rangeEvents} emptyText="No drawer activity in this date range." />
                   </section>
                 </>
               )}
@@ -902,67 +841,80 @@ td{padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:top}
           )}
 
           {modal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-              <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
-                <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-3.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                    {modal === "close" ? <Lock className="h-4 w-4" /> : <Landmark className="h-4 w-4" />}
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1117]/50 p-4 backdrop-blur-sm"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget && !isActionLoading) closeModal();
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="drawer-modal-title"
+                className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[24px] bg-white shadow-[0_40px_100px_-30px_rgba(15,17,23,0.5)]"
+              >
+                <div className="flex items-start justify-between gap-4 px-7 pt-7">
+                  <div>
+                    <h3 id="drawer-modal-title" className="text-[20px] font-bold leading-tight tracking-[-0.02em] text-[#0F1117]">
+                      {MODAL_META[modal].title}
+                    </h3>
+                    {(modal === "cash_out" || modal === "close") && (
+                      <p className="mt-1.5 text-[14px] text-[#6B7280]">
+                        {fmtINR(expected)} expected in the drawer
+                      </p>
+                    )}
                   </div>
-                  <h3 className="text-base font-black uppercase tracking-wider">
-                    {MODAL_META[modal].title}
-                  </h3>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    aria-label="Close"
+                    className="-mr-2 rounded-full p-2 text-[#9CA3AF] transition-colors hover:bg-[#F3F3EF] hover:text-[#0F1117]"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
 
-                <form onSubmit={handleRecordEvent} className="space-y-4">
+                <form onSubmit={handleRecordEvent} className="space-y-6 px-7 pb-7 pt-6">
                   {modal === "close" ? (
                     <>
-                      <div className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
-                          Expected in drawer
-                        </span>
-                        <span className="text-base font-extrabold text-[#fe5c13]">
-                          {fmtINR(expected)}
-                        </span>
-                      </div>
                       <CashCounter onChange={setCounted} autoFocus />
                       <VarianceBanner expected={expected} counted={counted} />
                     </>
                   ) : (
                     <div>
-                      <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <label htmlFor="drawer-amount" className="mb-2 block text-[13px] font-medium text-[#4B5563]">
                         {MODAL_META[modal].amountLabel}
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        autoFocus
-                        required
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-3 text-lg font-extrabold shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
-                      />
-                      {modal === "cash_out" && (
-                        <p className="mt-1.5 pl-1 text-[11px] font-medium text-slate-400">
-                          Available in drawer: {fmtINR(expected)}
-                        </p>
-                      )}
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-[#9CA3AF]">₹</span>
+                        <input
+                          id="drawer-amount"
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          inputMode="decimal"
+                          autoFocus
+                          required
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="h-14 w-full rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] pl-10 pr-4 text-[24px] font-medium tabular-nums text-[#0F1117] outline-none placeholder:text-[#C4C4BE] hover:border-[#D6D6CF] focus:bg-white"
+                        />
+                      </div>
                     </div>
                   )}
 
                   {(modal === "cash_in" || modal === "cash_out") && (
                     <div>
-                      <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        Reason
-                      </label>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      <span className="mb-2 block text-[13px] font-medium text-[#4B5563]">Reason</span>
+                      <div className="flex flex-wrap gap-2">
                         {CATEGORIES[modal].map((c) => (
                           <button
                             key={c}
                             type="button"
+                            aria-pressed={category === c}
                             onClick={() => setCategory(c)}
-                            className={`rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-all ${category === c ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                            className={`rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors ${category === c ? "border-[#0F1117] bg-[#0F1117] text-white" : "border-[#E8E8E3] bg-white text-[#4B5563] hover:border-[#D6D6CF] hover:text-[#0F1117]"}`}
                           >
                             {c}
                           </button>
@@ -972,37 +924,35 @@ td{padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:top}
                   )}
 
                   <div>
-                    <label className="pl-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      Notes{modal === "close" && closeDiff !== 0 ? " (required)" : ""}
+                    <label htmlFor="drawer-note" className="mb-2 block text-[13px] font-medium text-[#4B5563]">
+                      Note{modal === "close" && closeDiff !== 0 ? " (required for a difference)" : " (optional)"}
                     </label>
                     <textarea
+                      id="drawer-note"
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder={
                         modal === "close"
-                          ? "Explain any difference, handover details…"
+                          ? "Explain any difference, handover details"
                           : modal === "open"
-                            ? "Opening remarks…"
-                            : "Bill no., vendor, who received it…"
+                            ? "Anything the next person should know"
+                            : "Bill number, vendor, who received it"
                       }
-                      className="mt-1.5 h-20 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
+                      className="h-24 w-full resize-none rounded-xl border border-[#E8E8E3] bg-[#FAFAF7] px-4 py-3 text-[14px] leading-relaxed text-[#0F1117] outline-none placeholder:text-[#9CA3AF] hover:border-[#D6D6CF] focus:bg-white"
                     />
                   </div>
 
-                  <div className="flex gap-3 border-t border-slate-100 pt-4">
+                  <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="flex-1 cursor-pointer rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+                      className="h-11 cursor-pointer rounded-xl px-5 text-[14px] font-medium text-[#4B5563] transition-colors hover:text-[#0F1117]"
                     >
                       Cancel
                     </button>
-                    <button
-                      type="submit"
-                      disabled={isActionLoading}
-                      className={`flex-1 cursor-pointer rounded-xl py-3 text-xs font-bold text-white shadow-sm transition-all disabled:opacity-50 ${MODAL_META[modal].tone}`}
-                    >
-                      {isActionLoading ? "Saving…" : MODAL_META[modal].cta}
+                    <button type="submit" disabled={isActionLoading} className={`${btnPrimary} h-11 px-6`}>
+                      {isActionLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {isActionLoading ? "Saving" : MODAL_META[modal].cta}
                     </button>
                   </div>
                 </form>
