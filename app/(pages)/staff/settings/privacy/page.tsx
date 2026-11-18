@@ -5,6 +5,7 @@ import { AlertTriangle, Download, Loader2, ShieldCheck, Trash2 } from "lucide-re
 import toast from "react-hot-toast";
 import SettingsPageLayout from "@/app/components/settings/SettingsPageLayout";
 import { api } from "@/app/lib/api";
+import PrivacyRequests from "@/app/components/settings/PrivacyRequests";
 
 type Rule = { key: string; description: string; action: "delete" | "anonymize"; period: string };
 type Schedule = {
@@ -103,6 +104,7 @@ export default function PrivacyDataPage() {
     >
       <div className="flex-1 min-h-0 overflow-y-auto bg-[#f8fafc] p-8">
         <div className="mx-auto max-w-3xl space-y-6">
+          <PrivacyRequests />
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-[#fe5c13]" />

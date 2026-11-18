@@ -6,6 +6,7 @@ import { ArrowLeft, Building2, Camera, Image as ImageIcon } from "lucide-react";
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
+import { planAllowsMoreBranches } from "@/app/lib/plans";
 
 import { Select } from "@/app/components/ui/Select";
 export default function AddBranchPage() {
@@ -42,10 +43,7 @@ export default function AddBranchPage() {
         setCurrentLogoUrl(me?.logo_url ? `${me.logo_url}${suffix}` : "");
         const normalizedPlan = String(billingRes?.plan || "").toLowerCase();
         const isPremiumPlan =
-          normalizedPlan === "monthly_999" ||
-          normalizedPlan === "monthly_1499" ||
-          normalizedPlan === "yearly_10999" ||
-          normalizedPlan === "yearly_14999";
+          planAllowsMoreBranches(normalizedPlan);
         const count = (branchesRes?.branches || []).length;
         setIsBranchLockedByPlan(!isPremiumPlan && count >= 1);
       } catch {

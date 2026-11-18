@@ -582,7 +582,8 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
         api<ServiceCallAPI[]>("/api/admin/service-calls"),
         // Only cashiers and up may see takings; other roles get 403 and no tile.
         api<{ total: number }>("/api/admin/sales/today", { suppressErrorLog: true }).catch(() => null),
-        api<TakeawaySummary>("/api/admin/takeaway/summary"),
+        // Ordering and AR plans have no takeaway tools: the server answers 403.
+        api<TakeawaySummary>("/api/admin/takeaway/summary", { suppressErrorLog: true }).catch(() => null),
         api<{ waitlist?: any[] }>("/api/admin/waitlist").catch(() => ({ waitlist: [] })),
       ]);
       // Get the current set of occupied table codes from the latest tables state
@@ -1393,7 +1394,7 @@ export default function StaffDashboardPage({ initialData }: { initialData?: any 
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <StaffSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white border-b border-gray-200 h-16 flex items-center px-8 z-10 animate-pulse">
+          <header className="staff-topbar bg-white border-b border-gray-200 flex items-center px-8 z-10 animate-pulse">
             <div className="h-6 w-32 bg-gray-200 rounded" />
           </header>
           <div className="p-8">

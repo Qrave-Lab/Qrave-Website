@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isFoodCourtStallPath } from "@/app/lib/plans";
+import { isArMenuPath, isFoodCourtStallPath, isOpsPath, OPS_UPGRADE_URL } from "@/app/lib/plans";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "qravetech.in";
 
@@ -9,6 +9,9 @@ type AdminSession = {
   authenticated: boolean;
   mfaSetupRequired: boolean;
   menuOnly: boolean;
+  tier: string;
+  /** Ordering and AR plans: order handling, but no operations tools. */
+  opsLocked: boolean;
   /** Set-Cookie headers from a token refresh, to pass on to the browser. */
   setCookies: string[];
 };
@@ -17,6 +20,8 @@ const signedOut = (): AdminSession => ({
   authenticated: false,
   mfaSetupRequired: false,
   menuOnly: false,
+  tier: "",
+  opsLocked: false,
   setCookies: [],
 });
 
@@ -65,6 +70,10 @@ async function getAdminSession(req: NextRequest): Promise<AdminSession> {
         setCookies = refreshed.headers.getSetCookie?.() ?? [];
         cookie = mergeCookies(cookie, setCookies);
         res = await fetchMe(cookie);
+      } else if (refreshed.status !== 400 && refreshed.status !== 401 && refreshed.status !== 403) {
+        // The renewal could not be attempted (backend busy or restarting):
+        // that is not a sign-out. Let the page load; its API calls retry.
+        return { authenticated: true, mfaSetupRequired: false, menuOnly: false, tier: "", opsLocked: false, setCookies: [] };
       }
     }
 
@@ -72,19 +81,21 @@ async function getAdminSession(req: NextRequest): Promise<AdminSession> {
     if (!res.ok) {
       // Backend busy, rate-limited or down: don't log the user out over it.
       // The staff APIs still check the session on every call.
-      return { authenticated: true, mfaSetupRequired: false, menuOnly: false, setCookies };
+      return { authenticated: true, mfaSetupRequired: false, menuOnly: false, tier: "", opsLocked: false, setCookies };
     }
     const me = await res.json().catch(() => ({}));
     return {
       authenticated: true,
       mfaSetupRequired: me?.mfa?.setup_required === true,
       menuOnly: me?.plan_features?.menu_only === true,
+      tier: String(me?.plan_features?.tier ?? ""),
+      opsLocked: me?.plan_features?.has_ops === false && me?.plan_features?.menu_only !== true,
       setCookies,
     };
   } catch {
     // Network error reaching the backend: let the page load; its API calls
     // send the user to /login if the session is really gone.
-    return { authenticated: true, mfaSetupRequired: false, menuOnly: false, setCookies: [] };
+    return { authenticated: true, mfaSetupRequired: false, menuOnly: false, tier: "", opsLocked: false, setCookies: [] };
   }
 }
 
@@ -128,8 +139,12 @@ export async function middleware(req: NextRequest) {
       return withCookies(NextResponse.redirect(new URL("/staff/settings/security?setup=required", req.url)));
     }
     // Food court stalls only manage their digital menu: no POS screens.
-    if (session.menuOnly && !isFoodCourtStallPath(url.pathname)) {
+    const menuOnlyAllowed = session.tier === "food_court_stall" ? isFoodCourtStallPath : isArMenuPath;
+    if (session.menuOnly && !menuOnlyAllowed(url.pathname)) {
       return withCookies(NextResponse.redirect(new URL("/staff/menu", req.url)));
+    }
+    if (session.opsLocked && isOpsPath(url.pathname)) {
+      return withCookies(NextResponse.redirect(new URL(OPS_UPGRADE_URL, req.url)));
     }
     if (session.setCookies.length > 0) return withCookies(NextResponse.next());
   }

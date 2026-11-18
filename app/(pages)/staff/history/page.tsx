@@ -276,6 +276,7 @@ export default function OrderHistoryPage() {
       paid_at: selectedRow?.created_at || new Date().toISOString(),
       cashier_name: me.name || "Cashier",
       gst_number: me.gst_number || "",
+      fssai_number: me.fssai_number || undefined,
       tax_details: bd.tax_details,
     };
 
@@ -660,6 +661,11 @@ export default function OrderHistoryPage() {
                       </h3>
                       {me?.gst_number && (
                         <p className="mt-1 text-[11px] font-medium text-[#9CA3AF]">GSTIN {me.gst_number}</p>
+                      )}
+                      {me?.fssai_number && (
+                        <p className="mt-1 text-[12px] font-medium text-[#6B7280]">
+                          FSSAI Lic. No. {me.fssai_number}
+                        </p>
                       )}
                       <div className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-[#F3F3EF] px-3 py-1 text-[12px] font-medium text-[#374151]">
                         {selectedOrder.type === "dine_in" ? (

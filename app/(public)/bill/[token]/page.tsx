@@ -12,6 +12,7 @@ type Bill = {
   invoice_date: string;
   status: string;
   gstin: string;
+  fssai_number?: string;
   customer_name: string;
   customer_gstin: string;
   line_items: LineItem[];
@@ -161,6 +162,7 @@ export default function PublicBillPage() {
           <h1 className="text-lg font-bold text-slate-900">{bill.restaurant.name}</h1>
           {bill.restaurant.address && <p className="text-xs text-slate-500">{bill.restaurant.address}</p>}
           {bill.gstin && <p className="text-xs text-slate-500">GSTIN: {bill.gstin}</p>}
+          {bill.fssai_number && <p className="mt-1 text-xs text-slate-500">FSSAI Lic. No. {bill.fssai_number}</p>}
           <p className="mt-3 text-xs font-medium text-slate-500">Tax invoice</p>
           <p className="text-sm font-semibold text-slate-700">{bill.invoice_number}</p>
           <p className="text-xs text-slate-500">
@@ -225,7 +227,10 @@ export default function PublicBillPage() {
             </a>
           )}
         </div>
-        <p className="mt-4 text-center text-[10px] text-slate-400">Powered by Qrave</p>
+        <p className="mt-4 text-center text-xs text-slate-500">
+          <a href={`/your-data${(bill.restaurant as { id?: string }).id ? `?r=${(bill.restaurant as { id?: string }).id}` : ""}`} className="inline-flex min-h-[44px] items-center px-2 font-semibold underline underline-offset-2">Your data</a>
+        </p>
+        <p className="mt-1 text-center text-[10px] text-slate-400">Powered by Qrave</p>
       </div>
     </main>
   );

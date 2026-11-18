@@ -62,6 +62,7 @@ export default function CashierPage() {
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [activeShift, setActiveShift] = useState<ActiveShift | null>(null);
   const [gstNumber, setGstNumber] = useState<string>("");
+  const [fssaiNumber, setFssaiNumber] = useState<string>("");
   const [restaurantName, setRestaurantName] = useState<string>("Qrave Restaurant");
 
   const [closingSessionId, setClosingSessionId] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export default function CashierPage() {
     let active = true;
     const guardRole = async () => {
       try {
-        const me = await api<{ role?: string; gst_number?: string; restaurant?: string }>("/api/admin/me");
+        const me = await api<{ role?: string; gst_number?: string; fssai_number?: string; restaurant?: string }>("/api/admin/me");
         if (!active) return;
         const role = (me?.role || "").toLowerCase();
         if (!["cashier", "owner", "manager"].includes(role)) {
@@ -108,6 +109,7 @@ export default function CashierPage() {
           return;
         }
         if (me?.gst_number) setGstNumber(me.gst_number);
+        if (me?.fssai_number) setFssaiNumber(me.fssai_number);
         if (me?.restaurant) setRestaurantName(me.restaurant);
         await refresh();
       } catch {
@@ -241,6 +243,7 @@ export default function CashierPage() {
       paid_at: new Date().toISOString(),
       cashier_name: activeShift?.user_name || "Cashier Counter",
       gst_number: gstNumber,
+      fssai_number: fssaiNumber || undefined,
       tax_details: breakdown.tax_details,
     };
 

@@ -29,13 +29,16 @@ import {
 import StaffSidebar from "@/app/components/StaffSidebar";
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
 import { api } from "@/app/lib/api";
-import { normalizePaymentMode } from "@/app/lib/payment-status";
+import { partitionVoidable } from "@/app/lib/takeawayVariant";
+import VoidItemsDialog from "@/app/components/billing/VoidItemsDialog";
+import { normalizePaymentMode, paymentStatusLabel } from "@/app/lib/payment-status";
 import toast from "react-hot-toast";
 import TakeawayRewardPicker, { redeemOnTakeaway, takeawayRewardTotals, type TakeawayReward } from "@/app/components/billing/TakeawayRewardPicker";
 
 /* ─── Types ────────────────────────────────────────────────────────────── */
 type MenuItem = {
     id: string;
+    variants?: { id: string; label?: string; name?: string }[];
     name: string;
     price: number;
     categoryId: string;
@@ -63,6 +66,7 @@ type DeliveryZone = {
 
 type TakeawayOrderItem = {
     id: string;
+    menu_item_id?: string;
     menu_item_name: string;
     variant_label?: string;
     quantity: number;
@@ -148,7 +152,7 @@ function TakeawaySkeleton() {
         <div className="flex h-screen w-full bg-[#F8FAFC] overflow-hidden">
             <StaffSidebar />
             <div className="flex-1 flex flex-col min-w-0">
-                <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between z-20 sticky top-0">
+                <header className="staff-topbar bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 sticky top-0">
                     <div>
                         <div className="h-6 w-48 bg-slate-200 rounded animate-pulse mb-2" />
                         <div className="h-3 w-32 bg-slate-100 rounded animate-pulse" />
@@ -204,6 +208,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
     const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
     const [searchMenu, setSearchMenu] = useState("");
     const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+    const [voidOrder, setVoidOrder] = useState<TakeawayOrder | null>(null);
     const [taxPercent, setTaxPercent] = useState<number>(initialProcessed?.taxPercent || 0);
     const [restName, setRestName] = useState<string>(initialProcessed?.restNameStr || "Unknown");
 
@@ -236,7 +241,8 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
 
     useEffect(() => {
         if (showNewOrder && orderType === "dine_in_reception") {
-            void fetchTables();
+            const id = window.setTimeout(() => void fetchTables(), 0);
+            return () => window.clearTimeout(id);
         }
     }, [showNewOrder, orderType]);
 
@@ -337,7 +343,7 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("new") === "1") {
-        setShowNewOrder(true);
+        window.setTimeout(() => setShowNewOrder(true), 0);
         // Clean up the URL so it doesn't reopen on refresh
         window.history.replaceState({}, '', '/staff/takeaway');
       }
@@ -399,7 +405,8 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
     }, [initialProcessed, router]);
 
     useEffect(() => {
-        loadOrders(statusFilter);
+        const id = window.setTimeout(() => void loadOrders(statusFilter), 0);
+        return () => window.clearTimeout(id);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statusFilter]);
 
@@ -777,7 +784,42 @@ export default function TakeawayClient({ initialData }: { initialData?: any }) {
                                                                     <span className="shrink-0 font-medium tabular-nums text-[#0F1117]">{fmtCur(it.total_price)}</span>
                                                                 </div>
                                                             ))}
-                                                            {(order.tax_amount > 0 || order.delivery_fee > 0) && (
+                                                            
+{(() => {
+  const { voidable, blocked } = partitionVoidable(menuItems, order.items);
+  if ((order.status !== "ready" && order.status !== "completed") || order.payment_status === "voided" || voidable.length === 0) return null;
+  return (
+    <div className="pt-2">
+      <button
+        type="button"
+        onClick={() => setVoidOrder(order)}
+        className="min-h-[36px] rounded-lg border border-rose-200 px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500"
+      >
+        Void items
+      </button>
+      {blocked.map((b) => (
+        <p key={b.item.id} className="mt-1 text-[11px] text-slate-400">
+          {b.item.menu_item_name}: can&apos;t be voided here, {b.reason}.
+        </p>
+      ))}
+    </div>
+  );
+})()}
+
+{voidOrder && (
+  <VoidItemsDialog
+    items={partitionVoidable(menuItems, voidOrder.items).voidable.map((v) => ({
+      orderId: voidOrder.id,
+      menuItemId: v.item.menu_item_id as string,
+      variantId: v.variantId,
+      name: v.item.variant_label ? `${v.item.menu_item_name} (${v.item.variant_label})` : v.item.menu_item_name,
+      quantity: v.item.quantity,
+    }))}
+    onClose={() => setVoidOrder(null)}
+    onDone={() => { setVoidOrder(null); void loadOrders(); }}
+  />
+)}
+{(order.tax_amount > 0 || order.delivery_fee > 0) && (
                                                                 <div className="mt-2 space-y-1 border-t border-dashed border-[#E8E8E3] pt-2">
                                                                     {order.tax_amount > 0 && (
                                                                         <div className="flex justify-between text-[12px] text-[#6B7280]">

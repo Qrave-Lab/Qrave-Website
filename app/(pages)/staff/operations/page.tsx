@@ -337,7 +337,7 @@ export default function StaffOperationsControlPage() {
     <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
       <StaffSidebar />
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
+        <header className="staff-topbar bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-10 shrink-0">
           <div>
             <h2 className="text-lg font-bold tracking-tight text-gray-900">Operations Control</h2>
             <div className="flex items-center gap-2 text-xs text-gray-500">

@@ -173,6 +173,7 @@ type BillTicketInput = {
   items: Array<{ name: string; qty: number; amount: number }>;
   total: number;
   gstin?: string;
+  fssaiNumber?: string;
   invoiceNumber?: string;
   financialYear?: string;
   cgst?: number;
@@ -364,8 +365,11 @@ export function generateBillText(input: BillTicketInput, config: BillConfig): st
   if (config.gstin) {
     header.push(centerText(`GSTIN: ${config.gstin}`, 34));
   }
+  if (input.fssaiNumber) {
+    header.push(centerText(`FSSAI Lic. No. ${input.fssaiNumber}`, 34));
+  }
   
-  let metaLines = [tableLine, timeLine, staffLine].filter(Boolean);
+  const metaLines = [tableLine, timeLine, staffLine].filter(Boolean);
   let metaBlock = metaLines.length > 0 ? metaLines.join(" | ") : "";
   if (metaBlock.length > 34) {
     metaBlock = metaLines.join("\n");
@@ -413,6 +417,7 @@ export function generateBillText(input: BillTicketInput, config: BillConfig): st
       (config.showPhone && phone) ? centerText(phone, 34) : "",
       (config.showWebsite && web) ? centerText(web, 34) : "",
       (config.showGstin && config.gstin) ? centerText(`GSTIN: ${config.gstin}`, 34) : "",
+      input.fssaiNumber ? centerText(`FSSAI Lic. No. ${input.fssaiNumber}`, 34) : "",
       "----------------------------------",
       centerText(input.printedAt || "30/09/2025 20:15", 34),
       padRow(receiptNum, tableNum),
@@ -567,8 +572,21 @@ export function generateBillText(input: BillTicketInput, config: BillConfig): st
   return body;
 }
 
+async function resolveFssai(value?: string): Promise<string> {
+  if (value && value.trim()) return value.trim();
+  try {
+    const { api } = await import("@/app/lib/api");
+    const me = await api<{ fssai_number?: string }>("/api/admin/me", { skipAuthRedirect: true, suppressErrorLog: true });
+    if (me?.fssai_number) return me.fssai_number;
+  } catch {
+    // printing must never fail because of this lookup
+  }
+  return "";
+}
+
 export async function printBillTicket(input: BillTicketInput): Promise<void> {
   const config = getBillConfig();
-  const body = generateBillText(input, config);
+  const fssaiNumber = await resolveFssai(input.fssaiNumber);
+  const body = generateBillText({ ...input, fssaiNumber: fssaiNumber || undefined }, config);
   await printTicket("billing", "Customer Bill", body);
 }

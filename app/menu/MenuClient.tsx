@@ -7,6 +7,7 @@ import ModernFoodUI from "../(pages)/menu/MenuUi";
 import { api } from "@/app/lib/api";
 import { resolveRestaurantIdFromTenantSlug } from "@/app/lib/tenant";
 import { useCartStore } from "@/stores/cartStore";
+import { FoodCardSkeleton } from "@/app/components/menu/FoodCard";
 
 type ThemeConfig = {
   preset?: "thai" | "indian" | "minimal" | "";
@@ -439,19 +440,7 @@ export default function MenuClient({ table }: { table: string | null }) {
             </div>
             <div className="flex flex-col">
               {[1,2,3].map(item => (
-                <div key={item} className="flex flex-row p-[18px_16px] bg-[#FFFFFF] border-b border-[#EDE5D8] gap-4 items-start">
-                  <div className="shrink-0 w-[104px] h-[104px] rounded-[16px] bg-[#E5DFD6]"></div>
-                  <div className="flex-1 flex flex-col justify-between self-stretch py-1">
-                    <div className="space-y-2.5">
-                      <div className="w-[85%] h-[18px] bg-[#E5DFD6] rounded-[6px]"></div>
-                      <div className="w-[60%] h-[14px] bg-[#E5DFD6] rounded-[4px]"></div>
-                    </div>
-                    <div className="flex justify-between items-end mt-auto pt-4">
-                      <div className="w-[60px] h-[18px] bg-[#E5DFD6] rounded-[6px]"></div>
-                      <div className="w-[80px] h-[32px] bg-[#E5DFD6] rounded-[8px]"></div>
-                    </div>
-                  </div>
-                </div>
+                <FoodCardSkeleton key={item} />
               ))}
             </div>
           </div>

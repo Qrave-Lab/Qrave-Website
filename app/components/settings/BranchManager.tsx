@@ -5,6 +5,7 @@ import { Building2, Plus, Save, Archive, UserPlus } from "lucide-react";
 import { api } from "@/app/lib/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { planAllowsMoreBranches } from "@/app/lib/plans";
 
 import { Select } from "@/app/components/ui/Select";
 type Branch = {
@@ -54,10 +55,7 @@ export default function BranchManager() {
     const list = res?.branches || [];
     const normalizedPlan = String(billing?.plan || "").toLowerCase();
     const isPremiumPlan =
-      normalizedPlan === "monthly_999" ||
-      normalizedPlan === "monthly_1499" ||
-      normalizedPlan === "yearly_10999" ||
-      normalizedPlan === "yearly_14999";
+      planAllowsMoreBranches(normalizedPlan);
     setIsNewBranchLocked(!isPremiumPlan && list.length >= 1);
     setBranches(list);
     const nextSelected = selectedBranchId && list.some((b) => b.restaurant_id === selectedBranchId)

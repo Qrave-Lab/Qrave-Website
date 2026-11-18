@@ -357,6 +357,8 @@ export default function MenuPage() {
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
+  // QR Menu and Ordering plans have no 3D / AR models.
+  const [arLocked, setArLocked] = useState(false);
   const staffModelViewerRef = useRef<any>(null);
   const attachStaffViewer = useModelViewerEvents(
     {
@@ -422,6 +424,7 @@ export default function MenuPage() {
       const me = await authFetch("/api/admin/me");
       const nextRole = String((me as any)?.role || "").toLowerCase();
       setRole(nextRole);
+      setArLocked((me as any)?.plan_features?.has_ar === false);
       setCurrentRestaurantId((me as any)?.restaurant_id || "");
       const roleAccess = (me as any)?.theme_config?.role_access as Record<string, Record<string, boolean>> | undefined;
       if (nextRole && nextRole !== "owner") {
@@ -2754,6 +2757,11 @@ export default function MenuPage() {
                           <label className="block mb-2 text-[13px] font-medium text-[#4B5563]">
                             AR Asset (3D)
                           </label>
+                          {arLocked && (
+                            <span className="text-[10px] font-bold text-amber-700">
+                              Needs the AR or Full Access plan
+                            </span>
+                          )}
                         </div>
                         <input
                           type="file"
@@ -2769,6 +2777,10 @@ export default function MenuPage() {
                               : "border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer flex flex-col items-center justify-center"
                           }`}
                           onClick={() => {
+                            if (arLocked) {
+                              toast.error("3D / AR models need the AR or Full Access plan.");
+                              return;
+                            }
                             if (!editingItem.modelGlb && !editingItem.modelUsdz) {
                               modelInputRef.current?.click();
                             }
@@ -2780,6 +2792,10 @@ export default function MenuPage() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (arLocked) {
+                                    toast.error("3D / AR models need the AR or Full Access plan.");
+                                    return;
+                                  }
                                   modelInputRef.current?.click();
                                 }}
                                 className="absolute top-3 right-3 z-20 rounded-lg bg-white/95 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-gray-900 shadow-sm"

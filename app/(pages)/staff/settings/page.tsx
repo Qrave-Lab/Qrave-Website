@@ -33,7 +33,7 @@ import toast from "react-hot-toast";
 import StaffSidebar from "../../../components/StaffSidebar";
 import { api } from "@/app/lib/api";
 import { CustomSelect } from "@/app/components/ui/CustomSelect";
-import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan } from "@/app/lib/plans";
+import { isArMenuPath, isArMenuPlan, isFoodCourtStallPath, isFoodCourtStallPlan, isOpsPath, planAllowsMoreBranches, planHasOps } from "@/app/lib/plans";
 
 type AdminMeResponse = {
   role?: string;
@@ -228,10 +228,7 @@ export default function SettingsPage() {
 
   const normalizedPlan = String(planCode || "").toLowerCase();
   const isPremiumPlan =
-    normalizedPlan === "monthly_999" ||
-    normalizedPlan === "monthly_1499" ||
-    normalizedPlan === "yearly_10999" ||
-    normalizedPlan === "yearly_14999";
+    planAllowsMoreBranches(normalizedPlan);
   const addBranchLocked = role === "owner" && !isPremiumPlan && branchCount >= 1;
 
   const isOwnerOrManager = role === "owner" || role === "manager";
@@ -249,6 +246,7 @@ export default function SettingsPage() {
     { group: "restaurant", title: "Theme studio", subtitle: "How your menu looks to guests", href: "/staff/settings/theme", icon: Palette, show: canAccess("theme", isOwnerOrManager) },
     { group: "restaurant", title: "Menu health", subtitle: "Missing details, weak dishes and item trends", href: "/staff/menu/health", icon: Activity, show: canAccess("insights", isOwnerOrManager) },
     { group: "restaurant", title: "Kitchen capacity", subtitle: "Order limits, wait times and load by category", href: "/staff/settings/kitchen", icon: ChefHat, show: canAccess("kitchen_capacity", isOwnerOrManager) },
+    { group: "restaurant", title: "FSSAI and compliance", subtitle: "FSSAI licence number printed on every bill", href: "/staff/settings/compliance", icon: Receipt, show: isOwnerOrManager },
     { group: "restaurant", title: "Delivery zones", subtitle: "Where you deliver and what it costs by distance", href: "/staff/settings/delivery-zones", icon: Bike, show: canAccess("delivery", isOwnerOrManager) },
 
     { group: "payments", title: "Payments and billing controls", subtitle: "UPI or Razorpay, discount limits, bill lock and shift cash", href: "/staff/settings/billing", icon: CreditCard, show: isOwnerOrManager },
@@ -286,6 +284,8 @@ export default function SettingsPage() {
     ? cards.filter((c) => isFoodCourtStallPath(c.href))
     : isArMenuPlan(planCode)
     ? cards.filter((c) => isArMenuPath(c.href))
+    : planCode && !planHasOps(planCode)
+    ? cards.filter((c) => !isOpsPath(c.href)) // Ordering and AR plans: no operations tools
     : cards;
 
   const q = query.trim().toLowerCase();

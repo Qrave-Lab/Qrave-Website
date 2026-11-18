@@ -7,6 +7,8 @@ import CustomerBottomNav, {
   type CustomerTab,
 } from "@/app/components/menu/CustomerBottomNav";
 import FoodCard from "@/app/components/menu/FoodCard";
+import { MenuFilterBar, MenuFilterEmptyState, useMenuFilters } from "./MenuFilters";
+import { collectAllergens, filterMenuItems } from "./filterMenuItems";
 import ImmersiveMenu from "@/app/components/menu/ImmersiveMenu";
 import OrdersView from "@/app/components/menu/OrdersView";
 import LoyaltyMenuLink from "@/app/components/menu/LoyaltyMenuLink";
@@ -277,6 +279,14 @@ const normalizeItem = (item: any) => {
       ? item.allergens
           .map((a: any) => String(a?.type || "").trim())
           .filter(Boolean)
+      : [],
+    allergenInfo: Array.isArray(item.allergens)
+      ? item.allergens
+          .map((a: any) => ({
+            type: String(a?.type || "").trim(),
+            confidence: String(a?.confidence || "contains"),
+          }))
+          .filter((a: any) => a.type)
       : [],
     variants,
   };
@@ -553,15 +563,40 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   const [menuItems, setMenuItems] = useState(() =>
     Array.isArray(initialMenu) ? initialMenu.map(normalizeItem) : [],
   );
+  const [restaurantIdForPrivacy, setRestaurantIdForPrivacy] = useState("");
+  useEffect(() => {
+    try {
+      setRestaurantIdForPrivacy(localStorage.getItem("restaurant_id") || "");
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isVegOnly, setIsVegOnly] = useState(false);
+  const {
+    filters: menuFilters,
+    setFilters: setMenuFilters,
+    clear: clearMenuFilters,
+    activeCount: activeFilterCount,
+  } = useMenuFilters();
+  const isVegOnly = menuFilters.diet === "veg";
+  const setIsVegOnly = (v: boolean) =>
+    setMenuFilters((f) => ({ ...f, diet: v ? "veg" : "all" }));
   const [activeCategory, setActiveCategory] = useState("All");
+
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const closeSearch = () => {
+    setSearchQuery("");
+    setIsSearchOpen(false);
+    searchInputRef.current?.blur();
+  };
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
-      const offset = 145; // Height of header + category scroller + padding
+      // Sticky header (logo row + search + category chips) + breathing room.
+      const headerEl = document.querySelector<HTMLElement>(".mu-header");
+      const offset = (headerEl?.offsetHeight ?? 145) + 8;
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = el.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -807,13 +842,18 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
   };
 
   // ── Category-aware filtering ──
-  const filteredItems = translatedItems.filter((item: any) => {
+  const allergenOptions = useMemo(
+    () => collectAllergens(translatedItems),
+    [translatedItems],
+  );
+  const searchedItems = translatedItems.filter((item: any) => {
     const query = searchQuery ? searchQuery.toLowerCase() : "";
     const matchesSearch =
       item.name.toLowerCase().includes(query) ||
       item.description.toLowerCase().includes(query);
-    return matchesSearch && (isVegOnly ? item.isVeg : true);
+    return matchesSearch;
   });
+  const filteredItems = filterMenuItems(searchedItems, menuFilters);
 
   const offerItems = filteredItems.filter(
     (item: any) =>
@@ -932,6 +972,19 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
       elements.forEach((el) => observer.unobserve(el));
     };
   }, [filteredItems, categories]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const chip = document.querySelector<HTMLElement>(
+      `[data-cat-chip="${CSS.escape(activeCategory)}"]`,
+    );
+    const strip = chip?.parentElement;
+    if (!chip || !strip) return;
+    strip.scrollTo({
+      left: chip.offsetLeft - strip.clientWidth / 2 + chip.clientWidth / 2,
+      behavior: "smooth",
+    });
+  }, [activeCategory]);
 
   const cartTotal = Object.entries(cartState).reduce(
     (acc, [, item]) => acc + item.price * item.quantity,
@@ -1435,19 +1488,24 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
     expanded: boolean;
     onToggle: () => void;
   }) => (
-    <button id={sectionId} onClick={onToggle} className="mu-section-toggle">
+    <button
+      id={sectionId}
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      className="mu-section-toggle"
+    >
       <div className="mu-section-toggle-left">
-        <div
-          className="mu-section-accent-strip"
-          style={{ background: color }}
-        />
+        <div className="mu-section-accent-strip" />
         <h2 className="mu-section-title">{title}</h2>
         <span className="mu-section-count">{count}</span>
       </div>
-      <ChevronRight
-        size={16}
-        className={`mu-section-chevron ${expanded ? "mu-section-chevron--open" : ""}`}
-      />
+      <span className="mu-section-chevron-wrap" aria-hidden>
+        <ChevronRight
+          size={16}
+          className={`mu-section-chevron ${expanded ? "mu-section-chevron--open" : ""}`}
+        />
+      </span>
     </button>
   );
 
@@ -2465,7 +2523,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
 
             <button
               id="tour-search"
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
+              onClick={() => {
+                if (isSearchOpen) closeSearch();
+                else searchInputRef.current?.focus();
+              }}
               className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors active:scale-95 ${
                 isSearchOpen
                   ? "bg-zinc-900 text-white"
@@ -2486,29 +2547,69 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
           </div>
         </div>
 
-        {/* Search bar — slides down when open */}
-        {isSearchOpen && (
+        {/* Search box: always visible on the menu tab; focusing it opens search mode */}
+        {activeTab === "menu" && (
           <div className="mu-search-bar">
             <div className="mu-search-bar-inner">
               <Search className="mu-search-icon" size={16} />
               <input
-                type="text"
+                ref={searchInputRef}
+                type="search"
+                enterKeyHint="search"
                 className="mu-search-input"
                 placeholder={t("search")}
+                aria-label="Search menu"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
+                onFocus={() => setIsSearchOpen(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsSearchOpen(true);
+                }}
               />
-              {searchQuery && (
+              {(searchQuery || isSearchOpen) && (
                 <button
-                  onClick={() => setSearchQuery("")}
+                  type="button"
+                  onClick={closeSearch}
                   className="mu-search-clear"
+                  aria-label="Clear search"
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
           </div>
+        )}
+
+        {activeTab === "menu" && (
+          <MenuFilterBar
+            filters={menuFilters}
+            setFilters={setMenuFilters}
+            clear={clearMenuFilters}
+            activeCount={activeFilterCount}
+            allergenOptions={allergenOptions}
+            resultCount={filteredItems.length}
+          />
+        )}
+
+        {/* Sticky category chips; the one in view is highlighted */}
+        {activeTab === "menu" && !isSearchOpen && allNavCategories.length > 1 && (
+          <nav className="mu-category-pills" aria-label="Menu categories">
+            {allNavCategories.map((cat) => {
+              const isActive = activeCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  data-cat-chip={cat.id}
+                  aria-current={isActive ? "true" : undefined}
+                  onClick={() => handleJumpToCategory(cat.sectionId, cat.catKey)}
+                  className={`mu-pill ${isActive ? "mu-pill--active" : ""}`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </nav>
         )}
       </header>
 
@@ -2565,6 +2666,10 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
               </div>
             )}
             
+            {!searchQuery && activeFilterCount > 0 && filteredItems.length === 0 && (
+              <MenuFilterEmptyState onClear={clearMenuFilters} />
+            )}
+
             {searchQuery && filteredItems.length === 0 && (
               <div className="flex flex-col items-center justify-center py-24 px-5 text-center animate-in fade-in duration-300">
                 <div className="w-48 h-48 mb-6 text-slate-200 relative">
@@ -2582,6 +2687,14 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
                 <p className="text-slate-500 text-sm max-w-[260px] mx-auto leading-relaxed">
                   We couldn't find anything matching &quot;<span className="font-semibold text-slate-700">{searchQuery}</span>&quot;. Try searching for a different dish or ingredient.
                 </p>
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={clearMenuFilters}
+                    className="mt-6 px-8 py-3 min-h-[44px] border border-zinc-300 text-zinc-700 rounded-full font-bold"
+                  >
+                    Clear filters
+                  </button>
+                )}
                 <button 
                   onClick={() => setSearchQuery('')}
                   className="mt-8 px-8 py-3 bg-[#fe5c13] text-white rounded-full font-bold hover:bg-[#d94e10] transition-colors shadow-md active:scale-95"
@@ -2793,6 +2906,16 @@ const ModernFoodUI: React.FC<ModernFoodUIProps> = ({
             orderingEnabled={orderingEnabled}
           />
         )}
+        <div className="px-5 pb-28 pt-4 text-center text-[12px] text-zinc-500">
+          <a
+            href={`/your-data${restaurantIdForPrivacy ? `?r=${encodeURIComponent(restaurantIdForPrivacy)}` : ""}`}
+            className="inline-flex min-h-[44px] items-center px-3 font-semibold underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#fe5c13]"
+          >
+            Your data
+          </a>
+          <span aria-hidden> · </span>
+          <a href="/privacy" className="inline-flex min-h-[44px] items-center px-3 font-semibold underline underline-offset-2">Privacy</a>
+        </div>
       </main>
 
       {/* ── CHECKOUT BAR ── */}

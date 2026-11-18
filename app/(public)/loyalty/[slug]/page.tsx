@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Gift, Loader2, Mail, LogOut, Store, Star, Share2, Cake } from "lucide-react";
 import { getBackendBase } from "@/app/lib/api";
+import ConsentNotice from "@/app/components/ConsentNotice";
 
 
 import { Select } from "@/app/components/ui/Select";
@@ -133,6 +134,7 @@ export default function LoyaltyCardPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [phone, setPhone] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -215,7 +217,7 @@ export default function LoyaltyCardPage() {
     run(async () => {
       const res = await call<{ token: string }>(`/public/loyalty/${encodeURIComponent(slug)}/join`, {
         method: "POST",
-        body: JSON.stringify({ email, phone, name, referral_code: referral }),
+        body: JSON.stringify({ email, phone, name, referral_code: referral, privacy_consent: true, marketing_consent: marketingConsent }),
       });
       saveToken(res.token);
     });
@@ -532,6 +534,7 @@ export default function LoyaltyCardPage() {
               <>
                 <input inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" aria-label="Phone number" className={input} />
                 <input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name (optional)" aria-label="Name" className={input} />
+                <ConsentNotice restaurantName={info?.restaurant_name} purpose="manage your rewards" marketing={marketingConsent} onMarketingChange={setMarketingConsent} />
                 <button onClick={join} disabled={busy || phone.replace(/\D/g, "").length < 8} className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white disabled:opacity-50" style={{ background: color }}>
                   {busy && <Loader2 className="w-4 h-4 animate-spin" />} Show my card
                 </button>

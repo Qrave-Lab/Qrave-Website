@@ -1210,7 +1210,8 @@ select option {
 .mu-category-pills {
   max-width: 480px;
   margin: 0 auto;
-  padding: 8px 16px;
+  padding: 4px 16px 10px;
+  scroll-padding-inline: 16px;
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -1220,7 +1221,8 @@ select option {
 .mu-category-pills::-webkit-scrollbar { display: none; }
 .mu-pill {
   flex-shrink: 0;
-  padding: 5px 12px;
+  min-height: 32px;
+  padding: 5px 14px;
   border-radius: 20px;
   border: 1px solid #E4E4E7;
   background: #FFFFFF;
@@ -1235,9 +1237,10 @@ select option {
 }
 .mu-pill:active { transform: scale(0.96); }
 .mu-pill--active {
-  background: #18181B;
-  border-color: #18181B;
-  color: #FFFFFF;
+  background: var(--qr-accent, #fe5c13);
+  border-color: var(--qr-accent, #fe5c13);
+  color: var(--qr-accent-text, #FFFFFF);
+  font-weight: 600;
 }
 
 /* ── MAIN ── */
@@ -1282,12 +1285,22 @@ select option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  min-height: 52px;
+  padding: 12px 16px 12px 20px;
   background: transparent;
   border: none;
   border-bottom: 1px solid #F4F4F5;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease;
+}
+.mu-section-toggle:hover { background: rgba(0, 0, 0, 0.02); }
+.mu-section-toggle:active {
+  background: color-mix(in srgb, var(--qr-accent, #fe5c13) 8%, transparent);
+}
+.mu-section-toggle:focus-visible {
+  outline: 2px solid var(--qr-accent, #fe5c13);
+  outline-offset: -2px;
 }
 .mu-section-toggle-left {
   display: flex;
@@ -1299,6 +1312,7 @@ select option {
   height: 18px;
   border-radius: 2px;
   flex-shrink: 0;
+  background: var(--qr-accent, #fe5c13);
 }
 .mu-section-title {
   font-family: var(--mu-font);
@@ -1318,8 +1332,18 @@ select option {
   margin-left: 4px;
 }
 .mu-section-chevron {
-  color: #A1A1AA;
+  color: #52525B;
   transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+.mu-section-chevron-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #F4F4F5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 .mu-section-chevron--open {
@@ -1454,9 +1478,9 @@ select option {
 .co-receipt-card {
   background: var(--co-surface, #ffffff);
   border-radius: 24px;
-  border: 1px dashed color-mix(in srgb, var(--co-muted, #64748B) 35%, transparent);
-  box-shadow: 0 6px 24px rgba(151, 135, 110, 0.04);
-  padding: 24px;
+  border: 1px solid #F0E9DF;
+  box-shadow: 0 6px 24px rgba(151, 135, 110, 0.06);
+  padding: 20px;
   position: relative;
   overflow: hidden;
 }
@@ -1643,4 +1667,12 @@ select option {
 .ar-ring { animation: ar-ring 2.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .ar-ring { animation: none; }
+}
+
+/* Shared fixed height for the staff sidebar header and every page's top bar,
+   so their bottom borders line up across the sidebar/content split. */
+.staff-topbar {
+  height: 80px;
+  min-height: 80px;
+  box-sizing: border-box;
 }
