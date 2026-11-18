@@ -7,6 +7,14 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # model-viewer pins three to a narrow peer range; bump these two together by hand.
+      - dependency-name: three
+      - dependency-name: "@types/three"
+      - dependency-name: "@google/model-viewer"
+      # Majors are upgraded deliberately, not by bot.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
