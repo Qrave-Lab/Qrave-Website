@@ -991,6 +991,8 @@ const CheckoutPage: React.FC = () => {
 
   const currentCartHasItems = lines.length > 0;
   const hasPlacedOrders = placedOrders.length > 0;
+  // Only non-cancelled orders can be billed; cancelled-only sessions must not request a bill.
+  const hasBillableOrders = placedOrders.some((o) => o.status !== "cancelled");
   // Merge reco data with menuItems (reco has image_url/name/price from backend)
   const recommendationItems = recommendations
     .map((rec) => {
@@ -1979,7 +1981,7 @@ const CheckoutPage: React.FC = () => {
                 >
                   + Add Items
                 </button>
-                {billRequested ? (
+                {!hasBillableOrders ? null : billRequested ? (
                   <button
                     disabled
                     className="flex-1 rounded-2xl py-4 text-sm font-bold opacity-80 cursor-not-allowed flex items-center justify-center gap-2 border border-emerald-500/30 bg-emerald-50 text-emerald-800"
@@ -1990,7 +1992,7 @@ const CheckoutPage: React.FC = () => {
                 ) : (
                   <button
                     onClick={async () => {
-                      if (isRequestingBill || billRequested) return;
+                      if (isRequestingBill || billRequested || !hasBillableOrders) return;
                       setIsRequestingBill(true);
                       try {
                         await orderService.requestBill();
